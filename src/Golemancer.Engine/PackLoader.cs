@@ -86,7 +86,7 @@ public static class PackLoader
                 {
                     string file = SafePath(folder, S(data, "path"));
                     fingerprint.Append(File.ReadAllText(file));
-                    ReadContent(Read(file).Root!, catalog);
+                    ReadContent(Read(file).Root!, catalog, id);
                 }
                 catalog.Packs.Add(new PackInfo(id, version.ToString(), folder, m.Xml.Elements("Depends").Select(d => S(d, "id")).ToArray(), files.Select(Path.GetFileName).Select(f => f!).ToArray()));
                 loaded[id] = version;
@@ -94,6 +94,12 @@ public static class PackLoader
             }
         }
         registry.Systems.Sort((a, b) => a.Order.CompareTo(b.Order));
+        string Localize(string value) => value.StartsWith('@') ? catalog.Text(value[1..]) : value;
+        foreach (var item in catalog.Items.Values) { item.Name = Localize(item.Name); item.Description = Localize(item.Description); }
+        foreach (var obj in catalog.Objects.Values) obj.Name = Localize(obj.Name);
+        foreach (var action in catalog.Actions.Values) { action.Name = Localize(action.Name); action.SubName = Localize(action.SubName); }
+        foreach (var recipe in catalog.Recipes.Values) recipe.Name = Localize(recipe.Name);
+        foreach (var quest in catalog.Quests.Values) { quest.Name = Localize(quest.Name); quest.Description = Localize(quest.Description); quest.Dialogue = Localize(quest.Dialogue); }
         foreach (var action in catalog.Actions.Values.ToArray())
         {
             if (!registry.Actions.ContainsKey(action.Handler) || !catalog.Failures.ContainsKey(action.Failure))
@@ -137,7 +143,7 @@ public static class PackLoader
         Type = e.Name.LocalName.ToLowerInvariant(), Args = e.Attributes().ToDictionary(a => a.Name.LocalName, a => a.Value), Children = e.Elements().Select(Condition).ToList()
     };
     private static Dictionary<string, int> Quantities(XElement? root) => root?.Elements("Item").ToDictionary(e => S(e, "id"), e => (int)N(e, "amount", 1)) ?? [];
-    private static void ReadContent(XElement root, ContentCatalog c)
+    private static void ReadContent(XElement root, ContentCatalog c, string packId)
     {
         foreach (var e in root.Element("Maps")?.Elements("Map") ?? [])
         {
@@ -155,6 +161,8 @@ public static class PackLoader
             var def = new ObjectDef { Id = S(e, "id"), Name = S(e, "name"), Kind = S(e, "kind"), Sprite = S(e, "sprite", S(e, "id")), Width = (int)N(e, "width", 1), Height = (int)N(e, "height", 1), Solid = B(e, "solid"), Slots = (int)N(e, "slots", 8), Cost = Quantities(e.Element("Cost")), Actions = S(e, "actions").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList(), Placement = e.Element("Placement")?.Elements().Select(Condition).FirstOrDefault() };
             foreach (var v in e.Elements("Value")) def.Values[S(v, "key")] = N(v, "value");
             foreach (var v in e.Elements("Data")) def.Data[S(v, "key")] = S(v, "value");
+            if (def.Sprite.Contains('/') && !def.Sprite.StartsWith('/')) def.Sprite = "/pack-art/" + packId + "/" + def.Sprite;
+            if (def.Width < 1 || def.Height < 1 || def.Slots < 0) throw new InvalidDataException($"Invalid object dimensions or slots: {def.Id}");
             c.Objects[def.Id] = def;
         }
         foreach (var e in root.Element("Actions")?.Elements("Action") ?? [])
@@ -165,6 +173,8 @@ public static class PackLoader
             c.Actions[def.Id] = def;
         }
         foreach (var e in root.Element("ActionSets")?.Elements("ActionSet") ?? []) c.ActionSets[S(e, "id")] = S(e, "actions").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+        foreach (var e in root.Element("MenuDirectories")?.Elements("Directory") ?? [])
+            if (!B(e, "collapse", true)) c.PreserveMenuDirectories.Add(S(e, "path"));
         foreach (var e in root.Element("Failures")?.Elements("Failure") ?? []) c.Failures[S(e, "id")] = new() { Id = S(e, "id"), Handler = S(e, "handler"), Delay = N(e, "delay", 1), MaxRetries = (int)N(e, "maxRetries", 5) };
         foreach (var e in root.Element("Recipes")?.Elements("Recipe") ?? [])
         {

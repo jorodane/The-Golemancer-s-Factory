@@ -70,6 +70,7 @@ internal static class Campaign
         foreach (var (item, count) in new Dictionary<string, int> { ["springwater_jelly"] = 4, ["healing_jelly"] = 2, ["mana_jelly"] = 1 }) Take(crafter, furnace, item, count);
         Do(crafter, "order", "board", "order-1", option: "accept"); Do(crafter, "order", "board", "order-1", option: "deliver");
         Check(s.State.CompletedQuests.Contains("q06"), "chapter: first complex order delivered");
+        s.Save(Path.Combine(root, "TestResults", "first-order-complete.json"));
         Do(crafter, "buy", "merchant", "combat_core"); Do(crafter, "assemble", item: "combat_golem"); Advance(7);
         var fighter = Assembled("combat_golem");
         Give(crafter, fighter, "wooden_club", 1); Give(crafter, fighter, "wooden_shield", 1); Give(h, fighter, "wooden_sword", 1);
@@ -105,6 +106,10 @@ internal static class Campaign
         string path = Path.Combine(root, "TestResults", "campaign-complete.json"); s.Save(path);
         var restored = new Simulation(cooked, Simulation.ReadSave(path));
         Check(restored.State.Flags.Contains("chapter1_complete") && restored.State.Map.Tiles.SequenceEqual(s.State.Map.Tiles), "completed campaign and tile map survive save/load");
+        Do(mini, "select", h.Id);
+        Check(s.State.MapId == "feast_trail", "selecting a workshop golem switches the active area");
+        Do(h, "select", mini.Id);
+        Check(s.State.MapId == "cave_entrance", "reselecting the cave golem restores its area and exit control");
         Do(mini, "return_cave");
         Check(s.State.MapId == "feast_trail" && mini.Y == 12, "chapter entrance allows returning to the persistent workshop");
         Console.WriteLine($"Campaign time {s.State.Time:0.0}s; gold {s.State.Get("gold"):0}; {s.State.Get("sales")} sales; {s.State.Get("automationLoops")} automated loops.");

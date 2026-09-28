@@ -31,7 +31,7 @@ public sealed class Transfer : IActionHandler
     private static (WorldObject From, WorldObject To)? Pair(IGameContext c, WorldObject a, ActionRequest r)
     {
         var target = c.Target(r);
-        if (target is null || !target.Alive() || c.Kind(target) is not ("facility" or "golem" or "drop")) return null;
+        if (target is null || target.Id == a.Id || !target.Alive() || c.Kind(target) is not ("facility" or "golem" or "drop")) return null;
         return r.Option == "take" ? (target, a) : (a, target);
     }
     private static int Count(IGameContext c, WorldObject from, WorldObject to, ActionRequest r)

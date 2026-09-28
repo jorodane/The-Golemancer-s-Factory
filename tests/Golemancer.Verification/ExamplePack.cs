@@ -1,0 +1,32 @@
+using Golemancer.Contracts;
+using Golemancer.Engine;
+using System.Runtime.Loader;
+
+internal static class ExamplePack
+{
+    public static void Run(string root)
+    {
+        string directory = Path.Combine(root, "TestResults", "example-packs");
+        if (Directory.Exists(directory)) Directory.Delete(directory, true);
+        Copy(Path.Combine(root, "Content", "Packs"), directory);
+        Copy(Path.Combine(root, "examples", "TeaBreak", "Pack"), Path.Combine(directory, "99.TeaBreak"));
+        var game = PackLoader.Cook(directory);
+        if (!game.Registry.Actions.TryGetValue("tea.rest", out var action) || AssemblyLoadContext.GetLoadContext(action.GetType().Assembly) == AssemblyLoadContext.Default) throw new Exception("Independent DLL was not loaded at runtime");
+        if (game.Content.Objects["tea.table"].Name != "작은 찻상" || game.Content.Actions["tea.rest"].Name != "조용한 티타임") throw new Exception("XML localization references failed");
+        var s = new Simulation(game); var crafter = s.Spawn("craft_golem", 7, 25); crafter.Inventory["wood"] = 4;
+        var build = s.Dispatch(new() { Action = "build", ActorId = crafter.Id, Item = "tea.table", X = 8, Y = 25 });
+        if (!build.Ok) throw new Exception(build.Message);
+        for (int i = 0; i < 60; i++) s.Tick(.1);
+        var table = s.State.Objects.Values.Single(o => o.DefinitionId == "tea.table"); crafter.Set("health", 50);
+        var rest = s.Dispatch(new() { Action = "tea.rest", ActorId = crafter.Id, TargetId = table.Id });
+        if (!rest.Ok) throw new Exception(rest.Message);
+        for (int i = 0; i < 30; i++) s.Tick(.1);
+        if (s.State.Get("tea.breaks") != 1 || crafter.Get("health") < 60) throw new Exception("External module behavior failed");
+        Console.WriteLine("PASS: independently built TeaBreak DLL, localized XML, construction and custom action execute without any engine/module project reference");
+    }
+    private static void Copy(string source, string destination)
+    {
+        foreach (string file in Directory.GetFiles(source, "*", SearchOption.AllDirectories))
+        { string target = Path.Combine(destination, Path.GetRelativePath(source, file)); Directory.CreateDirectory(Path.GetDirectoryName(target)!); File.Copy(file, target, true); }
+    }
+}

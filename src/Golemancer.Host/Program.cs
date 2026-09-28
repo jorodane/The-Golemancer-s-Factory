@@ -32,6 +32,8 @@ app.MapGet("/api/meta", () => Results.Json(new
     items = cooked.Content.Items, objects = cooked.Content.Objects, recipes = cooked.Content.Recipes,
     actions = cooked.Content.Actions, quests = cooked.Content.Quests, texts = cooked.Content.Texts,
     packs = cooked.Content.Packs.Select(p => new { p.Id, p.Version, p.Dependencies, p.Assemblies }),
+    assetManifest = File.Exists(Path.Combine(assets, "manifest.json")) ? JsonSerializer.Deserialize<JsonElement>(File.ReadAllText(Path.Combine(assets, "manifest.json"))) : (JsonElement?)null,
+    warnings = cooked.Content.Warnings,
     saves = new[] { "manual", "autosave" }.Where(s => File.Exists(Path.Combine(saves, s + ".json")))
 }));
 app.MapGet("/api/state", () => { lock (gate) return Results.Text(JsonSerializer.Serialize(game.State, Simulation.Json), "application/json"); });
@@ -42,8 +44,18 @@ app.MapGet("/api/menu/{targetId}", (string targetId) =>
         var target = game.Find(targetId); var actor = game.Find(game.State.ControlledId);
         if (target is null || actor is null) return Results.Json(Array.Empty<MenuEntry>());
         var actions = game.Definition(target)?.Actions.Select(id => game.Content.Actions.GetValueOrDefault(id)).Where(d => d is not null && (d.Condition is null || game.Evaluate(d.Condition, actor, target))).Cast<ActionDef>() ?? [];
-        return Results.Json(MenuBuilder.Build(actions));
+        return Results.Json(MenuBuilder.Build(actions, cooked.Content.PreserveMenuDirectories));
     }
+});
+app.MapGet("/pack-art/{packId}/{**assetPath}", (string packId, string assetPath) =>
+{
+    var pack = cooked.Content.Packs.FirstOrDefault(p => p.Id == packId);
+    if (pack is null) return Results.NotFound();
+    string extension = Path.GetExtension(assetPath).ToLowerInvariant();
+    string? mime = extension switch { ".svg" => "image/svg+xml", ".png" => "image/png", ".jpg" or ".jpeg" => "image/jpeg", ".webp" => "image/webp", _ => null };
+    if (mime is null) return Results.NotFound();
+    try { string path = PackLoader.SafePath(pack.Directory, assetPath); return File.Exists(path) ? Results.File(path, mime) : Results.NotFound(); }
+    catch (InvalidDataException) { return Results.NotFound(); }
 });
 app.MapPost("/api/command", (ActionRequest request) =>
 {

@@ -18,15 +18,15 @@ public sealed class Enter : IActionHandler
 {
     public CheckResult Check(IGameContext c, WorldObject a, ActionRequest r)
     {
-        if (r.Action == "return_cave") return c.State.MapId == "cave_entrance" ? CheckResult.Yes : CheckResult.No("동굴 안에서만 돌아갈 수 있어.", "location");
+        if (r.Action == "return_cave") return a.GetText("area") == "cave_entrance" ? CheckResult.Yes : CheckResult.No("동굴 안에서만 돌아갈 수 있어.", "location");
         if (c.Target(r)?.DefinitionId != "cave_gate") return CheckResult.No("동굴 입구를 찾아줘.", "target_missing");
         return c.State.Flags.Contains("chapter2_unlocked") ? CheckResult.Yes : CheckResult.No("수정탑과 자동 물류를 갖춘 뒤 동굴로 가자.", "locked");
     }
     public ActionResult Execute(IGameContext c, WorldObject a, ActionRequest r)
     {
         a.Path.Clear(); a.Pending = null; a.Work = null;
-        if (r.Action == "return_cave") { a.X = 56; a.Y = 12; c.State.MapId = "feast_trail"; return ActionResult.Success("만찬의 오솔길로 돌아왔어."); }
-        a.X = 57; a.Y = 4; c.State.MapId = "cave_entrance"; c.State.Flags.Add("chapter1_complete"); c.State.Add("enteredCave");
+        if (r.Action == "return_cave") { a.X = 56; a.Y = 12; a.Data["area"] = "feast_trail"; c.State.MapId = "feast_trail"; return ActionResult.Success("만찬의 오솔길로 돌아왔어."); }
+        a.X = 57; a.Y = 4; a.Data["area"] = "cave_entrance"; c.State.MapId = "cave_entrance"; c.State.Flags.Add("chapter1_complete"); c.State.Add("enteredCave");
         c.State.Dialogues.Add(new("chapter-complete", "엔린", "오솔길은 이제 스스로 돌아가고… 다음은 돌과 금속이네. 내 휴식은 언제 시작하는 거야?", "smile", "1 ✓  2 →"));
         return ActionResult.Success("만찬의 오솔길 완료 · 제2장 입구가 열렸어!", 1);
     }

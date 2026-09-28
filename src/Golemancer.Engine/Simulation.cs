@@ -90,9 +90,10 @@ public sealed class Simulation : IGameContext
         var actor = Find(string.IsNullOrEmpty(request.ActorId) ? State.ControlledId : request.ActorId);
         if (actor is null || !actor.Alive()) return ActionResult.Fail("조종할 골렘을 선택해줘.", "actor_missing");
         request = request with { ActorId = actor.Id };
-        if (def.Recordable && actor.Playback is not null && !playback) return ActionResult.Fail("직접 조종하려면 먼저 반복을 멈춰줘.", "automated");
+        bool emergencyRecovery = request.Action == "consume" && actor.Playback is not null && !playback;
+        if (def.Recordable && actor.Playback is not null && !playback && !emergencyRecovery) return ActionResult.Fail("직접 조종하려면 먼저 반복을 멈춰줘.", "automated");
         if (def.Interrupts) { actor.Work = null; actor.Pending = null; actor.Path.Clear(); }
-        if (def.Recordable && (actor.Work is not null || actor.Pending is not null)) return ActionResult.Fail("작업 중이야. 취소하거나 완료를 기다려줘.", "busy");
+        if (def.Recordable && !emergencyRecovery && (actor.Work is not null || actor.Pending is not null)) return ActionResult.Fail("작업 중이야. 취소하거나 완료를 기다려줘.", "busy");
         if (playback && actor.Get("mana") <= 0 && request.Action != "charge") return ActionResult.Fail("마력이 부족해. 충전 후 이어갈 수 있어.", "no_mana");
         WorldObject? target = Find(request.TargetId);
         if (def.Condition is not null && !Evaluate(def.Condition, actor, target)) return FinishFailure(actor, request, ActionResult.Fail("실행 조건을 충족하지 못했어.", "condition"), playback);

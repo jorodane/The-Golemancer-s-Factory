@@ -6,10 +6,10 @@ public sealed class Module : IGameModule
 }
 public sealed class Produce : IActionHandler
 {
-    private static int Count(WorldObject facility, RecipeDef recipe, ActionRequest r)
+    private static int Count(WorldObject source, WorldObject facility, RecipeDef recipe, ActionRequest r)
     {
         int n = r.Action == "craft_single" ? 1 : Math.Max(1, r.Quantity);
-        if (r.Action == "craft_until" || r.Mode == "fill") n = (int)Math.Ceiling(Math.Max(0, r.Quantity - facility.Count(recipe.Output) - facility.Production.Where(j => j.RecipeId == recipe.Id).Count() * recipe.Amount) / (double)recipe.Amount);
+        if (r.Action == "craft_until" || r.Mode == "fill") n = (int)Math.Ceiling(Math.Max(0, r.Quantity - source.Count(recipe.Output) - facility.Production.Where(j => j.RecipeId == recipe.Id).Count() * recipe.Amount) / (double)recipe.Amount);
         return n;
     }
     private static WorldObject Source(WorldObject actor, WorldObject facility) => facility.DefinitionId == "workbench" ? actor : facility;
@@ -27,7 +27,7 @@ public sealed class Produce : IActionHandler
         if (t is null || !c.Is(t, "facility")) return CheckResult.No("제작 시설을 찾지 못했어.", "target_missing");
         if (!c.Content.Recipes.TryGetValue(r.Item, out var recipe) || recipe.Facility != t.DefinitionId) return CheckResult.No("이 시설에서 사용할 수 없는 레시피야.", "recipe_missing");
         if (recipe.Unlock != "" && !c.State.Flags.Contains(recipe.Unlock)) return CheckResult.No("먼저 레시피북을 읽어야 해.", "locked");
-        int n = Count(t, recipe, r);
+        int n = Count(Source(a, t), t, recipe, r);
         if (n == 0) return CheckResult.Yes;
         if (n > 99 || t.Production.Count + n > 99) return CheckResult.No("한 시설은 최대 99회까지 예약할 수 있어.", "queue_full");
         var source = Source(a, t);
@@ -38,7 +38,7 @@ public sealed class Produce : IActionHandler
     }
     public ActionResult Execute(IGameContext c, WorldObject a, ActionRequest r)
     {
-        var t = c.Target(r)!; var recipe = c.Content.Recipes[r.Item]; int n = Count(t, recipe, r);
+        var t = c.Target(r)!; var recipe = c.Content.Recipes[r.Item]; int n = Count(Source(a, t), t, recipe, r);
         if (n == 0) return ActionResult.Success("목표 재고가 이미 충분해.");
         var source = Source(a, t); source.Pay(recipe.Inputs, n);
         if (t.DefinitionId == "workbench")

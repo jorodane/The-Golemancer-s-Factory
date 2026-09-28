@@ -1,0 +1,15 @@
+<GameContent>
+  <Actions>
+    <Action id="tea.rest" name="@tea.name" handler="tea.rest" path="휴식/차" range="1" failure="stop">
+      <Works><Work type="craft" amount="4" /></Works>
+      <Condition><Ability id="craft" /></Condition>
+    </Action>
+  </Actions>
+  <Objects>
+    <Object id="tea.table" name="@tea.table" kind="facility" solid="true" slots="4" actions="tea.rest,dismantle" sprite="workbench">
+      <Data key="buildable" value="true" />
+      <Cost><Item id="wood" amount="4" /></Cost>
+      <Placement><And><Shop /><Ground /></And></Placement>
+    </Object>
+  </Objects>
+</GameContent>

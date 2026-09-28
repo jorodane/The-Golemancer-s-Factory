@@ -1,6 +1,8 @@
 **/bin/
 **/obj/
 Content/Packs/**/Bin/
+examples/**/Bin/
+node_modules/
 Assets/
 Saves/
 Artifacts/

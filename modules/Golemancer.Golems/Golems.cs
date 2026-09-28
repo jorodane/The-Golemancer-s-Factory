@@ -36,6 +36,7 @@ public sealed class Select : IActionHandler
     {
         var target = c.Target(r)!; target.Playback = null; target.Path.Clear(); target.Pending = null;
         c.State.ControlledId = target.Id;
+        c.State.MapId = target.GetText("area", "feast_trail");
         return ActionResult.Success(target.Name + " 조종 시작");
     }
 }
@@ -130,7 +131,7 @@ public sealed class Lifecycle : IRuntimeSystem
             if (location != default)
             {
                 var golem = c.Spawn(definition, location.X, location.Y); enrin.Data["assembling"] = "";
-                c.State.Add("assembled." + definition); c.State.ControlledId = golem.Id;
+                c.State.Add("assembled." + definition); c.State.ControlledId = golem.Id; c.State.MapId = "feast_trail";
                 c.Notice(golem.Name + "이 준비됐어.", "quest");
             }
         }
@@ -143,7 +144,7 @@ public sealed class Lifecycle : IRuntimeSystem
             if (a.Recording is not null) { c.State.Recordings[a.Recording.Id] = a.Recording; a.Recording = null; }
             if (a.Inventory.Count > 0) { var drop = c.Spawn("dropped_items", a.X, a.Y); drop.Inventory = new(a.Inventory); a.Inventory.Clear(); }
             c.State.Add("golemsDestroyed"); c.Notice(a.Name + "이 쓰러졌어. 핵은 공방으로 즉시 회수했어.", "warning");
-            if (c.State.ControlledId == a.Id) c.State.ControlledId = c.OfKind("golem").FirstOrDefault()?.Id ?? "enrin";
+            if (c.State.ControlledId == a.Id) { c.State.ControlledId = c.OfKind("golem").FirstOrDefault()?.Id ?? "enrin"; c.State.MapId = c.Find(c.State.ControlledId)?.GetText("area", "feast_trail") ?? "feast_trail"; }
         }
         foreach (var golem in c.OfKind("golem"))
             if (Rules.InShop(golem.X, golem.Y) && golem.Work is null && golem.Path.Count == 0 && c.State.Time - golem.Get("lastDamage", -100) > 8)

@@ -11,7 +11,8 @@ public static class MenuBuilder
     public static List<MenuEntry> Build(IEnumerable<ActionDef> actions, IReadOnlySet<string>? preserveDirectories = null)
     {
         var root = new MenuEntry();
-        foreach (var action in actions)
+        var definitions = actions.ToDictionary(a => a.Id);
+        foreach (var action in definitions.Values)
         {
             var directory = root;
             foreach (string segment in action.Path.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
@@ -26,7 +27,8 @@ public static class MenuBuilder
             {
                 if (existing.ActionId != "")
                 {
-                    var original = new MenuEntry { ActionId = existing.ActionId, Label = existing.Label };
+                    var subName = definitions[existing.ActionId].SubName;
+                    var original = new MenuEntry { ActionId = existing.ActionId, Label = string.IsNullOrEmpty(subName) ? existing.Label : subName };
                     existing.ActionId = ""; existing.Children.Add(original);
                 }
                 leaf.Label = string.IsNullOrEmpty(action.SubName) ? action.Name : action.SubName;

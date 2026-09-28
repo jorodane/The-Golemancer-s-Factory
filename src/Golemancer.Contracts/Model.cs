@@ -229,6 +229,7 @@ public sealed class ContentCatalog
     public Dictionary<string, QuestDef> Quests { get; } = [];
     public Dictionary<string, string> Texts { get; } = [];
     public Dictionary<string, List<string>> ActionSets { get; } = [];
+    public HashSet<string> PreserveMenuDirectories { get; } = [];
     public List<PackInfo> Packs { get; } = [];
     public Dictionary<string, MapDefinition> Maps { get; } = [];
     public List<string> Warnings { get; } = [];
