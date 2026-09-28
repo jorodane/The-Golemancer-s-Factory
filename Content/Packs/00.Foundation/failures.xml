@@ -1,0 +1,8 @@
+<GameContent>
+  <Failures>
+    <Failure id="stop" handler="standard.stop" />
+    <Failure id="skip" handler="standard.skip" />
+    <Failure id="retry" handler="standard.retry" delay="2" maxRetries="30" />
+    <Failure id="explode" handler="example.explode" />
+  </Failures>
+</GameContent>

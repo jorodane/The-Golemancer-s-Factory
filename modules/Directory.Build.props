@@ -1,0 +1,9 @@
+<Project>
+  <Import Project="../Directory.Build.props" />
+  <PropertyGroup><EnableDynamicLoading>true</EnableDynamicLoading></PropertyGroup>
+  <ItemGroup><ProjectReference Include="../../src/Golemancer.Contracts/Golemancer.Contracts.csproj"><Private>false</Private><ExcludeAssets>runtime</ExcludeAssets></ProjectReference></ItemGroup>
+  <Target Name="StageObjectPack" AfterTargets="Build">
+    <MakeDir Directories="$(MSBuildProjectDirectory)/../../Content/Packs/$(PackDirectory)/Bin" />
+    <Copy SourceFiles="$(TargetPath);$(TargetDir)$(AssemblyName).deps.json" DestinationFolder="$(MSBuildProjectDirectory)/../../Content/Packs/$(PackDirectory)/Bin" />
+  </Target>
+</Project>
