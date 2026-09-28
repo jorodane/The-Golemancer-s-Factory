@@ -1,0 +1,62 @@
+<?xml version='1.0' encoding='utf-8'?>
+<GameContent version="1.0" balance="first-playable">
+  <Quests>
+    <Quest id="q01" name="조금 덜 일하기 위한 첫걸음" description="널린초를 수확한 뒤 공방의 작은 진열대에 넣어줘. 손님에게 6개를 팔면 첫 수입이 생겨." requires="" reward="35" flag="">
+      <Goal key="sales" amount="6" label="일반 판매 6개" />
+      <Dialogue mood="tired" chalk="6 × 2 = 12">팔렸네. 이제 나 대신 만들 골렘도 있으면 좋겠어. 행상인에게 제작 핵을 사 와.</Dialogue>
+    </Quest>
+    <Quest id="q02" name="만드는 손 하나 더" description="행상인에게 제작 골렘 핵을 사고 공방에서 조립해줘. 핵은 공방에 보관돼." requires="q01" reward="25" flag="">
+      <Goal key="assembled.craft_golem" amount="1" label="제작 골렘 조립" />
+      <Dialogue mood="neutral" chalk="손 +1">손이 늘었으니 일도 줄어들겠지? 목재로 훈증기와 목제 검을 만들어줘.</Dialogue>
+    </Quest>
+    <Quest id="q03" name="나무와 불의 작은 공장" description="수확 골렘으로 목재를 모아 제작 골렘에게 전달해. 제작 골렘으로 약초 훈증기와 작업대의 목제 검을 만들어줘." requires="q02" reward="25" flag="">
+      <Goal key="built.herb_fumigator" amount="1" label="약초 훈증기 건설" />
+      <Goal key="crafted.wooden_sword" amount="1" label="목제 검 제작" />
+      <Dialogue mood="smile" chalk="^_^">이 기계는 켜 놓고 떠나도 돼. 아주 마음에 들어. 약용 젤리 입문서도 읽어보자.</Dialogue>
+    </Quest>
+    <Quest id="q04" name="샘물을 굳히는 방법" description="약용 젤리 입문서를 사고 샘물주머니를 사냥해. 훈증기에 목재·약초·샘물방울을 넣고 젤리를 만들어줘. 회복 젤리는 샘물젤리를 중간재로 써." requires="q03" reward="25" flag="">
+      <Goal key="crafted.springwater_jelly" amount="6" label="샘물젤리 6개" />
+      <Goal key="crafted.healing_jelly" amount="2" label="회복 젤리 2개" />
+      <Goal key="crafted.mana_jelly" amount="1" label="마나 젤리 1개" />
+      <Dialogue mood="smile" chalk="A + B → C">생산이 이어지는 걸 보니 조금 안심이 되네. 이제 가게도 키워볼까.</Dialogue>
+    </Quest>
+    <Quest id="q05" name="공방 밖으로 퍼지는 소문" description="상점 패널에서 규모를 2단계로 올리고 가공품을 3개 판매해. 평판이 쌓이면 주문 게시판에 의뢰가 와." requires="q04" reward="30" flag="">
+      <Goal key="shopTier" amount="2" label="상점 규모 2단계" />
+      <Goal key="processedSales" amount="3" label="가공품 일반 판매 3개" />
+      <Dialogue mood="neutral" chalk="↗">일반 판매가 소문을 만들고, 소문이 주문을 가져왔네. 계산은… 부탁해.</Dialogue>
+    </Quest>
+    <Quest id="q06" name="순찰대의 도시락" description="주문 게시판에서 첫 주문을 수락해. 샘물젤리 4개, 회복 젤리 2개, 마나 젤리 1개를 골렘이나 나무 상자에 모아서 납품해줘." requires="q05" reward="0" flag="">
+      <Goal key="ordersDelivered" amount="1" label="첫 주문 납품" />
+      <Dialogue mood="worried" chalk="!">호수의 왕 때문에 길이 막혔대. 검과 망치, 회복 젤리를 챙겨. 무리하면 돌아오고.</Dialogue>
+    </Quest>
+    <Quest id="q07" name="샘물의 왕" description="동쪽 호수의 표식에서 도전을 시작해. 돌 주먹은 타격으로, 드러난 물 몸통은 베기로 공격해. 붉은 공격 예고는 구르기로 피해." requires="q06" reward="0" flag="">
+      <Goal key="bossDefeated" amount="1" label="샘물의 왕 처치" />
+      <Dialogue mood="surprised" chalk="왕 ✓">물이 빠지고 수정이 드러났어. 이 핵은… 채광용이네. 또 조립해야겠지.</Dialogue>
+    </Quest>
+    <Quest id="q08" name="호수 아래 잠든 빛" description="회수한 핵으로 채광 골렘을 조립해. 호수 바닥의 무색 마나 수정을 채굴하고 제작 골렘에게 전달해줘." requires="q07" reward="0" flag="">
+      <Goal key="assembled.mining_golem" amount="1" label="채광 골렘 조립" />
+      <Goal key="harvested.mana_crystal" amount="6" label="무색 마나 수정 6개" />
+      <Dialogue mood="curious" chalk="? → !">저 빛으로 일을 기억하게 할 수 있대. 행상인의 마나 수정 활용서를 읽어보자.</Dialogue>
+    </Quest>
+    <Quest id="q09" name="마법이 일을 기억할 때" description="마나 수정 활용서를 읽고 제작 골렘으로 수정탑을 건설해. 수정 1개를 연료로 넣은 뒤 골렘의 마력을 충전해줘." requires="q08" reward="0" flag="">
+      <Goal key="built.mana_tower" amount="1" label="마나 수정탑 건설" />
+      <Goal key="towerFueled" amount="1" label="수정탑 연료 공급" />
+      <Goal key="charged" amount="60" label="골렘 마력 충전" />
+      <Dialogue mood="smile" chalk="속도 ×2">드디어… 정상 속도야. 네가 하던 일을 한 번 보여주면 계속 따라 할 거야.</Dialogue>
+    </Quest>
+    <Quest id="q10" name="내가 쉬어도 돌아가는 일" description="R로 녹화를 시작해 충전·수확·상자 입고 루틴을 직접 해보고 R로 마쳐줘. T로 반복하면 원점으로 돌아와 다음 순환을 시작해." requires="q09" reward="25" flag="">
+      <Goal key="automationLoops" amount="1" label="자동 루틴 1회 완주" />
+      <Goal key="automation_delivered" amount="1" label="자동 운반 1개 이상" />
+      <Dialogue mood="tired" chalk="∞">…나보다 부지런하네. 작은 운반 골렘까지 있으면 더 편해지겠지.</Dialogue>
+    </Quest>
+    <Quest id="q11" name="작은 손, 다음 길" description="작업대에서 미니 골렘 핵을 제작하고 공방에서 조립해. 미니 골렘으로 한 번 물건을 운반해줘. 한 칸 보관함이지만 직접 조종과 녹화가 가능해." requires="q10" reward="0" flag="chapter2_unlocked">
+      <Goal key="assembled.mini_golem" amount="1" label="미니 골렘 조립" />
+      <Goal key="mini_delivered" amount="1" label="미니 골렘 운반" />
+      <Dialogue mood="smile" chalk="다음 →">이제 오솔길의 일은 맡겨도 되겠어. 호수 뒤 동굴로 가보자. 나는 계산을 감독할게.</Dialogue>
+    </Quest>
+    <Quest id="q12" name="깊은 돌의 입구" description="호수 동쪽 길을 따라 동굴 입구로 이동해. 다음 챕터가 기다리고 있어." requires="q11" reward="0" flag="">
+      <Goal key="enteredCave" amount="1" label="동굴 입구 진입" />
+      <Dialogue mood="smile" chalk="✓" />
+    </Quest>
+  </Quests>
+</GameContent>

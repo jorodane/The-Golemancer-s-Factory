@@ -57,7 +57,7 @@ public sealed class Simulation : IGameContext
             if (current.Distance(destination) <= range && (range > 0 || Walkable(current.X, current.Y, actor.Id))) { found = current; break; }
             foreach (var next in new[] { new Tile(current.X + 1, current.Y), new Tile(current.X - 1, current.Y), new Tile(current.X, current.Y + 1), new Tile(current.X, current.Y - 1) })
             {
-                if (previous.ContainsKey(next) || !Walkable(next.X, next.Y, actor.Id)) continue;
+                if (previous.ContainsKey(next) || !Walkable(next.X, next.Y, actor.Id) || this.OfKind("golem").Any(o => o.Id != actor.Id && o.Tile == next)) continue;
                 previous[next] = current; queue.Enqueue(next);
             }
         }
@@ -74,7 +74,11 @@ public sealed class Simulation : IGameContext
         var candidates = new List<Tile>();
         for (int y = target.Y - range; y < target.Y + (def?.Height ?? 1) + range; y++)
             for (int x = target.X - range; x < target.X + (def?.Width ?? 1) + range; x++)
-                if (Walkable(x, y, actor.Id)) candidates.Add(new(x, y));
+            {
+                int distance = Math.Max(target.X - x, Math.Max(0, x - target.X - (def?.Width ?? 1) + 1))
+                    + Math.Max(target.Y - y, Math.Max(0, y - target.Y - (def?.Height ?? 1) + 1));
+                if (distance <= range && Walkable(x, y, actor.Id)) candidates.Add(new(x, y));
+            }
         foreach (var pos in candidates.OrderBy(p => actor.Tile.Distance(p))) if (Navigate(actor, pos)) return true;
         return false;
     }
@@ -87,6 +91,7 @@ public sealed class Simulation : IGameContext
         if (actor is null || !actor.Alive()) return ActionResult.Fail("조종할 골렘을 선택해줘.", "actor_missing");
         request = request with { ActorId = actor.Id };
         if (def.Recordable && actor.Playback is not null && !playback) return ActionResult.Fail("직접 조종하려면 먼저 반복을 멈춰줘.", "automated");
+        if (def.Interrupts) { actor.Work = null; actor.Pending = null; actor.Path.Clear(); }
         if (def.Recordable && (actor.Work is not null || actor.Pending is not null)) return ActionResult.Fail("작업 중이야. 취소하거나 완료를 기다려줘.", "busy");
         if (playback && actor.Get("mana") <= 0 && request.Action != "charge") return ActionResult.Fail("마력이 부족해. 충전 후 이어갈 수 있어.", "no_mana");
         WorldObject? target = Find(request.TargetId);

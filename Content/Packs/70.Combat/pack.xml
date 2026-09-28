@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<ObjectPack id="combat" version="1.0.0" contracts="1">
+  <Depends id="foundation" minVersion="1.0.0" />
+  <Depends id="golems" minVersion="1.0.0" />
+  <Assembly path="Bin/Golemancer.Combat.dll" />
+  <Data path="actions.xml" />
+</ObjectPack>

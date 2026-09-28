@@ -1,0 +1,206 @@
+<?xml version='1.0' encoding='utf-8'?>
+<GameContent version="1.0" balance="first-playable">
+  <Objects>
+    <Object id="harvest_golem" name="수확 골렘" kind="golem" slots="6" actions="select,transfer,upgrade_golem">
+      <Value key="health" value="110" />
+      <Value key="maxHealth" value="110" />
+      <Value key="mana" value="0" />
+      <Value key="maxMana" value="100" />
+      <Value key="speed" value="5" />
+      <Value key="harvest" value="3" />
+      <Value key="combat" value="1" />
+      <Data key="core" value="harvest_core" />
+    </Object>
+    <Object id="craft_golem" name="제작 골렘" kind="golem" slots="8" actions="select,transfer,upgrade_golem">
+      <Value key="health" value="100" />
+      <Value key="maxHealth" value="100" />
+      <Value key="mana" value="0" />
+      <Value key="maxMana" value="100" />
+      <Value key="speed" value="5" />
+      <Value key="craft" value="4" />
+      <Value key="combat" value="1" />
+      <Data key="core" value="craft_core" />
+    </Object>
+    <Object id="combat_golem" name="전투 골렘" kind="golem" slots="6" actions="select,transfer,upgrade_golem">
+      <Value key="health" value="180" />
+      <Value key="maxHealth" value="180" />
+      <Value key="mana" value="0" />
+      <Value key="maxMana" value="100" />
+      <Value key="speed" value="5" />
+      <Value key="combat" value="1" />
+      <Value key="damageBonus" value="4" />
+      <Data key="core" value="combat_core" />
+    </Object>
+    <Object id="mining_golem" name="채광 골렘" kind="golem" slots="6" actions="select,transfer,upgrade_golem">
+      <Value key="health" value="140" />
+      <Value key="maxHealth" value="140" />
+      <Value key="mana" value="0" />
+      <Value key="maxMana" value="100" />
+      <Value key="speed" value="5" />
+      <Value key="mining" value="4" />
+      <Value key="combat" value="1" />
+      <Data key="core" value="mining_core" />
+    </Object>
+    <Object id="mini_golem" name="미니 골렘" kind="golem" slots="1" actions="select,transfer,upgrade_golem">
+      <Value key="health" value="50" />
+      <Value key="maxHealth" value="50" />
+      <Value key="mana" value="0" />
+      <Value key="maxMana" value="100" />
+      <Value key="speed" value="5" />
+      <Data key="core" value="mini_core" />
+    </Object>
+    <Object id="enrin" name="엔린" kind="npc" actions="talk,assemble" />
+    <Object id="merchant" name="행상인" kind="npc" actions="buy" />
+    <Object id="customer" name="손님" kind="customer" slots="1" />
+    <Object id="workbench" name="목공 작업대" kind="facility" width="2" solid="true" slots="8" actions="craft" />
+    <Object id="storage" name="나무 상자" kind="facility" solid="true" slots="16" actions="transfer,dismantle">
+      <Data key="buildable" value="true" />
+      <Cost>
+        <Item id="wood" amount="6" />
+      </Cost>
+      <Placement>
+        <And>
+          <Shop />
+          <Ground />
+        </And>
+      </Placement>
+    </Object>
+    <Object id="display_shelf" name="작은 진열대" kind="facility" width="2" solid="true" slots="8" actions="transfer,dismantle">
+      <Data key="buildable" value="true" />
+      <Cost>
+        <Item id="wood" amount="8" />
+      </Cost>
+      <Placement>
+        <And>
+          <Shop />
+          <Ground />
+        </And>
+      </Placement>
+    </Object>
+    <Object id="fine_shelf" name="아름다운 진열대" kind="facility" width="2" solid="true" slots="12" actions="transfer,dismantle">
+      <Data key="buildable" value="true" />
+      <Data key="unlock" value="first_order" />
+      <Cost>
+        <Item id="wood" amount="18" />
+        <Item id="springwater_jelly" amount="4" />
+      </Cost>
+      <Placement>
+        <And>
+          <Shop />
+          <Ground />
+        </And>
+      </Placement>
+    </Object>
+    <Object id="herb_fumigator" name="약초 훈증기" kind="facility" width="2" height="2" solid="true" slots="14" actions="transfer,craft,dismantle">
+      <Value key="fuelWork" value="100" />
+      <Value key="workRate" value="5" />
+      <Data key="buildable" value="true" />
+      <Data key="workSource" value="heat" />
+      <Cost>
+        <Item id="wood" amount="10" />
+      </Cost>
+      <Placement>
+        <And>
+          <Shop />
+          <Ground />
+        </And>
+      </Placement>
+    </Object>
+    <Object id="mana_tower" name="마나 수정탑" kind="facility" width="2" height="2" solid="true" slots="8" actions="fuel_tower,charge">
+      <Value key="reserve" value="0" />
+      <Data key="buildable" value="true" />
+      <Data key="unlock" value="mana_book" />
+      <Cost>
+        <Item id="wood" amount="10" />
+        <Item id="mana_crystal" amount="4" />
+      </Cost>
+      <Placement>
+        <And>
+          <Shop />
+          <Ground />
+        </And>
+      </Placement>
+    </Object>
+    <Object id="order_board" name="주문 게시판" kind="facility" solid="true" actions="order" />
+    <Object id="common_herb_patch" name="널린초" kind="resource" solid="false" actions="harvest">
+      <Value key="stock" value="3" />
+      <Value key="yieldAmount" value="3" />
+      <Value key="dayRespawn" value="80" />
+      <Value key="nightRespawn" value="100" />
+      <Data key="yield" value="common_herb" />
+      <Data key="skill" value="harvest" />
+    </Object>
+    <Object id="newflesh_herb_patch" name="새살초" kind="resource" solid="false" actions="harvest">
+      <Value key="stock" value="3" />
+      <Value key="yieldAmount" value="3" />
+      <Value key="dayRespawn" value="90" />
+      <Value key="nightRespawn" value="120" />
+      <Data key="yield" value="newflesh_herb" />
+      <Data key="skill" value="harvest" />
+    </Object>
+    <Object id="spark_herb_patch" name="번쩍초" kind="resource" solid="false" actions="harvest">
+      <Value key="stock" value="3" />
+      <Value key="yieldAmount" value="3" />
+      <Value key="dayRespawn" value="160" />
+      <Value key="nightRespawn" value="120" />
+      <Data key="yield" value="spark_herb" />
+      <Data key="skill" value="harvest" />
+    </Object>
+    <Object id="upright_tree" name="꼿꼿이 나무" kind="resource" solid="true" actions="fell">
+      <Value key="stock" value="3" />
+      <Value key="yieldAmount" value="5" />
+      <Value key="dayRespawn" value="100" />
+      <Value key="nightRespawn" value="140" />
+      <Data key="yield" value="wood" />
+      <Data key="skill" value="harvest" />
+    </Object>
+    <Object id="sweetfruit_tree" name="달달과 나무" kind="resource" solid="true" actions="harvest,fell">
+      <Value key="stock" value="3" />
+      <Value key="yieldAmount" value="3" />
+      <Value key="dayRespawn" value="140" />
+      <Value key="nightRespawn" value="180" />
+      <Data key="yield" value="sweetfruit" />
+      <Data key="skill" value="harvest" />
+    </Object>
+    <Object id="mana_deposit" name="무색 마나 수정맥" kind="resource" solid="false" actions="mine">
+      <Value key="stock" value="3" />
+      <Value key="yieldAmount" value="3" />
+      <Value key="dayRespawn" value="90" />
+      <Value key="nightRespawn" value="90" />
+      <Data key="yield" value="mana_crystal" />
+      <Data key="skill" value="mining" />
+    </Object>
+    <Object id="springwater_pouch" name="샘물주머니" kind="monster" actions="attack">
+      <Value key="health" value="42" />
+      <Value key="maxHealth" value="42" />
+      <Value key="damage" value="8" />
+      <Value key="weakSlash" value="1.7" />
+      <Value key="weakCrush" value="0.8" />
+    </Object>
+    <Object id="icewater_pouch" name="얼음물주머니" kind="monster" actions="attack">
+      <Value key="health" value="48" />
+      <Value key="maxHealth" value="48" />
+      <Value key="damage" value="10" />
+      <Value key="weakSlash" value="0.7" />
+      <Value key="weakCrush" value="1.8" />
+    </Object>
+    <Object id="springwater_king" name="샘물의 왕" kind="boss" width="3" height="3" solid="true" actions="attack">
+      <Value key="health" value="220" />
+      <Value key="maxHealth" value="220" />
+      <Value key="weakSlash" value="1.6" />
+      <Value key="weakCrush" value="0.7" />
+      <Value key="lakeX" value="47" />
+      <Value key="lakeY" value="12" />
+    </Object>
+    <Object id="stone_fist" name="돌 주먹" kind="boss_part" width="2" height="2" solid="true" actions="attack">
+      <Value key="health" value="45" />
+      <Value key="maxHealth" value="45" />
+      <Value key="weakSlash" value="0.55" />
+      <Value key="weakCrush" value="1.8" />
+    </Object>
+    <Object id="lake_shrine" name="호수의 표식" kind="landmark" actions="challenge" />
+    <Object id="cave_gate" name="깊은 돌의 입구" kind="landmark" width="3" height="2" actions="enter_cave" />
+    <Object id="dropped_items" name="떨어진 물건" kind="drop" slots="100" actions="pickup,transfer" />
+    <Object id="signpost" name="만찬의 오솔길" kind="landmark" actions="talk" />
+  </Objects>
+</GameContent>

@@ -1,0 +1,15 @@
+<?xml version='1.0' encoding='utf-8'?>
+<GameContent version="1.0" balance="first-playable">
+  <Actions>
+    <Action id="build" name="건설" handler="build.place" range="2" failure="stop">
+      <Works>
+        <Work type="craft" amount="8" />
+      </Works>
+    </Action>
+    <Action id="dismantle" name="철거" handler="build.remove" targetKind="facility" failure="stop">
+      <Works>
+        <Work type="craft" amount="4" />
+      </Works>
+    </Action>
+  </Actions>
+</GameContent>

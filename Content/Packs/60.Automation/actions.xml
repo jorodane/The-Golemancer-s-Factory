@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='utf-8'?>
+<GameContent version="1.0" balance="first-playable">
+  <Actions>
+    <Action id="record" name="녹화 시작·종료" handler="automation.record" range="-1" recordable="false" />
+    <Action id="play" name="반복 시작·정지" handler="automation.play" range="-1" recordable="false" />
+    <Action id="wait" name="기다리기" handler="automation.wait" range="-1" />
+  </Actions>
+</GameContent>

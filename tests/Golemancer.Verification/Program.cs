@@ -13,6 +13,7 @@ Assert(cooked.Registry.Actions.Values.All(a => AssemblyLoadContext.GetLoadContex
 Assert(cooked.Content.Actions["transfer"].Failure == "retry", "XML failure binding");
 Assert(cooked.Fingerprint.Length == 64, "cook content fingerprint");
 Console.WriteLine($"PASS: {cooked.Content.Packs.Count} packs, {cooked.Registry.Actions.Count} action implementations, {cooked.Registry.Systems.Count} systems.");
+if (!args.Contains("--foundation")) Campaign.Run(cooked, root);
 
 static void Assert(bool condition, string label)
 {

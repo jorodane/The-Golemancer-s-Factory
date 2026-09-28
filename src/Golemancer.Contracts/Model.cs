@@ -98,6 +98,7 @@ public sealed class Recording
     public Tile Origin { get; set; }
     public List<RecordedStep> Steps { get; set; } = [];
     public double StartedAt { get; set; }
+    public bool Combat { get; set; }
 }
 public sealed class RecordedStep
 {
@@ -114,6 +115,7 @@ public sealed class Playback
     public double ResumeAt { get; set; }
     public int Retries { get; set; }
     public string Status { get; set; } = "반복 준비";
+    public double CycleStartedAt { get; set; }
 }
 public sealed class ProductionJob
 {
@@ -172,6 +174,7 @@ public sealed class ActionDef
     public string TargetKind { get; set; } = "";
     public int Range { get; set; } = 1;
     public bool Recordable { get; set; } = true;
+    public bool Interrupts { get; set; }
     public Dictionary<string, double> Works { get; set; } = [];
     public ConditionNode? Condition { get; set; }
 }
@@ -227,10 +230,18 @@ public sealed class ContentCatalog
     public Dictionary<string, string> Texts { get; } = [];
     public Dictionary<string, List<string>> ActionSets { get; } = [];
     public List<PackInfo> Packs { get; } = [];
+    public Dictionary<string, MapDefinition> Maps { get; } = [];
     public List<string> Warnings { get; } = [];
     public string Text(string key) => Texts.GetValueOrDefault(key, key);
 }
 public sealed record PackInfo(string Id, string Version, string Directory, string[] Dependencies, string[] Assemblies);
+public sealed class MapDefinition
+{
+    public string Id { get; set; } = "";
+    public TileMap Map { get; set; } = new();
+    public List<SpawnDefinition> Spawns { get; set; } = [];
+}
+public sealed record SpawnDefinition(string Id, string Definition, int X, int Y);
 
 public enum ActionStatus { Success, Fail, Interrupted, Unavailable, Started }
 public sealed record ActionResult(ActionStatus Status, string Message = "", string Reason = "", int Applied = 0)

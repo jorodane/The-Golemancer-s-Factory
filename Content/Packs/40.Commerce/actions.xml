@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='utf-8'?>
+<GameContent version="1.0" balance="first-playable">
+  <Actions>
+    <Action id="buy" name="구매" handler="commerce.buy" recordable="false" />
+    <Action id="expand_shop" name="상점 확장" handler="commerce.expand" range="-1" recordable="false" />
+    <Action id="order" name="주문 접수·납품" handler="commerce.order" recordable="false" />
+  </Actions>
+</GameContent>

@@ -1,0 +1,26 @@
+<?xml version='1.0' encoding='utf-8'?>
+<GameContent version="1.0" balance="first-playable">
+  <Items>
+    <Item id="common_herb" name="널린초" price="2" color="#a0bd6a" category="material" description="성질이 순한 약초. 샘물젤리의 기본 재료." stack="50" />
+    <Item id="newflesh_herb" name="새살초" price="5" color="#cf897f" category="material" description="상처에 새살을 돋게 하는 붉은 약초." stack="50" />
+    <Item id="spark_herb" name="번쩍초" price="10" color="#b4a5dc" category="material" description="잎맥에 마나가 반짝이는 약초." stack="50" />
+    <Item id="wood" name="목재" price="2" color="#c19a62" category="material" description="건설·장비·훈증기의 연료." stack="50" />
+    <Item id="sweetfruit" name="달달과" price="5" color="#e9ad64" category="material" description="달콤한 열매. 사용하면 생명력 15 회복." stack="50" />
+    <Item id="springwater_drop" name="샘물방울" price="4" color="#75bfd0" category="material" description="샘물주머니에게 얻는 젤리 재료." stack="50" />
+    <Item id="springwater_jelly" name="샘물젤리" price="8" color="#7bbfbc" category="product" description="회복 젤리를 만들기 위한 중간재." stack="50" />
+    <Item id="healing_jelly" name="생명력 회복 젤리" price="20" color="#dc8d95" category="product" description="사용하면 생명력 60 회복." stack="50" />
+    <Item id="mana_jelly" name="마나 회복 젤리" price="24" color="#8ea7d9" category="product" description="사용하면 마력 35 회복." stack="50" />
+    <Item id="mana_crystal" name="무색 마나 수정" price="0" color="#b4e6dc" category="material" description="수정탑의 연료. 채광 골렘으로 얻는다." stack="50" />
+    <Item id="wooden_sword" name="목제 검" price="0" color="#cba173" category="equipment" description="베기 14. 물 계열 적에게 효과적." stack="1" />
+    <Item id="wooden_club" name="목제 망치" price="0" color="#b99466" category="equipment" description="타격 12. 얼음·돌 계열 적에게 효과적." stack="1" />
+    <Item id="wooden_shield" name="목제 방패" price="0" color="#b9a37b" category="equipment" description="장착하면 받는 피해 30% 감소." stack="1" />
+    <Item id="harvest_core" name="수확 골렘 핵" price="0" color="#80b894" category="core" description="행상인 구매. 파괴되면 즉시 회수." stack="1" />
+    <Item id="craft_core" name="제작 골렘 핵" price="0" color="#dda276" category="core" description="행상인 구매. 건설과 제작을 담당." stack="1" />
+    <Item id="combat_core" name="전투 골렘 핵" price="0" color="#be8381" category="core" description="행상인 구매. Idle 상태에서 동료를 보호." stack="1" />
+    <Item id="mining_core" name="채광 골렘 핵" price="0" color="#94adc0" category="core" description="샘물의 왕의 보상. 수정 채광 가능." stack="1" />
+    <Item id="mini_core" name="미니 골렘 핵" price="0" color="#e2c78c" category="core" description="제작 가능한 작은 핵. 한 칸 물류 골렘용." stack="1" />
+    <Item id="jelly_book" name="약용 젤리 입문서" price="0" color="#91af8a" category="book" description="샘물젤리와 회복 젤리 레시피를 해금." stack="1" />
+    <Item id="mana_book" name="골렘술사를 위한 마나 수정 활용 기초" price="0" color="#79b6ab" category="book" description="마나 수정탑과 미니 골렘 핵 설계도." stack="1" />
+    <Item id="king_token" name="샘물왕의 증표" price="0" color="#d6c87e" category="trophy" description="만찬의 오솔길을 개척한 기념품." stack="1" />
+  </Items>
+</GameContent>

@@ -1,0 +1,20 @@
+<?xml version='1.0' encoding='utf-8'?>
+<GameContent version="1.0" balance="first-playable">
+  <Actions>
+    <Action id="harvest" name="수확하기" handler="harvest.collect" targetKind="resource" failure="retry">
+      <Works>
+        <Work type="harvest" amount="6" />
+      </Works>
+    </Action>
+    <Action id="fell" name="베어넘기기" handler="harvest.collect" targetKind="resource" failure="retry">
+      <Works>
+        <Work type="harvest" amount="16" />
+      </Works>
+    </Action>
+    <Action id="mine" name="수정 채광" handler="harvest.collect" targetKind="resource" failure="retry">
+      <Works>
+        <Work type="mining" amount="8" />
+      </Works>
+    </Action>
+  </Actions>
+</GameContent>

@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='utf-8'?>
+<GameContent version="1.0" balance="first-playable">
+  <Actions>
+    <Action id="talk" name="이야기" handler="story.talk" recordable="false" />
+    <Action id="enter_cave" name="동굴 진입" handler="story.enter" range="2" recordable="false" />
+    <Action id="return_cave" name="오솔길로 돌아가기" handler="story.enter" range="-1" recordable="false" />
+  </Actions>
+</GameContent>

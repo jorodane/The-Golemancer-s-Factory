@@ -1,0 +1,13 @@
+<?xml version='1.0' encoding='utf-8'?>
+<GameContent version="1.0" balance="first-playable">
+  <Texts>
+    <Text id="game.title">The Golemancer’s Factory</Text>
+    <Text id="field.feast_trail.name">만찬의 오솔길</Text>
+    <Text id="field.cave_entrance.name">깊은 돌의 입구</Text>
+    <Text id="character.enrin.name">엔린</Text>
+    <Text id="ui.day">낮월</Text>
+    <Text id="ui.night">밤월</Text>
+    <Text id="ui.chapter">첫 번째 이야기</Text>
+    <Text id="ui.tagline">조금 덜 일하기 위한, 작은 마법의 공장</Text>
+  </Texts>
+</GameContent>

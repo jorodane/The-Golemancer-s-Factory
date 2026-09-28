@@ -139,6 +139,14 @@ public static class PackLoader
     private static Dictionary<string, int> Quantities(XElement? root) => root?.Elements("Item").ToDictionary(e => S(e, "id"), e => (int)N(e, "amount", 1)) ?? [];
     private static void ReadContent(XElement root, ContentCatalog c)
     {
+        foreach (var e in root.Element("Maps")?.Elements("Map") ?? [])
+        {
+            var legend = e.Element("Legend")!.Elements("Tile").ToDictionary(t => S(t, "char")[0], t => S(t, "type"));
+            var rows = e.Element("Rows")!.Elements("Row").Select(r => r.Value.Trim()).ToArray();
+            int width = (int)N(e, "width"), height = (int)N(e, "height");
+            if (rows.Length != height || rows.Any(r => r.Length != width)) throw new InvalidDataException("Invalid tile map dimensions");
+            c.Maps[S(e, "id")] = new() { Id = S(e, "id"), Map = new() { Width = width, Height = height, Tiles = rows.SelectMany(r => r.Select(ch => legend[ch])).ToArray() }, Spawns = e.Element("Spawns")!.Elements("Spawn").Select(s => new SpawnDefinition(S(s, "id"), S(s, "definition"), (int)N(s, "x"), (int)N(s, "y"))).ToList() };
+        }
         foreach (var e in root.Element("Texts")?.Elements("Text") ?? []) c.Texts[S(e, "id")] = e.Value;
         foreach (var e in root.Element("Items")?.Elements("Item") ?? [])
             c.Items[S(e, "id")] = new() { Id = S(e, "id"), Name = S(e, "name"), Description = S(e, "description"), Price = (int)N(e, "price"), Stack = (int)N(e, "stack", 50), Color = S(e, "color", "#b3bb78"), Category = S(e, "category", "material") };
@@ -153,6 +161,7 @@ public static class PackLoader
         {
             var def = new ActionDef { Id = S(e, "id"), Name = S(e, "name"), Handler = S(e, "handler"), Path = S(e, "path"), SubName = S(e, "subName"), Failure = S(e, "failure", "skip"), TargetKind = S(e, "targetKind"), Range = (int)N(e, "range", 1), Recordable = B(e, "recordable", true), Condition = e.Element("Condition")?.Elements().Select(Condition).FirstOrDefault() };
             foreach (var w in e.Element("Works")?.Elements("Work") ?? []) def.Works[S(w, "type")] = N(w, "amount");
+            def.Interrupts = B(e, "interrupts");
             c.Actions[def.Id] = def;
         }
         foreach (var e in root.Element("ActionSets")?.Elements("ActionSet") ?? []) c.ActionSets[S(e, "id")] = S(e, "actions").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();

@@ -1,0 +1,47 @@
+<?xml version='1.0' encoding='utf-8'?>
+<GameContent version="1.0" balance="first-playable">
+  <Recipes>
+    <Recipe id="wooden_sword" name="목제 검" facility="workbench" unlock="" output="wooden_sword" amount="1" work="8" defaultEfficiency="1">
+      <Inputs>
+        <Item id="wood" amount="5" />
+      </Inputs>
+    </Recipe>
+    <Recipe id="wooden_club" name="목제 망치" facility="workbench" unlock="" output="wooden_club" amount="1" work="8" defaultEfficiency="1">
+      <Inputs>
+        <Item id="wood" amount="5" />
+      </Inputs>
+    </Recipe>
+    <Recipe id="wooden_shield" name="목제 방패" facility="workbench" unlock="" output="wooden_shield" amount="1" work="10" defaultEfficiency="1">
+      <Inputs>
+        <Item id="wood" amount="6" />
+      </Inputs>
+    </Recipe>
+    <Recipe id="mini_core" name="미니 골렘 핵" facility="workbench" unlock="mana_book" output="mini_core" amount="1" work="12" defaultEfficiency="1">
+      <Inputs>
+        <Item id="wood" amount="4" />
+        <Item id="mana_crystal" amount="2" />
+      </Inputs>
+    </Recipe>
+    <Recipe id="springwater_jelly" name="샘물젤리" facility="herb_fumigator" unlock="jelly_book" output="springwater_jelly" amount="1" work="15" defaultEfficiency="1">
+      <Inputs>
+        <Item id="common_herb" amount="1" />
+        <Item id="springwater_drop" amount="1" />
+      </Inputs>
+      <Efficiency source="heat" value="1" />
+    </Recipe>
+    <Recipe id="healing_jelly" name="생명력 회복 젤리" facility="herb_fumigator" unlock="jelly_book" output="healing_jelly" amount="1" work="20" defaultEfficiency="1">
+      <Inputs>
+        <Item id="newflesh_herb" amount="1" />
+        <Item id="springwater_jelly" amount="1" />
+      </Inputs>
+      <Efficiency source="heat" value="1" />
+    </Recipe>
+    <Recipe id="mana_jelly" name="마나 회복 젤리" facility="herb_fumigator" unlock="jelly_book" output="mana_jelly" amount="1" work="20" defaultEfficiency="1">
+      <Inputs>
+        <Item id="spark_herb" amount="1" />
+        <Item id="springwater_jelly" amount="1" />
+      </Inputs>
+      <Efficiency source="heat" value="1" />
+    </Recipe>
+  </Recipes>
+</GameContent>

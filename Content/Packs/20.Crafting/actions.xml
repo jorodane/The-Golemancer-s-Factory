@@ -1,0 +1,23 @@
+<?xml version='1.0' encoding='utf-8'?>
+<GameContent version="1.0" balance="first-playable">
+  <Actions>
+    <Action id="craft_single" name="1개 생산" handler="craft.produce" path="제작/생산" targetKind="facility" failure="retry">
+      <Works>
+        <Work type="craft" amount="2" />
+      </Works>
+    </Action>
+    <Action id="craft_count" name="N개 생산" handler="craft.produce" path="제작/생산" targetKind="facility" failure="retry">
+      <Works>
+        <Work type="craft" amount="2" />
+      </Works>
+    </Action>
+    <Action id="craft_until" name="N개까지 생산" handler="craft.produce" path="제작/생산" targetKind="facility" failure="retry">
+      <Works>
+        <Work type="craft" amount="2" />
+      </Works>
+    </Action>
+  </Actions>
+  <ActionSets>
+    <ActionSet id="craft" actions="craft_single,craft_count,craft_until" />
+  </ActionSets>
+</GameContent>

@@ -1,0 +1,12 @@
+<?xml version='1.0' encoding='utf-8'?>
+<GameContent version="1.0" balance="first-playable">
+  <Actions>
+    <Action id="assemble" name="골렘 조립" handler="golem.assemble" range="-1" recordable="false" />
+    <Action id="select" name="직접 조종" handler="golem.select" range="-1" recordable="false" />
+    <Action id="equip" name="장비 장착" handler="golem.equip" range="-1" recordable="true" />
+    <Action id="upgrade_golem" name="골렘 강화" handler="golem.upgrade" range="-1" recordable="false" />
+    <Action id="fuel_tower" name="마나 수정 넣기" handler="mana.fuel" range="1" recordable="true" />
+    <Action id="charge" name="마력 충전" handler="mana.charge" range="1" recordable="true" />
+    <Action id="consume" name="회복 아이템 사용" handler="golem.consume" range="-1" recordable="true" />
+  </Actions>
+</GameContent>

@@ -1,0 +1,112 @@
+<?xml version='1.0' encoding='utf-8'?>
+<GameContent version="1.0" balance="first-playable">
+  <Maps>
+    <Map id="feast_trail" width="64" height="40">
+      <Legend>
+        <Tile char="g" type="grass" />
+        <Tile char="p" type="path" />
+        <Tile char="f" type="floor" />
+        <Tile char="w" type="water" />
+        <Tile char="r" type="rock" />
+        <Tile char="s" type="shore" />
+        <Tile char="c" type="cave" />
+      </Legend>
+      <Rows>
+        <Row>rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr</Row>
+        <Row>rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr</Row>
+        <Row>rrgggggggggggggggggggggggggggggggggggggggggggggggggggggrrrrrrrrr</Row>
+        <Row>rrgggggggggggggggggggggggggggggggggggggggggggggggggggggrcccccrrr</Row>
+        <Row>rrgggggggggggggggggggggggggggggggggggggggggggggggggggggrcccccrrr</Row>
+        <Row>rrggggggggggggggggggggggggggggggggggggggggggsssssssggggrcccccrrr</Row>
+        <Row>rrgggggggggggggggggggggggppgggggggggggggggsssswwwssssggrcccccrrr</Row>
+        <Row>rrgggggggggggggggggggggggppggggggggggggggsswwwwwwwwwssgrrrrrrrrr</Row>
+        <Row>rrgggggggggggggggggggggggppgggggggggggggsswwwwwwwwwwwssrrrrrrrrr</Row>
+        <Row>rrgggggggggggggggggggggggppgggggggggggggsswwwwwwwwwwwssggppgggrr</Row>
+        <Row>rrgggggggggggggggggggggggppgggggggggggggswwwwwwwwwwwwwsggppgggrr</Row>
+        <Row>rrgggggggggggggggggggggggppgggggggggggggswwwwwwwwwwwwwsggppgggrr</Row>
+        <Row>rrgggggggggggggggggggggggppgwwwwwgggggggswwwwwwwwwwwwwsggppgggrr</Row>
+        <Row>rrgggggggggggggggggggggggppgwwwwwgggggggsswwwwwwwwwwwssggppgggrr</Row>
+        <Row>rrgggggggggggggggggggggggppgwwwwwgggggggsswwwwwwwwwwwssggppgggrr</Row>
+        <Row>rrgggggggggggggggggggggggppggggggggggggggsswwwwwwwwwssgggppgggrr</Row>
+        <Row>rrgggggggggggggggggggggggppgggggggggggggggsssswwwssssggggppgggrr</Row>
+        <Row>rrgggggggggggggggggggggggppgggggggggggggggggssppsssggggggppgggrr</Row>
+        <Row>rrggggggggggggggggggggppppppppppppppppggggggggppgggggggggppgggrr</Row>
+        <Row>rrggggggggggggggggggggppppppppppppppppggggggggppgggggggggppgggrr</Row>
+        <Row>rrggggggggggggggggggggppggggggggggggppggggggggppgggggggggppgggrr</Row>
+        <Row>rrgffffffffffffgggggggppggggggggggggpppppppppppppppppppppppgggrr</Row>
+        <Row>rrgffffffffffffgggggggppggggggggggggppppppppppppppppppppppggggrr</Row>
+        <Row>rrgffffffffffffgggggggppggggggggggggggggggggggggggggggggggggggrr</Row>
+        <Row>rrgffffffffffffgggggggppggggggggggggggggggggggggggggggggggggggrr</Row>
+        <Row>rrgffffffffffffpppppppppggggggggggggggggggggggggggggggggggggggrr</Row>
+        <Row>rrgffffffffffffppppppppgggggggggggggggggggggggggggggggggggggggrr</Row>
+        <Row>rrgffffffffffffgggggggggggggggggggggggggggggggggggggggggggggggrr</Row>
+        <Row>rrgffffffffffffgggggggggggggggggggggggggggggggggggggggggggggggrr</Row>
+        <Row>rrgffffffffffffgggggggggggggggggggggggggggggggggggggggggggggggrr</Row>
+        <Row>rrgffffffffffffgggggggggggggggggggggggggggggggggggggggggggggggrr</Row>
+        <Row>rrgffffffffffffgggggggggggggggggggggggggggggggggggggggggggggggrr</Row>
+        <Row>rrgffffffffffffgggggggggggggggggggggggggggggggggggggggggggggggrr</Row>
+        <Row>rrggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggrr</Row>
+        <Row>rrggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggrr</Row>
+        <Row>rrggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggrr</Row>
+        <Row>rrggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggrr</Row>
+        <Row>rrggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggrr</Row>
+        <Row>rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr</Row>
+        <Row>rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr</Row>
+      </Rows>
+      <Spawns>
+        <Spawn id="golem-1" definition="harvest_golem" x="9" y="28" />
+        <Spawn id="enrin" definition="enrin" x="8" y="22" />
+        <Spawn id="merchant" definition="merchant" x="13" y="26" />
+        <Spawn id="workbench" definition="workbench" x="5" y="22" />
+        <Spawn id="storage-1" definition="storage" x="5" y="25" />
+        <Spawn id="shelf-1" definition="display_shelf" x="10" y="22" />
+        <Spawn id="board" definition="order_board" x="13" y="22" />
+        <Spawn id="sign" definition="signpost" x="17" y="24" />
+        <Spawn id="springwater-king" definition="springwater_king" x="46" y="10" />
+        <Spawn id="left-fist" definition="stone_fist" x="41" y="15" />
+        <Spawn id="right-fist" definition="stone_fist" x="51" y="15" />
+        <Spawn id="shrine" definition="lake_shrine" x="46" y="20" />
+        <Spawn id="cave" definition="cave_gate" x="56" y="8" />
+        <Spawn id="herb-0" definition="common_herb_patch" x="17" y="26" />
+        <Spawn id="herb-1" definition="common_herb_patch" x="18" y="27" />
+        <Spawn id="herb-2" definition="common_herb_patch" x="20" y="26" />
+        <Spawn id="herb-3" definition="common_herb_patch" x="19" y="23" />
+        <Spawn id="herb-4" definition="common_herb_patch" x="21" y="23" />
+        <Spawn id="herb-5" definition="common_herb_patch" x="18" y="21" />
+        <Spawn id="herb-6" definition="common_herb_patch" x="23" y="23" />
+        <Spawn id="herb-7" definition="common_herb_patch" x="24" y="21" />
+        <Spawn id="herb-8" definition="common_herb_patch" x="21" y="28" />
+        <Spawn id="herb-9" definition="common_herb_patch" x="25" y="24" />
+        <Spawn id="herb-10" definition="common_herb_patch" x="20" y="30" />
+        <Spawn id="herb-11" definition="common_herb_patch" x="23" y="30" />
+        <Spawn id="healing-0" definition="newflesh_herb_patch" x="25" y="17" />
+        <Spawn id="healing-1" definition="newflesh_herb_patch" x="27" y="18" />
+        <Spawn id="healing-2" definition="newflesh_herb_patch" x="27" y="21" />
+        <Spawn id="healing-3" definition="newflesh_herb_patch" x="32" y="21" />
+        <Spawn id="healing-4" definition="newflesh_herb_patch" x="35" y="19" />
+        <Spawn id="healing-5" definition="newflesh_herb_patch" x="24" y="12" />
+        <Spawn id="spark-0" definition="spark_herb_patch" x="27" y="14" />
+        <Spawn id="spark-1" definition="spark_herb_patch" x="24" y="10" />
+        <Spawn id="spark-2" definition="spark_herb_patch" x="29" y="9" />
+        <Spawn id="spark-3" definition="spark_herb_patch" x="31" y="9" />
+        <Spawn id="tree-0" definition="upright_tree" x="16" y="28" />
+        <Spawn id="tree-1" definition="upright_tree" x="16" y="31" />
+        <Spawn id="tree-2" definition="upright_tree" x="19" y="31" />
+        <Spawn id="tree-3" definition="upright_tree" x="21" y="32" />
+        <Spawn id="tree-4" definition="upright_tree" x="18" y="17" />
+        <Spawn id="tree-5" definition="upright_tree" x="20" y="14" />
+        <Spawn id="tree-6" definition="upright_tree" x="16" y="19" />
+        <Spawn id="tree-7" definition="upright_tree" x="29" y="25" />
+        <Spawn id="tree-8" definition="upright_tree" x="31" y="26" />
+        <Spawn id="tree-9" definition="upright_tree" x="28" y="30" />
+        <Spawn id="fruit-0" definition="sweetfruit_tree" x="20" y="10" />
+        <Spawn id="fruit-1" definition="sweetfruit_tree" x="22" y="8" />
+        <Spawn id="fruit-2" definition="sweetfruit_tree" x="30" y="30" />
+        <Spawn id="pouch-0" definition="springwater_pouch" x="30" y="16" />
+        <Spawn id="pouch-1" definition="springwater_pouch" x="33" y="18" />
+        <Spawn id="pouch-2" definition="springwater_pouch" x="33" y="21" />
+        <Spawn id="pouch-3" definition="springwater_pouch" x="28" y="16" />
+      </Spawns>
+    </Map>
+  </Maps>
+</GameContent>

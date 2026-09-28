@@ -1,0 +1,11 @@
+<?xml version='1.0' encoding='utf-8'?>
+<GameContent version="1.0" balance="first-playable">
+  <Actions>
+    <Action id="attack" name="공격" handler="combat.attack" range="1" failure="retry" />
+    <Action id="roll" name="구르기" handler="combat.roll" range="-1" interrupts="true" />
+    <Action id="toggle_mode" name="일상·공격 전환" handler="combat.mode" range="-1" recordable="false" />
+    <Action id="guard" name="이 지역 경호" handler="combat.guard" range="-1" />
+    <Action id="challenge" name="샘물의 왕에게 도전" handler="combat.challenge" range="2" recordable="false" />
+    <Action id="retreat" name="호수에서 후퇴" handler="combat.retreat" range="-1" recordable="false" />
+  </Actions>
+</GameContent>

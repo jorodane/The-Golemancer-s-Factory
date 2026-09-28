@@ -54,6 +54,7 @@ public sealed class Transfer : IActionHandler
         int n = Count(c, pair.From, pair.To, r);
         pair.From.Take(r.Item, n); c.Give(pair.To, r.Item, n);
         if (a.DefinitionId == "mini_golem" && n > 0 && pair.From == a) c.State.Add("mini_delivered", n);
+        if (a.Playback is not null && n > 0 && pair.From == a) c.State.Add("automation_delivered", n);
         if (n > 0) { c.State.Add("transported", n); c.Effect("item", a.X, a.Y, $"{c.ItemName(r.Item)} {n}"); }
         return ActionResult.Success(n > 0 ? $"{c.ItemName(r.Item)} {n}개를 옮겼어." : "이미 목표 수량이야.", n);
     }
