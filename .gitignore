@@ -1,0 +1,10 @@
+**/bin/
+**/obj/
+Content/Packs/**/Bin/
+Assets/
+Saves/
+Artifacts/
+TestResults/
+*.user
+*.suo
+.DS_Store
