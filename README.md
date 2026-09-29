@@ -6,13 +6,17 @@
 
 ## 실행
 
-1. [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)를 설치해.
-2. 저장소를 내려받아 Windows에서는 **Start.bat**, Linux/macOS에서는 **bash start.sh**를 실행해.
-3. 브라우저가 열리면 **공방 문 열기**를 눌러. 자동으로 열리지 않으면 **http://127.0.0.1:5187**로 접속해.
+Windows용 **WPF / .NET Framework 4.8** 앱이야.
 
-실행 창을 열어둬야 게임이 돌아가. 인터넷 연결이나 계정은 플레이에 필요 없어. 외부 NuGet 패키지 없이 빌드하며, 데스크톱 브라우저 1280×800 이상을 기준으로 만들었어. Linux에서 한글이 네모로 나오면 Noto Sans CJK 같은 한글 글꼴을 설치해줘.
+1. `The-Golemancers-Factory-Windows-net48.zip`을 쓰기 가능한 폴더에 풀어.
+2. `The-Golemancers-Factory-Image-Packs-v2.zip`도 같은 폴더에 풀어 `Content` 폴더를 합쳐.
+3. `Golemancer.exe`를 실행해. .NET Framework 4.8 런타임이 필요해.
 
-게임 규칙과 저장은 **.NET 10 C# 엔진**이 담당하고, 브라우저는 벡터 타일맵과 조작 화면을 그려. Windows 전용 .NET Framework 4.x 프로그램은 아니야. 모듈은 실제 DLL로 컴파일되어 실행 때 `AssemblyLoadContext`로 로드돼. Host는 게임 모듈 프로젝트를 참조하지 않아.
+소스에서 빌드하려면 .NET 10 SDK를 설치하고 이미지팩을 저장소 루트에 푼 뒤 `Start.bat`을 실행해. SDK는 빌드 도구이고, 실행 파일의 대상은 **net48**이야. 첫 빌드에는 NuGet 패키지 복원을 위한 인터넷 연결이 필요하고 플레이는 오프라인으로 가능해.
+
+게임 규칙과 저장은 .NET 모듈이 담당해. WPF 창에서 타일과 프레임 이미지를 표시하고 직접 명령을 전달해. 콘텐츠 DLL은 `pack.xml`을 통해 실제 `Assembly.LoadFrom`으로 로드하고, Host는 콘텐츠 모듈 프로젝트를 참조하지 않아.
+
+현재 검증 환경에서 Windows 대상 빌드는 통과했지만, 실제 Windows 창 실행은 아직 확인하지 못했어. 공유 엔진과 앱 세션의 캠페인·회귀 검증은 Linux의 net10.0 대상으로 실행했어. 자세한 범위는 [검증 기록](docs/VERIFICATION.md)에 있어.
 
 ## 조작
 
@@ -46,13 +50,21 @@
 - 샘물의 왕의 주먹에는 망치, 물 몸통에는 검을 써. 주먹은 재생되며 공격 범위가 바닥에 예고돼. 후퇴하면 전투가 초기화되고, 처치한 보스는 돌아오지 않아.
 - 봄낮·봄밤·여름낮·여름밤·가을낮·가을밤·겨울낮·겨울밤의 8단계 달력을 사용해. 각 단계는 15일, 하루는 게임 시간 180초야. 밤의 적 행동과 자원 재생, 겨울낮 15일의 축제 대사가 연결돼 있어.
 
-## 이미지팩
+## 이미지와 애니메이션 객체팩
 
-이미지는 별도 **Vector-Art-Pack ZIP**으로 제공해. `Assets` 폴더를 저장소 루트에 놓으면 게임이 `Assets/manifest.json`으로 읽어. 타일, 골렘과 인물, 적, 자원, 시설, 아이콘, 엔린 8표정의 **SVG 67개**와 선택용 PNG 미리보기로 구성돼.
+실제 이미지 파일을 세 개의 독립 객체팩으로 나눴어.
 
-엔린의 **에메랄드 팔찌, 머리 위 계산 미니골렘, 감정을 그리는 칠판**은 대사창에도 표시돼. 이미지팩을 넣기 전에도 동일한 벡터 도형 소스로 화면을 그려 바로 플레이할 수 있어.
+| 팩 | 내용 |
+|---|---|
+| `05.FeastTrailTiles` | 지형 SVG와 타일 종류·통행 여부, 타일 시트 영역 지원 |
+| `06.FeastTrailArt` | 시설·자원·아이콘·엔린 초상화 등의 SVG |
+| `07.FeastTrailAnimations` | 캐릭터 12종의 투명 PNG 시트, 72개 애니메이션·288프레임 |
 
-실제 이미지 파일은 코드 커밋에서 제외했어. Git 명령으로 이미지를 추가할 때는 `git add -f Assets`를 사용하면 돼. 원본 생성은 `node tools/export-art.mjs`; 선택적 PNG 렌더링은 `node tools/render-art.mjs`야.
+정지 캐릭터 전체를 위아래로 흔드는 효과는 없어. 대기·이동·작업·공격·피격·쓰러짐 상태에 맞는 실제 프레임을 재생해. 애니메이션마다 시트 파일, 영역, 속도, 반복 여부, 크기와 `offsetX/offsetY`를 지정할 수 있어. 오프셋의 단위는 타일이고 충돌·저장 좌표와는 독립적이야.
+
+엔린의 **에메랄드 팔찌, 머리 위 계산 미니골렘, 감정 칠판**을 시트와 초상화에 포함했어. 이미지팩을 설치하지 않으면 누락된 파일 경로를 안내해. 실제 이미지 파일은 코드 커밋에서 제외하고 별도 ZIP으로 제공해.
+
+새 그림이나 타일셋은 팩의 XML과 이미지로 교체할 수 있어. [이미지팩·애니메이션 명세](docs/ART_PACKS.md)에 시트 단위 등록, 오프셋, 패치 팩 예제가 있어. `tools/export-art.mjs`는 기존 정적 SVG를 내보내는 선택적 제작 도구이며 게임 실행 중에는 사용하지 않아.
 
 ## 저장
 
@@ -64,9 +76,9 @@
 |---|---|
 | `src/Golemancer.Contracts` | 모듈이 공유하는 인터페이스와 데이터 계약 |
 | `src/Golemancer.Engine` | DLL 로딩, XML 쿠킹, 타일 이동, 액션 실행, 메뉴 합성, 저장 |
-| `src/Golemancer.Host` | 로컬 실행 서버와 벡터 클라이언트 |
+| `src/Golemancer.Host` | 네이티브 WPF 창, 이미지·시트 표시와 입력 |
 | `modules/Golemancer.*` | 독립적으로 빌드되는 12개 구현 DLL |
-| `Content/Packs` | 의존성과 XML을 포함한 10개 객체팩 |
+| `Content/Packs` | 의존성과 XML을 포함한 13개 객체팩 |
 | `tests/Golemancer.Verification` | 실제 명령으로 끝까지 진행하는 캠페인과 회귀 검증 |
 | `examples/TeaBreak` | 공유 Contracts만 참조하는 작은 확장팩 예제 |
 
@@ -74,8 +86,10 @@
 
 ## 검증
 
-Windows는 `Verify.bat`, Linux/macOS는 `bash verify.sh`를 실행해. 외부 테스트 프레임워크 없이 빌드하고 게임 명령으로 새 게임부터 12개 퀘스트를 끝내. 수량·용량, 무마력 정지·재개, 생산 중 저장, 핵 회수, 보스 초기화, 미설치 팩 데이터 보존도 확인해.
+Windows의 `Verify.bat`은 net48 빌드, 캠페인·회귀 검증과 WPF `--smoke` 검증을 실행해. 이미지팩을 먼저 설치해야 해. 창 검증은 별도 테스트 세이브를 쓰고 `TestResults/windows`에 결과와 화면을 남겨.
 
-선택적 화면 검증은 Playwright와 Chromium을 설치한 뒤 `node tools/browser-smoke.mjs --host`로 실행해. 기본 Debug 빌드가 필요하고, `DOTNET`, `CHROME_PATH`, `PLAYWRIGHT_MODULE`로 실행 환경을 지정할 수 있어. 결과는 Git에서 제외되는 `TestResults`에 저장돼.
+Linux/macOS의 `bash verify.sh`는 WPF를 제외한 같은 엔진·모듈과 앱 세션을 net10.0으로 빌드해 검증해. 12개 퀘스트, 수량·용량, 무마력 정지·재개, 생산 중 저장, 핵 회수, 보스 초기화, 미설치 팩 데이터 보존, 대사·일시정지, 이미지팩 메타데이터를 확인해.
+
+아트 제작 환경에서 `python tools/verify-art.py`를 실행하면 실제 파일·투명도·프레임 영역을 검사하고 시트 미리보기를 만들어. Pillow와 numpy가 필요해. 배포 파일은 Windows 대상 Release 빌드와 이미지팩 설치 후 `python tools/package.py <출력폴더>`로 만들 수 있어.
 
 이번 버전은 로컬 싱글플레이야. 멀티플레이, 모바일 조작, 다음 챕터 내부 지역은 구현 범위 밖이야.

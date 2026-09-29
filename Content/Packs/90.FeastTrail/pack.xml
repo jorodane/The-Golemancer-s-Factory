@@ -1,6 +1,9 @@
 <?xml version='1.0' encoding='utf-8'?>
 <ObjectPack id="feast_trail" version="1.0.0" contracts="1">
   <Depends id="foundation" minVersion="1.0.0" />
+  <Depends id="feast_trail_tiles" minVersion="1.0.0" />
+  <Depends id="feast_trail_art" minVersion="1.0.0" />
+  <Depends id="feast_trail_animations" minVersion="1.0.0" />
   <Depends id="harvesting" minVersion="1.0.0" />
   <Depends id="crafting" minVersion="1.0.0" />
   <Depends id="construction" minVersion="1.0.0" />
@@ -9,7 +12,7 @@
   <Depends id="automation" minVersion="1.0.0" />
   <Depends id="combat" minVersion="1.0.0" />
   <Depends id="story" minVersion="1.0.0" />
-  <Assembly path="Bin/Golemancer.FeastTrail.dll" />
+  <Assembly path="Bin/{framework}/Golemancer.FeastTrail.dll" />
   <Data path="items.xml" />
   <Data path="objects.xml" />
   <Data path="map.xml" />

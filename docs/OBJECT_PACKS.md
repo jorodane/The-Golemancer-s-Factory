@@ -1,6 +1,6 @@
 # 객체팩 작성 명세 v1
 
-실제 게임 DLL 12개가 이 계약으로 동작한다. `IGameModule`은 등록 시에만 호출되고, 개별 액션·조건·실패 처리·시스템·월드 객체를 레지스트리에 등록한다. 공유 타입은 `Golemancer.Contracts.dll` 하나다. 모든 모듈은 같은 .NET 10 / 계약 메이저 버전 1을 사용한다.
+실제 게임 DLL 12개가 이 계약으로 동작한다. `IGameModule`은 등록 시에만 호출되고, 개별 액션·조건·실패 처리·시스템·월드 객체를 레지스트리에 등록한다. 공유 타입은 `Golemancer.Contracts.dll` 하나다. Windows 모듈은 .NET Framework 4.8 / 계약 메이저 버전 1을 사용한다. Linux 검증용 모듈은 net10.0으로 별도 빌드하며 런타임별 DLL을 섞지 않는다.
 
 ## 배포 폴더
 
@@ -10,15 +10,15 @@
 <ObjectPack id="my_pack" version="1.0.0" contracts="1">
   <Depends id="foundation" minVersion="1.0.0" />
   <Depends id="feast_trail" minVersion="1.0.0" />
-  <Assembly path="Bin/MyPack.dll" />
+  <Assembly path="Bin/{framework}/MyPack.dll" />
   <Data path="objects.xml" />
   <Data path="localization_ko-KR.xml" />
 </ObjectPack>
 ```
 
-DLL과 `.deps.json`, 해당 DLL의 외부 의존 파일을 Bin에 배치한다. Contracts의 별도 복사본은 포함하지 않는다. 매니페스트에 DLL을 여럿 등록할 수 있고 XML만 담은 팩도 가능하다. 의존팩은 먼저 쿠킹된다. 게임 시작 때 쿠킹하며 **플레이 도중 DLL 핫 리로드는 제공하지 않는다**. 외부 DLL은 로컬 실행 권한을 가진 신뢰할 수 있는 코드여야 한다.
+`{framework}`는 Windows 앱에서는 `net48`, 이식 가능한 검증에서는 `net10.0`으로 치환된다. DLL과 해당 DLL의 외부 의존 파일을 같은 Bin 하위 폴더에 배치한다. net10.0 검증은 `.deps.json`도 함께 배포한다. Contracts의 별도 복사본은 포함하지 않는다. 매니페스트에 DLL을 여럿 등록할 수 있고 XML만 담은 팩도 가능하다. 의존팩은 먼저 쿠킹된다. 게임 시작 때 쿠킹하며 **플레이 도중 DLL 핫 리로드는 제공하지 않는다**. 외부 DLL은 로컬 실행 권한을 가진 신뢰할 수 있는 코드여야 한다.
 
-이미지는 같은 팩의 `Images/tea.svg` 등에 넣는다. Object의 `sprite="Images/tea.svg"`는 해당 팩 내부 경로로 해석된다. 기본 벡터 스프라이트를 재사용하려면 `sprite="storage"`처럼 ID를 지정한다. 이미지가 없는 알 수 없는 객체는 기본 상자 그림으로 표시한다.
+이미지는 같은 팩의 `Images/tea.svg` 등에 넣는다. Object의 `sprite="Images/tea.svg"`는 해당 팩 내부 경로로 해석된다. 기본 벡터 스프라이트를 재사용하려면 `sprite="storage"`처럼 ID를 지정한다. 등록된 이미지가 없으면 시작 시 실제 누락 경로를 표시한다. 정의는 있지만 sprite ID를 알 수 없는 객체는 이름으로 표시한다. 그림을 코드로 대체 생성하지 않는다. 타일셋과 애니메이션은 독립 이미지 객체팩으로 등록한다. 자세한 XML은 [ART_PACKS.md](ART_PACKS.md)를 참고한다.
 
 ## 구현 경계
 
@@ -29,14 +29,14 @@ DLL과 `.deps.json`, 해당 DLL의 외부 의존 파일을 Bin에 배치한다. 
 | `IActionHandler.Execute` | 영구 효과와 결과 | 재고 검사 후 원자적으로 반영; 실패 시 부분 효과를 임의 취소하지 않음 |
 | `IConditionHandler.Evaluate` | 조건 객체 | 중첩 노드는 `context.Evaluate`로 위임 |
 | `IFailureHandler.Handle` | 실패의 추가 효과와 흐름 | Advance / Repeat / Halt 반환, XML 지연·횟수 사용 |
-| `IRuntimeSystem.Tick` | 수동 조작과 무관한 처리 | 고정 0.1초; Order 순서; 비동기 상태 변경 금지 |
+| `IRuntimeSystem.Tick` | 수동 조작과 무관한 처리 | WPF 고정 0.05초; 전달된 dt 사용; Order 순서; 비동기 상태 변경 금지 |
 | `IWorldGenerator.Populate` | 초기 타일과 인스턴스 생성 | 새로운 게임에서만 호출 |
 
 엔진이 WorldObject와 GameState를 소유한다. `Values`는 수치, `Data`는 문자열, `Inventory`는 아이템 수량이다. 모드별 키에 접두사를 붙여 충돌을 피한다. 공용 `Find`, `Spawn`, `Navigate`, `Dispatch`, `Evaluate`, `Notice`, `Effect`를 사용하고 다른 모듈의 구체 클래스를 참조하지 않는다.
 
 ## XML 요소
 
-모든 데이터 파일의 루트는 `<GameContent>`다. 필요한 섹션만 넣으면 된다. 동일 정의 ID를 뒤에서 선언하면 정의 전체를 교체한다. 부분 속성 병합은 아니다. 기본 팩을 수정하는 팩은 의존성을 명시한다.
+모든 데이터 파일의 루트는 `<GameContent>`다. 필요한 섹션만 넣으면 된다. 동일 정의 ID를 뒤에서 선언하면 정의 전체를 교체한다. 부분 속성 병합은 아니다. 다만 Tileset은 Tile ID 단위, Sprite는 Animation state 단위로 병합하며 해당 Tile/Animation 하나는 전체 교체한다. 기본 팩을 수정하는 팩은 의존성을 명시한다.
 
 | 섹션 / 요소 | 주요 속성과 하위 요소 |
 |---|---|
@@ -49,7 +49,9 @@ DLL과 `.deps.json`, 해당 DLL의 외부 의존 파일을 Bin에 배치한다. 
 | Recipes / Recipe | `id, name, facility, unlock, output, amount, work, defaultEfficiency`; Inputs, Efficiency |
 | Quests / Quest | `id, name, description, requires, flag, reward`; Goal, Dialogue |
 | Texts / Text | `id`와 문자열 본문; 이름·설명에 `@text.id`로 참조 |
-| Maps / Map | `id, width, height`; Legend / Tile, Rows / Row, Spawns / Spawn |
+| Tilesets / Tileset | `id`; Tile: `id, image, walkable, x, y, width, height` |
+| Sprites / Sprite | `id`; Animation과 선택적 Frame — ART_PACKS.md 참고 |
+| Maps / Map | `id, tileset, width, height`; Legend / Tile, Rows / Row, Spawns / Spawn |
 
 `width/height`는 정수 타일 점유 크기다. 이동과 저장 좌표도 정수이며 그림의 시각적 돌출과 충돌 크기는 별개다. 인스턴스 ID와 정의 ID를 혼동하지 않는다. Maps의 레전드 글자 하나가 타일 하나이며 행 길이는 width와 일치해야 한다.
 

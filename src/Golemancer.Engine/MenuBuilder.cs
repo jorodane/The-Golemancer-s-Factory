@@ -8,14 +8,14 @@ public sealed class MenuEntry
 }
 public static class MenuBuilder
 {
-    public static List<MenuEntry> Build(IEnumerable<ActionDef> actions, IReadOnlySet<string>? preserveDirectories = null)
+    public static List<MenuEntry> Build(IEnumerable<ActionDef> actions, ISet<string>? preserveDirectories = null)
     {
         var root = new MenuEntry();
         var definitions = actions.ToDictionary(a => a.Id);
         foreach (var action in definitions.Values)
         {
             var directory = root;
-            foreach (string segment in action.Path.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            foreach (string segment in action.Path.Split('/').Select(s => s.Trim()).Where(s => s.Length > 0))
             {
                 var next = directory.Children.FirstOrDefault(c => c.ActionId == "" && c.Label == segment);
                 if (next is null) { next = new() { Label = segment }; directory.Children.Add(next); }
@@ -38,7 +38,7 @@ public static class MenuBuilder
         }
         return root.Children.Select(c => Compress(c, "", preserveDirectories)).ToList();
     }
-    private static MenuEntry Compress(MenuEntry node, string path, IReadOnlySet<string>? preserve)
+    private static MenuEntry Compress(MenuEntry node, string path, ISet<string>? preserve)
     {
         string full = string.IsNullOrEmpty(path) ? node.Label : path + "/" + node.Label;
         node.Children = node.Children.Select(c => Compress(c, full, preserve)).ToList();

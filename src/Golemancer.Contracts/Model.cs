@@ -36,6 +36,7 @@ public sealed class GameState
 
 public sealed class TileMap
 {
+    public string TilesetId { get; set; } = "feast_trail";
     public int Width { get; set; } = 64;
     public int Height { get; set; } = 40;
     public string[] Tiles { get; set; } = [];
@@ -221,6 +222,8 @@ public sealed record QuestGoal(string Key, double Amount, string Label);
 
 public sealed class ContentCatalog
 {
+    public Dictionary<string, SpriteDef> Sprites { get; } = [];
+    public Dictionary<string, TilesetDef> Tilesets { get; } = [];
     public Dictionary<string, ItemDef> Items { get; } = [];
     public Dictionary<string, ObjectDef> Objects { get; } = [];
     public Dictionary<string, ActionDef> Actions { get; } = [];
@@ -234,6 +237,58 @@ public sealed class ContentCatalog
     public Dictionary<string, MapDefinition> Maps { get; } = [];
     public List<string> Warnings { get; } = [];
     public string Text(string key) => Texts.GetValueOrDefault(key, key);
+}
+// A tileset is data in an independent object pack. Images are actual external files.
+public sealed class TilesetDef
+{
+    public string Id { get; set; } = "";
+    public Dictionary<string, TileDef> Tiles { get; set; } = [];
+}
+public sealed class TileDef
+{
+    public string Id { get; set; } = "";
+    public string ImagePath { get; set; } = "";
+    public bool Walkable { get; set; } = true;
+    // Optional atlas rectangle, in source pixels. Zero width/height means the whole image.
+    public int SourceX { get; set; }
+    public int SourceY { get; set; }
+    public int SourceWidth { get; set; }
+    public int SourceHeight { get; set; }
+}
+public sealed class SpriteDef
+{
+    public string Id { get; set; } = "";
+    public Dictionary<string, AnimationDef> Animations { get; set; } = [];
+}
+public sealed class AnimationDef
+{
+    public List<SpriteFrameDef> FrameRects { get; set; } = [];
+    // Display offsets use tile units, independent of atlas coordinates and zoom.
+    public double OffsetX { get; set; }
+    public double OffsetY { get; set; }
+    public double DrawWidth { get; set; } = 1.2;
+    public double DrawHeight { get; set; } = 1.2;
+    public double PivotX { get; set; } = .5;
+    public double PivotY { get; set; } = .875;
+    public string State { get; set; } = "idle";
+    public string ImagePath { get; set; } = "";
+    public int FrameWidth { get; set; }
+    public int FrameHeight { get; set; }
+    public int Columns { get; set; } = 1;
+    public int Frames { get; set; } = 1;
+    public int X { get; set; }
+    public int Y { get; set; }
+    public double FrameSeconds { get; set; } = .12;
+    public bool Loop { get; set; } = true;
+}
+public sealed class SpriteFrameDef
+{
+    public int X { get; set; }
+    public int Y { get; set; }
+    public int Width { get; set; }
+    public int Height { get; set; }
+    public double PivotX { get; set; } = .5;
+    public double PivotY { get; set; } = 1;
 }
 public sealed record PackInfo(string Id, string Version, string Directory, string[] Dependencies, string[] Assemblies);
 public sealed class MapDefinition

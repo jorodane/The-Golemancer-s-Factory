@@ -3,7 +3,7 @@ setlocal
 cd /d "%~dp0"
 where dotnet >nul 2>nul
 if errorlevel 1 (
-  echo Please install .NET 10 SDK: https://dotnet.microsoft.com/download/dotnet/10.0
+  echo Building source requires the .NET 10 SDK. A packaged Golemancer.exe only needs .NET Framework 4.8.
   pause
   exit /b 1
 )
@@ -12,5 +12,4 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
-dotnet src\Golemancer.Host\bin\Release\net10.0\Golemancer.Host.dll --open
-pause
+start "" "src\Golemancer.Host\bin\Release\net48\Golemancer.exe"

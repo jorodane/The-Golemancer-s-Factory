@@ -1,0 +1,461 @@
+<?xml version='1.0' encoding='utf-8'?>
+<GameContent version="1.0">
+  <Sprites>
+    <Sprite id="harvest_golem">
+      <Animation state="idle" image="Images/harvest_golem.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="0" frameSeconds=".3" loop="true" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.35" drawHeight="1.35">
+        <Frame x="42" y="8" width="201" height="242" pivotX="0.61940" pivotY="0.99174" />
+        <Frame x="289" y="7" width="202" height="238" pivotX="0.46782" pivotY="0.99160" />
+        <Frame x="536" y="4" width="201" height="246" pivotX="0.59453" pivotY="0.99187" />
+        <Frame x="781" y="7" width="203" height="238" pivotX="0.50000" pivotY="0.99160" />
+      </Animation>
+      <Animation state="move" image="Images/harvest_golem.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="256" frameSeconds=".12" loop="true" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.35" drawHeight="1.35">
+        <Frame x="42" y="259" width="194" height="238" pivotX="0.65722" pivotY="0.99160" />
+        <Frame x="287" y="262" width="199" height="235" pivotX="0.36935" pivotY="0.99149" />
+        <Frame x="541" y="261" width="196" height="236" pivotX="0.35969" pivotY="0.99153" />
+        <Frame x="786" y="256" width="198" height="244" pivotX="0.65909" pivotY="0.99180" />
+      </Animation>
+      <Animation state="work" image="Images/harvest_golem.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="512" frameSeconds=".12" loop="true" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.35" drawHeight="1.35">
+        <Frame x="52" y="519" width="201" height="229" pivotX="0.60448" pivotY="0.99127" />
+        <Frame x="298" y="512" width="193" height="236" pivotX="0.56218" pivotY="0.99153" />
+        <Frame x="545" y="500" width="185" height="248" pivotX="0.42973" pivotY="0.99194" />
+        <Frame x="773" y="511" width="217" height="242" pivotX="0.54608" pivotY="0.99174" />
+      </Animation>
+      <Animation state="attack" image="Images/harvest_golem.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="768" frameSeconds=".12" loop="false" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.35" drawHeight="1.35">
+        <Frame x="41" y="764" width="193" height="243" pivotX="0.62953" pivotY="0.99177" />
+        <Frame x="273" y="765" width="234" height="243" pivotX="0.26282" pivotY="0.99177" />
+        <Frame x="543" y="759" width="185" height="250" pivotX="0.41892" pivotY="0.99200" />
+        <Frame x="773" y="767" width="218" height="238" pivotX="0.43807" pivotY="0.99160" />
+      </Animation>
+      <Animation state="hit" image="Images/harvest_golem.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="1024" frameSeconds=".12" loop="false" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.35" drawHeight="1.35">
+        <Frame x="33" y="1021" width="194" height="238" pivotX="0.46134" pivotY="0.99160" />
+        <Frame x="283" y="1033" width="206" height="225" pivotX="0.58010" pivotY="0.99111" />
+        <Frame x="532" y="1051" width="203" height="206" pivotX="0.50985" pivotY="0.99029" />
+        <Frame x="782" y="1023" width="208" height="231" pivotX="0.53606" pivotY="0.99134" />
+      </Animation>
+      <Animation state="death" image="Images/harvest_golem.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="1280" frameSeconds=".12" loop="false" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.35" drawHeight="1.35">
+        <Frame x="44" y="1290" width="183" height="203" pivotX="0.55464" pivotY="0.99015" />
+        <Frame x="267" y="1324" width="245" height="165" pivotX="0.44286" pivotY="0.98788" />
+        <Frame x="522" y="1359" width="232" height="141" pivotX="0.61853" pivotY="0.98582" />
+        <Frame x="777" y="1359" width="240" height="132" pivotX="0.43542" pivotY="0.98485" />
+      </Animation>
+    </Sprite>
+    <Sprite id="craft_golem">
+      <Animation state="idle" image="Images/craft_golem.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="0" frameSeconds=".3" loop="true" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.5" drawHeight="1.5">
+        <Frame x="66" y="57" width="187" height="189" pivotX="0.59091" pivotY="0.98942" />
+        <Frame x="296" y="57" width="187" height="189" pivotX="0.58021" pivotY="0.98942" />
+        <Frame x="524" y="54" width="181" height="192" pivotX="0.45028" pivotY="0.98958" />
+        <Frame x="756" y="55" width="189" height="191" pivotX="0.58466" pivotY="0.98953" />
+      </Animation>
+      <Animation state="move" image="Images/craft_golem.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="256" frameSeconds=".12" loop="true" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.5" drawHeight="1.5">
+        <Frame x="65" y="293" width="191" height="196" pivotX="0.63613" pivotY="0.98980" />
+        <Frame x="295" y="292" width="193" height="196" pivotX="0.46373" pivotY="0.98980" />
+        <Frame x="534" y="293" width="187" height="195" pivotX="0.46791" pivotY="0.98974" />
+        <Frame x="765" y="292" width="190" height="196" pivotX="0.58684" pivotY="0.98980" />
+      </Animation>
+      <Animation state="work" image="Images/craft_golem.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="512" frameSeconds=".12" loop="true" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.5" drawHeight="1.5">
+        <Frame x="70" y="543" width="187" height="198" pivotX="0.60160" pivotY="0.98990" />
+        <Frame x="318" y="566" width="163" height="182" pivotX="0.65337" pivotY="0.98901" />
+        <Frame x="549" y="563" width="171" height="178" pivotX="0.50000" pivotY="0.98876" />
+        <Frame x="761" y="545" width="194" height="196" pivotX="0.56443" pivotY="0.98980" />
+      </Animation>
+      <Animation state="attack" image="Images/craft_golem.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="768" frameSeconds=".12" loop="false" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.5" drawHeight="1.5">
+        <Frame x="74" y="782" width="190" height="212" pivotX="0.69474" pivotY="0.99057" />
+        <Frame x="313" y="813" width="184" height="174" pivotX="0.56250" pivotY="0.98851" />
+        <Frame x="550" y="795" width="207" height="194" pivotX="0.29710" pivotY="0.98969" />
+        <Frame x="761" y="790" width="196" height="198" pivotX="0.57398" pivotY="0.98990" />
+      </Animation>
+      <Animation state="hit" image="Images/craft_golem.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="1024" frameSeconds=".12" loop="false" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.5" drawHeight="1.5">
+        <Frame x="54" y="1026" width="213" height="204" pivotX="0.47183" pivotY="0.99020" />
+        <Frame x="309" y="1044" width="187" height="186" pivotX="0.62834" pivotY="0.98925" />
+        <Frame x="544" y="1056" width="167" height="187" pivotX="0.58383" pivotY="0.98930" />
+        <Frame x="762" y="1036" width="196" height="202" pivotX="0.56888" pivotY="0.99010" />
+      </Animation>
+      <Animation state="death" image="Images/craft_golem.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="1280" frameSeconds=".12" loop="false" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.5" drawHeight="1.5">
+        <Frame x="64" y="1286" width="190" height="177" pivotX="0.52368" pivotY="0.98870" />
+        <Frame x="299" y="1320" width="184" height="142" pivotX="0.47554" pivotY="0.98592" />
+        <Frame x="527" y="1344" width="198" height="124" pivotX="0.36869" pivotY="0.98387" />
+        <Frame x="761" y="1344" width="208" height="125" pivotX="0.39183" pivotY="0.98400" />
+      </Animation>
+    </Sprite>
+    <Sprite id="combat_golem">
+      <Animation state="idle" image="Images/combat_golem.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="0" frameSeconds=".3" loop="true" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.35" drawHeight="1.35">
+        <Frame x="35" y="28" width="221" height="218" pivotX="0.47285" pivotY="0.99083" />
+        <Frame x="289" y="26" width="209" height="220" pivotX="0.46651" pivotY="0.99091" />
+        <Frame x="541" y="28" width="205" height="218" pivotX="0.45122" pivotY="0.99083" />
+        <Frame x="780" y="28" width="214" height="218" pivotX="0.44626" pivotY="0.99083" />
+      </Animation>
+      <Animation state="move" image="Images/combat_golem.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="256" frameSeconds=".12" loop="true" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.35" drawHeight="1.35">
+        <Frame x="30" y="264" width="230" height="225" pivotX="0.44130" pivotY="0.99111" />
+        <Frame x="290" y="264" width="219" height="224" pivotX="0.60046" pivotY="0.99107" />
+        <Frame x="534" y="264" width="232" height="225" pivotX="0.38578" pivotY="0.99111" />
+        <Frame x="784" y="263" width="213" height="227" pivotX="0.65493" pivotY="0.99119" />
+      </Animation>
+      <Animation state="work" image="Images/combat_golem.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="512" frameSeconds=".12" loop="true" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.35" drawHeight="1.35">
+        <Frame x="38" y="511" width="224" height="219" pivotX="0.39955" pivotY="0.99087" />
+        <Frame x="299" y="518" width="182" height="214" pivotX="0.43132" pivotY="0.99065" />
+        <Frame x="528" y="521" width="240" height="211" pivotX="0.33958" pivotY="0.99052" />
+        <Frame x="786" y="513" width="215" height="221" pivotX="0.43953" pivotY="0.99095" />
+      </Animation>
+      <Animation state="attack" image="Images/combat_golem.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="768" frameSeconds=".12" loop="false" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.35" drawHeight="1.35">
+        <Frame x="36" y="744" width="224" height="237" pivotX="0.47545" pivotY="0.99156" />
+        <Frame x="269" y="770" width="235" height="214" pivotX="0.45745" pivotY="0.99065" />
+        <Frame x="527" y="771" width="260" height="213" pivotX="0.32500" pivotY="0.99061" />
+        <Frame x="801" y="763" width="200" height="221" pivotX="0.46250" pivotY="0.99095" />
+      </Animation>
+      <Animation state="hit" image="Images/combat_golem.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="1024" frameSeconds=".12" loop="false" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.35" drawHeight="1.35">
+        <Frame x="29" y="1024" width="225" height="211" pivotX="0.66889" pivotY="0.99052" />
+        <Frame x="287" y="1019" width="202" height="220" pivotX="0.46782" pivotY="0.99091" />
+        <Frame x="546" y="1018" width="199" height="215" pivotX="0.36432" pivotY="0.99070" />
+        <Frame x="788" y="1014" width="207" height="219" pivotX="0.43720" pivotY="0.99087" />
+      </Animation>
+      <Animation state="death" image="Images/combat_golem.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="1280" frameSeconds=".12" loop="false" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.35" drawHeight="1.35">
+        <Frame x="40" y="1272" width="216" height="210" pivotX="0.68750" pivotY="0.99048" />
+        <Frame x="275" y="1307" width="239" height="179" pivotX="0.46234" pivotY="0.98883" />
+        <Frame x="526" y="1330" width="241" height="152" pivotX="0.47095" pivotY="0.98684" />
+        <Frame x="779" y="1356" width="228" height="128" pivotX="0.45833" pivotY="0.98438" />
+      </Animation>
+    </Sprite>
+    <Sprite id="mining_golem">
+      <Animation state="idle" image="Images/mining_golem.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="0" frameSeconds=".3" loop="true" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.35" drawHeight="1.35">
+        <Frame x="40" y="44" width="218" height="209" pivotX="0.46101" pivotY="0.99043" />
+        <Frame x="292" y="44" width="219" height="208" pivotX="0.46804" pivotY="0.99038" />
+        <Frame x="546" y="44" width="217" height="209" pivotX="0.46313" pivotY="0.99043" />
+        <Frame x="799" y="45" width="221" height="208" pivotX="0.45023" pivotY="0.99038" />
+      </Animation>
+      <Animation state="move" image="Images/mining_golem.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="256" frameSeconds=".12" loop="true" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.35" drawHeight="1.35">
+        <Frame x="37" y="290" width="217" height="214" pivotX="0.35714" pivotY="0.99065" />
+        <Frame x="286" y="285" width="232" height="215" pivotX="0.48922" pivotY="0.99070" />
+        <Frame x="542" y="289" width="224" height="213" pivotX="0.50223" pivotY="0.99061" />
+        <Frame x="797" y="288" width="212" height="212" pivotX="0.46934" pivotY="0.99057" />
+      </Animation>
+      <Animation state="work" image="Images/mining_golem.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="512" frameSeconds=".12" loop="true" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.35" drawHeight="1.35">
+        <Frame x="30" y="536" width="208" height="234" pivotX="0.77644" pivotY="0.99145" />
+        <Frame x="304" y="517" width="181" height="255" pivotX="0.40055" pivotY="0.99216" />
+        <Frame x="547" y="586" width="179" height="192" pivotX="0.51117" pivotY="0.98958" />
+        <Frame x="805" y="561" width="201" height="202" pivotX="0.26617" pivotY="0.99010" />
+      </Animation>
+      <Animation state="attack" image="Images/mining_golem.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="768" frameSeconds=".12" loop="false" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.35" drawHeight="1.35">
+        <Frame x="57" y="787" width="193" height="235" pivotX="0.61917" pivotY="0.99149" />
+        <Frame x="292" y="827" width="216" height="196" pivotX="0.50694" pivotY="0.98980" />
+        <Frame x="538" y="824" width="244" height="197" pivotX="0.44057" pivotY="0.98985" />
+        <Frame x="798" y="814" width="207" height="207" pivotX="0.34541" pivotY="0.99034" />
+      </Animation>
+      <Animation state="hit" image="Images/mining_golem.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="1024" frameSeconds=".12" loop="false" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.35" drawHeight="1.35">
+        <Frame x="43" y="1050" width="215" height="225" pivotX="0.62558" pivotY="0.99111" />
+        <Frame x="284" y="1084" width="220" height="191" pivotX="0.36136" pivotY="0.98953" />
+        <Frame x="544" y="1097" width="216" height="176" pivotX="0.26620" pivotY="0.98864" />
+        <Frame x="798" y="1071" width="207" height="203" pivotX="0.33333" pivotY="0.99015" />
+      </Animation>
+      <Animation state="death" image="Images/mining_golem.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="1280" frameSeconds=".12" loop="false" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.35" drawHeight="1.35">
+        <Frame x="34" y="1317" width="225" height="195" pivotX="0.36667" pivotY="0.98974" />
+        <Frame x="287" y="1333" width="206" height="179" pivotX="0.42961" pivotY="0.98883" />
+        <Frame x="519" y="1373" width="237" height="139" pivotX="0.40295" pivotY="0.98561" />
+        <Frame x="780" y="1387" width="226" height="131" pivotX="0.73673" pivotY="0.98473" />
+      </Animation>
+    </Sprite>
+    <Sprite id="mini_golem">
+      <Animation state="idle" image="Images/mini_golem.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="0" frameSeconds=".3" loop="true" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="0.95" drawHeight="0.95">
+        <Frame x="51" y="79" width="182" height="185" pivotX="0.55220" pivotY="0.98919" />
+        <Frame x="287" y="78" width="191" height="186" pivotX="0.45288" pivotY="0.98925" />
+        <Frame x="537" y="80" width="189" height="184" pivotX="0.55291" pivotY="0.98913" />
+        <Frame x="784" y="80" width="202" height="184" pivotX="0.51733" pivotY="0.98913" />
+      </Animation>
+      <Animation state="move" image="Images/mini_golem.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="256" frameSeconds=".12" loop="true" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="0.95" drawHeight="0.95">
+        <Frame x="45" y="319" width="206" height="193" pivotX="0.36650" pivotY="0.98964" />
+        <Frame x="296" y="316" width="200" height="193" pivotX="0.52000" pivotY="0.98964" />
+        <Frame x="525" y="317" width="207" height="195" pivotX="0.63043" pivotY="0.98974" />
+        <Frame x="771" y="318" width="199" height="194" pivotX="0.65075" pivotY="0.98969" />
+      </Animation>
+      <Animation state="work" image="Images/mini_golem.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="512" frameSeconds=".12" loop="true" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="0.95" drawHeight="0.95">
+        <Frame x="40" y="582" width="204" height="191" pivotX="0.50245" pivotY="0.98953" />
+        <Frame x="299" y="564" width="182" height="198" pivotX="0.28846" pivotY="0.98990" />
+        <Frame x="541" y="546" width="189" height="216" pivotX="0.54762" pivotY="0.99074" />
+        <Frame x="789" y="582" width="195" height="191" pivotX="0.50000" pivotY="0.98953" />
+      </Animation>
+      <Animation state="attack" image="Images/mini_golem.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="768" frameSeconds=".12" loop="false" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="0.95" drawHeight="0.95">
+        <Frame x="39" y="807" width="217" height="195" pivotX="0.39401" pivotY="0.98974" />
+        <Frame x="297" y="806" width="193" height="196" pivotX="0.53109" pivotY="0.98980" />
+        <Frame x="549" y="815" width="218" height="188" pivotX="0.42431" pivotY="0.98936" />
+        <Frame x="790" y="811" width="199" height="192" pivotX="0.66583" pivotY="0.98958" />
+      </Animation>
+      <Animation state="hit" image="Images/mini_golem.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="1024" frameSeconds=".12" loop="false" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="0.95" drawHeight="0.95">
+        <Frame x="52" y="1040" width="198" height="211" pivotX="0.41162" pivotY="0.99052" />
+        <Frame x="279" y="1068" width="212" height="185" pivotX="0.52123" pivotY="0.98919" />
+        <Frame x="548" y="1064" width="174" height="190" pivotX="0.47414" pivotY="0.98947" />
+        <Frame x="792" y="1062" width="179" height="191" pivotX="0.58380" pivotY="0.98953" />
+      </Animation>
+      <Animation state="death" image="Images/mini_golem.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="1280" frameSeconds=".12" loop="false" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="0.95" drawHeight="0.95">
+        <Frame x="52" y="1309" width="182" height="184" pivotX="0.56319" pivotY="0.98913" />
+        <Frame x="278" y="1326" width="219" height="161" pivotX="0.43607" pivotY="0.98758" />
+        <Frame x="520" y="1342" width="226" height="142" pivotX="0.46681" pivotY="0.98592" />
+        <Frame x="784" y="1370" width="206" height="108" pivotX="0.49757" pivotY="0.98148" />
+      </Animation>
+    </Sprite>
+    <Sprite id="enrin">
+      <Animation state="idle" image="Images/enrin.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="0" frameSeconds=".3" loop="true" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.4" drawHeight="1.4">
+        <Frame x="66" y="5" width="180" height="237" pivotX="0.42500" pivotY="0.99156" />
+        <Frame x="321" y="6" width="161" height="236" pivotX="0.45652" pivotY="0.99153" />
+        <Frame x="566" y="7" width="174" height="235" pivotX="0.42241" pivotY="0.99149" />
+        <Frame x="812" y="7" width="181" height="235" pivotX="0.40608" pivotY="0.99149" />
+      </Animation>
+      <Animation state="move" image="Images/enrin.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="256" frameSeconds=".12" loop="true" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.4" drawHeight="1.4">
+        <Frame x="66" y="250" width="179" height="240" pivotX="0.45531" pivotY="0.99167" />
+        <Frame x="315" y="257" width="178" height="239" pivotX="0.38483" pivotY="0.99163" />
+        <Frame x="563" y="252" width="175" height="243" pivotX="0.48286" pivotY="0.99177" />
+        <Frame x="813" y="255" width="182" height="240" pivotX="0.37637" pivotY="0.99167" />
+      </Animation>
+      <Animation state="work" image="Images/enrin.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="512" frameSeconds=".12" loop="true" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.4" drawHeight="1.4">
+        <Frame x="62" y="498" width="188" height="258" pivotX="0.43351" pivotY="0.99225" />
+        <Frame x="309" y="501" width="182" height="252" pivotX="0.47802" pivotY="0.99206" />
+        <Frame x="540" y="503" width="202" height="249" pivotX="0.50248" pivotY="0.99197" />
+        <Frame x="818" y="500" width="181" height="256" pivotX="0.43923" pivotY="0.99219" />
+      </Animation>
+      <Animation state="attack" image="Images/enrin.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="768" frameSeconds=".12" loop="false" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.4" drawHeight="1.4">
+        <Frame x="61" y="769" width="184" height="242" pivotX="0.49728" pivotY="0.99174" />
+        <Frame x="290" y="768" width="209" height="242" pivotX="0.56220" pivotY="0.99174" />
+        <Frame x="542" y="774" width="223" height="235" pivotX="0.44619" pivotY="0.99149" />
+        <Frame x="818" y="775" width="173" height="233" pivotX="0.45376" pivotY="0.99142" />
+      </Animation>
+      <Animation state="hit" image="Images/enrin.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="1024" frameSeconds=".12" loop="false" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.4" drawHeight="1.4">
+        <Frame x="57" y="1020" width="189" height="241" pivotX="0.45238" pivotY="0.99170" />
+        <Frame x="298" y="1023" width="206" height="238" pivotX="0.42961" pivotY="0.99160" />
+        <Frame x="542" y="1041" width="233" height="220" pivotX="0.42704" pivotY="0.99091" />
+        <Frame x="816" y="1023" width="171" height="243" pivotX="0.45322" pivotY="0.99177" />
+      </Animation>
+      <Animation state="death" image="Images/enrin.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="1280" frameSeconds=".12" loop="false" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.4" drawHeight="1.4">
+        <Frame x="49" y="1296" width="195" height="203" pivotX="0.46410" pivotY="0.99015" />
+        <Frame x="281" y="1319" width="213" height="180" pivotX="0.56573" pivotY="0.98889" />
+        <Frame x="516" y="1356" width="230" height="134" pivotX="0.52826" pivotY="0.98507" />
+        <Frame x="761" y="1380" width="237" height="112" pivotX="0.57595" pivotY="0.98214" />
+      </Animation>
+    </Sprite>
+    <Sprite id="springwater_pouch">
+      <Animation state="idle" image="Images/springwater_pouch.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="0" frameSeconds=".3" loop="true" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.35" drawHeight="1.35">
+        <Frame x="32" y="61" width="208" height="195" pivotX="0.49760" pivotY="0.98974" />
+        <Frame x="288" y="106" width="215" height="150" pivotX="0.50000" pivotY="0.98667" />
+        <Frame x="539" y="76" width="195" height="180" pivotX="0.52051" pivotY="0.98889" />
+        <Frame x="800" y="61" width="192" height="195" pivotX="0.49219" pivotY="0.98974" />
+      </Animation>
+      <Animation state="move" image="Images/springwater_pouch.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="256" frameSeconds=".12" loop="true" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.35" drawHeight="1.35">
+        <Frame x="45" y="341" width="207" height="160" pivotX="0.55314" pivotY="0.98750" />
+        <Frame x="295" y="358" width="208" height="143" pivotX="0.47356" pivotY="0.98601" />
+        <Frame x="541" y="323" width="203" height="177" pivotX="0.49015" pivotY="0.98870" />
+        <Frame x="778" y="338" width="223" height="165" pivotX="0.51345" pivotY="0.98788" />
+      </Animation>
+      <Animation state="work" image="Images/springwater_pouch.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="512" frameSeconds=".12" loop="true" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.35" drawHeight="1.35">
+        <Frame x="48" y="558" width="183" height="210" pivotX="0.48907" pivotY="0.99048" />
+        <Frame x="287" y="552" width="204" height="215" pivotX="0.46814" pivotY="0.99070" />
+        <Frame x="532" y="586" width="236" height="182" pivotX="0.47246" pivotY="0.98901" />
+        <Frame x="806" y="534" width="180" height="234" pivotX="0.49722" pivotY="0.99145" />
+      </Animation>
+      <Animation state="attack" image="Images/springwater_pouch.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="768" frameSeconds=".12" loop="false" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.35" drawHeight="1.35">
+        <Frame x="39" y="839" width="211" height="160" pivotX="0.54739" pivotY="0.98750" />
+        <Frame x="278" y="821" width="237" height="185" pivotX="0.71941" pivotY="0.98919" />
+        <Frame x="516" y="842" width="261" height="163" pivotX="0.52299" pivotY="0.98773" />
+        <Frame x="805" y="813" width="194" height="190" pivotX="0.49742" pivotY="0.98947" />
+      </Animation>
+      <Animation state="hit" image="Images/springwater_pouch.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="1024" frameSeconds=".12" loop="false" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.35" drawHeight="1.35">
+        <Frame x="43" y="1050" width="197" height="204" pivotX="0.45939" pivotY="0.99020" />
+        <Frame x="300" y="1072" width="197" height="182" pivotX="0.62183" pivotY="0.98901" />
+        <Frame x="538" y="1082" width="216" height="173" pivotX="0.52083" pivotY="0.98844" />
+        <Frame x="807" y="1072" width="184" height="181" pivotX="0.49728" pivotY="0.98895" />
+      </Animation>
+      <Animation state="death" image="Images/springwater_pouch.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="1280" frameSeconds=".12" loop="false" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.35" drawHeight="1.35">
+        <Frame x="48" y="1305" width="190" height="182" pivotX="0.49211" pivotY="0.98901" />
+        <Frame x="286" y="1351" width="225" height="135" pivotX="0.49556" pivotY="0.98519" />
+        <Frame x="535" y="1411" width="225" height="80" pivotX="0.49556" pivotY="0.97500" />
+        <Frame x="784" y="1431" width="220" height="60" pivotX="0.51136" pivotY="0.96667" />
+      </Animation>
+    </Sprite>
+    <Sprite id="icewater_pouch">
+      <Animation state="idle" image="Images/icewater_pouch.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="0" frameSeconds=".3" loop="true" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.35" drawHeight="1.35">
+        <Frame x="34" y="50" width="206" height="210" pivotX="0.51214" pivotY="0.99048" />
+        <Frame x="285" y="40" width="204" height="220" pivotX="0.52206" pivotY="0.99091" />
+        <Frame x="530" y="45" width="212" height="215" pivotX="0.52123" pivotY="0.99070" />
+        <Frame x="775" y="56" width="216" height="204" pivotX="0.50231" pivotY="0.99020" />
+      </Animation>
+      <Animation state="move" image="Images/icewater_pouch.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="256" frameSeconds=".12" loop="true" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.35" drawHeight="1.35">
+        <Frame x="29" y="307" width="219" height="206" pivotX="0.54566" pivotY="0.99029" />
+        <Frame x="282" y="312" width="228" height="203" pivotX="0.58991" pivotY="0.99015" />
+        <Frame x="520" y="331" width="250" height="188" pivotX="0.56600" pivotY="0.98936" />
+        <Frame x="777" y="328" width="230" height="191" pivotX="0.39783" pivotY="0.98953" />
+      </Animation>
+      <Animation state="work" image="Images/icewater_pouch.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="512" frameSeconds=".12" loop="true" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.35" drawHeight="1.35">
+        <Frame x="21" y="564" width="228" height="204" pivotX="0.51974" pivotY="0.99020" />
+        <Frame x="271" y="570" width="236" height="198" pivotX="0.52754" pivotY="0.98990" />
+        <Frame x="515" y="545" width="247" height="225" pivotX="0.54049" pivotY="0.99111" />
+        <Frame x="780" y="560" width="222" height="212" pivotX="0.57432" pivotY="0.99057" />
+      </Animation>
+      <Animation state="attack" image="Images/icewater_pouch.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="768" frameSeconds=".12" loop="false" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.35" drawHeight="1.35">
+        <Frame x="26" y="850" width="217" height="183" pivotX="0.55069" pivotY="0.98907" />
+        <Frame x="266" y="792" width="214" height="241" pivotX="0.27804" pivotY="0.99170" />
+        <Frame x="511" y="847" width="273" height="184" pivotX="0.63919" pivotY="0.98913" />
+        <Frame x="792" y="843" width="217" height="190" pivotX="0.51843" pivotY="0.98947" />
+      </Animation>
+      <Animation state="hit" image="Images/icewater_pouch.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="1024" frameSeconds=".12" loop="false" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.35" drawHeight="1.35">
+        <Frame x="22" y="1094" width="238" height="189" pivotX="0.48529" pivotY="0.98942" />
+        <Frame x="276" y="1073" width="220" height="201" pivotX="0.39773" pivotY="0.99005" />
+        <Frame x="527" y="1110" width="221" height="173" pivotX="0.53167" pivotY="0.98844" />
+        <Frame x="765" y="1120" width="236" height="170" pivotX="0.57415" pivotY="0.98824" />
+      </Animation>
+      <Animation state="death" image="Images/icewater_pouch.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="1280" frameSeconds=".12" loop="false" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.35" drawHeight="1.35">
+        <Frame x="23" y="1337" width="206" height="174" pivotX="0.54612" pivotY="0.98851" />
+        <Frame x="259" y="1350" width="243" height="160" pivotX="0.54527" pivotY="0.98750" />
+        <Frame x="514" y="1378" width="248" height="128" pivotX="0.51008" pivotY="0.98438" />
+        <Frame x="770" y="1387" width="239" height="119" pivotX="0.48326" pivotY="0.98319" />
+      </Animation>
+    </Sprite>
+    <Sprite id="springwater_king">
+      <Animation state="idle" image="Images/springwater_king.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="0" frameSeconds=".3" loop="true" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="4.5" drawHeight="4.5">
+        <Frame x="45" y="93" width="166" height="145" pivotX="0.49699" pivotY="0.98621" />
+        <Frame x="301" y="82" width="165" height="156" pivotX="0.50000" pivotY="0.98718" />
+        <Frame x="554" y="90" width="169" height="148" pivotX="0.50000" pivotY="0.98649" />
+        <Frame x="814" y="75" width="164" height="163" pivotX="0.49695" pivotY="0.98773" />
+      </Animation>
+      <Animation state="move" image="Images/springwater_king.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="256" frameSeconds=".12" loop="true" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="4.5" drawHeight="4.5">
+        <Frame x="41" y="336" width="180" height="157" pivotX="0.49722" pivotY="0.98726" />
+        <Frame x="293" y="329" width="180" height="164" pivotX="0.50278" pivotY="0.98780" />
+        <Frame x="557" y="332" width="176" height="161" pivotX="0.49148" pivotY="0.98758" />
+        <Frame x="816" y="329" width="169" height="164" pivotX="0.48817" pivotY="0.98780" />
+      </Animation>
+      <Animation state="work" image="Images/springwater_king.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="512" frameSeconds=".12" loop="true" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="4.5" drawHeight="4.5">
+        <Frame x="42" y="587" width="174" height="162" pivotX="0.49138" pivotY="0.98765" />
+        <Frame x="289" y="561" width="196" height="188" pivotX="0.47194" pivotY="0.98936" />
+        <Frame x="540" y="587" width="208" height="162" pivotX="0.49760" pivotY="0.98765" />
+        <Frame x="795" y="582" width="204" height="167" pivotX="0.50000" pivotY="0.98802" />
+      </Animation>
+      <Animation state="attack" image="Images/springwater_king.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="768" frameSeconds=".12" loop="false" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="4.5" drawHeight="4.5">
+        <Frame x="37" y="830" width="182" height="168" pivotX="0.49176" pivotY="0.98810" />
+        <Frame x="281" y="830" width="209" height="168" pivotX="0.43780" pivotY="0.98810" />
+        <Frame x="538" y="866" width="212" height="132" pivotX="0.48349" pivotY="0.98485" />
+        <Frame x="804" y="832" width="182" height="166" pivotX="0.50275" pivotY="0.98795" />
+      </Animation>
+      <Animation state="hit" image="Images/springwater_king.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="1024" frameSeconds=".12" loop="false" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="4.5" drawHeight="4.5">
+        <Frame x="37" y="1084" width="185" height="170" pivotX="0.48919" pivotY="0.98824" />
+        <Frame x="281" y="1086" width="205" height="168" pivotX="0.48537" pivotY="0.98810" />
+        <Frame x="538" y="1134" width="206" height="120" pivotX="0.49757" pivotY="0.98333" />
+        <Frame x="813" y="1088" width="175" height="166" pivotX="0.49429" pivotY="0.98795" />
+      </Animation>
+      <Animation state="death" image="Images/springwater_king.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="1280" frameSeconds=".12" loop="false" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="4.5" drawHeight="4.5">
+        <Frame x="37" y="1341" width="187" height="151" pivotX="0.48930" pivotY="0.98675" />
+        <Frame x="275" y="1358" width="215" height="134" pivotX="0.49070" pivotY="0.98507" />
+        <Frame x="534" y="1380" width="216" height="110" pivotX="0.47454" pivotY="0.98182" />
+        <Frame x="804" y="1394" width="199" height="94" pivotX="0.48492" pivotY="0.97872" />
+      </Animation>
+    </Sprite>
+    <Sprite id="stone_fist">
+      <Animation state="idle" image="Images/stone_fist.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="0" frameSeconds=".3" loop="true" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="2.1" drawHeight="2.1">
+        <Frame x="25" y="56" width="208" height="172" pivotX="0.48798" pivotY="0.98837" />
+        <Frame x="283" y="47" width="211" height="187" pivotX="0.45261" pivotY="0.98930" />
+        <Frame x="533" y="32" width="210" height="201" pivotX="0.42619" pivotY="0.99005" />
+        <Frame x="791" y="57" width="209" height="174" pivotX="0.46172" pivotY="0.98851" />
+      </Animation>
+      <Animation state="move" image="Images/stone_fist.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="256" frameSeconds=".12" loop="true" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="2.1" drawHeight="2.1">
+        <Frame x="21" y="291" width="219" height="203" pivotX="0.65068" pivotY="0.99015" />
+        <Frame x="281" y="286" width="212" height="208" pivotX="0.33255" pivotY="0.99038" />
+        <Frame x="531" y="292" width="208" height="203" pivotX="0.33894" pivotY="0.99015" />
+        <Frame x="791" y="292" width="209" height="203" pivotX="0.26555" pivotY="0.99015" />
+      </Animation>
+      <Animation state="work" image="Images/stone_fist.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="512" frameSeconds=".12" loop="true" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="2.1" drawHeight="2.1">
+        <Frame x="28" y="549" width="214" height="195" pivotX="0.31542" pivotY="0.98974" />
+        <Frame x="288" y="543" width="205" height="205" pivotX="0.29512" pivotY="0.99024" />
+        <Frame x="540" y="535" width="201" height="217" pivotX="0.36816" pivotY="0.99078" />
+        <Frame x="789" y="549" width="209" height="203" pivotX="0.30383" pivotY="0.99015" />
+      </Animation>
+      <Animation state="attack" image="Images/stone_fist.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="768" frameSeconds=".12" loop="false" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="2.1" drawHeight="2.1">
+        <Frame x="18" y="780" width="226" height="225" pivotX="0.42257" pivotY="0.99111" />
+        <Frame x="280" y="792" width="219" height="209" pivotX="0.81507" pivotY="0.99043" />
+        <Frame x="512" y="839" width="265" height="178" pivotX="0.50000" pivotY="0.98876" />
+        <Frame x="790" y="801" width="210" height="208" pivotX="0.32143" pivotY="0.99038" />
+      </Animation>
+      <Animation state="hit" image="Images/stone_fist.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="1024" frameSeconds=".12" loop="false" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="2.1" drawHeight="2.1">
+        <Frame x="19" y="1056" width="218" height="206" pivotX="0.39220" pivotY="0.99029" />
+        <Frame x="280" y="1046" width="231" height="218" pivotX="0.37662" pivotY="0.99083" />
+        <Frame x="541" y="1070" width="221" height="191" pivotX="0.32353" pivotY="0.98953" />
+        <Frame x="794" y="1070" width="209" height="192" pivotX="0.38038" pivotY="0.98958" />
+      </Animation>
+      <Animation state="death" image="Images/stone_fist.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="1280" frameSeconds=".12" loop="false" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="2.1" drawHeight="2.1">
+        <Frame x="21" y="1310" width="231" height="199" pivotX="0.44372" pivotY="0.98995" />
+        <Frame x="270" y="1302" width="237" height="207" pivotX="0.52954" pivotY="0.99034" />
+        <Frame x="519" y="1352" width="240" height="159" pivotX="0.55208" pivotY="0.98742" />
+        <Frame x="774" y="1399" width="236" height="113" pivotX="0.45975" pivotY="0.98230" />
+      </Animation>
+    </Sprite>
+    <Sprite id="merchant">
+      <Animation state="idle" image="Images/merchant.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="0" frameSeconds=".3" loop="true" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.3" drawHeight="1.3">
+        <Frame x="28" y="16" width="195" height="232" pivotX="0.45385" pivotY="0.99138" />
+        <Frame x="282" y="14" width="200" height="234" pivotX="0.47250" pivotY="0.99145" />
+        <Frame x="546" y="16" width="195" height="232" pivotX="0.44359" pivotY="0.99138" />
+        <Frame x="802" y="16" width="195" height="232" pivotX="0.46410" pivotY="0.99138" />
+      </Animation>
+      <Animation state="move" image="Images/merchant.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="256" frameSeconds=".12" loop="true" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.3" drawHeight="1.3">
+        <Frame x="27" y="270" width="199" height="235" pivotX="0.38442" pivotY="0.99149" />
+        <Frame x="284" y="268" width="197" height="236" pivotX="0.45431" pivotY="0.99153" />
+        <Frame x="539" y="271" width="199" height="234" pivotX="0.42965" pivotY="0.99145" />
+        <Frame x="804" y="268" width="197" height="235" pivotX="0.50000" pivotY="0.99149" />
+      </Animation>
+      <Animation state="work" image="Images/merchant.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="512" frameSeconds=".12" loop="true" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.3" drawHeight="1.3">
+        <Frame x="31" y="522" width="204" height="233" pivotX="0.51716" pivotY="0.99142" />
+        <Frame x="282" y="521" width="208" height="234" pivotX="0.53606" pivotY="0.99145" />
+        <Frame x="522" y="521" width="232" height="234" pivotX="0.56250" pivotY="0.99145" />
+        <Frame x="799" y="527" width="196" height="228" pivotX="0.44643" pivotY="0.99123" />
+      </Animation>
+      <Animation state="attack" image="Images/merchant.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="768" frameSeconds=".12" loop="false" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.3" drawHeight="1.3">
+        <Frame x="33" y="783" width="202" height="228" pivotX="0.51733" pivotY="0.99123" />
+        <Frame x="289" y="785" width="216" height="226" pivotX="0.52083" pivotY="0.99115" />
+        <Frame x="551" y="782" width="207" height="228" pivotX="0.51932" pivotY="0.99123" />
+        <Frame x="805" y="784" width="198" height="226" pivotX="0.37121" pivotY="0.99115" />
+      </Animation>
+      <Animation state="hit" image="Images/merchant.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="1024" frameSeconds=".12" loop="false" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.3" drawHeight="1.3">
+        <Frame x="25" y="1036" width="199" height="230" pivotX="0.56030" pivotY="0.99130" />
+        <Frame x="269" y="1043" width="220" height="219" pivotX="0.59773" pivotY="0.99087" />
+        <Frame x="555" y="1063" width="202" height="202" pivotX="0.27475" pivotY="0.99010" />
+        <Frame x="813" y="1046" width="197" height="218" pivotX="0.35787" pivotY="0.99083" />
+      </Animation>
+      <Animation state="death" image="Images/merchant.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="1280" frameSeconds=".12" loop="false" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.3" drawHeight="1.3">
+        <Frame x="29" y="1290" width="197" height="223" pivotX="0.50000" pivotY="0.99103" />
+        <Frame x="269" y="1336" width="229" height="175" pivotX="0.55240" pivotY="0.98857" />
+        <Frame x="519" y="1381" width="245" height="126" pivotX="0.48367" pivotY="0.98413" />
+        <Frame x="774" y="1400" width="242" height="107" pivotX="0.53926" pivotY="0.98131" />
+      </Animation>
+    </Sprite>
+    <Sprite id="customer">
+      <Animation state="idle" image="Images/customer.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="0" frameSeconds=".3" loop="true" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.2" drawHeight="1.2">
+        <Frame x="61" y="30" width="171" height="237" pivotX="0.51754" pivotY="0.99156" />
+        <Frame x="302" y="29" width="171" height="238" pivotX="0.51754" pivotY="0.99160" />
+        <Frame x="550" y="29" width="170" height="238" pivotX="0.51471" pivotY="0.99160" />
+        <Frame x="797" y="30" width="171" height="237" pivotX="0.54678" pivotY="0.99156" />
+      </Animation>
+      <Animation state="move" image="Images/customer.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="256" frameSeconds=".12" loop="true" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.2" drawHeight="1.2">
+        <Frame x="60" y="290" width="171" height="233" pivotX="0.55848" pivotY="0.99142" />
+        <Frame x="310" y="289" width="157" height="234" pivotX="0.51911" pivotY="0.99145" />
+        <Frame x="560" y="289" width="154" height="234" pivotX="0.32143" pivotY="0.99145" />
+        <Frame x="809" y="289" width="159" height="234" pivotX="0.50629" pivotY="0.99145" />
+      </Animation>
+      <Animation state="work" image="Images/customer.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="512" frameSeconds=".12" loop="true" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.2" drawHeight="1.2">
+        <Frame x="56" y="544" width="154" height="231" pivotX="0.56818" pivotY="0.99134" />
+        <Frame x="308" y="545" width="162" height="230" pivotX="0.55864" pivotY="0.99130" />
+        <Frame x="554" y="544" width="181" height="231" pivotX="0.46685" pivotY="0.99134" />
+        <Frame x="812" y="545" width="147" height="230" pivotX="0.54762" pivotY="0.99130" />
+      </Animation>
+      <Animation state="attack" image="Images/customer.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="768" frameSeconds=".12" loop="false" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.2" drawHeight="1.2">
+        <Frame x="59" y="797" width="167" height="227" pivotX="0.70958" pivotY="0.99119" />
+        <Frame x="305" y="800" width="191" height="222" pivotX="0.50000" pivotY="0.99099" />
+        <Frame x="537" y="803" width="218" height="221" pivotX="0.49771" pivotY="0.99095" />
+        <Frame x="811" y="803" width="162" height="221" pivotX="0.59568" pivotY="0.99095" />
+      </Animation>
+      <Animation state="hit" image="Images/customer.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="1024" frameSeconds=".12" loop="false" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.2" drawHeight="1.2">
+        <Frame x="49" y="1050" width="187" height="226" pivotX="0.38235" pivotY="0.99115" />
+        <Frame x="286" y="1055" width="196" height="221" pivotX="0.51786" pivotY="0.99095" />
+        <Frame x="558" y="1056" width="162" height="221" pivotX="0.39815" pivotY="0.99095" />
+        <Frame x="808" y="1055" width="154" height="221" pivotX="0.33442" pivotY="0.99095" />
+      </Animation>
+      <Animation state="death" image="Images/customer.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="1280" frameSeconds=".12" loop="false" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.2" drawHeight="1.2">
+        <Frame x="58" y="1294" width="159" height="213" pivotX="0.37421" pivotY="0.99061" />
+        <Frame x="285" y="1329" width="200" height="175" pivotX="0.54250" pivotY="0.98857" />
+        <Frame x="513" y="1360" width="232" height="145" pivotX="0.55388" pivotY="0.98621" />
+        <Frame x="768" y="1395" width="223" height="107" pivotX="0.47758" pivotY="0.98131" />
+      </Animation>
+    </Sprite>
+  </Sprites>
+</GameContent>

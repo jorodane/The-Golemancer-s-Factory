@@ -13,7 +13,7 @@ public sealed class Record : IActionHandler
         {
             var recording = a.Recording; a.Recording = null;
             if (recording.Steps.Count == 0) return ActionResult.Success("빈 녹화는 저장하지 않았어.");
-            recording.Name = string.IsNullOrWhiteSpace(r.Option) ? $"{a.Name} · {recording.Steps.Count}단계" : r.Option[..Math.Min(40, r.Option.Length)];
+            recording.Name = string.IsNullOrWhiteSpace(r.Option) ? $"{a.Name} · {recording.Steps.Count}단계" : r.Option.Substring(0, Math.Min(40, r.Option.Length));
             c.State.Recordings[recording.Id] = recording; a.Data["lastRecording"] = recording.Id;
             c.State.Add("recordingsMade");
             return ActionResult.Success($"{recording.Steps.Count}단계의 행동을 저장했어.");
@@ -49,7 +49,7 @@ public sealed class Play : IActionHandler
 public sealed class Wait : IActionHandler
 {
     public CheckResult Check(IGameContext c, WorldObject a, ActionRequest r) => CheckResult.Yes;
-    public ActionResult Execute(IGameContext c, WorldObject a, ActionRequest r) { a.Set("waitUntil", c.State.Time + Math.Clamp(r.Quantity, 1, 60)); return ActionResult.Success(); }
+    public ActionResult Execute(IGameContext c, WorldObject a, ActionRequest r) { a.Set("waitUntil", c.State.Time + Math.Max(1, Math.Min(r.Quantity, 60))); return ActionResult.Success(); }
 }
 public sealed class Executor : IRuntimeSystem
 {

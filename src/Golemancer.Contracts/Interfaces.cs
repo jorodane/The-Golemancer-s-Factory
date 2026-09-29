@@ -44,6 +44,8 @@ public interface IGameContext
 
 public static class Rules
 {
+    public static void Animate(this IGameContext c, WorldObject o, string state, double seconds = .48)
+    { o.Data["visualState"] = state; o.Set("visualStarted", c.State.Time); o.Set("visualUntil", c.State.Time + seconds); }
     public static string Kind(this IGameContext c, WorldObject o) => c.Definition(o)?.Kind ?? "missing";
     public static bool Is(this IGameContext c, WorldObject o, string kind) => c.Kind(o) == kind;
     public static bool Alive(this WorldObject o) => o.Get("dead") == 0;

@@ -1,7 +1,7 @@
 <ObjectPack id="tea_break" version="1.0.0" contracts="1">
   <Depends id="foundation" minVersion="1.0.0" />
   <Depends id="feast_trail" minVersion="1.0.0" />
-  <Assembly path="Bin/TeaBreak.dll" />
+  <Assembly path="Bin/{framework}/TeaBreak.dll" />
   <Data path="objects.xml" />
   <Data path="localization_ko-KR.xml" />
 </ObjectPack>

@@ -34,7 +34,7 @@ public sealed class Simulation : IGameContext
     public bool Walkable(int x, int y, string? ignoreId = null)
     {
         string tile = State.Map.At(x, y);
-        if (tile is "water" or "rock" or "void" or "wall") return false;
+        if (!Content.Tilesets.TryGetValue(State.Map.TilesetId, out var tileset) || !tileset.Tiles.TryGetValue(tile, out var tileDef) || !tileDef.Walkable) return false;
         foreach (var obj in State.Objects.Values)
         {
             if (obj.Id == ignoreId || !obj.Alive() || obj.Get("depleted") > 0) continue;
@@ -52,8 +52,9 @@ public sealed class Simulation : IGameContext
         var origin = actor.Tile;
         queue.Enqueue(origin); previous[origin] = origin;
         Tile? found = null;
-        while (queue.TryDequeue(out var current))
+        while (queue.Count > 0)
         {
+            var current = queue.Dequeue();
             if (current.Distance(destination) <= range && (range > 0 || Walkable(current.X, current.Y, actor.Id))) { found = current; break; }
             foreach (var next in new[] { new Tile(current.X + 1, current.Y), new Tile(current.X - 1, current.Y), new Tile(current.X, current.Y + 1), new Tile(current.X, current.Y - 1) })
             {
@@ -132,6 +133,7 @@ public sealed class Simulation : IGameContext
         try { result = handler.Execute(this, actor, request); }
         catch (Exception ex) { result = ActionResult.Fail($"객체 실행 오류: {ex.Message}", "module_error"); }
         if (!result.Ok) return FinishFailure(actor, request, result, playback);
+        if (request.Action is "transfer" or "pickup" or "buy" or "consume" or "charge") this.Animate(actor, "work");
         if (!string.IsNullOrEmpty(result.Message)) Notice(result.Message);
         if (result.Status == ActionStatus.Success && playback && actor.Path.Count == 0) CompletePlaybackStep(actor, result, request);
         return result;
@@ -190,7 +192,7 @@ public sealed class Simulation : IGameContext
                     var next = actor.Path[0];
                     if (!Walkable(next.X, next.Y, actor.Id))
                     {
-                        var end = actor.Path[^1];
+                        var end = actor.Path[actor.Path.Count - 1];
                         if (!Navigate(actor, end)) actor.Set("moveProgress", 0);
                         continue;
                     }
@@ -201,7 +203,7 @@ public sealed class Simulation : IGameContext
                         if (blocker.Path.Count > 0 && blocker.Path[0] == actor.Tile && string.CompareOrdinal(actor.Id, blocker.Id) < 0)
                         {
                             var side = new[] { new Tile(actor.X, actor.Y + 1), new Tile(actor.X, actor.Y - 1), new Tile(actor.X + 1, actor.Y), new Tile(actor.X - 1, actor.Y) }.FirstOrDefault(p => Walkable(p.X, p.Y, actor.Id) && !this.OfKind("golem").Any(o => o.Tile == p));
-                            if (side != default) { var destination = actor.Path[^1]; actor.X = side.X; actor.Y = side.Y; Navigate(actor, destination); }
+                            if (side != default) { var destination = actor.Path[actor.Path.Count - 1]; actor.X = side.X; actor.Y = side.Y; Navigate(actor, destination); }
                         }
                         actor.Set("moveProgress", 0); continue;
                     }
@@ -255,8 +257,8 @@ public sealed class Simulation : IGameContext
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
         string temporary = path + ".tmp";
         File.WriteAllText(temporary, JsonSerializer.Serialize(State, Json));
-        if (File.Exists(path)) File.Copy(path, path + ".bak", true);
-        File.Move(temporary, path, true);
+        if (File.Exists(path)) File.Replace(temporary, path, path + ".bak");
+        else File.Move(temporary, path);
     }
     public static GameState ReadSave(string path)
     {

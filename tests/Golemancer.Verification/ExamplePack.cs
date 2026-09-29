@@ -1,6 +1,5 @@
 using Golemancer.Contracts;
 using Golemancer.Engine;
-using System.Runtime.Loader;
 
 internal static class ExamplePack
 {
@@ -11,7 +10,7 @@ internal static class ExamplePack
         Copy(Path.Combine(root, "Content", "Packs"), directory);
         Copy(Path.Combine(root, "examples", "TeaBreak", "Pack"), Path.Combine(directory, "99.TeaBreak"));
         var game = PackLoader.Cook(directory);
-        if (!game.Registry.Actions.TryGetValue("tea.rest", out var action) || AssemblyLoadContext.GetLoadContext(action.GetType().Assembly) == AssemblyLoadContext.Default) throw new Exception("Independent DLL was not loaded at runtime");
+        if (!game.Registry.Actions.TryGetValue("tea.rest", out var action) || !PackLoader.IsExternalModule(action.GetType().Assembly)) throw new Exception("Independent DLL was not loaded at runtime");
         if (game.Content.Objects["tea.table"].Name != "작은 찻상" || game.Content.Actions["tea.rest"].Name != "조용한 티타임") throw new Exception("XML localization references failed");
         var s = new Simulation(game); var crafter = s.Spawn("craft_golem", 7, 25); crafter.Inventory["wood"] = 4;
         var build = s.Dispatch(new() { Action = "build", ActorId = crafter.Id, Item = "tea.table", X = 8, Y = 25 });
@@ -27,6 +26,6 @@ internal static class ExamplePack
     private static void Copy(string source, string destination)
     {
         foreach (string file in Directory.GetFiles(source, "*", SearchOption.AllDirectories))
-        { string target = Path.Combine(destination, Path.GetRelativePath(source, file)); Directory.CreateDirectory(Path.GetDirectoryName(target)!); File.Copy(file, target, true); }
+        { string target = Path.Combine(destination, file.Substring(source.TrimEnd(Path.DirectorySeparatorChar).Length + 1)); Directory.CreateDirectory(Path.GetDirectoryName(target)!); File.Copy(file, target, true); }
     }
 }

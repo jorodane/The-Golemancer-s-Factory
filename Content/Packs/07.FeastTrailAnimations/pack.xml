@@ -1,0 +1,2 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ObjectPack id="feast_trail_animations" version="1.0.0" contracts="1"><Depends id="feast_trail_art" minVersion="1.0.0" /><Data path="animations.xml" /></ObjectPack>

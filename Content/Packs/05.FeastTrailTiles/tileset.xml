@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<GameContent version="1.0">
+  <Tilesets>
+    <Tileset id="feast_trail">
+      <Tile id="grass" image="Images/grass.svg" walkable="true" />
+      <Tile id="path" image="Images/path.svg" walkable="true" />
+      <Tile id="floor" image="Images/floor.svg" walkable="true" />
+      <Tile id="water" image="Images/water.svg" walkable="false" />
+      <Tile id="rock" image="Images/rock.svg" walkable="false" />
+      <Tile id="shore" image="Images/shore.svg" walkable="true" />
+      <Tile id="cave" image="Images/cave.svg" walkable="true" />
+    </Tileset>
+  </Tilesets>
+</GameContent>

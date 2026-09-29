@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <GameContent version="1.0" balance="first-playable">
   <Maps>
-    <Map id="feast_trail" width="64" height="40">
+    <Map id="feast_trail" tileset="feast_trail" width="64" height="40">
       <Legend>
         <Tile char="g" type="grass" />
         <Tile char="p" type="path" />

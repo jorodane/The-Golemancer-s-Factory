@@ -1,6 +1,6 @@
 <?xml version='1.0' encoding='utf-8'?>
 <ObjectPack id="commerce" version="1.0.0" contracts="1">
   <Depends id="foundation" minVersion="1.0.0" />
-  <Assembly path="Bin/Golemancer.Commerce.dll" />
+  <Assembly path="Bin/{framework}/Golemancer.Commerce.dll" />
   <Data path="actions.xml" />
 </ObjectPack>

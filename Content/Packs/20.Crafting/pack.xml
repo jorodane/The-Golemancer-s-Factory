@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <ObjectPack id="crafting" version="1.0.0" contracts="1">
   <Depends id="foundation" minVersion="1.0.0" />
-  <Assembly path="Bin/Golemancer.Crafting.dll" />
+  <Assembly path="Bin/{framework}/Golemancer.Crafting.dll" />
   <Data path="actions.xml" />
   <Data path="recipes.xml" />
 </ObjectPack>

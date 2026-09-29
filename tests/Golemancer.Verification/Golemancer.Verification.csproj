@@ -1,1 +1,1 @@
-<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType></PropertyGroup><ItemGroup><ProjectReference Include="../../src/Golemancer.Engine/Golemancer.Engine.csproj" /></ItemGroup></Project>
+<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType></PropertyGroup><ItemGroup><ProjectReference Include="../../src/Golemancer.Engine/Golemancer.Engine.csproj" /><Compile Include="../../src/Golemancer.Host/DesktopSession.cs" Link="DesktopSession.cs" /></ItemGroup></Project>

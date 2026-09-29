@@ -1,3 +1,14 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
-  <ItemGroup><ProjectReference Include="../Golemancer.Engine/Golemancer.Engine.csproj" /></ItemGroup>
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <OutputType>WinExe</OutputType>
+    <AssemblyName>Golemancer</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <StartupObject>Golemancer.Desktop.Program</StartupObject>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Golemancer.Engine/Golemancer.Engine.csproj" />
+    <Reference Include="WindowsBase" /><Reference Include="PresentationCore" />
+    <Reference Include="PresentationFramework" /><Reference Include="System.Xaml" />
+  </ItemGroup>
 </Project>

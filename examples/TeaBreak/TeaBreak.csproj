@@ -4,7 +4,8 @@
     <ProjectReference Include="../../src/Golemancer.Contracts/Golemancer.Contracts.csproj"><Private>false</Private><ExcludeAssets>runtime</ExcludeAssets></ProjectReference>
   </ItemGroup>
   <Target Name="StageExample" AfterTargets="Build">
-    <MakeDir Directories="$(MSBuildProjectDirectory)/Pack/Bin" />
-    <Copy SourceFiles="$(TargetPath);$(TargetDir)$(AssemblyName).deps.json" DestinationFolder="$(MSBuildProjectDirectory)/Pack/Bin" />
+    <MakeDir Directories="$(MSBuildProjectDirectory)/Pack/Bin/$(TargetFramework)" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(MSBuildProjectDirectory)/Pack/Bin/$(TargetFramework)" />
+    <Copy Condition="Exists('$(TargetDir)$(AssemblyName).deps.json')" SourceFiles="$(TargetDir)$(AssemblyName).deps.json" DestinationFolder="$(MSBuildProjectDirectory)/Pack/Bin/$(TargetFramework)" />
   </Target>
 </Project>

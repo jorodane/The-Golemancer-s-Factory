@@ -4,7 +4,9 @@
 - Object packs contain independently compiled implementations, XML settings/localization and optional art. Actions, conditions and failure handlers are objects too.
 - Contracts specify semantics, ownership and partial effects. Keep module implementations local and depend on shared contracts, not other modules' concrete types.
 - Map, movement destinations, construction footprints and save data use integer tiles.
-- Vector graphics. Art assets are delivered in a separate ZIP for the owner to upload. Do not commit generated image assets. Procedural vector rendering keeps the game usable before asset import.
+- Native Windows WPF application targeting .NET Framework 4.8. No browser host. Portable net10.0 is for shared-engine verification only.
+- Actual external SVG/PNG images are required. Tilesets are independent object packs. Deliver images in a separate ZIP; do not commit generated image assets. Never synthesize replacement tile or character artwork in the renderer.
+- Characters use animation sheets with per-animation offsets and frame metadata. Do not animate a static character by bobbing its whole image. Display offsets never change integer simulation coordinates or collision footprints.
 - Enrin MUST retain her emerald bracelet, head-mounted calculating mini golem and its chalkboard. Quest portraits include all three; the chalkboard draws emotion faces.
 - Chapter 1 ends after the Springwater King, mining core, colourless mana crystals, mana tower, recorded automation, mini-golem logistics and opening the cave.
 - Regular cores come from merchant/events/bosses and are recovered immediately on destruction. Only mini cores are craftable. Mini golems are controllable/recordable and have one inventory slot.

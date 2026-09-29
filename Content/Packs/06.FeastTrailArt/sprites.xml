@@ -1,0 +1,179 @@
+<?xml version='1.0' encoding='utf-8'?>
+<GameContent version="1.0">
+  <Sprites>
+    <Sprite id="harvest_golem">
+      <Animation state="idle" image="Images/Actors/harvest_golem.svg" drawWidth="1.16" drawHeight="1.25" />
+    </Sprite>
+    <Sprite id="craft_golem">
+      <Animation state="idle" image="Images/Actors/craft_golem.svg" drawWidth="1.16" drawHeight="1.25" />
+    </Sprite>
+    <Sprite id="combat_golem">
+      <Animation state="idle" image="Images/Actors/combat_golem.svg" drawWidth="1.16" drawHeight="1.25" />
+    </Sprite>
+    <Sprite id="mining_golem">
+      <Animation state="idle" image="Images/Actors/mining_golem.svg" drawWidth="1.16" drawHeight="1.25" />
+    </Sprite>
+    <Sprite id="mini_golem">
+      <Animation state="idle" image="Images/Actors/mini_golem.svg" drawWidth="1.16" drawHeight="1.25" />
+    </Sprite>
+    <Sprite id="common_herb_patch">
+      <Animation state="idle" image="Images/Resources/common_herb_patch.svg" drawWidth="1.16" drawHeight="1.25" />
+    </Sprite>
+    <Sprite id="newflesh_herb_patch">
+      <Animation state="idle" image="Images/Resources/newflesh_herb_patch.svg" drawWidth="1.16" drawHeight="1.25" />
+    </Sprite>
+    <Sprite id="spark_herb_patch">
+      <Animation state="idle" image="Images/Resources/spark_herb_patch.svg" drawWidth="1.16" drawHeight="1.25" />
+    </Sprite>
+    <Sprite id="upright_tree">
+      <Animation state="idle" image="Images/Resources/upright_tree.svg" drawWidth="1.8" drawHeight="2.3" />
+    </Sprite>
+    <Sprite id="sweetfruit_tree">
+      <Animation state="idle" image="Images/Resources/sweetfruit_tree.svg" drawWidth="1.8" drawHeight="2.3" />
+    </Sprite>
+    <Sprite id="enrin">
+      <Animation state="idle" image="Images/Actors/enrin.svg" drawWidth="1.16" drawHeight="1.25" />
+    </Sprite>
+    <Sprite id="display_shelf">
+      <Animation state="idle" image="Images/Facilities/display_shelf.svg" drawWidth="2.32" drawHeight="2.16" />
+    </Sprite>
+    <Sprite id="fine_shelf">
+      <Animation state="idle" image="Images/Facilities/fine_shelf.svg" drawWidth="2.32" drawHeight="2.16" />
+    </Sprite>
+    <Sprite id="storage">
+      <Animation state="idle" image="Images/Facilities/storage.svg" drawWidth="1.16" drawHeight="1.25" />
+    </Sprite>
+    <Sprite id="workbench">
+      <Animation state="idle" image="Images/Facilities/workbench.svg" drawWidth="2.32" drawHeight="2.16" />
+    </Sprite>
+    <Sprite id="herb_fumigator">
+      <Animation state="idle" image="Images/Facilities/herb_fumigator.svg" drawWidth="2.32" drawHeight="2.5" />
+    </Sprite>
+    <Sprite id="mana_tower">
+      <Animation state="idle" image="Images/Facilities/mana_tower.svg" drawWidth="2.32" drawHeight="2.5" />
+    </Sprite>
+    <Sprite id="mana_deposit">
+      <Animation state="idle" image="Images/Resources/mana_deposit.svg" drawWidth="1.16" drawHeight="1.25" />
+    </Sprite>
+    <Sprite id="order_board">
+      <Animation state="idle" image="Images/Facilities/order_board.svg" drawWidth="1.16" drawHeight="1.25" />
+    </Sprite>
+    <Sprite id="signpost">
+      <Animation state="idle" image="Images/World/signpost.svg" drawWidth="1.16" drawHeight="1.25" />
+    </Sprite>
+    <Sprite id="lake_shrine">
+      <Animation state="idle" image="Images/World/lake_shrine.svg" drawWidth="1.16" drawHeight="1.25" />
+    </Sprite>
+    <Sprite id="cave_gate">
+      <Animation state="idle" image="Images/World/cave_gate.svg" drawWidth="3.48" drawHeight="3.24" />
+    </Sprite>
+    <Sprite id="dropped_items">
+      <Animation state="idle" image="Images/World/dropped_items.svg" drawWidth="1.16" drawHeight="1.25" />
+    </Sprite>
+    <Sprite id="springwater_pouch">
+      <Animation state="idle" image="Images/Enemies/springwater_pouch.svg" drawWidth="1.16" drawHeight="1.25" />
+    </Sprite>
+    <Sprite id="icewater_pouch">
+      <Animation state="idle" image="Images/Enemies/icewater_pouch.svg" drawWidth="1.16" drawHeight="1.25" />
+    </Sprite>
+    <Sprite id="springwater_king">
+      <Animation state="idle" image="Images/Enemies/springwater_king.svg" drawWidth="3.48" drawHeight="3.75" />
+    </Sprite>
+    <Sprite id="stone_fist">
+      <Animation state="idle" image="Images/Enemies/stone_fist.svg" drawWidth="2.32" drawHeight="2.5" />
+    </Sprite>
+    <Sprite id="merchant">
+      <Animation state="idle" image="Images/Actors/merchant.svg" drawWidth="1.16" drawHeight="1.25" />
+    </Sprite>
+    <Sprite id="customer">
+      <Animation state="idle" image="Images/Actors/customer.svg" drawWidth="1.16" drawHeight="1.25" />
+    </Sprite>
+    <Sprite id="item.common_herb">
+      <Animation state="idle" image="Images/Icons/common_herb.svg" />
+    </Sprite>
+    <Sprite id="item.newflesh_herb">
+      <Animation state="idle" image="Images/Icons/newflesh_herb.svg" />
+    </Sprite>
+    <Sprite id="item.spark_herb">
+      <Animation state="idle" image="Images/Icons/spark_herb.svg" />
+    </Sprite>
+    <Sprite id="item.wood">
+      <Animation state="idle" image="Images/Icons/wood.svg" />
+    </Sprite>
+    <Sprite id="item.sweetfruit">
+      <Animation state="idle" image="Images/Icons/sweetfruit.svg" />
+    </Sprite>
+    <Sprite id="item.springwater_drop">
+      <Animation state="idle" image="Images/Icons/springwater_drop.svg" />
+    </Sprite>
+    <Sprite id="item.springwater_jelly">
+      <Animation state="idle" image="Images/Icons/springwater_jelly.svg" />
+    </Sprite>
+    <Sprite id="item.healing_jelly">
+      <Animation state="idle" image="Images/Icons/healing_jelly.svg" />
+    </Sprite>
+    <Sprite id="item.mana_jelly">
+      <Animation state="idle" image="Images/Icons/mana_jelly.svg" />
+    </Sprite>
+    <Sprite id="item.mana_crystal">
+      <Animation state="idle" image="Images/Icons/mana_crystal.svg" />
+    </Sprite>
+    <Sprite id="item.wooden_sword">
+      <Animation state="idle" image="Images/Icons/wooden_sword.svg" />
+    </Sprite>
+    <Sprite id="item.wooden_club">
+      <Animation state="idle" image="Images/Icons/wooden_club.svg" />
+    </Sprite>
+    <Sprite id="item.wooden_shield">
+      <Animation state="idle" image="Images/Icons/wooden_shield.svg" />
+    </Sprite>
+    <Sprite id="item.harvest_core">
+      <Animation state="idle" image="Images/Icons/harvest_core.svg" />
+    </Sprite>
+    <Sprite id="item.craft_core">
+      <Animation state="idle" image="Images/Icons/craft_core.svg" />
+    </Sprite>
+    <Sprite id="item.combat_core">
+      <Animation state="idle" image="Images/Icons/combat_core.svg" />
+    </Sprite>
+    <Sprite id="item.mining_core">
+      <Animation state="idle" image="Images/Icons/mining_core.svg" />
+    </Sprite>
+    <Sprite id="item.mini_core">
+      <Animation state="idle" image="Images/Icons/mini_core.svg" />
+    </Sprite>
+    <Sprite id="item.jelly_book">
+      <Animation state="idle" image="Images/Icons/jelly_book.svg" />
+    </Sprite>
+    <Sprite id="item.mana_book">
+      <Animation state="idle" image="Images/Icons/mana_book.svg" />
+    </Sprite>
+    <Sprite id="item.king_token">
+      <Animation state="idle" image="Images/Icons/king_token.svg" />
+    </Sprite>
+    <Sprite id="portrait.sleepy">
+      <Animation state="idle" image="Images/Portraits/enrin_sleepy.svg" />
+    </Sprite>
+    <Sprite id="portrait.tired">
+      <Animation state="idle" image="Images/Portraits/enrin_tired.svg" />
+    </Sprite>
+    <Sprite id="portrait.neutral">
+      <Animation state="idle" image="Images/Portraits/enrin_neutral.svg" />
+    </Sprite>
+    <Sprite id="portrait.happy">
+      <Animation state="idle" image="Images/Portraits/enrin_happy.svg" />
+    </Sprite>
+    <Sprite id="portrait.smile">
+      <Animation state="idle" image="Images/Portraits/enrin_smile.svg" />
+    </Sprite>
+    <Sprite id="portrait.worried">
+      <Animation state="idle" image="Images/Portraits/enrin_worried.svg" />
+    </Sprite>
+    <Sprite id="portrait.surprised">
+      <Animation state="idle" image="Images/Portraits/enrin_surprised.svg" />
+    </Sprite>
+    <Sprite id="portrait.curious">
+      <Animation state="idle" image="Images/Portraits/enrin_curious.svg" />
+    </Sprite>
+  </Sprites>
+</GameContent>

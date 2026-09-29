@@ -1,10 +1,10 @@
 # Object pack contract, v1
 
-`Golemancer.Contracts.dll` is the shared type identity. The host and modules share exactly this assembly. The host references Contracts and Engine only. Pack assemblies are discovered at runtime through `pack.xml` and loaded in separate `AssemblyLoadContext`s. Each DLL supplies `IGameModule.Register` and registers independent action, condition, failure, system or world objects.
+`Golemancer.Contracts.dll` is the shared type identity. The host and modules share exactly this assembly. The host references Contracts and Engine only. Pack assemblies are discovered at runtime through `pack.xml` and loaded with `Assembly.LoadFrom` on .NET Framework 4.8. Portable net10.0 engine verification uses separate `AssemblyLoadContext`s. Each DLL supplies `IGameModule.Register` and registers independent action, condition, failure, system or world objects.
 
 ## Lifecycle and ownership
 
-Registration -> XML definition load -> reference validation -> deterministic cook fingerprint -> world creation or save restoration -> fixed simulation steps. The host owns the single simulation thread and persistence. Modules operate only during calls through `IGameContext`. No module retains the context on background threads. The browser sends intent; server state is authoritative.
+Registration -> XML definition load -> reference validation -> deterministic cook fingerprint -> world creation or save restoration -> fixed simulation steps. The host owns the single simulation thread and persistence. Modules operate only during calls through `IGameContext`. No module retains the context on background threads. The WPF dispatcher sends intent directly to the authoritative simulation at fixed 0.05-second steps. No HTTP transport is involved.
 
 Definition IDs are stable content identities. WorldObject.Id is a persistent instance identity. Pack ID is a distribution identity. Multiple definitions, instances and implementation DLLs may belong to a pack. Constructors do not mutate the world. `IWorldGenerator.Populate` creates the initial instances.
 
@@ -22,7 +22,7 @@ Conditions are independently registered objects. AND/OR recursively call the reg
 
 ## Pack and save compatibility
 
-The cooker topologically sorts declared dependencies and validates minimum versions and contract major version. A missing dependency or invalid pack stops cooking with a precise diagnostic. An unresolved individual action is disabled with a warning. Later data definitions with the same ID override earlier definitions in deterministic pack order. XML never loads DTDs or external entities; pack paths remain inside the pack directory.
+The cooker topologically sorts declared dependencies and validates minimum versions and contract major version. A missing dependency or invalid pack stops cooking with a precise diagnostic. An unresolved individual action is disabled with a warning. Later data definitions with the same ID override earlier definitions in deterministic pack order. Tilesets merge by tile ID, and sprites merge by animation state; one matching tile or animation is replaced as a whole. Visual offsets never alter simulation tile coordinates. XML never loads DTDs or external entities; pack paths remain inside the pack directory.
 
 Unknown object definitions remain serialized. Unknown per-object values/data/inventory and JSON extension fields are retained. Pack removal does not erase inventory, recordings or entity state. Save writes use a temporary file and replacement, retaining the previous file as `.bak`. Mid-work and queued production state are saved; committed ingredients are not paid twice on reload.
 
@@ -32,4 +32,4 @@ DLL modules are executable code and run with the game's local permissions. Only 
 
 Each module can be built from its csproj and shared Contracts. Read its implementation, pack XML and only the relevant contract types. Concrete module types never appear in another module's references. `tools/context.py` will expose pack dependencies and module-scoped source lists. Changes to Contracts require verification of all modules; changes to a pack require its focused checks plus the campaign regression when behavior affects progression.
 
-Loader reference: https://learn.microsoft.com/en-us/dotnet/core/tutorials/creating-app-with-plugin-support
+Framework modules share one AppDomain and must use unique assembly identities. They cannot be individually unloaded, and runtime hot reload is not implemented. Image pack metadata and animation coordinates are documented in ART_PACKS.md.

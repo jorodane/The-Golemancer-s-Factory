@@ -1,9 +1,3 @@
 #!/usr/bin/env bash
-set -euo pipefail
-cd "$(dirname "$0")"
-if ! command -v dotnet >/dev/null 2>&1; then
-  echo 'Install the .NET 10 SDK: https://dotnet.microsoft.com/download/dotnet/10.0'
-  exit 1
-fi
-dotnet build GolemancerFactory.sln -c Release -m:1 --disable-build-servers --nologo -v:minimal
-exec dotnet src/Golemancer.Host/bin/Release/net10.0/Golemancer.Host.dll --open
+printf '%s\n' 'The game is now a Windows .NET Framework 4.8 WPF application.' 'Run Start.bat on Windows, or Golemancer.exe from the packaged build.' 'For headless simulation verification on this system, run bash verify.sh.'
+exit 1

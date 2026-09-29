@@ -14,6 +14,7 @@ public static class Battle
     public static bool Enemy(IGameContext c, WorldObject o) => c.Kind(o) is "monster" or "boss" or "boss_part";
     public static void Hit(IGameContext c, WorldObject a, WorldObject t, string option = "")
     {
+        c.Animate(a, "attack"); c.Animate(t, "hit");
         string weapon = a.GetText("weapon");
         if (a.Count(weapon) == 0) weapon = "";
         string type = option == "crush" || weapon == "wooden_club" || weapon == "" ? "crush" : "slash";
@@ -26,9 +27,10 @@ public static class Battle
     }
     public static void Damage(IGameContext c, WorldObject actor, double amount, WorldObject source, bool push = false)
     {
+        c.Animate(source, "attack");
         if (actor.Get("invulnerableUntil") > c.State.Time) { c.Effect("dodge", actor.X, actor.Y, "회피"); return; }
         if (actor.GetText("shield") == "wooden_shield" && actor.Count("wooden_shield") > 0) amount *= .7;
-        amount = Math.Max(1, amount - actor.Get("armor")); actor.Set("health", actor.Get("health") - amount); actor.Set("lastDamage", c.State.Time); actor.Data["attacker"] = source.Id;
+        amount = Math.Max(1, amount - actor.Get("armor")); actor.Set("health", actor.Get("health") - amount); actor.Set("lastDamage", c.State.Time); actor.Data["attacker"] = source.Id; c.Animate(actor, "hit");
         actor.Set("defendX", actor.X); actor.Set("defendY", actor.Y);
         c.Effect("damage", actor.X, actor.Y, $"−{amount:0}");
         if (push)
@@ -91,7 +93,7 @@ public sealed class Guard : IActionHandler
     public CheckResult Check(IGameContext c, WorldObject a, ActionRequest r) => c.Capability(a, "combat") ? CheckResult.Yes : CheckResult.No("전투 능력이 없는 골렘이야.", "capability");
     public ActionResult Execute(IGameContext c, WorldObject a, ActionRequest r)
     {
-        a.Set("guardX", a.X); a.Set("guardY", a.Y); a.Set("guardUntil", c.State.Time + Math.Clamp(r.Quantity, 1, 120)); a.Set("waitUntil", c.State.Time + Math.Clamp(r.Quantity, 1, 120));
+        a.Set("guardX", a.X); a.Set("guardY", a.Y); a.Set("guardUntil", c.State.Time + Math.Max(1, Math.Min(r.Quantity, 120))); a.Set("waitUntil", c.State.Time + Math.Max(1, Math.Min(r.Quantity, 120)));
         return ActionResult.Success($"이 지역을 {r.Quantity}초 동안 경호해.");
     }
 }
@@ -207,6 +209,7 @@ public sealed class Encounters : IRuntimeSystem
                 bool hit = pattern == 0 ? Math.Abs(g.X - center.X) <= 1 && Math.Abs(g.Y - center.Y) <= 1 : pattern == 1 ? Math.Abs(g.Y - center.Y) <= 1 && Math.Abs(g.X - center.X) <= 5 : g.Tile.Distance(boss.Tile) <= 7;
                 if (hit) Battle.Damage(c, g, pattern == 0 ? 22 : 14, boss, pattern > 0);
             }
+            c.Animate(boss, "attack"); foreach (var hand in c.OfKind("boss_part")) c.Animate(hand, "attack");
             c.Effect("wave", center.X, center.Y, "", .7); boss.Set("attackDue", 0); boss.Set("nextAttack", c.State.Time + 2.2); return;
         }
         foreach (var hand in c.State.Objects.Values.Where(h => c.Is(h, "boss_part") && !h.Alive() && c.State.Time >= h.Get("regrowAt")))
