@@ -25,6 +25,7 @@ public sealed class Produce : IActionHandler
         if (!c.Capability(a, "craft")) return CheckResult.No("제작 골렘이 필요해.", "capability");
         var t = c.Target(r);
         if (t is null || !c.Is(t, "facility")) return CheckResult.No("제작 시설을 찾지 못했어.", "target_missing");
+        if (c.Setting(t, "autoProduce") == "true") return CheckResult.No("투입칸에 재료와 연료를 넣으면 자동으로 작동해.", "automatic");
         if (!c.Content.Recipes.TryGetValue(r.Item, out var recipe) || recipe.Facility != t.DefinitionId) return CheckResult.No("이 시설에서 사용할 수 없는 레시피야.", "recipe_missing");
         if (recipe.Unlock != "" && !c.State.Flags.Contains(recipe.Unlock)) return CheckResult.No("먼저 레시피북을 읽어야 해.", "locked");
         int n = Count(Source(a, t), t, recipe, r);
@@ -60,28 +61,48 @@ public sealed class Production : IRuntimeSystem
     {
         foreach (var f in c.OfKind("facility"))
         {
+            if (f.Production.Count == 0 && c.Setting(f, "autoProduce") == "true") StartAutomatic(c, f);
             if (f.Production.Count == 0) continue;
             var job = f.Production[0];
             if (!c.Content.Recipes.TryGetValue(job.RecipeId, out var recipe)) { f.Data["status"] = "레시피 팩을 기다리는 중"; continue; }
+            if (!job.IngredientsCommitted)
+            {
+                if (!f.Has(recipe.Inputs)) { f.Data["status"] = "재료 대기"; continue; }
+                f.Pay(recipe.Inputs); job.IngredientsCommitted = true;
+            }
             if (job.Progress >= recipe.Work)
             {
-                if (c.Room(f, recipe.Output) < recipe.Amount) { f.Data["status"] = "완성품 공간 대기"; continue; }
-                c.Give(f, recipe.Output, recipe.Amount); c.State.Add("crafted." + recipe.Output, recipe.Amount);
+                if (c.OutputRoom(f, recipe.Output) < recipe.Amount) { f.Data["status"] = "완성품 공간 대기"; continue; }
+                c.GiveOutput(f, recipe.Output, recipe.Amount); c.State.Add("crafted." + recipe.Output, recipe.Amount);
                 f.Production.RemoveAt(0); c.Effect("craft", f.X, f.Y, "+" + c.ItemName(recipe.Output)); f.Data["status"] = "생산 완료";
                 continue;
             }
             string source = f.GetText("workSource", "heat");
             if (source == "heat" && f.Get("heat") <= 0)
             {
-                if (f.Count("wood") == 0) { f.Data["status"] = "목재 연료 대기"; continue; }
-                f.Take("wood", 1); f.Set("heat", f.Get("heat") + f.Get("fuelWork", 100));
+                if (f.Inventory.GetValueOrDefault("wood") == 0) { f.Data["status"] = "목재 연료 대기"; continue; }
+                f.Pay(new Dictionary<string, int> { ["wood"] = 1 }); f.Set("heat", f.Get("heat") + f.Get("fuelWork", 100));
             }
-            double supplied = Math.Min(f.Get("heat", double.MaxValue), dt * f.Get("workRate", 5));
             double efficiency = recipe.Efficiencies.GetValueOrDefault(source, recipe.DefaultEfficiency);
             if (efficiency <= 0) { f.Data["status"] = "호환되는 작업원이 필요해"; continue; }
+            double supplied = Math.Min((recipe.Work - job.Progress) / efficiency, Math.Min(f.Get("heat", double.MaxValue), dt * f.Get("workRate", 5)));
             if (source == "heat") f.Set("heat", Math.Max(0, f.Get("heat") - supplied));
             job.Progress = Math.Min(recipe.Work, job.Progress + supplied * efficiency);
             f.Data["status"] = "훈증 중";
         }
+    }
+    private static void StartAutomatic(IGameContext c, WorldObject f)
+    {
+        var slots = c.Definition(f)?.InputSlots ?? [];
+        if (slots.Any(slot => f.Inventory.Count(k => k.Value > 0 && c.InputSlot(f, k.Key)?.Id == slot.Id) > 1))
+        { f.Data["status"] = "같은 투입칸의 기존 재료를 정리해줘"; return; }
+        var recipe = c.Content.Recipes.Values.FirstOrDefault(r => r.Facility == f.DefinitionId && (r.Unlock.Length == 0 || c.State.Flags.Contains(r.Unlock)) && f.Has(r.Inputs));
+        if (recipe is null) { f.Data["status"] = "약초·액체 조합 / 레시피 대기"; return; }
+        if (f.GetText("workSource", "heat") == "heat" && f.Inventory.GetValueOrDefault("wood") == 0 && f.Get("heat") <= 0)
+        { f.Data["status"] = "연료 대기"; return; }
+        if (c.OutputRoom(f, recipe.Output) < recipe.Amount) { f.Data["status"] = "완성품 공간 대기"; return; }
+        f.Pay(recipe.Inputs);
+        f.Production.Add(new() { RecipeId = recipe.Id, IngredientsCommitted = true });
+        f.Data["status"] = recipe.Name + " 생산 중";
     }
 }

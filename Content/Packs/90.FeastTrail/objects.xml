@@ -100,7 +100,7 @@
       </Placement>
       <Data key="shopOnly" value="true" />
     </Object>
-    <Object id="herb_fumigator" name="약초 훈증기" kind="facility" width="2" height="2" solid="true" slots="14" actions="transfer,craft,dismantle">
+    <Object id="herb_fumigator" name="약초 훈증기" kind="facility" width="2" height="2" solid="true" slots="14" actions="transfer,dismantle">
       <Value key="fuelWork" value="100" />
       <Value key="workRate" value="5" />
       <Data key="buildable" value="true" />
@@ -113,6 +113,13 @@
           <Ground />
         </And>
       </Placement>
+      <Data key="autoProduce" value="true" />
+      <Data key="preferredCategories" value="fuel,herb,liquid,jelly" />
+      <InputSlots outputSlots="3">
+        <Slot id="fuel" name="연료" items="wood" capacity="50" />
+        <Slot id="herb" name="약초" tags="herb" capacity="50" />
+        <Slot id="liquid" name="액체" tags="liquid" capacity="50" />
+      </InputSlots>
     </Object>
     <Object id="mana_tower" name="마나 수정탑" kind="facility" width="2" height="2" solid="true" slots="8" actions="fuel_tower,charge">
       <Value key="reserve" value="0" />

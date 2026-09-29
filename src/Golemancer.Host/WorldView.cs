@@ -121,6 +121,34 @@ internal sealed class WorldView : FrameworkElement
         }
         else if(IsMouseOver&&session.Started) dc.DrawRectangle(null,new Pen(SvgImage.Brush("#fff3cb90"),1),new Rect(Screen(Hover.X,Hover.Y),new Size(Zoom,Zoom)));
         if(g.Night()) dc.DrawRectangle(SvgImage.Brush("#183c6840"),null,new Rect(RenderSize));
+        if(IsMouseOver && session.Started && Target(Hover) is { } facility && g.Definition(facility) is { InputSlots.Count: > 0 } definition)
+            DrawInputs(dc, facility, definition);
+    }
+    private void DrawInputs(DrawingContext dc, WorldObject facility, ObjectDef definition)
+    {
+        var g = session.Game; var mouse = Mouse.GetPosition(this);
+        double height = 95 + definition.InputSlots.Count * 39;
+        double x = Math.Max(8, Math.Min(ActualWidth - 378, mouse.X + 18)), y = Math.Max(8, Math.Min(ActualHeight - height - 8, mouse.Y + 18));
+        dc.DrawRoundedRectangle(SvgImage.Brush("#f2ebd8"), new Pen(SvgImage.Brush("#29473b"), 1), new Rect(x, y, 370, height), 14, 14);
+        void Line(string value, double row, double size = 12)
+        {
+            var text = new FormattedText(value, CultureInfo.GetCultureInfo("ko-KR"), FlowDirection.LeftToRight, new Typeface("Malgun Gothic"), size, SvgImage.Brush("#29473b")!, 1) { MaxTextWidth = 342, MaxTextHeight = 30, Trimming = TextTrimming.CharacterEllipsis };
+            dc.DrawText(text, new Point(x + 14, row));
+        }
+        Line(facility.Name + " · " + facility.GetText("status", "재료 대기"), y + 10, 13);
+        int row = 0;
+        foreach (var slot in definition.InputSlots)
+        {
+            var stock = facility.Inventory.Where(k => k.Value > 0 && g.InputSlot(facility, k.Key)?.Id == slot.Id).ToArray();
+            string value = stock.Length == 0 ? "비어 있음" : string.Join(" · ", stock.Select(k => g.ItemName(k.Key) + " ×" + k.Value));
+            if(slot.Id == "fuel" && facility.Get("heat") > 0) value += $" · 남은 열 {facility.Get("heat"):0}";
+            Line(slot.Name + "  " + value, y + 41 + row * 39);
+            row++;
+        }
+        string output = string.Join(" · ", facility.OutputInventory.Where(k => k.Value > 0).Select(k => g.ItemName(k.Key) + " ×" + k.Value));
+        Line("완성품  " + (output.Length == 0 ? "없음" : output), y + height - 49);
+        var job = facility.Production.FirstOrDefault();
+        Line(job is not null && g.Content.Recipes.TryGetValue(job.RecipeId, out var recipe) ? $"{recipe.Name} · {job.Progress / recipe.Work:P0} (재료 투입 완료)" : "세 투입칸이 준비되면 자동 작동", y + height - 26, 11);
     }
     private static void Bar(DrawingContext dc,double x,double y,double width,double fraction,string color)
     { dc.DrawRectangle(SvgImage.Brush("#324b3b"),null,new Rect(x,y,width,4));dc.DrawRectangle(SvgImage.Brush(color),null,new Rect(x,y,width*Math.Min(1,fraction),4)); }

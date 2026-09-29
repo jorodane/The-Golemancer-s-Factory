@@ -66,6 +66,7 @@ public static class Rules
         return CheckResult.Yes;
     }
     public static string Kind(this IGameContext c, WorldObject o) => c.Definition(o)?.Kind ?? "missing";
+    public static string Setting(this IGameContext c, WorldObject o, string key, string fallback = "") => o.GetText(key, c.Definition(o)?.Data.GetValueOrDefault(key, fallback) ?? fallback);
     public static bool Is(this IGameContext c, WorldObject o, string kind) => c.Kind(o) == kind;
     public static bool Alive(this WorldObject o) => o.Get("dead") == 0;
     public static bool IsGolem(this IGameContext c, WorldObject o) => c.Is(o, "golem");
@@ -73,6 +74,12 @@ public static class Rules
     public static int UsedSlots(this IGameContext c, WorldObject o) => o.Inventory.Where(k => k.Value > 0).Sum(k => (int)Math.Ceiling(k.Value / (double)(c.Content.Items.GetValueOrDefault(k.Key)?.Stack ?? 50)));
     public static int Room(this IGameContext c, WorldObject o, string item)
     {
+        if (c.Definition(o)?.InputSlots.Count is > 0)
+        {
+            var slot = c.InputSlot(o, item);
+            if (slot is null || o.Inventory.Any(k => k.Value > 0 && k.Key != item && c.InputSlot(o, k.Key)?.Id == slot.Id)) return 0;
+            return Math.Max(0, slot.Capacity - o.Inventory.GetValueOrDefault(item));
+        }
         int stack = c.Content.Items.GetValueOrDefault(item)?.Stack ?? 50;
         int used = c.UsedSlots(o), partial = o.Count(item) % stack;
         return Math.Max(0, c.Slots(o) - used) * stack + (partial > 0 ? stack - partial : 0);
@@ -80,20 +87,39 @@ public static class Rules
     public static int Give(this IGameContext c, WorldObject o, string item, int amount)
     {
         int n = Math.Min(Math.Max(amount, 0), c.Room(o, item));
-        if (n > 0) o.Inventory[item] = o.Count(item) + n;
+        if (n > 0) o.Inventory[item] = o.Inventory.GetValueOrDefault(item) + n;
         return n;
     }
-    public static bool Has(this WorldObject o, IReadOnlyDictionary<string, int> items, int count = 1) => items.All(k => o.Count(k.Key) >= k.Value * count);
+    public static InputSlotDef? InputSlot(this IGameContext c, WorldObject o, string item) => c.Content.Items.TryGetValue(item, out var d) ? c.Definition(o)?.InputSlots.FirstOrDefault(s => s.Accepts(d)) : null;
+    public static bool AcceptsInput(this IGameContext c, WorldObject o, string item) => c.Definition(o)?.InputSlots.Count is not > 0 || c.InputSlot(o, item) is not null;
+    public static int OutputRoom(this IGameContext c, WorldObject o, string item)
+    {
+        if (c.Definition(o) is not { InputSlots.Count: > 0 } def) return c.Room(o, item);
+        int stack = c.Content.Items.GetValueOrDefault(item)?.Stack ?? 50;
+        int used = o.OutputInventory.Where(k => k.Value > 0).Sum(k => (int)Math.Ceiling(k.Value / (double)(c.Content.Items.GetValueOrDefault(k.Key)?.Stack ?? 50)));
+        int partial = o.OutputInventory.GetValueOrDefault(item) % stack;
+        return Math.Max(0, def.OutputSlots - used) * stack + (partial > 0 ? stack - partial : 0);
+    }
+    public static int GiveOutput(this IGameContext c, WorldObject o, string item, int amount)
+    {
+        if (c.Definition(o)?.InputSlots.Count is not > 0) return c.Give(o, item, amount);
+        int n = Math.Min(Math.Max(0, amount), c.OutputRoom(o, item));
+        if (n > 0) o.OutputInventory[item] = o.OutputInventory.GetValueOrDefault(item) + n;
+        return n;
+    }
+    public static bool Has(this WorldObject o, IReadOnlyDictionary<string, int> items, int count = 1) => items.All(k => o.Inventory.GetValueOrDefault(k.Key) >= (long)k.Value * count);
     public static void Take(this WorldObject o, string item, int amount)
     {
         if (amount < 0 || amount > o.Count(item)) throw new InvalidOperationException("Invalid inventory debit");
-        int n = o.Count(item) - amount;
-        if (n == 0) o.Inventory.Remove(item); else o.Inventory[item] = n;
+        int output = Math.Min(amount, o.OutputInventory.GetValueOrDefault(item));
+        Debit(o.OutputInventory, item, output); Debit(o.Inventory, item, amount - output);
     }
+    private static void Debit(Dictionary<string, int> inventory, string item, int amount)
+    { int n = inventory.GetValueOrDefault(item) - amount; if (n == 0) inventory.Remove(item); else inventory[item] = n; }
     public static void Pay(this WorldObject o, IReadOnlyDictionary<string, int> items, int count = 1)
     {
         if (!o.Has(items, count)) throw new InvalidOperationException("Unfunded inventory transaction");
-        foreach (var (item, n) in items) o.Take(item, n * count);
+        foreach (var (item, n) in items) Debit(o.Inventory, item, n * count);
     }
     public static string ItemName(this IGameContext c, string id) => c.Content.Items.GetValueOrDefault(id)?.Name ?? id;
     public static double Efficiency(this IGameContext c, WorldObject actor) => actor.Get("mana") > 0 ? 1 : 0.5;

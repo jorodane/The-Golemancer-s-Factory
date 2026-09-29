@@ -40,8 +40,8 @@
 
 | 섹션 / 요소 | 주요 속성과 하위 요소 |
 |---|---|
-| Items / Item | `id, name, description, price, stack, color, category` |
-| Objects / Object | `id, name, kind, sprite, width, height, solid, slots, actions`; Value, Data, Cost, Placement |
+| Items / Item | `id, name, description, price, stack, color, category, tags` |
+| Objects / Object | `id, name, kind, sprite, width, height, solid, slots, actions`; Value, Data, Cost, Placement, InputSlots |
 | Actions / Action | `id, name, handler, path, subName, range, failure, recordable, interrupts`; Works, Condition |
 | ActionSets / ActionSet | `id, actions` — 쉼표로 구분한 구체 액션 ID |
 | MenuDirectories / Directory | `path, collapse` — `collapse="false"`로 한 자식 폴더 유지 |
@@ -102,3 +102,21 @@ ActionRequest에는 `Action, ActorId, TargetId, X, Y, Route, Item, Quantity, Mod
 `python tools/context.py <모듈명>`으로 필요한 파일만 확인하고 해당 csproj를 빌드할 수 있다. 기본 모듈의 AfterBuild는 자기 DLL만 대상 팩의 Bin에 복사한다. Contracts를 바꾸면 전체 검증, 동작이나 퀘스트를 바꾸면 캠페인 검증을 실행한다. `examples/TeaBreak`는 이 경계 밖의 독립 예제다.
 
 타일·재고·녹화·퀘스트는 `Simulation.Save/ReadSave`로 보존한다. `JsonExtensionData`가 모르는 필드를 유지한다. 저장 형식 메이저는 1이며 새로운 비호환 저장 형식은 마이그레이션 코드를 추가해야 한다.
+
+## 분류와 자동 생산 투입칸
+
+`ItemCategories/Category`의 `id, name`으로 버블 분류를 정의하고 Item의 `tags="herb"`, `tags="liquid,jelly"`처럼 여러 분류를 지정할 수 있다. 기존 category는 판매 등 기존 규칙에도 사용한다. 아이템 즐겨찾기와 대상별 우선 분류는 저장 파일에 보존하며 양방향 운반에 동일하게 적용한다. 모든 선택 단계는 공통 버블과 가운데 상위 메뉴를 사용한다. 한 품목 분류는 재귀적으로 압축한다.
+
+```xml
+<Data key="autoProduce" value="true" />
+<Data key="preferredCategories" value="fuel,herb,liquid,jelly" />
+<InputSlots outputSlots="3">
+  <Slot id="fuel" name="연료" items="wood" capacity="50" />
+  <Slot id="herb" name="약초" tags="herb" capacity="50" />
+  <Slot id="liquid" name="액체" tags="liquid" capacity="50" />
+</InputSlots>
+```
+
+각 Slot은 한 품목을 받는다. items 또는 tags에 맞지 않는 물건과 다른 품목의 혼입은 거부한다. InputSlots가 없는 보관함은 기존 공용 슬롯 규칙을 따른다. Inventory는 투입 재고, OutputInventory는 별도 완성품이다. Count/Stock은 두 재고의 합, Has/Pay는 투입 재고만 사용한다. 제품은 GiveOutput으로 넣고 Take는 제품부터 꺼낸다. 목표 재고 운반은 도착지 투입 재고를 기준으로 한다.
+
+훈증기는 수동 예약 없이 준비된 재료 조합에 맞는 해금 레시피를 한 회씩 자동 시작한다. 연료와 완성품 공간이 없으면 새 재료를 차감하지 않는다. 기본 열 공급은 목재 1개당 열 100이며 남은 열도 사용할 수 있다. 완성품이 다시 투입 재료로 자동 전환되지는 않는다. 기존 저장의 섞인 약초·과적·알 수 없는 물건을 지우지 않으며, 같은 칸에 여러 품목이 남아 있으면 정리를 기다린다. 기존의 지불 완료 생산 예약은 이어서 처리한다.

@@ -58,11 +58,12 @@ internal static class Campaign
             Do(h, "pickup", bag.Id);
         }
         Check(h.Count("springwater_drop") >= 24, "chapter: deterministic monsters and material drops");
-        Give(h, furnace, "common_herb", 24); Give(h, furnace, "springwater_drop", 24); Give(h, furnace, "newflesh_herb", 12); Give(h, furnace, "spark_herb", 6); Give(h, furnace, "wood", 4);
-        Give(crafter, furnace, "wood", 1);
-        Do(crafter, "craft_count", furnace.Id, "springwater_jelly", 20); Advance(65);
-        Do(crafter, "craft_count", furnace.Id, "healing_jelly", 6);
-        Do(crafter, "craft_count", furnace.Id, "mana_jelly", 3); Advance(45);
+        Give(h, furnace, "common_herb", 20); Give(h, furnace, "springwater_drop", 20); Give(h, furnace, "wood", 4);
+        Give(crafter, furnace, "wood", 1); Advance(66);
+        // Each batch selects its recipe through the herb/liquid combination, without a craft command.
+        Take(crafter, furnace, "springwater_jelly", 9);
+        Give(h, furnace, "newflesh_herb", 6); Give(crafter, furnace, "springwater_jelly", 6); Advance(26);
+        Give(h, furnace, "spark_herb", 3); Give(crafter, furnace, "springwater_jelly", 3); Advance(14);
         Check(s.State.CompletedQuests.Contains("q04"), "chapter: passive production and intermediate jelly recipes");
         Take(crafter, furnace, "springwater_jelly", 3); Do(crafter, "transfer", "shelf-1", "springwater_jelly", 3);
         Do(crafter, "expand_shop"); Advance(55);

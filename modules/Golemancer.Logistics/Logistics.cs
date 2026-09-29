@@ -43,7 +43,7 @@ public sealed class Transfer : IActionHandler
     }
     private static int Count(IGameContext c, WorldObject from, WorldObject to, ActionRequest r)
     {
-        int wanted = r.Mode switch { "all" => from.Count(r.Item), "fill" => Math.Max(0, r.Quantity - to.Count(r.Item)), _ => r.Quantity };
+        int wanted = r.Mode switch { "all" => from.Count(r.Item), "fill" => Math.Max(0, r.Quantity - to.Inventory.GetValueOrDefault(r.Item)), _ => r.Quantity };
         return Math.Min(wanted, Math.Min(from.Count(r.Item), c.Room(to, r.Item)));
     }
     public CheckResult Check(IGameContext c, WorldObject a, ActionRequest r)
@@ -51,6 +51,9 @@ public sealed class Transfer : IActionHandler
         var pair = Pair(c, a, r);
         if (pair is null) return CheckResult.No("옮길 대상을 찾을 수 없어.", "target_missing");
         if (!c.Content.Items.ContainsKey(r.Item)) return CheckResult.No("옮길 물건을 골라줘.", "item_missing");
+        if (r.Quantity < 0 || r.Mode is not ("exact" or "fill" or "all")) return CheckResult.No("옮길 수량을 확인해줘.", "quantity");
+        if (!c.AcceptsInput(pair.Value.To, r.Item)) return CheckResult.No("이 물건을 받는 투입칸이 없어.", "input_slot");
+        if (c.InputSlot(pair.Value.To, r.Item) is { } slot && pair.Value.To.Inventory.Any(k => k.Value > 0 && k.Key != r.Item && c.InputSlot(pair.Value.To, k.Key)?.Id == slot.Id)) return CheckResult.No(slot.Name + "의 물건을 먼저 가져와줘.", "input_slot");
         int n = Count(c, pair.Value.From, pair.Value.To, r);
         if (r.Mode == "exact" && n < r.Quantity) return CheckResult.No("정확한 수량이나 빈 공간이 부족해.", "insufficient");
         return CheckResult.Yes;

@@ -38,7 +38,7 @@ internal static class Regression
 
         s = new(game); var c = s.Spawn("craft_golem", 7, 25); var furnace = s.Spawn("herb_fumigator", 8, 25); s.State.Flags.Add("jelly_book");
         furnace.Inventory = new() { ["common_herb"] = 3, ["springwater_drop"] = 3, ["wood"] = 1 };
-        Act(s, c, new() { Action = "craft_count", TargetId = furnace.Id, Item = "springwater_jelly", Quantity = 3 });
+        Advance(s, .2); // Inputs start the machine without a production command.
         string save = Path.Combine(root, "TestResults", "production-in-progress.json"); s.Save(save);
         s = new(game, Simulation.ReadSave(save)); furnace = s.Find(furnace.Id)!; c = s.Find(c.Id)!; Advance(s, 12);
         Check(furnace.Count("springwater_jelly") == 3 && furnace.Count("common_herb") == 0 && furnace.Count("springwater_drop") == 0 && furnace.Count("wood") == 0 && furnace.Production.Count == 0, "save during passive production preserves committed ingredients and fuel exactly once");

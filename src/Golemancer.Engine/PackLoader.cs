@@ -127,7 +127,8 @@ public static class PackLoader
         registry.Systems.Sort((a, b) => a.Order.CompareTo(b.Order));
         string Localize(string value) => value.StartsWith("@", StringComparison.Ordinal) ? catalog.Text(value.Substring(1)) : value;
         foreach (var item in catalog.Items.Values) { item.Name = Localize(item.Name); item.Description = Localize(item.Description); }
-        foreach (var obj in catalog.Objects.Values) obj.Name = Localize(obj.Name);
+        foreach (var key in catalog.ItemCategories.Keys.ToArray()) catalog.ItemCategories[key] = Localize(catalog.ItemCategories[key]);
+        foreach (var obj in catalog.Objects.Values) { obj.Name = Localize(obj.Name); foreach (var slot in obj.InputSlots) slot.Name = Localize(slot.Name); }
         foreach (var action in catalog.Actions.Values) { action.Name = Localize(action.Name); action.SubName = Localize(action.SubName); }
         foreach (var recipe in catalog.Recipes.Values) recipe.Name = Localize(recipe.Name);
         foreach (var quest in catalog.Quests.Values) { quest.Name = Localize(quest.Name); quest.Description = Localize(quest.Description); quest.Dialogue = Localize(quest.Dialogue); }
@@ -222,13 +223,22 @@ public static class PackLoader
             c.Maps[S(e, "id")] = new() { Id = S(e, "id"), Map = new() { TilesetId = S(e, "tileset", "feast_trail"), Width = width, Height = height, Tiles = rows.SelectMany(r => r.Select(ch => legend[ch])).ToArray() }, Spawns = e.Element("Spawns")!.Elements("Spawn").Select(s => new SpawnDefinition(S(s, "id"), S(s, "definition"), (int)N(s, "x"), (int)N(s, "y"))).ToList() };
         }
         foreach (var e in root.Element("Texts")?.Elements("Text") ?? []) c.Texts[S(e, "id")] = e.Value;
+        foreach (var e in root.Element("ItemCategories")?.Elements("Category") ?? []) c.ItemCategories[S(e, "id")] = S(e, "name", S(e, "id"));
         foreach (var e in root.Element("Items")?.Elements("Item") ?? [])
-            c.Items[S(e, "id")] = new() { Id = S(e, "id"), Name = S(e, "name"), Description = S(e, "description"), Price = (int)N(e, "price"), Stack = (int)N(e, "stack", 50), Color = S(e, "color", "#b3bb78"), Category = S(e, "category", "material") };
+            c.Items[S(e, "id")] = new() { Id = S(e, "id"), Name = S(e, "name"), Description = S(e, "description"), Price = (int)N(e, "price"), Stack = Math.Max(1, (int)N(e, "stack", 50)), Color = S(e, "color", "#b3bb78"), Category = S(e, "category", "material"), Tags = new(S(e, "tags").Split(',').Select(s => s.Trim()).Where(s => s.Length > 0)) };
         foreach (var e in root.Element("Objects")?.Elements("Object") ?? [])
         {
             var def = new ObjectDef { Id = S(e, "id"), Name = S(e, "name"), Kind = S(e, "kind"), Sprite = S(e, "sprite", S(e, "id")), Width = (int)N(e, "width", 1), Height = (int)N(e, "height", 1), Solid = B(e, "solid"), Slots = (int)N(e, "slots", 8), Cost = Quantities(e.Element("Cost")), Actions = S(e, "actions").Split(',').Select(s => s.Trim()).Where(s => s.Length > 0).ToList(), Placement = e.Element("Placement")?.Elements().Select(Condition).FirstOrDefault() };
             foreach (var v in e.Elements("Value")) def.Values[S(v, "key")] = N(v, "value");
             foreach (var v in e.Elements("Data")) def.Data[S(v, "key")] = S(v, "value");
+            def.OutputSlots = (int)N(e.Element("InputSlots") ?? e, "outputSlots", 1);
+            foreach (var v in e.Element("InputSlots")?.Elements("Slot") ?? [])
+            {
+                var slot = new InputSlotDef { Id = S(v, "id"), Name = S(v, "name"), Capacity = (int)N(v, "capacity", 50), Items = new(S(v, "items").Split(',').Select(s => s.Trim()).Where(s => s.Length > 0)), Tags = new(S(v, "tags").Split(',').Select(s => s.Trim()).Where(s => s.Length > 0)) };
+                if (slot.Id.Length == 0 || slot.Capacity < 1 || slot.Items.Count + slot.Tags.Count == 0 || def.InputSlots.Any(s => s.Id == slot.Id)) throw new InvalidDataException("Invalid input slot: " + def.Id);
+                def.InputSlots.Add(slot);
+            }
+            if (def.OutputSlots < 1) throw new InvalidDataException("Invalid output slots: " + def.Id);
             if (def.Sprite.Contains("/") || def.Sprite.Contains("\\")) def.Sprite = SafePath(packDirectory, def.Sprite);
             if (def.Width < 1 || def.Height < 1 || def.Slots < 0) throw new InvalidDataException($"Invalid object dimensions or slots: {def.Id}");
             c.Objects[def.Id] = def;

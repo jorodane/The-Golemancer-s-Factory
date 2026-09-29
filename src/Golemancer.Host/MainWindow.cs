@@ -22,8 +22,6 @@ internal sealed partial class MainWindow : Window
     private readonly Stopwatch clock = Stopwatch.StartNew();
     private double lastTick, accumulator, lastHud, toastUntil;
     private string selected="", modalType="", lastDialogue="", lastNotice="", inventoryKey="", crewKey="", questKey="";
-    private string transferItem="", transferMode="exact", recipeMode="craft_single";
-    private int quantity=1, recipeQuantity=1;
     private readonly Dictionary<string, Button> buttons=[];
     private static Brush Ink => SvgImage.Brush("#29473b")!;
     private static Brush Paper => SvgImage.Brush("#eee7d3")!;
@@ -89,7 +87,7 @@ internal sealed partial class MainWindow : Window
     }
     private void Begin(bool load=false,string slot="manual")
     {if(load)session.Load(slot);else session.NewGame();world.Reset();selected="";lastDialogue="";inventoryKey=crewKey=questKey="";CloseOverlay();RefreshHud();world.Focus();}
-    private void Select(string id){selected=id;world.Selected=id;transferItem="";}
+    private void Select(string id){selected=id;world.Selected=id;}
     private void ClickTile(Tile tile,bool right)
     {
         if(!session.Started||modalType!=""||Game.State.Dialogues.Count>0)return;
@@ -104,11 +102,12 @@ internal sealed partial class MainWindow : Window
         if(right)ShowBubbles(target);
         else if(session.Actor?.GetText("mode")=="combat")
         { if(Game.Kind(target) is "monster" or "boss" or "boss_part")Send("attack",target.Id); }
-        else if(session.Actor is { } actor && InteractionChoices.Quick(Game,actor,target) is { } choice)UseChoice(target,choice);
+        else if(session.Actor is { } actor && InteractionChoices.Quick(Game,actor,target) is { } choice){ShowBubbles(target);UseChoice(target,choice);}
     }
     private void RefreshHud()
     {
         var s=Game.State;var a=session.Actor;if(a is null)return;
+        if(bubbleActor.Length>0&&bubbleActor!=a.Id)CloseBubbles();
         int day=(int)(s.Get("calendarSeconds")/180);string[] phases={"봄의 낮","봄의 밤","여름의 낮","여름의 밤","가을의 낮","가을의 밤","겨울의 낮","겨울의 밤"};
         header.Text=$"THE GOLEMANCER’S FACTORY     {phases[day/15%8]} · {day%15+1}일     {s.Get("gold"):0} G  ·  평판 {s.Get("reputation"):0.0}";
         status.Text=$"{a.Name} · {(a.GetText("mode")=="combat"?"전투 모드":"일상 모드")}  |  내구도 {Math.Max(0,a.Get("health")):0}/{a.Get("maxHealth"):0}  ·  마력 {a.Get("mana"):0}/{a.Get("maxMana",100):0}  |  "+(a.Recording is not null?$"● 녹화 {a.Recording.Steps.Count}단계":a.Playback?.Status??(a.Work is not null?"작업 중":a.Get("mana")<=0?"수동 효율 50%":"마력 가동"));
@@ -145,7 +144,7 @@ internal sealed partial class MainWindow : Window
         if(e.Key==Key.F11){bool full=WindowStyle==WindowStyle.None;WindowStyle=full?WindowStyle.SingleBorderWindow:WindowStyle.None;WindowState=full?WindowState.Normal:WindowState.Maximized;e.Handled=true;return;}
         if(Keyboard.FocusedElement is TextBox or ComboBox)return;
         if(!session.Started)return;
-        if(e.Key==Key.Escape){if(Game.State.Dialogues.Count>0)return;if(world.Building!="")world.Building="";else if(modalType!="")CloseOverlay();else if(bubbleLayer.Children.Count>0)CloseBubbles();else Open("menu");e.Handled=true;return;}
+        if(e.Key==Key.Escape){if(Game.State.Dialogues.Count>0)return;if(world.Building!="")world.Building="";else if(modalType!="")CloseOverlay();else if(bubbleLayer.Children.Count>0)BackBubble();else Open("menu");e.Handled=true;return;}
         if(Game.State.Dialogues.Count>0){if(e.Key is Key.Enter or Key.Space){AdvanceDialogue();e.Handled=true;}return;}
         if(modalType!="")return;var a=session.Actor;if(a is null)return;
         if(new[]{"move.up","move.down","move.left","move.right","pickup"}.Any(id=>IsKey(e.Key,id))){e.Handled=true;return;}

@@ -35,7 +35,7 @@ internal static class InteractionChoices
         {
             if(def.Actions.Contains("transfer"))
             { result.Add(new("give","물건 넣기","transfer",Option:"give"));result.Add(new("take","물건 꺼내기","transfer",Option:"take")); }
-            if(game.Content.Recipes.Values.Any(r=>r.Facility==def.Id))result.Add(new("recipes","제작 예약","recipes"));
+            if(game.Setting(target,"autoProduce")!="true"&&game.Content.Recipes.Values.Any(r=>r.Facility==def.Id))result.Add(new("recipes","제작 예약","recipes"));
         }
         foreach(var id in def.Actions.Where(id=>id is "dismantle" or "challenge" or "enter_cave" or "talk"))
             if(!result.Any(c=>c.Action==id))result.Add(new(id,game.Content.Actions[id].Name,Action:id));

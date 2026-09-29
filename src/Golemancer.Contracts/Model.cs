@@ -28,6 +28,8 @@ public sealed class GameState
     public HashSet<string> CompletedQuests { get; set; } = [];
     public List<OrderState> Orders { get; set; } = [];
     public Dictionary<string, Recording> Recordings { get; set; } = [];
+    public HashSet<string> FavoriteItems { get; set; } = [];
+    public Dictionary<string, List<string>> TransferCategories { get; set; } = [];
     public Dictionary<string, string> PackVersions { get; set; } = [];
     [JsonExtensionData] public Dictionary<string, JsonElement>? ExtensionData { get; set; }
     public double Get(string key, double fallback = 0) => Values.GetValueOrDefault(key, fallback);
@@ -66,6 +68,8 @@ public sealed class WorldObject
     public Dictionary<string, double> Values { get; set; } = [];
     public Dictionary<string, string> Data { get; set; } = [];
     public Dictionary<string, int> Inventory { get; set; } = [];
+    // Machine outputs never silently become inputs for another recipe.
+    public Dictionary<string, int> OutputInventory { get; set; } = [];
     public List<Tile> Path { get; set; } = [];
     public ActionRequest? Pending { get; set; }
     public ActiveWork? Work { get; set; }
@@ -76,7 +80,8 @@ public sealed class WorldObject
     public double Get(string key, double fallback = 0) => Values.GetValueOrDefault(key, fallback);
     public void Set(string key, double value) => Values[key] = value;
     public string GetText(string key, string fallback = "") => Data.GetValueOrDefault(key, fallback);
-    public int Count(string item) => Inventory.GetValueOrDefault(item);
+    public int Count(string item) => Inventory.GetValueOrDefault(item) + OutputInventory.GetValueOrDefault(item);
+    public Dictionary<string, int> Stock() => Inventory.Concat(OutputInventory).GroupBy(k => k.Key).ToDictionary(g => g.Key, g => g.Sum(k => k.Value));
 }
 
 public sealed record ActionRequest
@@ -158,6 +163,16 @@ public sealed class ItemDef
     public int Stack { get; set; } = 50;
     public string Color { get; set; } = "#aabb88";
     public string Category { get; set; } = "material";
+    public HashSet<string> Tags { get; set; } = [];
+}
+public sealed class InputSlotDef
+{
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "";
+    public int Capacity { get; set; } = 50;
+    public HashSet<string> Items { get; set; } = [];
+    public HashSet<string> Tags { get; set; } = [];
+    public bool Accepts(ItemDef item) => Items.Contains(item.Id) || Tags.Contains(item.Category) || Tags.Overlaps(item.Tags);
 }
 public sealed class ObjectDef
 {
@@ -169,6 +184,8 @@ public sealed class ObjectDef
     public int Height { get; set; } = 1;
     public bool Solid { get; set; }
     public int Slots { get; set; } = 8;
+    public List<InputSlotDef> InputSlots { get; set; } = [];
+    public int OutputSlots { get; set; } = 1;
     public Dictionary<string, double> Values { get; set; } = [];
     public Dictionary<string, string> Data { get; set; } = [];
     public Dictionary<string, int> Cost { get; set; } = [];
@@ -237,6 +254,7 @@ public sealed class ContentCatalog
     public Dictionary<string, SpriteDef> Sprites { get; } = [];
     public Dictionary<string, TilesetDef> Tilesets { get; } = [];
     public Dictionary<string, ItemDef> Items { get; } = [];
+    public Dictionary<string, string> ItemCategories { get; } = [];
     public Dictionary<string, ObjectDef> Objects { get; } = [];
     public Dictionary<string, ActionDef> Actions { get; } = [];
     public Dictionary<string, RecipeDef> Recipes { get; } = [];

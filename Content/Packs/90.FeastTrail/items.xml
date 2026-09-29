@@ -1,15 +1,27 @@
 <?xml version='1.0' encoding='utf-8'?>
 <GameContent version="1.0" balance="first-playable">
+  <ItemCategories>
+    <Category id="fuel" name="연료" />
+    <Category id="herb" name="약초" />
+    <Category id="liquid" name="액체" />
+    <Category id="jelly" name="젤리" />
+    <Category id="material" name="재료" />
+    <Category id="product" name="완성품" />
+    <Category id="equipment" name="장비" />
+    <Category id="core" name="골렘 핵" />
+    <Category id="book" name="책" />
+    <Category id="trophy" name="기념품" />
+  </ItemCategories>
   <Items>
-    <Item id="common_herb" name="널린초" price="2" color="#a0bd6a" category="material" description="성질이 순한 약초. 샘물젤리의 기본 재료." stack="50" />
-    <Item id="newflesh_herb" name="새살초" price="5" color="#cf897f" category="material" description="상처에 새살을 돋게 하는 붉은 약초." stack="50" />
-    <Item id="spark_herb" name="번쩍초" price="10" color="#b4a5dc" category="material" description="잎맥에 마나가 반짝이는 약초." stack="50" />
-    <Item id="wood" name="목재" price="2" color="#c19a62" category="material" description="건설·장비·훈증기의 연료." stack="50" />
+    <Item id="common_herb" tags="herb" name="널린초" price="2" color="#a0bd6a" category="material" description="성질이 순한 약초. 샘물젤리의 기본 재료." stack="50" />
+    <Item id="newflesh_herb" tags="herb" name="새살초" price="5" color="#cf897f" category="material" description="상처에 새살을 돋게 하는 붉은 약초." stack="50" />
+    <Item id="spark_herb" tags="herb" name="번쩍초" price="10" color="#b4a5dc" category="material" description="잎맥에 마나가 반짝이는 약초." stack="50" />
+    <Item id="wood" tags="fuel" name="목재" price="2" color="#c19a62" category="material" description="건설·장비·훈증기의 연료." stack="50" />
     <Item id="sweetfruit" name="달달과" price="5" color="#e9ad64" category="material" description="달콤한 열매. 사용하면 생명력 15 회복." stack="50" />
-    <Item id="springwater_drop" name="샘물방울" price="4" color="#75bfd0" category="material" description="샘물주머니에게 얻는 젤리 재료." stack="50" />
-    <Item id="springwater_jelly" name="샘물젤리" price="8" color="#7bbfbc" category="product" description="회복 젤리를 만들기 위한 중간재." stack="50" />
-    <Item id="healing_jelly" name="생명력 회복 젤리" price="20" color="#dc8d95" category="product" description="사용하면 생명력 60 회복." stack="50" />
-    <Item id="mana_jelly" name="마나 회복 젤리" price="24" color="#8ea7d9" category="product" description="사용하면 마력 35 회복." stack="50" />
+    <Item id="springwater_drop" tags="liquid" name="샘물방울" price="4" color="#75bfd0" category="material" description="샘물주머니에게 얻는 젤리 재료." stack="50" />
+    <Item id="springwater_jelly" tags="liquid,jelly" name="샘물젤리" price="8" color="#7bbfbc" category="product" description="회복 젤리를 만들기 위한 중간재." stack="50" />
+    <Item id="healing_jelly" tags="jelly" name="생명력 회복 젤리" price="20" color="#dc8d95" category="product" description="사용하면 생명력 60 회복." stack="50" />
+    <Item id="mana_jelly" tags="jelly" name="마나 회복 젤리" price="24" color="#8ea7d9" category="product" description="사용하면 마력 35 회복." stack="50" />
     <Item id="mana_crystal" name="무색 마나 수정" price="0" color="#b4e6dc" category="material" description="수정탑의 연료. 채광 골렘으로 얻는다." stack="50" />
     <Item id="wooden_sword" name="목제 검" price="0" color="#cba173" category="equipment" description="베기 14. 물 계열 적에게 효과적." stack="1" />
     <Item id="wooden_club" name="목제 망치" price="0" color="#b99466" category="equipment" description="타격 12. 얼음·돌 계열 적에게 효과적." stack="1" />

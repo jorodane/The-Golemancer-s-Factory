@@ -42,10 +42,10 @@ public sealed class Remove : IActionHandler
     public ActionResult Execute(IGameContext c, WorldObject a, ActionRequest r)
     {
         var t = c.Target(r)!;
-        var returned = new Dictionary<string, int>(t.Inventory);
+        var returned = t.Stock();
         foreach (var (item, n) in c.Definition(t)!.Cost) returned[item] = returned.GetValueOrDefault(item) + Math.Max(1, n / 2);
         c.Drop(t.X,t.Y,returned);
-        t.Inventory.Clear(); t.Set("dead", 1);
+        t.Inventory.Clear(); t.OutputInventory.Clear(); t.Set("dead", 1);
         return ActionResult.Success("철거했어. 바닥의 재료는 E로 주워줘.");
     }
 }

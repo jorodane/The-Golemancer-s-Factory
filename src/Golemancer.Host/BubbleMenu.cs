@@ -1,0 +1,61 @@
+using Golemancer.Contracts;
+namespace Golemancer.Desktop;
+
+// The same tree, compression and inventory projection serve every interaction.
+internal sealed class BubbleEntry
+{
+    public string Id { get; set; } = "";
+    public string Label { get; set; } = "";
+    public string Hint { get; set; } = "";
+    public string ItemId { get; set; } = "";
+    public bool Enabled { get; set; } = true;
+    public bool Keep { get; set; }
+    public Action? Activate { get; set; }
+    public List<BubbleEntry> Children { get; set; } = [];
+}
+internal static class BubbleMenu
+{
+    public static List<BubbleEntry> Compress(IEnumerable<BubbleEntry> entries) => entries.Select(entry =>
+    {
+        entry.Children = Compress(entry.Children);
+        return !entry.Keep && entry.Activate is null && entry.Children.Count == 1 ? entry.Children[0] : entry;
+    }).ToList();
+
+    public static List<string> Preferred(IGameContext game, WorldObject target) => game.State.TransferCategories.TryGetValue(target.Id, out var chosen) ? chosen : game.Setting(target, "preferredCategories").Split(',').Where(s => s.Length > 0).ToList();
+    public static bool InCategory(ContentCatalog catalog, string item, string category) => catalog.Items.TryGetValue(item, out var def) && (def.Category == category || def.Tags.Contains(category));
+    public static List<BubbleEntry> GroupItems(IGameContext game, IEnumerable<string> items, IEnumerable<string> preferred, Func<string, BubbleEntry> make)
+    {
+        var remaining = items.Distinct().OrderBy(game.ItemName, StringComparer.Ordinal).ToList();
+        var result = new List<BubbleEntry>();
+        void Group(string id, string name, Func<string, bool> matches)
+        {
+            var ids = remaining.Where(matches).ToArray();
+            if (ids.Length == 0) return;
+            result.Add(new() { Id = "category." + id, Label = name, Children = ids.Select(make).ToList() });
+            remaining.RemoveAll(i => ids.Contains(i));
+        }
+        Group("favorites", "★ 즐겨찾기", game.State.FavoriteItems.Contains);
+        var tagCategories = game.Content.ItemCategories.Keys.Where(category => game.Content.Items.Values.Any(item => item.Tags.Contains(category)));
+        foreach (var category in preferred.Concat(tagCategories).Distinct()) Group(category, game.Content.ItemCategories.GetValueOrDefault(category, category), i => InCategory(game.Content, i, category));
+        foreach (var category in remaining.Select(i => game.Content.Items.GetValueOrDefault(i)?.Category ?? "other").Distinct().ToArray())
+            Group(category, game.Content.ItemCategories.GetValueOrDefault(category, category == "other" ? "기타" : category), i => (game.Content.Items.GetValueOrDefault(i)?.Category ?? "other") == category);
+        return Compress(result);
+    }
+    public static (WorldObject From, WorldObject To) TransferPair(WorldObject actor, WorldObject target, string direction) => direction == "take" ? (target, actor) : (actor, target);
+    public static List<BubbleEntry> Transfer(IGameContext game, WorldObject actor, WorldObject target, string direction, Func<string, BubbleEntry> make)
+    {
+        var (from, to) = TransferPair(actor, target, direction);
+        return GroupItems(game, from.Stock().Where(k => k.Value > 0 && game.AcceptsInput(to, k.Key)).Select(k => k.Key), Preferred(game, target), make);
+    }
+    public static int TransferMax(IGameContext game, WorldObject actor, WorldObject target, string direction, string item)
+    { var (from, to) = TransferPair(actor, target, direction); return Math.Min(from.Count(item), game.Room(to, item)); }
+}
+internal static class QuantityPicker
+{
+    public static int Clamp(int value, int max) => Math.Max(1, Math.Min(value, Math.Max(1, max)));
+    public static int Shortcut(string id, int value, int max)
+    {
+        value = Clamp(value, max); max = Math.Max(1, max);
+        return id switch { "one" => 1, "half" => Math.Max(1, value / 2), "mean" => 1 + (max - 1) / 2, "plusHalf" => value + (int)(((long)max - value + 1) / 2), "max" => max, _ => value };
+    }
+}
