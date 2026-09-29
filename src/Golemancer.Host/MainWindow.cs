@@ -43,7 +43,7 @@ internal sealed partial class MainWindow : Window
         side.Children.Add(Label("공방 일지",22));side.Children.Add(journal);side.Children.Add(Button("전체 일지",()=>Open("journal")));side.Children.Add(Label("골렘들",18));side.Children.Add(crew);
         side.Children.Add(Button("골렘 조립",()=>Open("assembly")));side.Children.Add(Button("시설 건설 · B",()=>Open("build")));side.Children.Add(Button("행동 기록",()=>Open("routines")));side.Children.Add(Button("주문 게시판",()=>Open("orders")));side.Children.Add(Button("공방 안내",()=>Open("help")));
         Place(new ScrollViewer{Content=side,VerticalScrollBarVisibility=ScrollBarVisibility.Auto,HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled},1,0);
-        var worldLayer=new Grid();worldLayer.Children.Add(world);worldLayer.Children.Add(bubbleLayer);Place(worldLayer,1,1);root.Children.Add(bubbleHoverLayer);
+        var worldLayer=new Grid();worldLayer.Children.Add(world);worldLayer.Children.Add(bubbleLayer);Place(worldLayer,1,1);root.Children.Add(facilityShadeLayer);root.Children.Add(bubbleHoverLayer);
         bubbleLayer.SizeChanged+=(_,_)=>{if(bubbleHistory.Count>0)RenderBubbles();};
         var foot=new DockPanel{Margin=new Thickness(12,4,12,4)};Place(foot,2,0,2);
         var commands=new StackPanel{Orientation=Orientation.Horizontal};DockPanel.SetDock(commands,Dock.Right);foot.Children.Add(commands);
@@ -76,14 +76,14 @@ internal sealed partial class MainWindow : Window
         const double step=1.0/60;
         try{while(accumulator>=step){session.Advance(step);accumulator-=step;}}
         catch(Exception ex){session.MenuPaused=true;Notify("게임 처리를 멈췄어: "+ex.Message);}
-        if(now-lastHud>=.2){RefreshHud();RefreshBubbleHover();lastHud=now;}
+        if(now-lastHud>=.2){RefreshHud();refreshQuantity?.Invoke();RefreshBubbleHover();lastHud=now;}
         if(now>toastUntil)toast.Visibility=Visibility.Collapsed;
-        world.InvalidateVisual();
+        RefreshFacilityFocus();world.InvalidateVisual();
     }
     private void Notify(string text){if(text.Length==0)return;toast.Text=text;toast.Visibility=Visibility.Visible;toastUntil=clock.Elapsed.TotalSeconds+5;}
-    private ActionResult Send(string action,string target="",string item="",int amount=1,string mode="exact",string option="",int x=-1,int y=-1)
+    private ActionResult Send(string action,string target="",string item="",int amount=1,string mode="exact",string option="",int x=-1,int y=-1,string slotId="")
     {
-        var result=session.Command(new(){Action=action,TargetId=target,Item=item,Quantity=amount,Mode=mode,Option=option,X=x,Y=y});
+        var result=session.Command(new(){Action=action,TargetId=target,Item=item,Quantity=amount,Mode=mode,Option=option,X=x,Y=y,SlotId=slotId,Enqueue=queueBubbles||Held("queue")});
         if(result.Message.Length>0)Notify(result.Message);RefreshHud();return result;
     }
     private void Begin(bool load=false,string slot="manual")
@@ -104,6 +104,7 @@ internal sealed partial class MainWindow : Window
         if(right)ShowBubbles(target);
         else if(session.Actor?.GetText("mode")=="combat")
         { if(Game.Kind(target) is "monster" or "boss" or "boss_part")Send("attack",target.Id); }
+        else if(Game.Definition(target)?.InputSlots.Count>0)ShowFacilityFocus(target);
         else if(session.Actor is { } actor && InteractionChoices.Quick(Game,actor,target) is { } choice){ShowBubbles(target);UseChoice(target,choice);}
     }
     private void RefreshHud()
@@ -113,6 +114,7 @@ internal sealed partial class MainWindow : Window
         int day=(int)(s.Get("calendarSeconds")/180);string[] phases={"봄의 낮","봄의 밤","여름의 낮","여름의 밤","가을의 낮","가을의 밤","겨울의 낮","겨울의 밤"};
         header.Text=$"THE GOLEMANCER’S FACTORY     {phases[day/15%8]} · {day%15+1}일     {s.Get("gold"):0} G  ·  평판 {s.Get("reputation"):0.0}";
         status.Text=$"{a.Name} · {(a.GetText("mode")=="combat"?"전투 모드":"일상 모드")}  |  내구도 {Math.Max(0,a.Get("health")):0}/{a.Get("maxHealth"):0}  ·  마력 {a.Get("mana"):0}/{a.Get("maxMana",100):0}  |  "+(a.Recording is not null?$"● 녹화 {a.Recording.Steps.Count}단계":a.Playback?.Status??(a.Work is not null?"작업 중":a.Get("mana")<=0?"수동 효율 50%":"마력 가동"));
+        if(a.ActionQueue.Count>0)status.Text+=$"  |  예약 {a.ActionQueue.Count}개 · {a.ActionQueue[0].Status}";
         if(buttons.TryGetValue("record",out var rec))((TextBlock)rec.Content).Text=a.Recording is null?"녹화 · R":"녹화 종료 · R";
         if(buttons.TryGetValue("play",out var play))((TextBlock)play.Content).Text=a.Playback is null?"반복 · T":"반복 정지 · T";
         if(buttons.TryGetValue("mode",out var mode))((TextBlock)mode.Content).Text=a.GetText("mode")=="combat"?"일상모드 · Tab":"전투모드 · Tab";
@@ -121,8 +123,8 @@ internal sealed partial class MainWindow : Window
         if(qkey!=questKey){questKey=qkey;journal.Children.Clear();journal.Children.Add(Label($"만찬의 오솔길 · {s.CompletedQuests.Count}/12",11));journal.Children.Add(Label(q?.Name??"다음 이야기의 문턱",17));journal.Children.Add(Label(q?.Description??"깊은 돌의 입구가 열렸어. 공방의 생산을 이어갈 수 있어."));if(q is not null)foreach(var goal in q.Goals)journal.Children.Add(Label($"{(s.Get(goal.Key)>=goal.Amount?"✓":"◇")} {goal.Label}  {Math.Min(goal.Amount,s.Get(goal.Key)):0}/{goal.Amount}",12));}
         string ckey=string.Join("|",Game.OfKind("golem").Select(o=>o.Id+o.Get("mana").ToString("0")+o.Playback?.Status)) + s.ControlledId;
         if(ckey!=crewKey){crewKey=ckey;crew.Children.Clear();foreach(var o in Game.OfKind("golem")){var id=o.Id;crew.Children.Add(Button((id==a.Id?"◆ ":"")+o.Name+"\n"+(o.Playback?.Status??$"마력 {o.Get("mana"):0}"),()=>{CloseBubbles();Send("select",id);world.Follow=true;}));}}
-        string ikey=a.Id+string.Join("|",a.Inventory.Select(k=>k.Key+":"+k.Value))+a.GetText("weapon");
-        if(ikey!=inventoryKey){inventoryKey=ikey;inventory.Children.Clear();foreach(var pair in a.Inventory.Where(k=>k.Value>0)){string id=pair.Key;var b=Button($"{Game.ItemName(id)} ×{pair.Value}",()=>OpenItemBubble(id));b.ToolTip=Game.Content.Items.GetValueOrDefault(id)?.Description;inventory.Children.Add(b);}}
+        string ikey=a.Id+string.Join("|",a.Inventory.Select(k=>k.Key+":"+k.Value+":"+a.Reserved(k.Key)))+a.GetText("weapon");
+        if(ikey!=inventoryKey){inventoryKey=ikey;inventory.Children.Clear();foreach(var pair in a.Inventory.Where(k=>k.Value>0)){string id=pair.Key;var b=Button($"{Game.ItemName(id)} ×{pair.Value}"+(a.Reserved(id)>0?$" · 점유 {a.Reserved(id)}":""),()=>OpenItemBubble(id));b.ToolTip=Game.Content.Items.GetValueOrDefault(id)?.Description;inventory.Children.Add(b);}}
         var d=s.Dialogues.FirstOrDefault();dialogue.Visibility=session.Started&&d is not null?Visibility.Visible:Visibility.Collapsed;
         if(d is not null && d.Id!=lastDialogue){lastDialogue=d.Id;dialogueContent.Children.Clear();var row=new DockPanel();var image=new Image{Source=assets.Portrait(d.Mood,d.Chalk),Width=145,Height=190,Stretch=Stretch.Uniform};DockPanel.SetDock(image,Dock.Left);row.Children.Add(image);var text=new StackPanel{Margin=new Thickness(18,0,0,0)};text.Children.Add(Label(d.Speaker,22));text.Children.Add(Label(d.Text,17));text.Children.Add(Button("계속 · Enter",AdvanceDialogue,"dialogueNext"));row.Children.Add(text);dialogueContent.Children.Add(row);}
         if(d is null)lastDialogue="";
@@ -135,7 +137,7 @@ internal sealed partial class MainWindow : Window
     private bool Held(string action) => Game.Content.Inputs.GetValueOrDefault(action,"").Split(',').Any(k=>Enum.TryParse<Key>(k,true,out var parsed)&&Keyboard.IsKeyDown(parsed));
     private void UpdateInput()
     {
-        if(!session.Started||session.Inactive||modalType!=""||Game.State.Dialogues.Count>0||Keyboard.FocusedElement is TextBox or ComboBox)
+        if(!session.Started||session.Inactive||modalType!=""||Game.State.Dialogues.Count>0||Keyboard.FocusedElement is TextBox or ComboBox or Slider)
         {session.SetInput(0,0,false);return;}
         int dx=(Held("move.right")?1:0)-(Held("move.left")?1:0),dy=(Held("move.down")?1:0)-(Held("move.up")?1:0);
         if(dx!=0||dy!=0){world.Follow=true;CloseBubbles();}
@@ -144,7 +146,7 @@ internal sealed partial class MainWindow : Window
     private void OnGameKey(object sender,KeyEventArgs e)
     {
         if(e.Key==Key.F11){bool full=WindowStyle==WindowStyle.None;WindowStyle=full?WindowStyle.SingleBorderWindow:WindowStyle.None;WindowState=full?WindowState.Normal:WindowState.Maximized;e.Handled=true;return;}
-        if(Keyboard.FocusedElement is TextBox or ComboBox)return;
+        if(Keyboard.FocusedElement is TextBox or ComboBox or Slider)return;
         if(!session.Started)return;
         if(e.Key==Key.Escape){if(Game.State.Dialogues.Count>0)return;if(world.Building!="")world.Building="";else if(modalType!="")CloseOverlay();else if(bubbleLayer.Children.Count>0)BackBubble();else Open("menu");e.Handled=true;return;}
         if(Game.State.Dialogues.Count>0){if(e.Key is Key.Enter or Key.Space){AdvanceDialogue();e.Handled=true;}return;}

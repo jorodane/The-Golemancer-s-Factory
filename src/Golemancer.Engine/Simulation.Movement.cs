@@ -10,7 +10,7 @@ public sealed partial class Simulation
         if (!this.IsGolem(actor) || !actor.Alive() || actor.Playback is not null) x = y = 0;
         bool starting = actor.InputX == 0 && actor.InputY == 0 && (x != 0 || y != 0);
         actor.InputX = x; actor.InputY = y;
-        if (starting) { actor.Path.Clear(); actor.Pending = null; actor.Work = null; }
+        if (starting) this.CancelActions(actor);
         if (x == 0 && y == 0) actor.ManualRecording = null;
     }
     private bool CanMoveTo(WorldObject actor, double x, double y)
@@ -77,7 +77,16 @@ public sealed partial class Simulation
             {
                 if (pushed) actor.Set("pushRemaining",0);
                 else if (rolling) actor.Set("rollRemaining",0);
-                else if (!manual && actor.Path.Count > 0) { var destination=actor.Path[actor.Path.Count-1]; Navigate(actor,destination); }
+                else if (!manual && actor.Path.Count > 0)
+                {
+                    var destination = actor.Path[actor.Path.Count-1];
+                    if (!Navigate(actor, destination))
+                    {
+                        var failed = actor.Pending ?? new ActionRequest { Action = "move" };
+                        actor.Path.Clear(); actor.Pending = null;
+                        FinishFailure(actor, failed, ActionResult.Fail("길이 막혀 이동을 멈췄어.", "no_path"), actor.Playback is not null);
+                    }
+                }
                 break;
             }
             if (!pushed && !rolling && !manual && actor.Path.Count > 0 && actor.Tile == actor.Path[0]) actor.Path.RemoveAt(0);

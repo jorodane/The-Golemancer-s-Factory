@@ -44,7 +44,7 @@ public sealed class Expand : IActionHandler
         return ActionResult.Success("상점 규모가 늘었어. 더 많은 시설과 주문을 받을 수 있어.");
     }
 }
-public sealed class Order : IActionHandler
+public sealed class Order : IActionHandler, IInventoryAction
 {
     public CheckResult Check(IGameContext c, WorldObject a, ActionRequest r)
     {
@@ -53,7 +53,17 @@ public sealed class Order : IActionHandler
         if (r.Option == "accept") return CheckResult.Yes;
         if (!order.Accepted) return CheckResult.No("주문을 먼저 수락해줘.", "not_accepted");
         var sources = Sources(c, a).ToArray();
-        return order.Requirements.All(k => sources.Sum(o => o.Count(k.Key)) >= k.Value) ? CheckResult.Yes : CheckResult.No("골렘과 상점 창고에 주문 물건이 부족해.", "ingredients");
+        return order.Requirements.All(k => sources.Sum(o => c.Available(o, k.Key)) >= k.Value) ? CheckResult.Yes : CheckResult.No("골렘과 상점 창고에 주문 물건이 부족해.", "ingredients");
+    }
+    public PreparedAction Prepare(IGameContext c, WorldObject a, ActionRequest r)
+    {
+        var needs = new List<ItemRequirement>();
+        if (r.Option != "accept") foreach (var pair in c.State.Orders.First(o => o.Id == r.Item).Requirements)
+        {
+            int left = pair.Value;
+            foreach (var source in Sources(c, a)) { int n = Math.Min(left, c.Available(source, pair.Key)); if(n > 0) needs.Add(new(source.Id, pair.Key, n)); left -= n; }
+        }
+        return new(r, needs);
     }
     private static IEnumerable<WorldObject> Sources(IGameContext c, WorldObject a) => new[] { a }.Concat(c.OfKind("facility").Where(o => o.DefinitionId == "storage" && Rules.InShop(o.X, o.Y)));
     public ActionResult Execute(IGameContext c, WorldObject a, ActionRequest r)
@@ -63,7 +73,7 @@ public sealed class Order : IActionHandler
         foreach (var (item, amount) in o.Requirements)
         {
             int left = amount;
-            foreach (var source in Sources(c, a)) { int n = Math.Min(left, source.Count(item)); source.Take(item, n); left -= n; }
+            foreach (var source in Sources(c, a)) { int n = Math.Min(left, c.Available(source, item)); c.Take(source, item, n); left -= n; }
         }
         o.Delivered = true; c.State.Add("gold", o.Reward); c.State.Add("reputation", o.Reputation); c.State.Add("ordersDelivered");
         c.State.Flags.Add("first_order"); c.Effect("gold", a.X, a.Y, $"+{o.Reward}G", 2);
@@ -95,7 +105,7 @@ public sealed class Customers : IRuntimeSystem
                 continue;
             }
             if (buyer.Get("bought") > 0) continue;
-            var item = shelf.Inventory.FirstOrDefault(k => k.Value > 0 && c.Content.Items.GetValueOrDefault(k.Key)?.Price > 0);
+            var item = shelf.Inventory.FirstOrDefault(k => shelf.Available(k.Key) > 0 && c.Content.Items.GetValueOrDefault(k.Key)?.Price > 0);
             if (item.Key is null) continue;
             int price = c.Content.Items[item.Key].Price;
             int income = (int)Math.Ceiling(price * (1 + .12 * (c.State.Get("shopTier", 1) - 1) + (shelf.DefinitionId == "fine_shelf" ? .2 : 0)));

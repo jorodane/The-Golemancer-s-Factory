@@ -11,6 +11,7 @@ internal sealed class WorldView : FrameworkElement
     private readonly AssetStore assets;
     private readonly Dictionary<string, Pose> poses = [];
     public string Selected { get; set; } = "";
+    public string FocusedFacility { get; set; } = "";
     public string Building { get; set; } = "";
     public double CameraX { get; set; } = 10;
     public double CameraY { get; set; } = 27;
@@ -121,7 +122,7 @@ internal sealed class WorldView : FrameworkElement
         }
         else if(IsMouseOver&&session.Started) dc.DrawRectangle(null,new Pen(SvgImage.Brush("#fff3cb90"),1),new Rect(Screen(Hover.X,Hover.Y),new Size(Zoom,Zoom)));
         if(g.Night()) dc.DrawRectangle(SvgImage.Brush("#183c6840"),null,new Rect(RenderSize));
-        if(IsMouseOver && session.Started && Target(Hover) is { } facility && g.Definition(facility) is { InputSlots.Count: > 0 } definition)
+        if(FocusedFacility.Length == 0 && IsMouseOver && session.Started && Target(Hover) is { } facility && g.Definition(facility) is { InputSlots.Count: > 0 } definition)
             DrawInputs(dc, facility, definition);
     }
     private void DrawInputs(DrawingContext dc, WorldObject facility, ObjectDef definition)
@@ -140,12 +141,12 @@ internal sealed class WorldView : FrameworkElement
         foreach (var slot in definition.InputSlots)
         {
             var stock = facility.Inventory.Where(k => k.Value > 0 && g.InputSlot(facility, k.Key)?.Id == slot.Id).ToArray();
-            string value = stock.Length == 0 ? "비어 있음" : string.Join(" · ", stock.Select(k => g.ItemName(k.Key) + " ×" + k.Value));
+            string value = stock.Length == 0 ? "비어 있음" : string.Join(" · ", stock.Select(k => g.ItemName(k.Key) + " ×" + k.Value + (facility.Reserved(k.Key) > 0 ? " · 점유 " + facility.Reserved(k.Key) : "")));
             if(slot.Id == "fuel" && facility.Get("heat") > 0) value += $" · 남은 열 {facility.Get("heat"):0}";
             Line(slot.Name + "  " + value, y + 41 + row * 39);
             row++;
         }
-        string output = string.Join(" · ", facility.OutputInventory.Where(k => k.Value > 0).Select(k => g.ItemName(k.Key) + " ×" + k.Value));
+        string output = string.Join(" · ", facility.OutputInventory.Where(k => k.Value > 0).Select(k => g.ItemName(k.Key) + " ×" + k.Value + (facility.Reserved(k.Key) > 0 ? " · 점유 " + facility.Reserved(k.Key) : "")));
         Line("완성품  " + (output.Length == 0 ? "없음" : output), y + height - 49);
         var job = facility.Production.FirstOrDefault();
         Line(job is not null && g.Content.Recipes.TryGetValue(job.RecipeId, out var recipe) ? $"{recipe.Name} · {job.Progress / recipe.Work:P0} (재료 투입 완료)" : "세 투입칸이 준비되면 자동 작동", y + height - 26, 11);

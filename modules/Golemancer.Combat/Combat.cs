@@ -79,7 +79,6 @@ public sealed class Roll : IActionHandler
         double dx = r.X is >= -1 and <= 1 ? r.X : a.Get("facingX", 1), dy = r.Y is >= -1 and <= 1 ? r.Y : a.Get("facingY");
         if (dx == 0 && dy == 0) dx = 1;
         double length = Math.Sqrt(dx * dx + dy * dy);
-        a.Path.Clear(); a.Pending = null; a.Work = null;
         a.Set("rollX", dx / length); a.Set("rollY", dy / length); a.Set("rollRemaining", 2);
         a.Set("rollStarted", c.State.Time); a.Set("rollUntil", c.State.Time + .28);
         a.Set("invulnerableUntil", c.State.Time + .65); a.Set("rollReady", c.State.Time + 1.8);
@@ -115,7 +114,7 @@ public sealed class Retreat : IActionHandler
     public CheckResult Check(IGameContext c, WorldObject a, ActionRequest r) => CheckResult.Yes;
     public ActionResult Execute(IGameContext c, WorldObject a, ActionRequest r)
     {
-        foreach (var ally in c.OfKind("golem").Where(o => o.X >= 39 && o.Y <= 21)) { ally.X = 37; ally.Y = 22; ally.Path.Clear(); ally.Pending = null; ally.Work = null; ally.Playback = null; }
+        foreach (var ally in c.OfKind("golem").Where(o => o.X >= 39 && o.Y <= 21)) { ally.X = 37; ally.Y = 22; c.CancelActions(ally); }
         Battle.Reset(c); return ActionResult.Success("호수에서 물러났어. 보스는 다음 도전 때 초기 상태로 시작해.");
     }
 }

@@ -16,14 +16,14 @@ public sealed class Assemble : IActionHandler
         var enrin = c.Find("enrin")!;
         if (enrin.GetText("assembling") != "") return CheckResult.No("엔린이 다른 골렘을 조립하고 있어.", "busy");
         string core = d.Data.GetValueOrDefault("core", "");
-        if (c.State.Treasury.GetValueOrDefault(core) + a.Count(core) < 1) return CheckResult.No("해당 골렘의 핵이 필요해.", "core_missing");
+        if (c.State.Treasury.GetValueOrDefault(core) + c.Available(a, core) < 1) return CheckResult.No("해당 골렘의 핵이 필요해.", "core_missing");
         if (c.OfKind("golem").Count() >= 12) return CheckResult.No("지금 공방에서는 12대까지 관리할 수 있어.", "golem_limit");
         return CheckResult.Yes;
     }
     public ActionResult Execute(IGameContext c, WorldObject a, ActionRequest r)
     {
         string core = c.Content.Objects[r.Item].Data["core"];
-        if (c.State.Treasury.GetValueOrDefault(core) > 0) c.State.Treasury[core]--; else a.Take(core, 1);
+        if (c.State.Treasury.GetValueOrDefault(core) > 0) c.State.Treasury[core]--; else c.Take(a, core, 1);
         var enrin = c.Find("enrin")!; enrin.Data["assembling"] = r.Item; enrin.Set("assemblyDue", c.State.Time + 6);
         c.State.Dialogues.Add(new("assemble-" + c.State.Time, "엔린", "…이럴 때만 내가 움직여야 하지. 잠깐만 기다려.", "tired", "6 → 0"));
         return ActionResult.Success("엔린이 골렘을 조립하기 시작했어.");
@@ -34,7 +34,7 @@ public sealed class Select : IActionHandler
     public CheckResult Check(IGameContext c, WorldObject a, ActionRequest r) => c.Target(r) is { } t && t.Alive() && c.IsGolem(t) ? CheckResult.Yes : CheckResult.No("조종할 수 없는 대상이야.", "target_missing");
     public ActionResult Execute(IGameContext c, WorldObject a, ActionRequest r)
     {
-        var target = c.Target(r)!; target.Playback = null; target.Path.Clear(); target.Pending = null;
+        var target = c.Target(r)!; if (target.Playback is not null) c.CancelActions(target);
         c.State.ControlledId = target.Id;
         c.State.MapId = target.GetText("area", "feast_trail");
         return ActionResult.Success(target.Name + " 조종 시작");
@@ -46,7 +46,7 @@ public sealed class Equip : IActionHandler
     public CheckResult Check(IGameContext c, WorldObject a, ActionRequest r)
     {
         if (!c.Capability(a, "combat")) return CheckResult.No("이 골렘은 장비를 사용할 수 없어.", "capability");
-        if (!Equipment.Contains(r.Item) || a.Count(r.Item) < 1) return CheckResult.No("장비가 보관함에 있어야 해.", "item_missing");
+        if (!Equipment.Contains(r.Item) || c.Available(a, r.Item) < 1) return CheckResult.No("장비가 보관함에 있어야 해.", "item_missing");
         return CheckResult.Yes;
     }
     public ActionResult Execute(IGameContext c, WorldObject a, ActionRequest r)
@@ -76,12 +76,13 @@ public sealed class Upgrade : IActionHandler
         return ActionResult.Success("골렘 강화 완료");
     }
 }
-public sealed class Fuel : IActionHandler
+public sealed class Fuel : IActionHandler, IInventoryAction
 {
-    public CheckResult Check(IGameContext c, WorldObject a, ActionRequest r) => c.Target(r)?.DefinitionId != "mana_tower" ? CheckResult.No("마나 수정탑을 선택해줘.", "target_missing") : a.Count("mana_crystal") < Math.Max(1, r.Quantity) ? CheckResult.No("무색 마나 수정이 부족해.", "ingredients") : CheckResult.Yes;
+    public PreparedAction Prepare(IGameContext c, WorldObject a, ActionRequest r) => new(r, [new(a.Id, "mana_crystal", Math.Max(1, r.Quantity))]);
+    public CheckResult Check(IGameContext c, WorldObject a, ActionRequest r) => c.Target(r)?.DefinitionId != "mana_tower" ? CheckResult.No("마나 수정탑을 선택해줘.", "target_missing") : c.Available(a, "mana_crystal") < Math.Max(1, r.Quantity) ? CheckResult.No("무색 마나 수정이 부족해.", "ingredients") : CheckResult.Yes;
     public ActionResult Execute(IGameContext c, WorldObject a, ActionRequest r)
     {
-        int n = Math.Max(1, r.Quantity); a.Take("mana_crystal", n); var tower = c.Target(r)!;
+        int n = Math.Max(1, r.Quantity); c.Take(a, "mana_crystal", n); var tower = c.Target(r)!;
         tower.Set("reserve", tower.Get("reserve") + n * 1000); c.State.Flags.Add("automation"); c.State.Add("towerFueled", n);
         return ActionResult.Success("수정탑에 마력이 차올랐어. 충전과 자동화를 시작할 수 있어.");
     }
@@ -107,10 +108,10 @@ public sealed class Charge : IActionHandler
 }
 public sealed class Consume : IActionHandler
 {
-    public CheckResult Check(IGameContext c, WorldObject a, ActionRequest r) => r.Item is "healing_jelly" or "mana_jelly" or "sweetfruit" && a.Count(r.Item) > 0 ? CheckResult.Yes : CheckResult.No("사용할 회복 물건이 없어.", "ingredients");
+    public CheckResult Check(IGameContext c, WorldObject a, ActionRequest r) => r.Item is "healing_jelly" or "mana_jelly" or "sweetfruit" && c.Available(a, r.Item) > 0 ? CheckResult.Yes : CheckResult.No("사용할 회복 물건이 없어.", "ingredients");
     public ActionResult Execute(IGameContext c, WorldObject a, ActionRequest r)
     {
-        a.Take(r.Item, 1);
+        c.Take(a, r.Item, 1);
         if (r.Item == "mana_jelly") a.Set("mana", Math.Min(a.Get("maxMana", 100), a.Get("mana") + 35));
         else a.Set("health", Math.Min(a.Get("maxHealth", 100), a.Get("health") + (r.Item == "sweetfruit" ? 15 : 60)));
         c.Effect("heal", a.X, a.Y, "+");
@@ -138,7 +139,7 @@ public sealed class Lifecycle : IRuntimeSystem
         foreach (var a in c.OfKind("golem").ToArray())
         {
             if (a.Get("health") > 0) continue;
-            a.Set("dead", 1); a.Path.Clear(); a.Work = null; a.Pending = null; a.Playback = null;
+            a.Set("dead", 1); c.CancelActions(a);
             string core = a.GetText("core");
             if (core != "") c.State.Treasury[core] = c.State.Treasury.GetValueOrDefault(core) + 1;
             if (a.Recording is not null) { c.State.Recordings[a.Recording.Id] = a.Recording; a.Recording = null; }

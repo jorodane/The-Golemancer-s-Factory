@@ -19,18 +19,18 @@ internal static class GroundItems
     {
         int total = 0;
         foreach (var pair in drop.Inventory.ToArray())
-        { int n=c.Give(actor,pair.Key,pair.Value);drop.Take(pair.Key,n);total+=n; }
+        { int n=c.Give(actor,pair.Key,c.Available(drop,pair.Key));c.Take(drop,pair.Key,n);total+=n; }
         if (drop.Inventory.Count == 0) drop.Set("dead",1);
         return total;
     }
 }
 public sealed class DropItems : IActionHandler
 {
-    public CheckResult Check(IGameContext c, WorldObject a, ActionRequest r) => !c.IsGolem(a) || !c.Content.Items.ContainsKey(r.Item) || r.Mode != "all" && r.Quantity < 1 || a.Count(r.Item) < (r.Mode == "all" ? 1 : r.Quantity) ? CheckResult.No("내려놓을 물건과 수량을 선택해줘.","insufficient") : CheckResult.Yes;
+    public CheckResult Check(IGameContext c, WorldObject a, ActionRequest r) => !c.IsGolem(a) || !c.Content.Items.ContainsKey(r.Item) || r.Mode != "all" && r.Quantity < 1 || c.Available(a,r.Item) < (r.Mode == "all" ? 1 : r.Quantity) ? CheckResult.No("내려놓을 물건과 수량을 선택해줘.","insufficient") : CheckResult.Yes;
     public ActionResult Execute(IGameContext c, WorldObject a, ActionRequest r)
     {
-        int n=r.Mode == "all" ? a.Count(r.Item) : r.Quantity;
-        a.Take(r.Item,n);var drop=c.Drop(a.X,a.Y,new Dictionary<string,int>{{r.Item,n}});
+        int n=r.Mode == "all" ? c.Available(a,r.Item) : r.Quantity;
+        c.Take(a,r.Item,n);var drop=c.Drop(a.X,a.Y,new Dictionary<string,int>{{r.Item,n}});
         drop.SetPosition(a.WorldX,a.WorldY);
         return ActionResult.Success($"{c.ItemName(r.Item)} {n}개를 바닥에 내려놓았어.",n);
     }

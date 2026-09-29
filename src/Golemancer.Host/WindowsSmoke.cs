@@ -33,7 +33,10 @@ internal sealed partial class MainWindow
             Click("bubble.item.wood");Click("bubble.transfer.number");
             quantityInput!.Text="0";Click("quantity.confirm");
             if(quantityInput is null||a.Count("wood")!=4)throw new Exception("Invalid numeric input was committed");
-            Click("quantity.max");Click("quantity.confirm");Advance(120);
+            quantityInput.Text="3";if(quantitySlider?.Value!=3)throw new Exception("Number field did not update slider");
+            quantitySlider.Value=2;if(quantityInput.Text!="2")throw new Exception("Slider did not update number field");
+            a.Inventory["wood"]=1;refreshQuantity!();if(quantitySlider.Maximum!=1||quantityInput.Text!="1")throw new Exception("Live maximum did not clamp both quantity controls");
+            a.Inventory["wood"]=4;refreshQuantity!();Click("quantity.max");if(quantitySlider.Value!=4)throw new Exception("Quantity shortcut did not update slider");Click("quantity.confirm");Advance(120);
             if(crafter.Count("wood")!=4||a.Count("wood")!=0||Game.State.ControlledId!=controlled)throw new Exception("Native bubble handoff failed");
             ClickTile(crafter.Tile,true);Click("bubble.take");Click("bubble.item.wood");
             int depth=bubbleHistory.Count;Click("bubble.favorite");Click("bubble.back");
@@ -81,11 +84,24 @@ internal sealed partial class MainWindow
             recipeBubble.Button.RaiseEvent(new MouseEventArgs(Mouse.PrimaryDevice,Environment.TickCount){RoutedEvent=Mouse.MouseLeaveEvent});
             if(bubbleHoverLayer.Children.Count!=0||hoveredBubble is not null)throw new Exception("Hover overlay remained after pointer exit");
             EnterBubble(recipeBubble);CloseBubbles();if(bubbleHoverLayer.Children.Count!=0)throw new Exception("Closing bubbles leaked the spotlight");
+            CloseBubbles();Game.State.ControlledId=crafter.Id;crafter.Inventory["wood"]=5;
+            var machine=Game.Spawn("herb_fumigator",20,28,"native-machine");machine.Data["autoProduce"]="false";
+            machine.Inventory["springwater_jelly"]=3;machine.OutputInventory["springwater_jelly"]=7;
+            bubbleAnchor=world.Screen(machine.X+.5,machine.Y+.5);ShowFacilityFocus(machine);UpdateLayout();RefreshFacilityFocus();
+            if(!buttons.ContainsKey("bubble.slot.fuel")||!buttons.ContainsKey("bubble.slot.herb")||!buttons.ContainsKey("bubble.slot.liquid")||facilityShadeLayer.Children.Count!=1)throw new Exception("Interactive facility slots or focus layer missing");
+            var facilityMask=((System.Windows.Shapes.Path)facilityShadeLayer.Children[0]).Data;
+            var slotButton=buttons["bubble.slot.fuel"];var slotCenter=slotButton.TranslatePoint(new Point(slotButton.Width/2,slotButton.Height/2),root);
+            if(facilityMask.FillContains(slotCenter)||!facilityMask.FillContains(new Point(1,1)))throw new Exception("Facility mask covered an active input slot");
+            Click("bubble.slot.fuel");if(quantityInput is null||quantitySlider?.Maximum!=5||bubbleHistory.Count!=2)throw new Exception("Single compatible slot item did not skip straight to quantity");
+            Click("bubble.back");buttons["bubble.slot.liquid"].RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice,Environment.TickCount,MouseButton.Right){RoutedEvent=UIElement.PreviewMouseRightButtonDownEvent});UpdateLayout();
+            if(quantityInput is null||quantitySlider?.Maximum!=3)throw new Exception("Right-click input slot did not use input-only quantity");
+            Click("bubble.back");if(!buttons.ContainsKey("bubble.slot.herb")||focusedFacility!=machine.Id)throw new Exception("Slot parent navigation lost facility focus");
+            CloseBubbles();if(facilityShadeLayer.Children.Count!=0||world.FocusedFacility.Length!=0)throw new Exception("Closing facility left its spotlight active");
             world.Reset();RefreshHud();UpdateLayout();world.InvalidateVisual();ClickTile(crafter.Tile,true);ShowCategories(crafter);
             SettleCircles();
             for(int i=0;i<3;i++){world.UpdateLayout();UpdateLayout();}
             var image=new RenderTargetBitmap((int)ActualWidth,(int)ActualHeight,96,96,PixelFormats.Pbgra32);image.Render(root);var png=new PngBitmapEncoder();png.Frames.Add(BitmapFrame.Create(image));using(var stream=File.Create(Path.Combine(directory,"native-window.png")))png.Save(stream);
-            File.WriteAllText(Path.Combine(directory,"result.txt"),"PASS: native WPF startup, image/atlas bounds, new-game button, dialogue, continuous movement and save/load, Tab/Space handlers, giving AND taking bubbles without changing control, favorites, parent navigation, invalid quantity and all five shortcuts, E tap/hold, eight circular icons, separate pagination, arrival/hover animation clocks, craft result/material hover, nonblocking spotlight exclusion, live stock refresh and cleanup.\n");
+            File.WriteAllText(Path.Combine(directory,"result.txt"),"PASS: native WPF startup, image/atlas bounds, new-game button, dialogue, continuous movement and save/load, Tab/Space handlers, giving AND taking bubbles without changing control, favorites, parent navigation, invalid quantity and all five shortcuts, E tap/hold, eight circular icons, separate pagination, arrival/hover animation clocks, craft result/material hover, nonblocking spotlight exclusion, live stock refresh and cleanup, two-way integer quantity slider/live bounds/shortcuts, facility spotlight hit mask, singleton slot quantity and right-click input-only retrieval.\n");
             Application.Current.Shutdown(0);
         }
         catch(Exception e){File.WriteAllText(Path.Combine(directory,"result.txt"),e.ToString());Application.Current.Shutdown(1);}

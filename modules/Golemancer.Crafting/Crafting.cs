@@ -4,11 +4,12 @@ public sealed class Module : IGameModule
 {
     public void Register(IModuleRegistry r) { r.Action("craft.produce", new Produce()); r.System(new Production()); }
 }
-public sealed class Produce : IActionHandler
+public sealed class Produce : IActionHandler, IInventoryAction
 {
     private static int Count(WorldObject source, WorldObject facility, RecipeDef recipe, ActionRequest r)
     {
-        int n = r.Action == "craft_single" ? 1 : Math.Max(1, r.Quantity);
+        if (r.ReservationId.Length > 0) return r.Quantity;
+        int n = r.Action == "craft_single" ? 1 : Math.Max(0, r.Quantity);
         if (r.Action == "craft_until" || r.Mode == "fill") n = (int)Math.Ceiling(Math.Max(0, r.Quantity - source.Count(recipe.Output) - facility.Production.Where(j => j.RecipeId == recipe.Id).Count() * recipe.Amount) / (double)recipe.Amount);
         return n;
     }
@@ -32,16 +33,22 @@ public sealed class Produce : IActionHandler
         if (n == 0) return CheckResult.Yes;
         if (n > 99 || t.Production.Count + n > 99) return CheckResult.No("한 시설은 최대 99회까지 예약할 수 있어.", "queue_full");
         var source = Source(a, t);
-        if (!source.Has(recipe.Inputs, n)) return CheckResult.No(t.DefinitionId == "workbench" ? "골렘이 가진 재료가 부족해." : "시설에 재료를 먼저 넣어줘.", "ingredients");
+        if (!c.Has(source, recipe.Inputs, n)) return CheckResult.No(t.DefinitionId == "workbench" ? "골렘이 가진 재료가 부족해." : "시설에 재료를 먼저 넣어줘.", "ingredients");
         if (!OutputFits(c, source, recipe, n)) return CheckResult.No("완성품을 둘 공간이 부족해.", "output_full");
         if (t.DefinitionId == "herb_fumigator" && t.Count("wood") == 0 && t.Get("heat") <= 0) return CheckResult.No("연료 투입으로 목재를 넣어줘.", "fuel");
         return CheckResult.Yes;
+    }
+    public PreparedAction Prepare(IGameContext c, WorldObject a, ActionRequest r)
+    {
+        var t = c.Target(r)!; var recipe = c.Content.Recipes[r.Item]; var source = Source(a, t);
+        int n = Count(source, t, recipe, r);
+        return new(r with { Quantity = n, Mode = "exact" }, recipe.Inputs.Select(k => new ItemRequirement(source.Id, k.Key, k.Value * n, true)).ToList());
     }
     public ActionResult Execute(IGameContext c, WorldObject a, ActionRequest r)
     {
         var t = c.Target(r)!; var recipe = c.Content.Recipes[r.Item]; int n = Count(Source(a, t), t, recipe, r);
         if (n == 0) return ActionResult.Success("목표 재고가 이미 충분해.");
-        var source = Source(a, t); source.Pay(recipe.Inputs, n);
+        var source = Source(a, t); c.Pay(source, recipe.Inputs, n);
         if (t.DefinitionId == "workbench")
         {
             c.Give(source, recipe.Output, recipe.Amount * n);
@@ -80,7 +87,7 @@ public sealed class Production : IRuntimeSystem
             string source = f.GetText("workSource", "heat");
             if (source == "heat" && f.Get("heat") <= 0)
             {
-                if (f.Inventory.GetValueOrDefault("wood") == 0) { f.Data["status"] = "목재 연료 대기"; continue; }
+                if (f.AvailableInput("wood") == 0) { f.Data["status"] = "목재 연료 대기"; continue; }
                 f.Pay(new Dictionary<string, int> { ["wood"] = 1 }); f.Set("heat", f.Get("heat") + f.Get("fuelWork", 100));
             }
             double efficiency = recipe.Efficiencies.GetValueOrDefault(source, recipe.DefaultEfficiency);
@@ -98,7 +105,7 @@ public sealed class Production : IRuntimeSystem
         { f.Data["status"] = "같은 투입칸의 기존 재료를 정리해줘"; return; }
         var recipe = c.Content.Recipes.Values.FirstOrDefault(r => r.Facility == f.DefinitionId && (r.Unlock.Length == 0 || c.State.Flags.Contains(r.Unlock)) && f.Has(r.Inputs));
         if (recipe is null) { f.Data["status"] = "약초·액체 조합 / 레시피 대기"; return; }
-        if (f.GetText("workSource", "heat") == "heat" && f.Inventory.GetValueOrDefault("wood") == 0 && f.Get("heat") <= 0)
+        if (f.GetText("workSource", "heat") == "heat" && f.AvailableInput("wood") == 0 && f.Get("heat") <= 0)
         { f.Data["status"] = "연료 대기"; return; }
         if (c.OutputRoom(f, recipe.Output) < recipe.Amount) { f.Data["status"] = "완성품 공간 대기"; return; }
         f.Pay(recipe.Inputs);

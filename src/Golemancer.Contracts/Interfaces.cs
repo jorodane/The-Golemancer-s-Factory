@@ -16,6 +16,11 @@ public interface IActionHandler
     CheckResult Check(IGameContext context, WorldObject actor, ActionRequest request);
     ActionResult Execute(IGameContext context, WorldObject actor, ActionRequest request);
 }
+/// <summary>Optional: describe debits after Check, before travel/work. Pure; normalize all/fill to a fixed operation.</summary>
+public interface IInventoryAction
+{
+    PreparedAction Prepare(IGameContext context, WorldObject actor, ActionRequest request);
+}
 public interface IConditionHandler { bool Evaluate(IGameContext context, WorldObject actor, WorldObject? target, ConditionNode node); }
 public interface IFailureHandler { FailureDecision Handle(IGameContext context, WorldObject actor, FailureContext failure); }
 public interface IRuntimeSystem
@@ -30,6 +35,7 @@ public interface IGameContext
 {
     GameState State { get; }
     ContentCatalog Content { get; }
+    string ReservationId { get; }
     WorldObject? Find(string id);
     ObjectDef? Definition(WorldObject obj);
     WorldObject Spawn(string definition, int x, int y, string? id = null);
@@ -42,7 +48,7 @@ public interface IGameContext
     void CompletePlaybackStep(WorldObject actor, ActionResult result, ActionRequest request);
 }
 
-public static class Rules
+public static partial class Rules
 {
     public static void Animate(this IGameContext c, WorldObject o, string state, double seconds = .48)
     { o.Data["visualState"] = state; o.Set("visualStarted", c.State.Time); o.Set("visualUntil", c.State.Time + seconds); }
@@ -107,18 +113,21 @@ public static class Rules
         if (n > 0) o.OutputInventory[item] = o.OutputInventory.GetValueOrDefault(item) + n;
         return n;
     }
-    public static bool Has(this WorldObject o, IReadOnlyDictionary<string, int> items, int count = 1) => items.All(k => o.Inventory.GetValueOrDefault(k.Key) >= (long)k.Value * count);
-    public static void Take(this WorldObject o, string item, int amount)
+    public static bool Has(this WorldObject o, IReadOnlyDictionary<string, int> items, int count = 1) => o.Has(items, count, "");
+    public static bool Has(this WorldObject o, IReadOnlyDictionary<string, int> items, int count, string reservation) => items.All(k => o.AvailableInput(k.Key, reservation) >= (long)k.Value * count);
+    public static void Take(this WorldObject o, string item, int amount) => o.Take(item, amount, "", false);
+    public static void Take(this WorldObject o, string item, int amount, string reservation, bool inputOnly = false)
     {
-        if (amount < 0 || amount > o.Count(item)) throw new InvalidOperationException("Invalid inventory debit");
-        int output = Math.Min(amount, o.OutputInventory.GetValueOrDefault(item));
+        if (amount < 0 || amount > (inputOnly ? o.AvailableInput(item, reservation) : o.Available(item, reservation))) throw new InvalidOperationException("Invalid inventory debit");
+        int output = inputOnly ? 0 : Math.Min(amount, o.AvailableOutput(item, reservation));
         Debit(o.OutputInventory, item, output); Debit(o.Inventory, item, amount - output);
     }
     private static void Debit(Dictionary<string, int> inventory, string item, int amount)
     { int n = inventory.GetValueOrDefault(item) - amount; if (n == 0) inventory.Remove(item); else inventory[item] = n; }
-    public static void Pay(this WorldObject o, IReadOnlyDictionary<string, int> items, int count = 1)
+    public static void Pay(this WorldObject o, IReadOnlyDictionary<string, int> items, int count = 1) => o.Pay(items, count, "");
+    public static void Pay(this WorldObject o, IReadOnlyDictionary<string, int> items, int count, string reservation)
     {
-        if (!o.Has(items, count)) throw new InvalidOperationException("Unfunded inventory transaction");
+        if (!o.Has(items, count, reservation)) throw new InvalidOperationException("Unfunded inventory transaction");
         foreach (var (item, n) in items) Debit(o.Inventory, item, n * count);
     }
     public static string ItemName(this IGameContext c, string id) => c.Content.Items.GetValueOrDefault(id)?.Name ?? id;

@@ -24,7 +24,7 @@ public sealed class Enter : IActionHandler
     }
     public ActionResult Execute(IGameContext c, WorldObject a, ActionRequest r)
     {
-        a.Path.Clear(); a.Pending = null; a.Work = null;
+        c.CancelActions(a);
         if (r.Action == "return_cave") { a.X = 56; a.Y = 12; a.Data["area"] = "feast_trail"; c.State.MapId = "feast_trail"; return ActionResult.Success("만찬의 오솔길로 돌아왔어."); }
         a.X = 57; a.Y = 4; a.Data["area"] = "cave_entrance"; c.State.MapId = "cave_entrance"; c.State.Flags.Add("chapter1_complete"); c.State.Add("enteredCave");
         c.State.Dialogues.Add(new("chapter-complete", "엔린", "오솔길은 이제 스스로 돌아가고… 다음은 돌과 금속이네. 내 휴식은 언제 시작하는 거야?", "smile", "1 ✓  2 →"));

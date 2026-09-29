@@ -6,19 +6,26 @@ public sealed class Module : IGameModule
 }
 public sealed class Record : IActionHandler
 {
-    public CheckResult Check(IGameContext c, WorldObject a, ActionRequest r) => !c.IsGolem(a) ? CheckResult.No("골렘을 먼저 선택해줘.", "capability") : a.Work is not null || a.Pending is not null ? CheckResult.No("현재 작업이 끝난 뒤 녹화를 전환해줘.", "busy") : CheckResult.Yes;
+    public CheckResult Check(IGameContext c, WorldObject a, ActionRequest r) => !c.IsGolem(a) ? CheckResult.No("골렘을 먼저 선택해줘.", "capability") : a.Recording is null && (c.CommandBusy(a) || a.ActionQueue.Count > 0) ? CheckResult.No("현재 예약을 마치거나 취소한 뒤 새 녹화를 시작해줘.", "busy") : CheckResult.Yes;
     public ActionResult Execute(IGameContext c, WorldObject a, ActionRequest r)
     {
         if (a.Recording is not null)
         {
-            var recording = a.Recording; a.Recording = null;
+            var recording = a.Recording;
+            if (recording.Steps.Count + a.ActionQueue.Count(q => q.RecordedIn != recording.Id) > 1000) return ActionResult.Fail("녹화가 1000단계를 넘어서 저장할 수 없어.", "recording_limit");
+            foreach (var queued in a.ActionQueue.Where(q => q.RecordedIn != recording.Id))
+            {
+                recording.Steps.Add(new() { Request = queued.Request with { Enqueue = false, ReservationId = "" }, Offset = c.State.Time - recording.StartedAt, ActorTile = a.Tile });
+                queued.RecordedIn = recording.Id;
+            }
+            a.Recording = null; a.ManualRecording = null;
             if (recording.Steps.Count == 0) return ActionResult.Success("빈 녹화는 저장하지 않았어.");
             recording.Name = string.IsNullOrWhiteSpace(r.Option) ? $"{a.Name} · {recording.Steps.Count}단계" : r.Option.Substring(0, Math.Min(40, r.Option.Length));
             c.State.Recordings[recording.Id] = recording; a.Data["lastRecording"] = recording.Id;
             c.State.Add("recordingsMade");
             return ActionResult.Success($"{recording.Steps.Count}단계의 행동을 저장했어.");
         }
-        a.Playback = null; a.Path.Clear();
+        c.CancelActions(a);
         a.Recording = new() { ActorDefinition = a.DefinitionId, Origin = a.Tile, StartedAt = c.State.Time, Combat = a.GetText("mode") == "combat" };
         return ActionResult.Success("녹화 시작. 평소처럼 행동한 뒤 R로 마쳐줘.");
     }
@@ -37,9 +44,9 @@ public sealed class Play : IActionHandler
     }
     public ActionResult Execute(IGameContext c, WorldObject a, ActionRequest r)
     {
-        if (a.Playback is not null) { a.Playback = null; a.Path.Clear(); a.Work = null; a.Pending = null; return ActionResult.Success("직접 조종으로 돌아왔어."); }
+        if (a.Playback is not null) { c.CancelActions(a); return ActionResult.Success("직접 조종으로 돌아왔어."); }
         string id = string.IsNullOrEmpty(r.Item) ? a.GetText("lastRecording") : r.Item;
-        a.Path.Clear(); a.Pending = null; a.Work = null;
+        c.CancelActions(a);
         var recording = c.State.Recordings[id];
         if (!c.Navigate(a, recording.Origin)) return ActionResult.Fail("녹화 시작점으로 돌아갈 수 없어.", "no_path");
         a.Playback = new() { RecordingId = id, CycleStartedAt = c.State.Time, Status = "시작점으로 이동" };
@@ -49,7 +56,7 @@ public sealed class Play : IActionHandler
 public sealed class Wait : IActionHandler
 {
     public CheckResult Check(IGameContext c, WorldObject a, ActionRequest r) => CheckResult.Yes;
-    public ActionResult Execute(IGameContext c, WorldObject a, ActionRequest r) { a.Set("waitUntil", c.State.Time + Math.Max(1, Math.Min(r.Quantity, 60))); return ActionResult.Success(); }
+    public ActionResult Execute(IGameContext c, WorldObject a, ActionRequest r) { a.Set("waitUntil", c.State.Time + Math.Max(1, Math.Min(r.Quantity, 3600))); return ActionResult.Success(); }
 }
 public sealed class Executor : IRuntimeSystem
 {

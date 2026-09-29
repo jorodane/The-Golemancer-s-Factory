@@ -7,6 +7,7 @@
     <Bind action="toggle_mode" keys="Tab" />
     <Bind action="roll" keys="Space" />
     <Bind action="pickup" keys="E" />
+    <Bind action="queue" keys="LeftShift,RightShift" />
     <Bind action="record" keys="R" />
     <Bind action="play" keys="T" />
     <Bind action="build" keys="B" />

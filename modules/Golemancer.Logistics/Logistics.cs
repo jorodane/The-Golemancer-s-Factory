@@ -29,11 +29,11 @@ public sealed class Cancel : IActionHandler
     public CheckResult Check(IGameContext c, WorldObject a, ActionRequest r) => CheckResult.Yes;
     public ActionResult Execute(IGameContext c, WorldObject a, ActionRequest r)
     {
-        a.Path.Clear(); a.Work = null; a.Pending = null; a.Playback = null;
+        c.CancelActions(a);
         return ActionResult.Success("작업을 멈췄어.");
     }
 }
-public sealed class Transfer : IActionHandler
+public sealed class Transfer : IActionHandler, IInventoryAction
 {
     private static (WorldObject From, WorldObject To)? Pair(IGameContext c, WorldObject a, ActionRequest r)
     {
@@ -43,13 +43,14 @@ public sealed class Transfer : IActionHandler
     }
     private static int Count(IGameContext c, WorldObject from, WorldObject to, ActionRequest r)
     {
-        int wanted = r.Mode switch { "all" => from.Count(r.Item), "fill" => Math.Max(0, r.Quantity - to.Inventory.GetValueOrDefault(r.Item)), _ => r.Quantity };
-        return Math.Min(wanted, Math.Min(from.Count(r.Item), c.Room(to, r.Item)));
+        int wanted = r.Mode switch { "all" => c.Available(from, r.Item, r.Option == "take" && r.SlotId.Length > 0), "fill" => Math.Max(0, r.Quantity - to.Inventory.GetValueOrDefault(r.Item)), _ => r.Quantity };
+        return Math.Min(wanted, Math.Min(c.Available(from, r.Item, r.Option == "take" && r.SlotId.Length > 0), c.Room(to, r.Item)));
     }
     public CheckResult Check(IGameContext c, WorldObject a, ActionRequest r)
     {
         var pair = Pair(c, a, r);
         if (pair is null) return CheckResult.No("옮길 대상을 찾을 수 없어.", "target_missing");
+        if (r.SlotId.Length > 0 && c.InputSlot(c.Target(r)!, r.Item)?.Id != r.SlotId) return CheckResult.No("이 투입칸에 맞는 물건을 골라줘.", "input_slot");
         if (!c.Content.Items.ContainsKey(r.Item)) return CheckResult.No("옮길 물건을 골라줘.", "item_missing");
         if (r.Quantity < 0 || r.Mode is not ("exact" or "fill" or "all")) return CheckResult.No("옮길 수량을 확인해줘.", "quantity");
         if (!c.AcceptsInput(pair.Value.To, r.Item)) return CheckResult.No("이 물건을 받는 투입칸이 없어.", "input_slot");
@@ -58,24 +59,31 @@ public sealed class Transfer : IActionHandler
         if (r.Mode == "exact" && n < r.Quantity) return CheckResult.No("정확한 수량이나 빈 공간이 부족해.", "insufficient");
         return CheckResult.Yes;
     }
+    public PreparedAction Prepare(IGameContext c, WorldObject a, ActionRequest r)
+    {
+        var pair = Pair(c, a, r)!.Value;
+        int n = Count(c, pair.From, pair.To, r);
+        return new(r with { Quantity = n, Mode = "exact" }, [new(pair.From.Id, r.Item, n, r.Option == "take" && r.SlotId.Length > 0)]);
+    }
     public ActionResult Execute(IGameContext c, WorldObject a, ActionRequest r)
     {
         var pair = Pair(c, a, r)!.Value;
         int n = Count(c, pair.From, pair.To, r);
-        pair.From.Take(r.Item, n); c.Give(pair.To, r.Item, n);
+        c.Take(pair.From, r.Item, n, r.Option == "take" && r.SlotId.Length > 0); c.Give(pair.To, r.Item, n);
         if (a.DefinitionId == "mini_golem" && n > 0 && pair.From == a) c.State.Add("mini_delivered", n);
         if (a.Playback is not null && n > 0 && pair.From == a) c.State.Add("automation_delivered", n);
         if (n > 0) { c.State.Add("transported", n); c.Effect("item", a.X, a.Y, $"{c.ItemName(r.Item)} {n}"); }
         return ActionResult.Success(n > 0 ? $"{c.ItemName(r.Item)} {n}개를 옮겼어." : "이미 목표 수량이야.", n);
     }
 }
-public sealed class Pickup : IActionHandler
+public sealed class Pickup : IActionHandler, IInventoryAction
 {
     public CheckResult Check(IGameContext c, WorldObject a, ActionRequest r) => c.RequireTarget(r, "drop");
+    public PreparedAction Prepare(IGameContext c, WorldObject a, ActionRequest r) => new(r, c.Target(r)!.Inventory.Select(k => new ItemRequirement(r.TargetId, k.Key, Math.Min(c.Available(c.Target(r)!, k.Key), c.Room(a, k.Key)))).ToList());
     public ActionResult Execute(IGameContext c, WorldObject a, ActionRequest r)
     {
         var target = c.Target(r)!; int total = 0;
-        foreach (var (item, amount) in target.Inventory.ToArray()) { int n = c.Give(a, item, amount); target.Take(item, n); total += n; }
+        foreach (var (item, amount) in target.Inventory.ToArray()) { int n = c.Give(a, item, c.Available(target, item)); c.Take(target, item, n); total += n; }
         if (target.Inventory.Count == 0) target.Set("dead", 1);
         return total > 0 ? ActionResult.Success($"떨어진 물건 {total}개를 주웠어.", total) : ActionResult.Fail("보관함이 가득 찼어.", "output_full");
     }

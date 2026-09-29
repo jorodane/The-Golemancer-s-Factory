@@ -12,7 +12,7 @@ internal static class BubbleLayout
         return (Math.Cos(angle) * Radius, Math.Sin(angle) * Radius);
     }
     public static (double X, double Y) Center(double x, double y, double width, double height) =>
-        (Math.Max(190, Math.Min(width - 190, x)), Math.Max(205, Math.Min(height - 225, y)));
+        (Math.Max(190, Math.Min(width - 190, x)), Math.Max(205, Math.Min(height - 290, y)));
     public static (double X, double Y) PreviewPosition(double x, double y, double width, double height, double screenWidth, double screenHeight)
     {
         // Prefer above the hovered circle. Near the top edge use a clear side, never the circle itself.
@@ -51,7 +51,7 @@ internal static class BubblePreviews
             Description = game.Content.Items.GetValueOrDefault(recipe.Output)?.Description ?? "",
             Spotlight = true, Locked = locked,
             Note = locked ? "필요한 책: " + game.ItemName(recipe.Unlock) : source.Name + " · 보유 / 필요",
-            Materials = recipe.Inputs.Select(k => new BubbleMaterial(k.Key, game.ItemName(k.Key), k.Value * batches, source.Inventory.GetValueOrDefault(k.Key))).ToList()
+            Materials = recipe.Inputs.Select(k => new BubbleMaterial(k.Key, game.ItemName(k.Key), k.Value * batches, source.AvailableInput(k.Key))).ToList()
         };
     }
 }

@@ -7,6 +7,7 @@ public sealed partial class Simulation : IGameContext
 {
     public GameState State { get; private set; }
     public ContentCatalog Content => cooked.Content;
+    public string ReservationId { get; private set; } = "";
     public ModuleRegistry Registry => cooked.Registry;
     public string Fingerprint => cooked.Fingerprint;
     private readonly CookedGame cooked;
@@ -26,6 +27,7 @@ public sealed partial class Simulation : IGameContext
             if (double.IsNaN(obj.SubY) || double.IsInfinity(obj.SubY) || obj.SubY < -.5 || obj.SubY >= .5) obj.SubY = 0;
         }
         foreach (var p in Content.Packs) State.PackVersions[p.Id] = p.Version;
+        CleanReservations();
     }
     public WorldObject? Find(string id) => State.Objects.GetValueOrDefault(id);
     public ObjectDef? Definition(WorldObject obj) => Content.Objects.GetValueOrDefault(obj.DefinitionId);
@@ -90,6 +92,29 @@ public sealed partial class Simulation : IGameContext
     }
     public ActionResult Dispatch(ActionRequest request, bool playback = false)
     {
+        request = request with { ReservationId = "" };
+        var actor = Find(string.IsNullOrEmpty(request.ActorId) ? State.ControlledId : request.ActorId);
+        if (!playback && request.Enqueue && Content.Actions.TryGetValue(request.Action, out var action) && action.Recordable)
+        {
+            if (actor is null || !actor.Alive()) return ActionResult.Fail("조종할 골렘을 선택해줘.", "actor_missing");
+            if (actor.Playback is not null) return ActionResult.Fail("먼저 반복을 멈춰줘.", "automated");
+            if (request.Quantity < 0 || request.Quantity > 9999) return ActionResult.Fail("수량은 0~9999 사이여야 해.", "invalid_quantity");
+            if (actor.ActionQueue.Count >= 1000 || actor.Recording is { } recording && recording.Steps.Count + actor.ActionQueue.Count(q => q.RecordedIn != recording.Id) >= 1000)
+                return ActionResult.Fail("예약과 녹화는 1000단계까지 가능해.", "queue_full");
+            actor.ActionQueue.Add(new() { Request = request with { ActorId = actor.Id, Enqueue = false } });
+            return ActionResult.Started($"{actor.ActionQueue.Count}번째 행동을 예약했어.");
+        }
+        return StartAction(request with { Enqueue = false }, playback);
+    }
+    private T InReservation<T>(string id, Func<T> action)
+    {
+        string previous = ReservationId; ReservationId = id;
+        try { return action(); } finally { ReservationId = previous; }
+    }
+    private ActionResult StartAction(ActionRequest request, bool playback, bool continuation = false, QueuedAction? queued = null) =>
+        InReservation(continuation ? request.ReservationId : "", () => DispatchCore(request, playback, continuation, queued));
+    private ActionResult DispatchCore(ActionRequest request, bool playback, bool continuation, QueuedAction? queued)
+    {
         if (request.Quantity < 0 || request.Quantity > 9999) return ActionResult.Fail("수량은 0~9999 사이여야 해.", "invalid_quantity");
         if (!Content.Actions.TryGetValue(request.Action, out var def) || !Registry.Actions.TryGetValue(def.Handler, out var handler))
             return FinishFailure(Find(request.ActorId), request, new(ActionStatus.Unavailable, "현재 없는 액션이야. 기록은 보존했어.", "unknown_action"), playback);
@@ -99,19 +124,36 @@ public sealed partial class Simulation : IGameContext
         SetManualMovement(actor, 0, 0);
         bool emergencyRecovery = request.Action == "consume" && actor.Playback is not null && !playback;
         if (def.Recordable && actor.Playback is not null && !playback && !emergencyRecovery) return ActionResult.Fail("직접 조종하려면 먼저 반복을 멈춰줘.", "automated");
-        if (def.Interrupts) { actor.Work = null; actor.Pending = null; actor.Path.Clear(); }
-        if (def.Recordable && !emergencyRecovery && (actor.Work is not null || actor.Pending is not null)) return ActionResult.Fail("작업 중이야. 취소하거나 완료를 기다려줘.", "busy");
+        if (def.Interrupts && !continuation && queued is null) this.CancelActions(actor, stopPlayback: false);
+        if ((def.Recordable || def.Range >= 0) && !emergencyRecovery && !continuation && (actor.Work is not null || actor.Pending is not null)) return ActionResult.Fail("작업 중이야. Shift로 다음 행동을 예약하거나 X로 취소해줘.", "busy");
         if (playback && actor.Get("mana") <= 0 && request.Action != "charge") return ActionResult.Fail("마력이 부족해. 충전 후 이어갈 수 있어.", "no_mana");
         WorldObject? target = Find(request.TargetId);
+        if (request.TargetId.Length > 0 && (target is null || !target.Alive())) return FinishFailure(actor, request, ActionResult.Fail("대상을 사용할 수 없어.", "target_missing"), playback);
         if (def.Condition is not null && !Evaluate(def.Condition, actor, target)) return FinishFailure(actor, request, ActionResult.Fail("실행 조건을 충족하지 못했어.", "condition"), playback);
         CheckResult check;
         try { check = handler.Check(this, actor, request); }
         catch (Exception ex) { return FinishFailure(actor, request, ActionResult.Fail($"객체 검사 오류: {ex.Message}", "module_error"), playback); }
         if (!check.Allowed) return FinishFailure(actor, request, ActionResult.Fail(check.Message, check.Reason), playback);
-        if (def.Recordable && actor.Recording is not null && !playback)
+        var intent = request;
+        if (def.Recordable && actor.Recording is { } activeRecording && !playback && !continuation && queued?.RecordedIn != activeRecording.Id && activeRecording.Steps.Count >= 1000)
+            return ActionResult.Fail("녹화는 1000단계까지 저장할 수 있어.", "recording_limit");
+        if (!continuation && handler is IInventoryAction inventoryAction)
         {
-            if (actor.Recording.Steps.Count >= 1000) return ActionResult.Fail("녹화는 1000단계까지 저장할 수 있어.", "recording_limit");
-            actor.Recording.Steps.Add(new RecordedStep { Request = request, Offset = State.Time - actor.Recording.StartedAt, ActorTile = actor.Tile });
+            try
+            {
+                var prepared = inventoryAction.Prepare(this, actor, request);
+                string token = Guid.NewGuid().ToString("N");
+                if (!ReserveItems(actor, token, prepared.Items)) return FinishFailure(actor, request, ActionResult.Fail("다른 행동이 재료를 점유했어.", "reserved"), playback);
+                request = prepared.Request with { ActorId = actor.Id, ReservationId = token, Enqueue = false };
+                ReservationId = token;
+            }
+            catch (Exception ex) { return FinishFailure(actor, request, ActionResult.Fail($"재료 점유 오류: {ex.Message}", "module_error"), playback); }
+        }
+        if (!continuation && queued is null && def.Recordable && !emergencyRecovery) actor.ActionQueue.Clear();
+        if (def.Recordable && actor.Recording is { } rec && !playback && !continuation && queued?.RecordedIn != rec.Id)
+        {
+            rec.Steps.Add(new RecordedStep { Request = intent with { ReservationId = "", Enqueue = false }, Offset = State.Time - rec.StartedAt, ActorTile = actor.Tile });
+            if (queued is not null) queued.RecordedIn = rec.Id;
         }
         if (target is not null && def.Range >= 0 && this.Distance(actor, target) > def.Range)
         {
@@ -138,6 +180,7 @@ public sealed partial class Simulation : IGameContext
         ActionResult result;
         try { result = handler.Execute(this, actor, request); }
         catch (Exception ex) { result = ActionResult.Fail($"객체 실행 오류: {ex.Message}", "module_error"); }
+        if (result.Status != ActionStatus.Started) this.ReleaseReservation(request.ReservationId);
         if (!result.Ok) return FinishFailure(actor, request, result, playback);
         if (request.Action is "transfer" or "pickup" or "buy" or "consume" or "charge") this.Animate(actor, "work");
         if (!string.IsNullOrEmpty(result.Message)) Notice(result.Message);
@@ -146,6 +189,7 @@ public sealed partial class Simulation : IGameContext
     }
     private ActionResult FinishFailure(WorldObject? actor, ActionRequest request, ActionResult result, bool playback)
     {
+        this.ReleaseReservation(request.ReservationId);
         if (!playback) Notice(result.Message, "warning");
         else if (actor is not null) CompletePlaybackStep(actor, result, request);
         return result;
@@ -192,14 +236,11 @@ public sealed partial class Simulation : IGameContext
             if (actor.Path.Count == 0 && actor.Pending is { } pending)
             {
                 actor.Pending = null;
-                // Pending commands were already recorded. Do not append the same intent a second time.
-                var recording = actor.Recording; actor.Recording = null;
-                Dispatch(pending, actor.Playback is not null);
-                actor.Recording = recording;
+                StartAction(pending, actor.Playback is not null, continuation: true);
             }
             if (actor.Work is { } work)
             {
-                if (!Content.Actions.TryGetValue(work.Request.Action, out var def)) { actor.Work = null; CompletePlaybackStep(actor, new(ActionStatus.Unavailable, "액션 팩이 없어.", "unknown_action"), work.Request); continue; }
+                if (!Content.Actions.TryGetValue(work.Request.Action, out var def) || !Registry.Actions.ContainsKey(def.Handler)) { actor.Work = null; FinishFailure(actor, work.Request, new(ActionStatus.Unavailable, "액션 팩이 없어.", "unknown_action"), actor.Playback is not null); continue; }
                 if (actor.Playback is not null && actor.Get("mana") <= 0) continue;
                 foreach (var (type, amount) in def.Works)
                 {
@@ -210,21 +251,28 @@ public sealed partial class Simulation : IGameContext
                 if (def.Works.All(w => work.Progress.GetValueOrDefault(w.Key) >= w.Value))
                 {
                     actor.Work = null;
-                    var handler = Registry.Actions[def.Handler];
-                    var check = handler.Check(this, actor, work.Request);
-                    if (def.Condition is not null && !Evaluate(def.Condition, actor, Find(work.Request.TargetId))) check = CheckResult.No("실행 조건이 바뀌었어.", "condition");
-                    var target = Find(work.Request.TargetId);
-                    if (target is not null && def.Range >= 0 && this.Distance(actor, target) > def.Range) check = CheckResult.No("대상이 멀어졌어.", "out_of_range");
-                    if (check.Allowed)
+                    InReservation(work.Request.ReservationId, () =>
                     {
-                        var result = Execute(handler, actor, work.Request, actor.Playback is not null);
-                        if (result.Ok) actor.Set("mana", Math.Max(0, actor.Get("mana") - .5));
-                    }
-                    else FinishFailure(actor, work.Request, ActionResult.Fail(check.Message, check.Reason), actor.Playback is not null);
+                        try
+                        {
+                            var handler = Registry.Actions[def.Handler];
+                            var check = handler.Check(this, actor, work.Request);
+                            if (def.Condition is not null && !Evaluate(def.Condition, actor, Find(work.Request.TargetId))) check = CheckResult.No("실행 조건이 바뀌었어.", "condition");
+                            var target = Find(work.Request.TargetId);
+                            if (target is not null && (!target.Alive() || def.Range >= 0 && this.Distance(actor, target) > def.Range)) check = CheckResult.No("대상이 사라졌거나 멀어졌어.", "out_of_range");
+                            if (!check.Allowed) return FinishFailure(actor, work.Request, ActionResult.Fail(check.Message, check.Reason), actor.Playback is not null);
+                            var result = Execute(handler, actor, work.Request, actor.Playback is not null);
+                            if (result.Ok) actor.Set("mana", Math.Max(0, actor.Get("mana") - .5));
+                            return result;
+                        }
+                        catch (Exception ex) { return FinishFailure(actor, work.Request, ActionResult.Fail($"객체 실행 오류: {ex.Message}", "module_error"), actor.Playback is not null); }
+                    });
                 }
             }
         }
         foreach (var system in Registry.Systems) system.Tick(this, dt);
+        CleanReservations();
+        foreach (var actor in this.OfKind("golem").ToArray()) TickQueue(actor);
     }
     public void Save(string path)
     {

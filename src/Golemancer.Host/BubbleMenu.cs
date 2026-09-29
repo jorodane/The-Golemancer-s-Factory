@@ -46,13 +46,29 @@ internal static class BubbleMenu
         return Compress(result);
     }
     public static (WorldObject From, WorldObject To) TransferPair(WorldObject actor, WorldObject target, string direction) => direction == "take" ? (target, actor) : (actor, target);
-    public static List<BubbleEntry> Transfer(IGameContext game, WorldObject actor, WorldObject target, string direction, Func<string, BubbleEntry> make)
+    public static List<BubbleEntry> Transfer(IGameContext game, WorldObject actor, WorldObject target, string direction, Func<string, BubbleEntry> make, bool planning = false)
     {
         var (from, to) = TransferPair(actor, target, direction);
-        return GroupItems(game, from.Stock().Where(k => k.Value > 0 && game.AcceptsInput(to, k.Key)).Select(k => k.Key), Preferred(game, target), make);
+        var items = planning ? game.Content.Items.Keys.AsEnumerable() : from.Stock().Keys.Where(i => from.Available(i) > 0);
+        return GroupItems(game, items.Where(i => game.AcceptsInput(to, i)), Preferred(game, target), make);
     }
-    public static int TransferMax(IGameContext game, WorldObject actor, WorldObject target, string direction, string item)
-    { var (from, to) = TransferPair(actor, target, direction); return Math.Min(from.Count(item), game.Room(to, item)); }
+    public static int TransferMax(IGameContext game, WorldObject actor, WorldObject target, string direction, string item, bool planning = false)
+    { var (from, to) = TransferPair(actor, target, direction); return planning ? PlannedCapacity(game, to, item) : Math.Min(from.Available(item), game.Room(to, item)); }
+    public static List<string> SlotItems(IGameContext game, WorldObject actor, WorldObject target, InputSlotDef slot, string direction, bool planning = false)
+    {
+        var (from, _) = TransferPair(actor, target, direction);
+        var stock = direction == "take" ? from.Inventory : from.Stock();
+        var items = planning ? game.Content.Items.Keys.AsEnumerable() : stock.Keys;
+        return items.Where(item => game.InputSlot(target, item)?.Id == slot.Id && SlotMax(game, actor, target, slot, direction, item, planning) > 0).OrderBy(game.ItemName, StringComparer.Ordinal).ToList();
+    }
+    public static int SlotMax(IGameContext game, WorldObject actor, WorldObject target, InputSlotDef slot, string direction, string item, bool planning = false)
+    {
+        if (game.InputSlot(target, item)?.Id != slot.Id) return 0;
+        var (from, to) = TransferPair(actor, target, direction);
+        return planning ? PlannedCapacity(game, to, item) : Math.Min(direction == "take" ? from.AvailableInput(item) : from.Available(item), game.Room(to, item));
+    }
+
+    private static int PlannedCapacity(IGameContext game, WorldObject to, string item) => !game.AcceptsInput(to, item) ? 0 : game.InputSlot(to, item)?.Capacity ?? Math.Min(9999, game.Slots(to) * (game.Content.Items.GetValueOrDefault(item)?.Stack ?? 50));
 }
 internal static class QuantityPicker
 {

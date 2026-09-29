@@ -13,7 +13,7 @@ public sealed class Module : IGameModule
         r.Condition("ability", new Predicate((c, a, t, n) => c.Capability(a, n.Args.GetValueOrDefault("id", ""))));
         r.Condition("shop", new Predicate((c, a, t, n) => Rules.InShop(t?.X ?? a.X, t?.Y ?? a.Y)));
         r.Condition("ground", new Predicate((c, a, t, n) => c.State.Map.At(t?.X ?? a.X, t?.Y ?? a.Y) is "grass" or "path" or "floor" or "shore"));
-        r.Condition("hasitem", new Predicate((c, a, t, n) => a.Count(n.Args.GetValueOrDefault("id", "")) >= int.Parse(n.Args.GetValueOrDefault("amount", "1"))));
+        r.Condition("hasitem", new Predicate((c, a, t, n) => c.Available(a, n.Args.GetValueOrDefault("id", "")) >= int.Parse(n.Args.GetValueOrDefault("amount", "1"))));
     }
 }
 internal sealed class Predicate(Func<IGameContext, WorldObject, WorldObject?, ConditionNode, bool> fn) : IConditionHandler

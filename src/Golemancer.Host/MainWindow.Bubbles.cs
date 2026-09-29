@@ -14,14 +14,18 @@ internal sealed partial class MainWindow
     { public string Title = title; public Func<List<BubbleEntry>> Build = build; public int Page; public Action? Render; }
     private readonly List<BubbleFrame> bubbleHistory = [];
     private TextBox? quantityInput;
+    private Slider? quantitySlider;
+    private Action? refreshQuantity;
     private string bubbleActor = "";
+    private bool queueBubbles;
     private void ClearBubbleVisuals()
     {
-        ClearBubblePresentation(); bubbleLayer.Children.Clear(); quantityInput = null;
+        ClearBubblePresentation(); bubbleLayer.Children.Clear(); quantityInput = null; quantitySlider = null; refreshQuantity = null;
         foreach (string id in buttons.Keys.Where(k => k.StartsWith("bubble.", StringComparison.Ordinal) || k.StartsWith("quantity.", StringComparison.Ordinal)).ToArray()) buttons.Remove(id);
     }
     private void CloseBubbles()
     {
+        queueBubbles = false; focusedFacility = ""; facilityShadeLayer.Children.Clear(); world.FocusedFacility = "";
         bool open = bubbleLayer.Children.Count > 0;
         ClearBubbleVisuals(); bubbleHistory.Clear(); selected = ""; world.Selected = ""; bubbleActor = "";
         if (open) world.Focus();
@@ -35,7 +39,7 @@ internal sealed partial class MainWindow
     }
     private void ShowMenu(string title, Func<List<BubbleEntry>> build)
     {
-        session.ClearInput(); bubbleActor = session.Actor?.Id ?? "";
+        queueBubbles |= Held("queue"); session.ClearInput(); bubbleActor = session.Actor?.Id ?? "";
         bubbleHistory.Add(new(title, build)); RenderBubbles(true);
     }
     private void BackBubble()
@@ -52,7 +56,7 @@ internal sealed partial class MainWindow
         int pages = BubbleLayout.Pages(entries.Count); frame.Page = Math.Min(frame.Page, pages - 1);
         var shown = entries.Skip(frame.Page * BubbleLayout.PageSize).Take(BubbleLayout.PageSize).ToList();
         AddBubble(Leaf("back", bubbleHistory.Count > 1 ? "상위 메뉴" : "닫기", BackBubble, "한 단계 돌아가. 최상위에서는 메뉴를 닫아."), 0, 1, center: true, animate: animate);
-        var title = Label(frame.Title, 12); title.TextAlignment = TextAlignment.Center; title.Width = 330; title.Background = Paper; title.IsHitTestVisible = false;
+        var title = Label(frame.Title + (queueBubbles ? " · 행동 예약" : ""), 12); title.TextAlignment = TextAlignment.Center; title.Width = 330; title.Background = Paper; title.IsHitTestVisible = false;
         Canvas.SetLeft(title, BubbleCenter.X - 165); Canvas.SetTop(title, BubbleCenter.Y - 199); bubbleLayer.Children.Add(title);
         for (int i = 0; i < shown.Count; i++) AddBubble(shown[i], i, shown.Count, animate: animate);
         if (pages > 1)
@@ -102,7 +106,7 @@ internal sealed partial class MainWindow
             case "order": ShowGameBubbles("orders"); return;
             case "upgrade_golem": case "equip": ShowGameBubbles("equipment"); return;
             case "charge": ShowCharge(target); return;
-            case "fuel_tower": ShowQuantity("마나 수정 넣기", () => session.Actor!.Count("mana_crystal"), n => Send(action, target.Id, amount: n)); return;
+            case "fuel_tower": ShowQuantity("마나 수정 넣기", () => session.Actor!.Available("mana_crystal"), n => Send(action, target.Id, amount: n)); return;
             case "wait": ShowQuantity("대기 시간 · 초", () => 3600, n => Send(action, amount: n), 5); return;
             default: Finish(() => Send(action, target.Id)); if (action == "select") world.Follow = true; return;
         }
@@ -115,10 +119,10 @@ internal sealed partial class MainWindow
             var result = BubbleMenu.Transfer(Game, actor, target, direction, item =>
             {
                 var (from, to) = BubbleMenu.TransferPair(actor, target, direction);
-                var entry = Leaf("item." + item, (Game.State.FavoriteItems.Contains(item) ? "★ " : "") + Game.ItemName(item) + " ×" + from.Count(item), () => ShowTransferItem(target, direction, item), $"보유 {from.Count(item)} · 받는 쪽 {to.Inventory.GetValueOrDefault(item)} · 옮길 수량 {BubbleMenu.TransferMax(Game, actor, target, direction, item)}");
+                var entry = Leaf("item." + item, (Game.State.FavoriteItems.Contains(item) ? "★ " : "") + Game.ItemName(item) + " ×" + from.Count(item), () => ShowTransferItem(target, direction, item), $"보유 {from.Count(item)} · 점유 {from.Reserved(item)} · 받는 쪽 {to.Inventory.GetValueOrDefault(item)} · 옮길 수량 {BubbleMenu.TransferMax(Game, actor, target, direction, item, queueBubbles)}");
                 entry.ItemId = item; entry.Badge = from.Count(item).ToString();
-                entry.Preview = () => new BubblePreview { Title = Game.ItemName(item), IconId = "item." + item, Description = Game.Content.Items.GetValueOrDefault(item)?.Description ?? "", Note = $"{from.Name} → {to.Name}\n보유 {from.Count(item)} · 받는 쪽 {to.Inventory.GetValueOrDefault(item)} · 가능 {BubbleMenu.TransferMax(Game, actor, target, direction, item)}" }; return entry;
-            });
+                entry.Preview = () => new BubblePreview { Title = Game.ItemName(item), IconId = "item." + item, Description = Game.Content.Items.GetValueOrDefault(item)?.Description ?? "", Note = $"{from.Name} → {to.Name}\n보유 {from.Count(item)} · 점유 {from.Reserved(item)} · 받는 쪽 {to.Inventory.GetValueOrDefault(item)} · 가능 {BubbleMenu.TransferMax(Game, actor, target, direction, item, queueBubbles)}" }; return entry;
+            }, queueBubbles);
             result.Add(Leaf("categories", "★ 분류 지정", () => ShowCategories(target)));
             return result;
         });
@@ -126,7 +130,7 @@ internal sealed partial class MainWindow
     private void ShowTransferItem(WorldObject target, string direction, string item)
     {
         var actor = session.Actor!; var (_, to) = BubbleMenu.TransferPair(actor, target, direction);
-        int Max() => BubbleMenu.TransferMax(Game, actor, target, direction, item);
+        int Max() => BubbleMenu.TransferMax(Game, actor, target, direction, item, queueBubbles);
         string verb = direction == "take" ? "가져오기" : "건네기";
         ShowMenu(Game.ItemName(item), () => ItemChoices(item, [
             Leaf("transfer.one", "1개 " + verb, () => Finish(() => Send("transfer", target.Id, item, 1, option: direction)), enabled: Max() > 0),
@@ -148,31 +152,57 @@ internal sealed partial class MainWindow
         })).ToList());
     private void ShowQuantity(string title, Func<int> maximum, Func<int, ActionResult> confirm, int initial = 1, Func<int, BubblePreview>? preview = null)
     {
+        queueBubbles |= Held("queue");
         var frame = new BubbleFrame(title, () => []);
         frame.Render = () =>
         {
             int max = Math.Max(0, Math.Min(9999, maximum()));
             AddBubble(Leaf("back", "상위 메뉴", BackBubble), 0, 1, center: true);
-            var panel = new StackPanel(); var caption = Label(title, 16); caption.TextAlignment = TextAlignment.Center; panel.Children.Add(caption);
+            var panel = new StackPanel(); var caption = Label(title + (queueBubbles ? " · 예약" : ""), 16); caption.TextAlignment = TextAlignment.Center; panel.Children.Add(caption);
             var field = new TextBox { Text = QuantityPicker.Clamp(initial, max).ToString(), Width = 95, FontSize = 20, HorizontalContentAlignment = HorizontalAlignment.Center, Padding = new Thickness(4) }; quantityInput = field;
             System.Windows.Automation.AutomationProperties.SetName(field, "수량");
             field.PreviewTextInput += (_, e) => e.Handled = !e.Text.All(char.IsDigit);
-            field.TextChanged += (_, _) => { if(int.TryParse(field.Text, out int n)) initial = n; RefreshBubbleHover(); };
             panel.Children.Add(field);
-            var limits = Label($"1 ~ {max}개", 11); limits.TextAlignment = TextAlignment.Center; panel.Children.Add(limits);
+            var slider = new Slider { Minimum = 1, Maximum = Math.Max(1, max), Value = QuantityPicker.Clamp(initial, max), TickFrequency = 1, IsSnapToTickEnabled = true, SmallChange = 1, LargeChange = Math.Max(1, max / 10), IsMoveToPointEnabled = true, Width = 316, Margin = new Thickness(2, 12, 2, 2), IsEnabled = max > 0 };
+            quantitySlider = slider; System.Windows.Automation.AutomationProperties.SetName(slider, "수량 슬라이더"); panel.Children.Add(slider);
+            var limits = Label(max > 0 ? $"1 ~ {max}개" : "지금 가능한 수량이 없어.", 11); limits.TextAlignment = TextAlignment.Center; panel.Children.Add(limits);
+            if (queueBubbles) { var hint = Label("차례가 되면 재고와 조건을 확인해.", 11); hint.TextAlignment = TextAlignment.Center; panel.Children.Add(hint); }
+            bool syncing = false;
+            field.TextChanged += (_, _) =>
+            {
+                if (syncing) return;
+                if (int.TryParse(field.Text, out int n)) { initial = n; syncing = true; slider.Value = QuantityPicker.Clamp(n, max); syncing = false; }
+                RefreshBubbleHover();
+            };
+            slider.ValueChanged += (_, _) =>
+            {
+                if (syncing) return;
+                syncing = true; initial = QuantityPicker.Clamp((int)Math.Round(slider.Value), max); slider.Value = initial; field.Text = initial.ToString(); syncing = false;
+                RefreshBubbleHover();
+            };
+            void RefreshMaximum()
+            {
+                int next = Math.Max(0, Math.Min(9999, maximum()));
+                if (next == max) return;
+                max = next; syncing = true; slider.Maximum = Math.Max(1, max); slider.IsEnabled = max > 0; slider.LargeChange = Math.Max(1, max / 10);
+                initial = QuantityPicker.Clamp(initial, max); field.Text = initial.ToString(); slider.Value = initial; syncing = false;
+                limits.Text = max > 0 ? $"1 ~ {max}개" : "지금 가능한 수량이 없어.";
+            }
+            refreshQuantity = RefreshMaximum;
             var shortcuts = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center }; panel.Children.Add(shortcuts);
             foreach (var (id, text, hint) in new[] { ("one", "1개", "최소 수량"), ("half", "−절반", "현재 수량을 절반으로"), ("mean", "평균", "1과 Max의 중간값"), ("plusHalf", "+절반", "Max까지 남은 수량의 절반 추가"), ("max", "Max", "현재 가능한 최대 수량") })
             {
-                var button = Button(text, () => { max = Math.Max(0, Math.Min(9999, maximum())); int.TryParse(field.Text, out int value); field.Text = QuantityPicker.Shortcut(id, value, max).ToString(); field.SelectAll(); field.Focus(); limits.Text = $"1 ~ {max}개"; }, "quantity." + id);
+                var button = Button(text, () => { RefreshMaximum(); int.TryParse(field.Text, out int value); field.Text = QuantityPicker.Shortcut(id, value, max).ToString(); field.SelectAll(); field.Focus(); limits.Text = $"1 ~ {max}개"; }, "quantity." + id);
                 button.Padding = new Thickness(8, 5, 8, 5); button.ToolTip = hint; shortcuts.Children.Add(button);
             }
             void Commit()
             {
-                max = Math.Max(0, Math.Min(9999, maximum()));
+                RefreshMaximum();
                 if (!int.TryParse(field.Text, out int value) || value < 1 || value > max) { limits.Text = max == 0 ? "지금 가능한 수량이 없어." : $"1 ~ {max} 사이로 입력해줘."; return; }
                 Finish(() => confirm(value));
             }
-            field.KeyDown += (_, e) => { if (e.Key == Key.Enter) { Commit(); e.Handled = true; } else if (e.Key == Key.Escape) { BackBubble(); e.Handled = true; } };
+            void QuantityKey(object sender, KeyEventArgs e) { if (e.Key == Key.Enter) { Commit(); e.Handled = true; } else if (e.Key == Key.Escape) { BackBubble(); e.Handled = true; } }
+            field.KeyDown += QuantityKey; slider.KeyDown += QuantityKey;
             var confirmation = Leaf("confirm", "확인", Commit, "선택한 수량으로 실행해.");
             confirmation.Glyph = "✓";
             if (preview is not null) confirmation.Preview = () => preview(int.TryParse(field.Text, out int n) ? QuantityPicker.Clamp(n, Math.Min(9999, maximum())) : 1);
@@ -189,7 +219,7 @@ internal sealed partial class MainWindow
         CloseBubbles(); bubbleAnchor = world.Screen(actor.WorldX + .5, actor.WorldY + .5);
         ShowMenu(Game.ItemName(item), () =>
         {
-            var entries = new List<BubbleEntry> { Favorite(item), Leaf("drop.number", "N개 내려놓기", () => ShowQuantity("내려놓을 수량", () => actor.Count(item), n => Send("drop", item: item, amount: n))), Leaf("drop.all", "전부 내려놓기", () => Finish(() => Send("drop", item: item, mode: "all"))) };
+            var entries = new List<BubbleEntry> { Favorite(item), Leaf("drop.number", "N개 내려놓기", () => ShowQuantity("내려놓을 수량", () => actor.Available(item), n => Send("drop", item: item, amount: n))), Leaf("drop.all", "전부 내려놓기", () => Finish(() => Send("drop", item: item, mode: "all"))) };
             if (item is "healing_jelly" or "mana_jelly" or "sweetfruit" || item.StartsWith("wooden_", StringComparison.Ordinal)) entries.Insert(0, Leaf("use", "사용 / 장착", () => { UseItem(item); CloseBubbles(); }));
             return ItemChoices(item, entries);
         });

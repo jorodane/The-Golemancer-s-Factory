@@ -48,6 +48,7 @@ internal sealed partial class MainWindow
     private WorldObject CraftSource(WorldObject target) => target.DefinitionId == "workbench" ? session.Actor! : target;
     private int CraftMax(WorldObject target, RecipeDef recipe)
     {
+        if (queueBubbles) return 99;
         var source = CraftSource(target); int max = 0;
         for (int n = 1; n <= 99 - target.Production.Count && source.Has(recipe.Inputs, n); n++)
         {
@@ -91,14 +92,14 @@ internal sealed partial class MainWindow
                 ShowMenu("시설 건설", () => Game.Content.Objects.Values.Where(d => d.Data.GetValueOrDefault("buildable") == "true").Select(d =>
                 {
                     var entry = Leaf("build." + d.Id, d.Name, () => { CloseBubbles(); world.Building = d.Id; world.Follow = false; Notify(d.Name + " · 바닥 타일을 클릭해줘."); }, enabled: d.Data.GetValueOrDefault("unlock", "") == "" || state.Flags.Contains(d.Data["unlock"]));
-                    entry.IconId = d.Sprite; entry.Preview = () => new BubblePreview { Title = d.Name, IconId = d.Sprite, Description = $"{d.Width}×{d.Height} 타일 · " + (d.Data.GetValueOrDefault("shopOnly") == "true" ? "상점 안에 설치" : "야외 빈 땅에 설치 가능"), Note = "건설 재료 · 보유 / 필요", Locked = !entry.Enabled, Materials = d.Cost.Select(k => new BubbleMaterial(k.Key, Game.ItemName(k.Key), k.Value, actor.Count(k.Key))).ToList() }; return entry;
+                    entry.IconId = d.Sprite; entry.Preview = () => new BubblePreview { Title = d.Name, IconId = d.Sprite, Description = $"{d.Width}×{d.Height} 타일 · " + (d.Data.GetValueOrDefault("shopOnly") == "true" ? "상점 안에 설치" : "야외 빈 땅에 설치 가능"), Note = "건설 재료 · 보유 / 필요", Locked = !entry.Enabled, Materials = d.Cost.Select(k => new BubbleMaterial(k.Key, Game.ItemName(k.Key), k.Value, actor.Available(k.Key))).ToList() }; return entry;
                 }).ToList()); break;
             case "assembly":
                 ShowMenu("골렘 조립", () => Game.Content.Objects.Values.Where(d => d.Kind == "golem").Select(d =>
                 {
-                    string core = d.Data.GetValueOrDefault("core", ""); int n = state.Treasury.GetValueOrDefault(core) + actor.Count(core);
+                    string core = d.Data.GetValueOrDefault("core", ""); int n = state.Treasury.GetValueOrDefault(core) + actor.Available(core);
                     var entry = Leaf("assemble." + d.Id, d.Name + $" · 핵 {n}", () => Finish(() => Send("assemble", item: d.Id)), $"보관함 {d.Slots}칸", n > 0);
-                    entry.IconId = d.Sprite; entry.Preview = () => new BubblePreview { Title = d.Name, IconId = d.Sprite, Description = $"보관함 {d.Slots}칸 · 엔린이 골렘 핵으로 조립해.", Note = "조립 재료 · 보유 / 필요", Locked = n == 0, Materials = [new(core, Game.ItemName(core), 1, state.Treasury.GetValueOrDefault(core) + actor.Count(core))] }; return entry;
+                    entry.IconId = d.Sprite; entry.Preview = () => new BubblePreview { Title = d.Name, IconId = d.Sprite, Description = $"보관함 {d.Slots}칸 · 엔린이 골렘 핵으로 조립해.", Note = "조립 재료 · 보유 / 필요", Locked = n == 0, Materials = [new(core, Game.ItemName(core), 1, state.Treasury.GetValueOrDefault(core) + actor.Available(core))] }; return entry;
                 }).ToList()); break;
             case "orders":
                 ShowMenu("공방 주문", () => state.Orders.Where(o => !o.Delivered).Select(o => Leaf("order." + o.Id, o.Name + (o.Accepted ? " · 납품" : " · 수락"), () =>

@@ -70,6 +70,8 @@ public sealed class WorldObject
     public Dictionary<string, int> Inventory { get; set; } = [];
     // Machine outputs never silently become inputs for another recipe.
     public Dictionary<string, int> OutputInventory { get; set; } = [];
+    public List<InventoryReservation> Reservations { get; set; } = [];
+    public List<QueuedAction> ActionQueue { get; set; } = [];
     public List<Tile> Path { get; set; } = [];
     public ActionRequest? Pending { get; set; }
     public ActiveWork? Work { get; set; }
@@ -97,7 +99,29 @@ public sealed record ActionRequest
     public string Mode { get; init; } = "exact";
     public string Option { get; init; } = "";
     public string Failure { get; init; } = "";
+    public bool Enqueue { get; init; }
+    public string SlotId { get; init; } = "";
+    // Engine-owned lease; never copied into recordings or newly submitted commands.
+    public string ReservationId { get; init; } = "";
 }
+
+public sealed class QueuedAction
+{
+    public ActionRequest Request { get; set; } = new();
+    public string RecordedIn { get; set; } = "";
+    public double RetryAt { get; set; }
+    public string Status { get; set; } = "예약 대기";
+}
+public sealed class InventoryReservation
+{
+    public string Id { get; set; } = "";
+    public string ActorId { get; set; } = "";
+    public string Item { get; set; } = "";
+    public int Input { get; set; }
+    public int Output { get; set; }
+}
+public sealed record ItemRequirement(string SourceId, string Item, int Amount, bool InputOnly = false);
+public sealed record PreparedAction(ActionRequest Request, IReadOnlyList<ItemRequirement> Items);
 
 public sealed class ActiveWork
 {
