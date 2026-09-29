@@ -1,0 +1,46 @@
+<?xml version='1.0' encoding='utf-8'?>
+<GameContent version="1.0">
+  <Sprites>
+    <Sprite id="rolling_stone">
+      <Animation state="idle" image="Images/rolling_stone.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="0" frameSeconds=".26" loop="true" pivotX=".5" pivotY=".875" offsetX="0" offsetY="0" drawWidth="1.22" drawHeight="1.22">
+        <Frame x="36" y="46" width="187" height="182" pivotX="0.491979" pivotY="0.989011" />
+        <Frame x="292" y="46" width="187" height="182" pivotX="0.491979" pivotY="0.989011" />
+        <Frame x="548" y="46" width="187" height="182" pivotX="0.491979" pivotY="0.989011" />
+        <Frame x="804" y="46" width="187" height="182" pivotX="0.491979" pivotY="0.989011" />
+      </Animation>
+      <Animation state="move" image="Images/rolling_stone.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="256" frameSeconds=".08" loop="true" pivotX=".5" pivotY=".875" offsetX="0" offsetY="0" drawWidth="1.22" drawHeight="1.22">
+        <Frame x="36" y="301" width="187" height="183" pivotX="0.491979" pivotY="0.989071" />
+        <Frame x="291" y="300" width="184" height="189" pivotX="0.505435" pivotY="0.962963" />
+        <Frame x="543" y="300" width="187" height="187" pivotX="0.518717" pivotY="0.973262" />
+        <Frame x="802" y="299" width="185" height="188" pivotX="0.508108" pivotY="0.973404" />
+      </Animation>
+      <Animation state="work" image="Images/rolling_stone.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="512" frameSeconds=".2" loop="true" pivotX=".5" pivotY=".875" offsetX="0" offsetY="0" drawWidth="1.22" drawHeight="1.22">
+        <Frame x="36" y="558" width="187" height="181" pivotX="0.491979" pivotY="0.994475" />
+        <Frame x="293" y="558" width="186" height="181" pivotX="0.489247" pivotY="0.994475" />
+        <Frame x="548" y="558" width="187" height="181" pivotX="0.491979" pivotY="0.994475" />
+        <Frame x="804" y="558" width="187" height="181" pivotX="0.491979" pivotY="0.994475" />
+      </Animation>
+      <Animation state="attack" image="Images/rolling_stone.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="768" frameSeconds=".2" loop="false" pivotX=".5" pivotY=".875" offsetX="0" offsetY="0" drawWidth="1.22" drawHeight="1.22">
+        <Frame x="36" y="813" width="187" height="183" pivotX="0.491979" pivotY="0.989071" />
+        <Frame x="293" y="808" width="188" height="188" pivotX="0.484043" pivotY="0.989362" />
+        <Frame x="547" y="826" width="194" height="172" pivotX="0.479381" pivotY="0.976744" />
+        <Frame x="801" y="817" width="191" height="184" pivotX="0.497382" pivotY="0.961957" />
+      </Animation>
+      <Animation state="hit" image="Images/rolling_stone.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="1024" frameSeconds=".08" loop="false" pivotX=".5" pivotY=".875" offsetX="0" offsetY="0" drawWidth="1.22" drawHeight="1.22">
+        <Frame x="35" y="1069" width="188" height="182" pivotX="0.494681" pivotY="0.994505" />
+        <Frame x="267" y="1069" width="213" height="183" pivotX="0.549296" pivotY="0.989071" />
+        <Frame x="533" y="1069" width="224" height="183" pivotX="0.477679" pivotY="0.989071" />
+        <Frame x="804" y="1069" width="187" height="182" pivotX="0.491979" pivotY="0.994505" />
+      </Animation>
+      <Animation state="death" image="Images/rolling_stone.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="1280" frameSeconds=".14" loop="false" pivotX=".5" pivotY=".875" offsetX="0" offsetY="0" drawWidth="1.22" drawHeight="1.22">
+        <Frame x="36" y="1323" width="190" height="184" pivotX="0.484211" pivotY="0.994565" />
+        <Frame x="274" y="1326" width="229" height="179" pivotX="0.480349" pivotY="1.005587" />
+        <Frame x="518" y="1384" width="243" height="121" pivotX="0.502058" pivotY="1.008264" />
+        <Frame x="791" y="1418" width="214" height="86" pivotX="0.490654" pivotY="1.023256" />
+      </Animation>
+    </Sprite>
+    <Sprite id="item.stone">
+      <Animation state="idle" image="Images/item_stone.png" frameWidth="1020" frameHeight="1020" x="116" y="124" columns="1" frames="1" frameSeconds="1" loop="false" pivotX=".5" pivotY=".5" offsetX="0" offsetY="0" drawWidth="1" drawHeight="1" />
+    </Sprite>
+  </Sprites>
+</GameContent>

@@ -1,0 +1,37 @@
+Generation mode: built-in image_gen; transparent_background=true.
+PNG pixels are copied unchanged. Runtime crop regions, frame timing, pivots and per-animation offsets are authored in XML.
+
+FINAL SHEET — INITIAL GENERATION
+Use case: stylized-concept.
+Asset type: production-ready 2D game animation sprite sheet for The Golemancer's Factory.
+Create an original dedicated monster named Deguldol (데굴돌): a compact round, faceted boulder creature that rolls along bare stony ground. A single roughly spherical stone shell made of a few broad gray-sage rock plates, two small recessed dark charcoal eyes under a low angular rocky brow, subtle pale limestone facet highlights. No limbs, no fists, no torso, no floating spirit, no crystals, no plants or moss. Warm handmade storybook game style with clean vector-like shapes, thick consistent dark desaturated green outlines, simple flat two-tone shading, smooth antialiasing. Readable at small game scale, not pixel art, not photorealistic.
+
+FORMAT IS CRITICAL: exactly one portrait 1024 x 1536 RGBA sprite sheet with an ACTUAL fully transparent background. An invisible, perfectly regular grid of 4 columns and 6 rows, each cell 256 x 256 pixels. Exactly 24 separate poses, one completely contained in each cell. Do not draw grid lines, labels, text, frame numbers, panel borders, background, ground, checkerboard or any glow. Leave wide transparent gutters. All poses use the same orthographic slightly elevated front view, same design, same outline thickness, same size (roughly 174px wide, 160px tall). Place the horizontal center at x=128 within every cell and ground contact at y=224. No cropped silhouettes or touching neighboring frames.
+
+Rows from top to bottom, four progressive frames from left to right:
+1. IDLE loop: alert dark eyes, eyelids lowering, eyes fully closed, eyelids reopening. The solid rock shell and ground contact stay perfectly still; blinking only, no whole-body bob.
+2. MOVE rolling loop: four successive quarter-turn orientations of the entire spherical stone shell rotating clockwise in place (upright, quarter-turn, upside-down, three-quarter-turn). The rock seams and face rotate consistently with the shell; clear genuinely different drawings, not a stationary rock shifted up/down.
+3. WORK / tension loop: watchful stone, suspicious narrowed eyes, furrowed rocky brow, easing back toward watchful. Shell remains rigid and grounded, subtle face changes only.
+4. ATTACK / charge windup: watching ahead, leaning back about 10 degrees, low poised rolling stance, a stronger forward lean as the charge is released. Same hard rocky shell; no fist, limb or jelly-like stretching, no speed trails crossing a cell.
+5. HIT reaction: eyes widened, small leftward recoil, small rightward recovery, return to upright. A few tiny chips immediately next to the body may appear within the cell. No extra attached rocks or silhouette drift.
+6. DEATH: shell cracks and eyes close, shell starts collapsing, shell splits into a low pile of angular fragments, final inert small pile of pebbles with no eyes. All debris remains inside its own cell and settles on the same baseline.
+
+Make the 24-frame layout mechanically usable as an animation sheet. Preserve real alpha transparency everywhere outside the sprites, no painted backdrop or shadow clouds.
+
+FINAL SHEET — TARGETED MOVE-ROW CORRECTION
+Use case: precise-object-edit. This is a production animation-sheet correction.
+Edit ONLY the four frames in the SECOND ROW (the movement animation at y=256..511) of the supplied 1024x1536 sheet. Keep the same complete 4-column by 6-row layout and actual alpha transparency. Keep rows 1,3,4,5,6 and their poses unchanged.
+The second row must show the boulder ROLLING CLOCKWISE like a wheel IN THE IMAGE PLANE, not turning around to show its back. Use the row 2 frame 1 front-facing rock as the exact design reference for all four rolling poses:
+column 1 = upright, with the two eyes horizontally aligned;
+column 2 = 90 degrees clockwise, the same face sideways with the two eyes vertically aligned;
+column 3 = 180 degrees clockwise, that same face visibly UPSIDE DOWN, with brows below the eyes;
+column 4 = 270 degrees clockwise, same face sideways in the opposite direction, two eyes vertically aligned.
+Every orientation must retain the SAME asymmetric rock plate pattern, SAME two eyes, SAME angular rocky brow, same colors and line weight, same consistent body size. Do not show an eyeless back surface in this row. This is four quarter-turn phases of one rolling boulder.
+Center each roll sprite horizontally at the center of its own 256px cell and keep its lowest ground contact near cell y=224. Keep generous transparent padding; no blending across cells. Preserve crisp outlines and genuinely transparent background. Do not add anything else, do not add labels, do not retouch other rows.
+
+STONE ITEM ICON
+Use case: stylized-concept.
+Asset type: a single inventory item icon for a 2D storybook game, The Golemancer's Factory.
+Primary request: the stone item dropped by Deguldol, a faceted rocky boulder monster. Draw a small compact pile of three plain angular pebbles: one medium rounded polygonal gray-sage stone in the back, two smaller stones at its foot. Broad clean pale limestone and desaturated olive-gray facet planes, thick dark charcoal-green outlines, simple flat two-tone shading, slightly elevated orthographic view, clean vector-like cartoon rendering. Same handcrafted cozy style as a small rocky creature, but these are INERT STONES: no eyes, no face, no mouth, no limbs, no runes or gems, no plants or moss. Clean graphic silhouette and low detail readable at 24px.
+Square 1024x1024 RGBA image with ACTUAL fully transparent background. Center the compact pile; fill about 72% of the canvas width and 55% of its height, generous empty transparent margins, no backdrop, no ground plane, no shadow cloud, no glow, no frame, no text, no checkerboard.
+

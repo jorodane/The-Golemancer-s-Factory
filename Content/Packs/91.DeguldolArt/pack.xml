@@ -1,0 +1,5 @@
+<?xml version='1.0' encoding='utf-8'?>
+<ObjectPack id="deguldol_art" version="1.0.0" contracts="1">
+  <Depends id="feast_trail" minVersion="1.0.0" />
+  <Data path="sprites.xml" />
+</ObjectPack>
