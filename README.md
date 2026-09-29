@@ -8,13 +8,11 @@
 
 Windows용 **WPF / .NET Framework 4.8** 앱이야.
 
-검증한 실행 파일은 저장소의 [Builds 폴더](Builds/README.md)에 함께 올려뒀어. [Windows 빌드 ZIP 다운로드](Builds/The-Golemancers-Factory-Windows-net48.zip?raw=true) 후 아래 순서로 실행하면 돼.
+저장소를 받거나 pull한 뒤 **루트의 `Start.bat`을 실행**하면 돼. 압축을 풀어둔 [Windows 실행 파일](Builds/README.md)과 모듈 DLL이 함께 들어 있고 .NET Framework 4.8 런타임만 필요해. SDK나 빌드 ZIP 압축 해제는 필요 없어.
 
-1. `The-Golemancers-Factory-Windows-net48.zip`을 쓰기 가능한 폴더에 풀어.
-2. `The-Golemancers-Factory-Image-Packs-v2.zip`도 같은 폴더에 풀어 `Content` 폴더를 합쳐.
-3. `Golemancer.exe`를 실행해. .NET Framework 4.8 런타임이 필요해.
+실행 파일은 저장소 루트의 `Content`를 읽어. 기존 이미지를 `Content/Packs/<팩>/Images`에 한 번 놓아두면 업데이트할 때도 그대로 사용해. 별도의 실행 폴더로 이미지를 옮기거나 `Content`를 매번 합칠 필요가 없어. 이미지에는 `.gitignore` 규칙을 적용하지 않아서 사용자 Git에서 직접 추가·푸시할 수 있어.
 
-소스에서 빌드하려면 .NET 10 SDK를 설치하고 이미지팩을 저장소 루트에 푼 뒤 `Start.bat`을 실행해. SDK는 빌드 도구이고, 실행 파일의 대상은 **net48**이야. 첫 빌드에는 NuGet 패키지 복원을 위한 인터넷 연결이 필요하고 플레이는 오프라인으로 가능해.
+소스를 바꾼 뒤 다시 빌드하려면 .NET 10 SDK를 설치하고 `Build.bat`을 실행해. 실행 파일과 DLL이 같은 위치에 갱신돼. SDK는 빌드 도구이고, 실행 파일의 대상은 **net48**이야. 첫 소스 빌드에는 NuGet 패키지 복원을 위한 인터넷 연결이 필요하고 플레이는 오프라인으로 가능해.
 
 게임 규칙과 저장은 .NET 모듈이 담당해. WPF 창에서 타일과 프레임 이미지를 표시하고 직접 명령을 전달해. 콘텐츠 DLL은 `pack.xml`을 통해 실제 `Assembly.LoadFrom`으로 로드하고, Host는 콘텐츠 모듈 프로젝트를 참조하지 않아.
 
@@ -75,7 +73,7 @@ Windows용 **WPF / .NET Framework 4.8** 앱이야.
 
 정지 캐릭터 전체를 위아래로 흔드는 효과는 없어. 대기·이동·작업·공격·피격·쓰러짐 상태에 맞는 실제 프레임을 재생해. 애니메이션마다 시트 파일, 영역, 속도, 반복 여부, 크기와 `offsetX/offsetY`를 지정할 수 있어. 오프셋의 단위는 타일이고 충돌·저장 좌표와는 독립적이야.
 
-엔린의 **에메랄드 팔찌, 머리 위 계산 미니골렘, 감정 칠판**을 시트와 초상화에 포함했어. 이미지팩을 설치하지 않으면 누락된 파일 경로를 안내해. 실제 이미지 파일은 코드 커밋에서 제외하고 별도 ZIP으로 제공해.
+엔린의 **에메랄드 팔찌, 머리 위 계산 미니골렘, 감정 칠판**을 시트와 초상화에 포함했어. 이미지가 없으면 누락된 파일 경로를 안내해. 이미 제공한 이미지팩 v2를 그대로 사용할 수 있어. 이미지는 저장소 루트의 `Content`에서 유지하고 실행 파일 갱신 시 복사하거나 삭제하지 않아.
 
 새 그림이나 타일셋은 팩의 XML과 이미지로 교체할 수 있어. [이미지팩·애니메이션 명세](docs/ART_PACKS.md)에 시트 단위 등록, 오프셋, 패치 팩 예제가 있어. `tools/export-art.mjs`는 기존 정적 SVG를 내보내는 선택적 제작 도구이며 게임 실행 중에는 사용하지 않아.
 
@@ -99,10 +97,10 @@ Windows용 **WPF / .NET Framework 4.8** 앱이야.
 
 ## 검증
 
-Windows의 `Verify.bat`은 net48 빌드, 캠페인·회귀 검증과 WPF `--smoke` 검증을 실행해. 이미지팩을 먼저 설치해야 해. 창 검증은 별도 테스트 세이브를 쓰고 `TestResults/windows`에 결과와 화면을 남겨.
+Windows의 `Verify.bat`은 저장소에 포함된 net48 검증 프로그램으로 캠페인·회귀 검증과 WPF `--smoke` 검증을 실행해. SDK 없이 현재 빌드를 확인할 수 있어. 창 검증은 로컬 `Content`의 기존 이미지를 사용하고, 별도 테스트 세이브와 `TestResults/windows` 결과·화면을 남겨. 소스를 수정했다면 `Build.bat`으로 빌드를 갱신한 뒤 실행해.
 
 Linux/macOS의 `bash verify.sh`는 WPF를 제외한 같은 엔진·모듈과 앱 세션을 net10.0으로 빌드해 검증해. 자유 이동·녹화 경로, 수확→골렘 전달→야외 건설, E 줍기, 12개 퀘스트, 수량·용량, 무마력 정지·재개, 생산 중 저장, 핵 회수, 보스 초기화, 미설치 팩 데이터 보존, 대사·일시정지, 이미지팩 메타데이터를 확인해.
 
-아트 제작 환경에서 `python tools/verify-art.py`를 실행하면 실제 파일·투명도·프레임 영역을 검사하고 시트 미리보기를 만들어. Pillow와 numpy가 필요해. 배포 파일은 Windows 대상 Release 빌드와 이미지팩 설치 후 `python tools/package.py <출력폴더>`로 만들 수 있어.
+아트 제작 환경에서 `python tools/verify-art.py`를 실행하면 실제 파일·투명도·프레임 영역을 검사하고 시트 미리보기를 만들어. Pillow와 numpy가 필요해. 별도 전달용 ZIP이 필요한 경우에만 `python tools/package.py <출력폴더>`를 사용해. 저장소에서 실행·검증할 때는 이 단계를 거치지 않아.
 
 이번 버전은 로컬 싱글플레이야. 멀티플레이, 모바일 조작, 다음 챕터 내부 지역은 구현 범위 밖이야.

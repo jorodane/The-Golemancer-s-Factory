@@ -1,1 +1,3 @@
-Builds/*.zip binary
+Builds/Windows/*.exe binary
+Builds/Windows/*.dll binary
+Content/Packs/**/Bin/net48/*.dll binary

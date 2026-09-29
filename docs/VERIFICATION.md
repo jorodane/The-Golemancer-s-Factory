@@ -12,6 +12,14 @@
 | 이미지·시트 XML 검사 | Python / Pillow / numpy | 통과 |
 | WPF 창·입력·PNG/SVG 실제 표시 | Windows 필요 | 미실행; --smoke 제공 |
 
+## 저장소에서 바로 실행하는 배포
+
+- `Builds/Windows`에 압축을 풀어둔 EXE·엔진 의존 DLL·검증 프로그램을 제공한다. 모듈 DLL은 `Content/Packs/*/Bin/net48`에 두어 기존 `pack.xml`로 로드한다.
+- `Start.bat`과 `Verify.bat`은 SDK나 재빌드 없이 이 파일을 실행하며, 게임과 검증이 저장소 루트의 `Content`를 공유한다.
+- `Build.bat`은 Release 빌드 뒤 `tools/Publish.proj`로 동일한 실행 폴더를 갱신한다. 게시 대상은 EXE·DLL·설정과 빌드 메타데이터이며 이미지·저장 파일은 복사하거나 삭제하지 않는다.
+- 이미지 제외 규칙은 제거했다. 이미지 업로드는 사용자의 Git 환경에서 진행하며, 이번 빌드 배포 커밋에는 이미지 파일을 포함하지 않는다.
+- 커밋 대상만 복사한 별도 저장소 구조에서 net48 모듈 12개와 필수 이미지 경로 77개를 확인했다. 이미지 79개와 테스트 세이브를 먼저 로컬에 둔 뒤 파일 갱신을 적용해 내용이 유지됨을 확인했다. 실행·검증 스크립트에는 SDK 빌드 단계가 없고, 실행 파일에서 상위 Content를 찾는 경로와 배포 파일 27개의 해시도 일치했다.
+
 ## 실제 캠페인
 
 - 13개 객체팩, 12개 구현 DLL, 32개 액션 구현, 8개 시스템을 로드했다.
@@ -76,7 +84,7 @@ WPF와 같은 DesktopSession 소스를 net10.0 테스트에 포함해 실행했�
 
 ## 재현
 
-- Windows: 이미지팩 설치 후 Verify.bat. net48 검증 프로그램과 WPF --smoke가 실행되며 TestResults/windows에 결과와 창 캡처를 남긴다. 스모크 검증은 별도 테스트 세이브와 소량의 전달·줍기 테스트 재고를 사용한다. 실제 WPF 버블 버튼 → 전달 폼 → 전달 버튼, Tab/Space 키 핸들러, E 세션 처리, 자유 이동과 저장, 모든 메뉴를 확인하도록 구성했다. 이 환경에서는 해당 스모크를 실행하지 못했다.
+- Windows: 로컬 Content의 이미지가 준비된 저장소에서 Verify.bat. 포함된 net48 검증 프로그램과 WPF --smoke가 실행되며 TestResults/windows에 결과와 창 캡처를 남긴다. 소스 변경 후에는 Build.bat을 먼저 실행한다. 스모크 검증은 별도 테스트 세이브와 소량의 전달·줍기 테스트 재고를 사용한다. 실제 WPF 버블 버튼 → 전달 폼 → 전달 버튼, Tab/Space 키 핸들러, E 세션 처리, 자유 이동과 저장, 모든 메뉴를 확인하도록 구성했다. 이 환경에서는 해당 스모크를 실행하지 못했다.
 - Linux/macOS: bash verify.sh. WPF를 제외한 같은 공유 로직을 net10.0으로 검증한다.
 - 이미지: python tools/verify-art.py. 결과는 TestResults/art에 기록한다.
 - 확장팩: examples/TeaBreak/README.md의 명령을 사용한다.

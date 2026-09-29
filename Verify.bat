@@ -1,11 +1,16 @@
 @echo off
 setlocal
 cd /d "%~dp0"
-dotnet build GolemancerFactory.sln -c Release -m:1 --disable-build-servers --nologo -v:minimal
+if not exist "Builds\Windows\Golemancer.Verification.exe" (
+  echo The verification build is missing. Pull the full repository, or run Build.bat.
+  pause
+  exit /b 1
+)
+set "GOLEMANCER_ROOT=%~dp0"
+set "GOLEMANCER_SAVES=%~dp0TestResults\verification-saves"
+Builds\Windows\Golemancer.Verification.exe
 if errorlevel 1 exit /b 1
-tests\Golemancer.Verification\bin\Release\net48\Golemancer.Verification.exe
-if errorlevel 1 exit /b 1
-start /wait "" "src\Golemancer.Host\bin\Release\net48\Golemancer.exe" --smoke
+start /wait "" "Builds\Windows\Golemancer.exe" --smoke
 if errorlevel 1 exit /b 1
 type TestResults\windows\result.txt
 pause

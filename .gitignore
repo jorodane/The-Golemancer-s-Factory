@@ -1,7 +1,6 @@
 **/bin/
 **/obj/
 Content/Packs/**/Bin/
-Content/Packs/**/Images/
 examples/**/Bin/
 node_modules/
 Assets/
