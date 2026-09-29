@@ -32,7 +32,7 @@ internal sealed partial class MainWindow
                 };
                 return entry;
             }).ToList();
-            entries.Add(Leaf("take", "물건 꺼내기", () => ShowTransfer(target, "take"), "완성품과 보관 중인 물건을 가져와."));
+            entries.Add(Group("take", "물건 꺼내기", () => TransferEntries(target, "take")));
             entries.AddRange(InteractionEntries(target, inputs: true));
             int pages = BubbleLayout.Pages(entries.Count); frame.Page = Math.Min(frame.Page, pages - 1);
             var shown = entries.Skip(frame.Page * BubbleLayout.PageSize).Take(BubbleLayout.PageSize).ToList();

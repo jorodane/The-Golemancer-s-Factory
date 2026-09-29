@@ -41,7 +41,7 @@ internal sealed partial class MainWindow : Window
         var side=new StackPanel{Margin=new Thickness(14)};
         side.Children.Add(new MiniMapView(session,assets,world){Height=135,Margin=new Thickness(0,0,0,10)});
         side.Children.Add(Label("공방 일지",22));side.Children.Add(journal);side.Children.Add(Button("전체 일지",()=>Open("journal")));side.Children.Add(Label("골렘들",18));side.Children.Add(crew);
-        side.Children.Add(Button("골렘 조립",()=>Open("assembly")));side.Children.Add(Button("시설 건설 · B",()=>Open("build")));side.Children.Add(Button("행동 기록",()=>Open("routines")));side.Children.Add(Button("주문 게시판",()=>Open("orders")));side.Children.Add(Button("공방 안내",()=>Open("help")));
+        side.Children.Add(Button("골렘 조립",()=>Open("assembly")));side.Children.Add(Button("시설 건설 · B",()=>Open("build")));side.Children.Add(Button("행동 기록",()=>Open("routines")));side.Children.Add(Button("주문 게시판",()=>Open("orders"),"open.orders"));side.Children.Add(Button("공방 안내",()=>Open("help")));
         Place(new ScrollViewer{Content=side,VerticalScrollBarVisibility=ScrollBarVisibility.Auto,HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled},1,0);
         Place(world,1,1);
         bubbleLayer.SizeChanged+=(_,_)=>{if(bubbleHistory.Count>0)RenderBubbles();};
@@ -111,14 +111,20 @@ internal sealed partial class MainWindow : Window
         else if(Game.Definition(target)?.InputSlots.Count>0)ShowFacilityFocus(target);
         else if(session.Actor is { } actor && InteractionChoices.Quick(Game,actor,target) is { } choice)
         {
-            // Keep the parent for Back without briefly drawing or recentering a skipped menu.
-            ShowBubbles(target, present:false);UseChoice(target,choice);
+            queueBubbles = Held("queue");
+            var entries = InteractionEntries(target);
+            var quick = BubbleMenu.Quick(entries, choice.Id);
+            if (quick is null || quick.IsGroup && !BubbleMenu.Visible(entries).Contains(quick)) { ShowBubbles(target); return; }
+            // Keep meaningful alternatives for Back; collapsed wrappers never enter history.
+            ShowBubbles(target, present:false);ActivateBubble(quick);
             if(bubbleHistory.Count>0&&bubbleLayer.Children.Count==0)RenderBubbles(true,alignCursor:true);
         }
+        else ShowBubbles(target);
     }
     private void RefreshHud()
     {
         var s=Game.State;var a=session.Actor;if(a is null)return;
+        buttons["open.orders"].IsEnabled = s.Orders.Any(o => !o.Delivered);
         if(bubbleActor.Length>0&&bubbleActor!=a.Id)CloseBubbles();
         int day=(int)(s.Get("calendarSeconds")/180);string[] phases={"봄의 낮","봄의 밤","여름의 낮","여름의 밤","가을의 낮","가을의 밤","겨울의 낮","겨울의 밤"};
         header.Text=$"THE GOLEMANCER’S FACTORY     {phases[day/15%8]} · {day%15+1}일     {s.Get("gold"):0} G  ·  평판 {s.Get("reputation"):0.0}";

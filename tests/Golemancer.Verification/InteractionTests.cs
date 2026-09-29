@@ -44,6 +44,11 @@ internal static class InteractionTests
             s=Fixture(cooked,root);a=s.Actor!;var crafter=s.Game.Spawn("craft_golem",13,10,"test-crafter");
             var choices=InteractionChoices.For(s.Game,a,crafter);var quick=InteractionChoices.Quick(s.Game,a,crafter);
             Check(quick?.Panel=="transfer"&&quick.Option=="give"&&choices.Any(c=>c.Action=="select"),"golem quick use opens give-items; control switching is a separate bubble");
+            var unavailable = s.Game.Spawn("common_herb_patch", 18, 11, "availability-herb"); unavailable.Set("depleted",1);
+            var beforeCheck = a.Inventory.ToDictionary(k=>k.Key,k=>k.Value); int queueSize=a.ActionQueue.Count;
+            Check(!InteractionChoices.Check(s.Game,a,unavailable,"harvest").Allowed && InteractionChoices.Check(s.Game,a,unavailable,"harvest",true).Allowed && a.Work is null && a.Pending is null && a.ActionQueue.Count==queueSize && a.Inventory.Count==beforeCheck.Count,"availability checks reject depleted quick actions without executing or reserving; Shift planning remains possible");
+            unavailable.Set("depleted",0);
+            Check(InteractionChoices.Check(s.Game,a,unavailable,"harvest").Allowed && !InteractionChoices.Check(s.Game,crafter,unavailable,"harvest").Allowed,"quick-use availability follows live resources and the controlled golem's capability");
             for(int i=0;i<2;i++)
             {
                 var tree=s.Game.Spawn("upright_tree",10+i,11,"test-tree-"+i);

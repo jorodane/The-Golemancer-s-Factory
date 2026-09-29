@@ -68,7 +68,7 @@ internal sealed partial class MainWindow
         { if ((actual - expected).Length > 1.5) throw new Exception(label); }
         List<BubbleEntry> Branch() => [new() { Id = "nav.quantity", Label = "수량", Activate = () => ShowQuantity("수량", () => 10, _ => Golemancer.Contracts.ActionResult.Success()) },
             new() { Id = "nav.deep", Label = "하위", Keep = true, Children = [new() { Id = "nav.leaf", Label = "선택", Activate = () => { } }] }];
-        List<BubbleEntry> Top() => [new() { Id = "nav.child", Label = "분류", Keep = true, Children = Branch() }];
+        List<BubbleEntry> Top() => [new() { Id = "nav.child", Label = "분류", Keep = true, Children = Branch() }, new() { Id = "nav.other", Label = "다른 행동", Activate = () => { } }];
 
         CloseBubbles(); bubbleAnchor = PointerAt(new Point(root.ActualWidth - 4, root.ActualHeight - 4));
         ShowMenu("가장자리", Top); settle();
@@ -146,5 +146,49 @@ internal sealed partial class MainWindow
         quantitySlider!.Value = 5;
         if (confirmation.Badge.Text != "15G") throw new Exception("Purchase slider did not refresh visible total");
         Game.State.Values["gold"] = gold; CloseBubbles();
+    }
+    private void RunGroupingSmoke(Action settle, Action<string> click)
+    {
+        var merchant = Game.State.Objects.Values.First(o => o.DefinitionId == "merchant");
+        var board = Game.State.Objects.Values.First(o => o.DefinitionId == "order_board");
+        CloseBubbles(); NativePointer.MoveTo(root, new Point(root.ActualWidth / 2, root.ActualHeight / 2));
+        ClickTile(merchant.Tile, true); settle();
+        var storeChoices = bubbleVisuals.Select(v => v.Entry.Id).ToArray();
+        if (buttons.ContainsKey("bubble.shop") || !buttons.ContainsKey("bubble.shop.wood") || bubbleHistory.Count != 1 || buttons.ContainsKey("bubble.back"))
+            throw new Exception("Merchant right-click retained its redundant shop wrapper");
+        click("bubble.shop.wood"); settle(); click("bubble.back"); settle();
+        if (bubbleHistory.Count != 1 || buttons.ContainsKey("bubble.shop")) throw new Exception("Back restored a collapsed merchant level");
+        CloseBubbles(); ClickTile(merchant.Tile, false); settle();
+        if (bubbleHistory.Count != 1 || !storeChoices.SequenceEqual(bubbleVisuals.Select(v => v.Entry.Id))) throw new Exception("Merchant quick use left a hidden duplicate parent");
+
+        var orders = Game.State.Orders.ToList(); Game.State.Orders.Clear();
+        double gold = Game.State.Get("gold"), tier = Game.State.Get("shopTier", 1);
+        CloseBubbles(); ClickTile(board.Tile, true); settle();
+        var boardChoices = bubbleVisuals.Select(v => v.Entry.Id).ToArray();
+        if (bubbleVisuals.Single(v => v.Entry.Id == "orders").Available || !buttons.ContainsKey("bubble.expand_shop")) throw new Exception("Empty order group was hidden or still enabled");
+        click("bubble.orders"); settle();
+        if (bubbleHistory.Count != 1 || buttons.ContainsKey("bubble.back")) throw new Exception("Disabled order group opened an empty child");
+        CloseBubbles(); ClickTile(board.Tile, false); settle(); RefreshHud();
+        if (bubbleHistory.Count != 1 || !boardChoices.SequenceEqual(bubbleVisuals.Select(v => v.Entry.Id)) || Game.State.Get("gold") != gold || Game.State.Get("shopTier", 1) != tier || buttons["open.orders"].IsEnabled)
+            throw new Exception("Unavailable quick use did not match right-click or triggered a different command");
+        Game.State.Orders.Add(new() { Id = "native-order-1", Name = "주문 하나", Requirements = new() { ["wood"] = 1 } });
+        Game.State.Orders.Add(new() { Id = "native-order-2", Name = "주문 둘", Requirements = new() { ["wood"] = 2 } });
+        RefreshBubbleHover();
+        if (!bubbleVisuals.Single(v => v.Entry.Id == "orders").Available) throw new Exception("New orders did not re-enable the existing group");
+        click("bubble.orders"); settle();
+        if (bubbleHistory.Count != 2 || !buttons.ContainsKey("bubble.order.native-order-1")) throw new Exception("Populated group lost normal navigation");
+        Game.State.Orders.Clear(); RenderBubbles(); settle();
+        if (bubbleHistory.Count != 1 || bubbleVisuals.Single(v => v.Entry.Id == "orders").Available) throw new Exception("Last removed order stranded the player in an empty submenu");
+        Game.State.Orders.Add(new() { Id = "native-order-1", Name = "하나만 남은 주문", Requirements = new() { ["wood"] = 1 } });
+        CloseBubbles(); ClickTile(board.Tile, false); settle();
+        if (bubbleHistory.Count != 1 || !buttons.ContainsKey("bubble.order.native-order-1") || Game.State.Orders[0].Accepted) throw new Exception("One order retained a redundant layer or was accepted automatically");
+        Game.State.Orders.Clear(); Game.State.Orders.AddRange(orders); CloseBubbles();
+
+        var tree = Game.State.Objects.Values.First(o => o.DefinitionId == "sweetfruit_tree");
+        double stock = tree.Get("stock"), depleted = tree.Get("depleted"); tree.Set("stock", 0); tree.Set("depleted", 0);
+        ClickTile(tree.Tile, false); settle();
+        if (!buttons.ContainsKey("bubble.harvest") || bubbleVisuals.Single(v => v.Entry.Id == "harvest").Available || !bubbleVisuals.Single(v => v.Entry.Id == "fell").Available || tree.Get("depleted") != 0)
+            throw new Exception("Unavailable fruit quick use did not expose alternatives without felling the tree");
+        tree.Set("stock", stock); tree.Set("depleted", depleted); CloseBubbles(); RefreshHud();
     }
 }

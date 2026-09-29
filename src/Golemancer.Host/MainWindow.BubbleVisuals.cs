@@ -20,6 +20,7 @@ internal sealed partial class MainWindow
         public ScaleTransform Arrival = new(1, 1), Hover = new(1, 1);
         public TranslateTransform Travel = new();
         public bool Ready;
+        public bool Available;
     }
     private readonly List<BubbleVisual> bubbleVisuals = [];
     private BubbleVisual? hoveredBubble;
@@ -40,16 +41,14 @@ internal sealed partial class MainWindow
     {
         var button = Button(entry.Label, () =>
         {
-            if (!entry.Enabled) { Notify(PreviewFor(entry).Note.Length > 0 ? PreviewFor(entry).Note : "지금은 이 행동을 할 수 없어."); return; }
-            if (entry.Children.Count > 0) ShowMenu(entry.Label, () => entry.Children);
-            else entry.Activate?.Invoke();
+            ActivateBubble(entry);
         }, id.Length > 0 ? id : "bubble." + entry.Id);
         double diameter = center ? BubbleLayout.CenterDiameter : BubbleLayout.Diameter;
         button.Width = button.Height = diameter; button.Padding = new Thickness(0); button.Margin = new Thickness(0);
         button.HorizontalContentAlignment = HorizontalAlignment.Center;
         button.VerticalContentAlignment = VerticalAlignment.Center;
         button.RenderTransformOrigin = new Point(.5, .5); button.Clip = new EllipseGeometry(new Rect(0, 0, diameter, diameter));
-        button.Cursor = entry.Enabled ? Cursors.Hand : Cursors.Arrow;
+        button.Cursor = entry.Available ? Cursors.Hand : Cursors.Arrow;
         button.Background = SvgImage.Brush(center ? "#d0d7c3" : "#eee8d7");
         var border = new FrameworkElementFactory(typeof(Border)); border.SetValue(Border.CornerRadiusProperty, new CornerRadius(diameter / 2));
         border.SetValue(Border.BackgroundProperty, new TemplateBindingExtension(Control.BackgroundProperty)); border.SetValue(Border.BorderBrushProperty, Ink); border.SetValue(Border.BorderThicknessProperty, new Thickness(1.5));
@@ -59,7 +58,7 @@ internal sealed partial class MainWindow
         var transforms = new TransformGroup(); transforms.Children.Add(visual.Arrival); transforms.Children.Add(visual.Hover); transforms.Children.Add(visual.Travel); button.RenderTransform = transforms;
         var icon = new Grid { Width = diameter - 10, Height = diameter - 10, IsHitTestVisible = false };
         string iconId = IconIdFor(entry), glyph = GlyphFor(entry);
-        if (glyph.Length == 0 && assets.Sprite(iconId) is { } image) icon.Children.Add(new Image { Source = image, Width = center ? 26 : 34, Height = center ? 26 : 34, Stretch = Stretch.Uniform, Opacity = entry.Enabled ? 1 : .5 });
+        if (glyph.Length == 0 && assets.Sprite(iconId) is { } image) icon.Children.Add(new Image { Source = image, Width = center ? 26 : 34, Height = center ? 26 : 34, Stretch = Stretch.Uniform });
         else icon.Children.Add(new TextBlock { Text = glyph.Length > 0 ? glyph : "◇", FontFamily = new FontFamily("Segoe UI Symbol"), FontSize = center ? 22 : 25, Foreground = Ink, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center });
         visual.BadgeFrame = new Border { Background = Ink, CornerRadius = new CornerRadius(7), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Bottom, Padding = new Thickness(3, 0, 3, 1), Child = visual.Badge };
         icon.Children.Add(visual.BadgeFrame);
@@ -113,7 +112,7 @@ internal sealed partial class MainWindow
     {
         if (!bubbleVisuals.Contains(visual)) return;
         if (hoveredBubble is { } old && old != visual) LeaveBubble(old);
-        hoveredBubble = visual; Panel.SetZIndex(visual.Button, 2); visual.Button.Background = SvgImage.Brush("#fff6dc");
+        hoveredBubble = visual; Panel.SetZIndex(visual.Button, 2); visual.Button.Background = SvgImage.Brush(visual.Available ? "#fff6dc" : "#aaa99f");
         AnimateHover(visual, BubbleLayout.HoverScale); hoverSignature = ""; RefreshBubbleHover();
     }
     private static void AnimateHover(BubbleVisual visual, double target)
@@ -123,7 +122,7 @@ internal sealed partial class MainWindow
     }
     private void LeaveBubble(BubbleVisual visual)
     {
-        AnimateHover(visual, 1); Panel.SetZIndex(visual.Button, 0); visual.Button.Background = SvgImage.Brush(visual.Entry.Id == "back" ? "#d0d7c3" : "#eee8d7");
+        AnimateHover(visual, 1); Panel.SetZIndex(visual.Button, 0); visual.Button.Background = SvgImage.Brush(!visual.Available ? "#aaa99f" : visual.Entry.Id == "back" ? "#d0d7c3" : "#eee8d7");
         if (hoveredBubble != visual) return;
         hoveredBubble = null; hoverSignature = ""; bubbleHoverLayer.Children.Clear();
     }
@@ -213,11 +212,15 @@ internal sealed partial class MainWindow
     private void RefreshBubbleLabel(BubbleVisual visual)
     {
         var entry = visual.Entry; visual.Name.Text = entry.DisplayName;
+        visual.Available = entry.Available;
+        visual.Button.Cursor = visual.Available ? Cursors.Hand : Cursors.Arrow;
+        if (visual.Button.Content is Grid icon) icon.Opacity = visual.Available ? 1 : .42;
+        visual.Button.Background = SvgImage.Brush(!visual.Available ? "#aaa99f" : hoveredBubble == visual ? "#fff6dc" : entry.Id == "back" ? "#d0d7c3" : "#eee8d7");
         string badge = BadgeFor(entry); visual.Badge.Text = badge;
         visual.Badge.Foreground = entry.Display.BadgeTone switch { "price" => SvgImage.Brush("#ffe08a"), "warning" => SvgImage.Brush("#ffad9d"), _ => Paper };
         visual.BadgeFrame.Visibility = badge.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
         System.Windows.Automation.AutomationProperties.SetName(visual.Button, entry.DisplayName + (badge.Length > 0 ? " · " + badge : ""));
-        System.Windows.Automation.AutomationProperties.SetItemStatus(visual.Button, entry.Enabled ? "사용 가능" : "사용 불가");
+        System.Windows.Automation.AutomationProperties.SetItemStatus(visual.Button, visual.Available ? "사용 가능" : "사용 불가");
     }
     private BubblePreview PreviewFor(BubbleEntry entry)
     {

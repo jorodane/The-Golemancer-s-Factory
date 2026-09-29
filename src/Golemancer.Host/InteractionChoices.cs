@@ -42,6 +42,18 @@ internal static class InteractionChoices
         return result;
     }
     public static InteractionChoice? Quick(Simulation game,WorldObject actor,WorldObject target) => For(game,actor,target).FirstOrDefault();
+    public static CheckResult Check(Simulation game, WorldObject actor, WorldObject target, string action, bool queued = false)
+    {
+        if (!game.Content.Actions.TryGetValue(action, out var definition) || !game.Registry.Actions.TryGetValue(definition.Handler, out var handler)) return CheckResult.No("현재 없는 행동이야.");
+        if (!actor.Alive() || !target.Alive()) return CheckResult.No("대상을 사용할 수 없어.");
+        if (definition.Recordable && actor.Playback is not null) return CheckResult.No("먼저 반복을 멈춰줘.");
+        if (queued && definition.Recordable) return CheckResult.Yes; // Queue validation happens when its turn starts.
+        if (!definition.Interrupts && (definition.Recordable || definition.Range >= 0) && (actor.Work is not null || actor.Pending is not null)) return CheckResult.No("작업 중이야. Shift로 예약할 수 있어.");
+        if (definition.Condition is not null && !game.Evaluate(definition.Condition, actor, target)) return CheckResult.No("실행 조건을 충족하지 못했어.");
+        // Check is read-only. Never dispatch a command to probe availability or cancel work here.
+        try { return handler.Check(game, actor, new() { ActorId = actor.Id, TargetId = target.Id, Action = action }); }
+        catch (Exception) { return CheckResult.No("행동 조건을 확인하지 못했어."); }
+    }
     public static List<MenuEntry> Additional(Simulation game, WorldObject actor, WorldObject target)
     {
         var choices = For(game, actor, target);

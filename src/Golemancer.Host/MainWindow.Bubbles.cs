@@ -60,6 +60,16 @@ internal sealed partial class MainWindow
         if (key.StartsWith("actor.", StringComparison.Ordinal) && session.Actor?.Values.TryGetValue(key.Substring(6), out double actor) == true) return actor.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
         return null;
     }
+    private BubbleEntry Group(string id, string label, Func<List<BubbleEntry>> contents)
+    {
+        var entry = Leaf(id, label, () => { }); entry.Activate = null; entry.BuildChildren = contents; return entry;
+    }
+    private void ActivateBubble(BubbleEntry entry)
+    {
+        if (!entry.Available) return;
+        if (entry.IsGroup) ShowMenu(entry.Label, entry.Contents);
+        else entry.Activate?.Invoke();
+    }
     private void ShowMenu(string title, Func<List<BubbleEntry>> build, bool present = true) =>
         PushBubbleFrame(CreateBubbleFrame(title, build), animate: true, present: present);
     private void BackBubble()
@@ -70,6 +80,9 @@ internal sealed partial class MainWindow
     private void RenderBubbles(bool animate = false, bool alignCursor = false)
     {
         ClearBubbleVisuals(); if (bubbleHistory.Count == 0) return;
+        // A completed last order or removed item must not strand the user in an empty child.
+        while (bubbleHistory.Count > 1 && bubbleHistory[bubbleHistory.Count - 1] is { Render: null } empty && empty.Build().Count == 0)
+            bubbleHistory.RemoveAt(bubbleHistory.Count - 1);
         bubbleShield.Visibility = Visibility.Visible;
         var frame = bubbleHistory[bubbleHistory.Count - 1];
         if (frame.Render is not null) frame.Render(); else RenderMenu(frame, animate);
@@ -77,7 +90,8 @@ internal sealed partial class MainWindow
     }
     private void RenderMenu(BubbleFrame frame, bool animate)
     {
-        var entries = BubbleMenu.Compress(frame.Build());
+        var entries = BubbleMenu.Visible(frame.Build());
+        if (entries.Count == 0) entries.Add(Group("empty", frame.Title, () => []));
         int pages = BubbleLayout.Pages(entries.Count); frame.Page = Math.Min(frame.Page, pages - 1);
         var shown = entries.Skip(frame.Page * BubbleLayout.PageSize).Take(BubbleLayout.PageSize).ToList();
         AddBackBubble();
@@ -90,11 +104,6 @@ internal sealed partial class MainWindow
             AddPageButton("next", "›", () => { frame.Page = (frame.Page + 1) % pages; RenderBubbles(true); }, 48, top);
             var page = Label($"{frame.Page + 1} / {pages}", 11); page.Width = 60; page.TextAlignment = TextAlignment.Center; page.IsHitTestVisible = false; page.Background = Paper;
             Canvas.SetLeft(page, BubbleCenter.X - 30); Canvas.SetTop(page, BubbleCenter.Y + top - 1); bubbleLayer.Children.Add(page);
-        }
-        if (shown.Count == 0)
-        {
-            var empty = Label("지금 선택할 항목이 없어."); empty.Background = Paper;
-            Canvas.SetLeft(empty, BubbleCenter.X - 90); Canvas.SetTop(empty, BubbleCenter.Y + 50); bubbleLayer.Children.Add(empty);
         }
     }
     private void AddBubbleTitle(string text, int count)
@@ -149,85 +158,86 @@ internal sealed partial class MainWindow
     private List<BubbleEntry> InteractionEntries(WorldObject target, bool inputs = false)
     {
         var entries = InteractionChoices.For(Game, session.Actor!, target).Where(c => !inputs || c.Panel != "transfer")
-            .Select(choice => Leaf(choice.Id, choice.Label, () => UseChoice(target, choice))).ToList();
+            .Select(choice => ChoiceEntry(target, choice)).ToList();
         entries.AddRange(ActionEntries(InteractionChoices.Additional(Game, session.Actor!, target), target));
         return entries;
     }
     private void ShowBubbles(WorldObject target, bool present = true) => ShowMenu(target.Name, () => InteractionEntries(target), present);
     private void ShowGroundBubbles(Tile tile) => ShowMenu("주변 행동", () => [
         Leaf("move", "여기로 이동", () => Finish(() => Send("move", x: tile.X, y: tile.Y))),
-        Leaf("build", "시설 건설", () => ShowGameBubbles("build")),
+        Group("build", "시설 건설", () => GameEntries("build")),
         Leaf("pickup", "주변 물건 줍기 · E", () => Finish(() => Send("pickup_nearby"))) ]);
-    private void UseChoice(WorldObject target, InteractionChoice choice)
-    {
-        if (choice.Action.Length > 0) { UseAction(target, choice.Action); return; }
-        switch (choice.Panel)
+    private BubbleEntry ChoiceEntry(WorldObject target, InteractionChoice choice) => choice.Action.Length > 0
+        ? ActionEntry(target, choice.Action, choice.Id, choice.Label)
+        : Group(choice.Id, choice.Label, () => choice.Panel switch
         {
-            case "transfer": ShowTransfer(target, choice.Option); break;
-            case "recipes": ShowRecipes(target); break;
-            case "shop": ShowShop(target); break;
-            case "charge": ShowCharge(target); break;
-            default: ShowGameBubbles(choice.Panel); break;
-        }
-    }
+            "transfer" => TransferEntries(target, choice.Option), "recipes" => RecipeEntries(target),
+            "shop" => ShopEntries(target), "charge" => ChargeEntries(target), _ => GameEntries(choice.Panel)
+        });
     private List<BubbleEntry> ActionEntries(IEnumerable<MenuEntry> entries, WorldObject target) => entries.Select(entry => entry.ActionId.Length == 0
         ? new BubbleEntry { Id = "actionFolder." + entry.Label, Label = entry.Label, Children = ActionEntries(entry.Children, target) }
-        : Leaf("action." + entry.ActionId, entry.Label, () => UseAction(target, entry.ActionId))).Select(entry => { if(entry.Children.Count > 0) entry.Keep = true; return entry; }).ToList();
+        : ActionEntry(target, entry.ActionId, "action." + entry.ActionId, entry.Label)).Select(entry => { if(entry.Children.Count > 0) entry.Keep = true; return entry; }).ToList();
+    private BubbleEntry ActionEntry(WorldObject target, string action, string id, string label)
+    {
+        if (action.StartsWith("craft_", StringComparison.Ordinal)) return Group(id, label, () => RecipeEntries(target, action));
+        Func<List<BubbleEntry>>? contents = action switch
+        {
+            "buy" => () => ShopEntries(target), "assemble" => () => GameEntries("assembly"), "order" => () => GameEntries("orders"),
+            "upgrade_golem" or "equip" => () => GameEntries("equipment"), "charge" => () => ChargeEntries(target),
+            "transfer" => () => [Group("give", "건네기", () => TransferEntries(target, "give")), Group("take", "가져오기", () => TransferEntries(target, "take"))], _ => null
+        };
+        if (contents is not null) return Group(id, label, contents);
+        var entry = Leaf(id, label, () => UseAction(target, action));
+        // Quantity inputs are real interaction steps. Validate complete requests only.
+        if (action is not ("fuel_tower" or "wait")) entry.CanUse = () => session.Actor is { } actor && InteractionChoices.Check(Game, actor, target, action, queueBubbles || Held("queue")).Allowed;
+        return entry;
+    }
     private void UseAction(WorldObject target, string action)
     {
-        if (action.StartsWith("craft_", StringComparison.Ordinal)) { ShowRecipes(target, action); return; }
         switch (action)
         {
-            case "transfer": ShowMenu("물건 옮기기", () => [Leaf("give", "건네기", () => ShowTransfer(target, "give")), Leaf("take", "가져오기", () => ShowTransfer(target, "take"))]); return;
-            case "buy": ShowShop(target); return;
-            case "assemble": ShowGameBubbles("assembly"); return;
-            case "order": ShowGameBubbles("orders"); return;
-            case "upgrade_golem": case "equip": ShowGameBubbles("equipment"); return;
-            case "charge": ShowCharge(target); return;
             case "fuel_tower": ShowQuantity("마나 수정 넣기", () => session.Actor!.Available("mana_crystal"), n => Send(action, target.Id, amount: n)); return;
             case "wait": ShowQuantity("대기 시간 · 초", () => 3600, n => Send(action, amount: n), 5); return;
             default: Finish(() => Send(action, target.Id)); if (action == "select") world.Follow = true; return;
         }
     }
-    private void ShowTransfer(WorldObject target, string direction)
+    private List<BubbleEntry> TransferEntries(WorldObject target, string direction)
     {
         var actor = session.Actor!;
-        ShowMenu(direction == "take" ? target.Name + " → " + actor.Name : actor.Name + " → " + target.Name, () =>
+        var result = BubbleMenu.Transfer(Game, actor, target, direction, item =>
         {
-            var result = BubbleMenu.Transfer(Game, actor, target, direction, item =>
-            {
-                var (from, to) = BubbleMenu.TransferPair(actor, target, direction);
-                var entry = Leaf("item." + item, (Game.State.FavoriteItems.Contains(item) ? "★ " : "") + Game.ItemName(item) + " ×" + from.Count(item), () => ShowTransferItem(target, direction, item), $"보유 {from.Count(item)} · 점유 {from.Reserved(item)} · 받는 쪽 {to.Inventory.GetValueOrDefault(item)} · 옮길 수량 {BubbleMenu.TransferMax(Game, actor, target, direction, item, queueBubbles)}");
-                entry.ItemId = item; entry.Badge = from.Count(item).ToString();
-                entry.Preview = () => new BubblePreview { Title = Game.ItemName(item), IconId = "item." + item, Description = Game.Content.Items.GetValueOrDefault(item)?.Description ?? "", Note = $"{from.Name} → {to.Name}\n보유 {from.Count(item)} · 점유 {from.Reserved(item)} · 받는 쪽 {to.Inventory.GetValueOrDefault(item)} · 가능 {BubbleMenu.TransferMax(Game, actor, target, direction, item, queueBubbles)}" }; return entry;
-            }, queueBubbles);
-            result.Add(Leaf("categories", "★ 분류 지정", () => ShowCategories(target)));
-            return result;
-        });
+            var (from, to) = BubbleMenu.TransferPair(actor, target, direction);
+            var entry = Group("item." + item, (Game.State.FavoriteItems.Contains(item) ? "★ " : "") + Game.ItemName(item) + " ×" + from.Count(item), () => TransferItemEntries(target, direction, item));
+            entry.ItemId = item; entry.Badge = from.Count(item).ToString();
+            entry.Preview = () => new BubblePreview { Title = Game.ItemName(item), IconId = "item." + item, Description = Game.Content.Items.GetValueOrDefault(item)?.Description ?? "", Note = $"{from.Name} → {to.Name}\n보유 {from.Count(item)} · 점유 {from.Reserved(item)} · 받는 쪽 {to.Inventory.GetValueOrDefault(item)} · 가능 {BubbleMenu.TransferMax(Game, actor, target, direction, item, queueBubbles)}" }; return entry;
+        }, queueBubbles);
+        if (result.Count > 0) result.Add(Group("categories", "★ 분류 지정", () => CategoryEntries(target)));
+        return result;
     }
-    private void ShowTransferItem(WorldObject target, string direction, string item)
+    private List<BubbleEntry> TransferItemEntries(WorldObject target, string direction, string item)
     {
         var actor = session.Actor!; var (_, to) = BubbleMenu.TransferPair(actor, target, direction);
         int Max() => BubbleMenu.TransferMax(Game, actor, target, direction, item, queueBubbles);
         string verb = direction == "take" ? "가져오기" : "건네기";
-        ShowMenu(Game.ItemName(item), () => ItemChoices(item, [
+        return ItemChoices(item, [
             Leaf("transfer.one", "1개 " + verb, () => Finish(() => Send("transfer", target.Id, item, 1, option: direction)), enabled: Max() > 0),
             Leaf("transfer.number", "N개 " + verb, () => ShowQuantity("N개 " + verb, Max, n => Send("transfer", target.Id, item, n, option: direction)), enabled: Max() > 0),
             Leaf("transfer.fill", "목표 재고까지", () => ShowQuantity("받는 쪽 목표 재고", () => to.Inventory.GetValueOrDefault(item) + Max(), n => Send("transfer", target.Id, item, n, "fill", direction), to.Inventory.GetValueOrDefault(item) + Max())),
             Leaf("transfer.all", "가능한 전부", () => Finish(() => Send("transfer", target.Id, item, mode: "all", option: direction)), enabled: Max() > 0),
-            Favorite(item) ]));
+            Favorite(item) ]);
     }
     private static List<BubbleEntry> ItemChoices(string item, List<BubbleEntry> entries)
     { foreach(var entry in entries.Where(e => e.Id != "favorite")) entry.ItemId = item; return entries; }
     private BubbleEntry Favorite(string item) => Leaf("favorite", Game.State.FavoriteItems.Contains(item) ? "즐겨찾기 해제" : "즐겨찾기 등록", () =>
     { if (!Game.State.FavoriteItems.Add(item)) Game.State.FavoriteItems.Remove(item); RenderBubbles(); });
-    private void ShowCategories(WorldObject target) => ShowMenu("우선 분류 · " + target.Name, () => Game.Content.ItemCategories.Select(pair =>
+    private void ShowCategories(WorldObject target) => ShowMenu("우선 분류 · " + target.Name, () => CategoryEntries(target));
+    private List<BubbleEntry> CategoryEntries(WorldObject target) => Game.Content.ItemCategories.Select(pair =>
         Leaf("categoryToggle." + pair.Key, (BubbleMenu.Preferred(Game, target).Contains(pair.Key) ? "✓ " : "") + pair.Value, () =>
         {
             var categories = new List<string>(BubbleMenu.Preferred(Game, target));
             if (!categories.Remove(pair.Key)) categories.Add(pair.Key);
             Game.State.TransferCategories[target.Id] = categories; RenderBubbles();
-        })).ToList());
+        })).ToList();
     private void ShowQuantity(string title, Func<int> maximum, Func<int, ActionResult> confirm, int initial = 1, Func<int, BubblePreview>? preview = null, Action<BubbleEntry, Func<int>>? decorate = null)
     {
         queueBubbles |= Held("queue");

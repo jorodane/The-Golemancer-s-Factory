@@ -73,6 +73,19 @@ internal static class BubbleTests
         var deep = BubbleMenu.Compress([new() { Label = "A", Children = [new() { Label = "B", Children = [Item("wood")] }] }]);
         Check(deep.Single().ItemId == "wood", "bubble compression recursively promotes singleton directories");
         Check(BubbleMenu.Compress([new() { Keep = true, Children = [Item("wood")] }]).Single().Children.Count == 1, "explicitly preserved menu folders remain navigable");
+        var folder = new BubbleEntry { Id = "shop", Label = "상품 보기", Keep = true, Children = [new() { Id = "category.only", Children = [Item("wood"), Item("common_herb")] }] };
+        Check(BubbleMenu.Visible([folder]).Select(e => e.Id).SequenceEqual(new[] { "wood", "common_herb" }), "a sole grouping level is removed recursively even when it contains several choices");
+        Check(BubbleMenu.Visible([folder, Item("talk")]).First().Id == "shop", "a group with meaningful siblings retains its place and navigation");
+        int executions = 0; var singleAction = new BubbleEntry { Id = "harvest", Activate = () => executions++ };
+        Check(BubbleMenu.Visible([singleAction]).Single() == singleAction && executions == 0, "a sole real action remains a button and is never executed by compression");
+        var contents = new List<BubbleEntry>(); var orders = new BubbleEntry { Id = "orders", BuildChildren = () => contents };
+        Check(BubbleMenu.Visible([orders]).Single() == orders && !orders.Available && BubbleMenu.Quick([orders, singleAction], "orders") is null && executions == 0, "empty groups stay disabled; quick use falls back without selecting another action");
+        contents.Add(Item("order.1"));
+        Check(orders.Available && BubbleMenu.Visible([orders]).Single().Id == "order.1" && BubbleMenu.Quick([orders], "orders") == orders, "a previously empty group becomes available from current contents");
+        contents.Clear();
+        Check(!orders.Available && BubbleMenu.Visible([orders]).Single() == orders, "emptying a dynamic group does not retain stale promoted children");
+        var lockedFolder = new BubbleEntry { Enabled = false, Children = [Item("locked")] };
+        Check(BubbleMenu.Visible([lockedFolder]).Single() == lockedFolder && !lockedFolder.Available, "flattening cannot bypass a disabled parent or expose a locked action");
         Check(QuantityPicker.Shortcut("one", 30, 99) == 1 && QuantityPicker.Shortcut("half", 31, 99) == 15 && QuantityPicker.Shortcut("mean", 1, 99) == 50 && QuantityPicker.Shortcut("plusHalf", 31, 99) == 65 && QuantityPicker.Shortcut("max", 1, 99) == 99, "single-field quantity shortcuts have predictable integer rounding");
         Check(QuantityPicker.Shortcut("plusHalf", 1, int.MaxValue) == 1073741824 && QuantityPicker.Clamp(100, 7) == 7 && QuantityPicker.Shortcut("half", 1, 1) == 1, "quantity shortcuts handle endpoints, shrinking limits and overflow");
 

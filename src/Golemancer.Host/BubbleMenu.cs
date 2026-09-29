@@ -21,14 +21,34 @@ internal sealed class BubbleEntry
     public bool Keep { get; set; }
     public Action? Activate { get; set; }
     public List<BubbleEntry> Children { get; set; } = [];
+    public Func<List<BubbleEntry>>? BuildChildren { get; set; }
+    public Func<bool>? CanUse { get; set; }
+    public bool IsGroup => Activate is null;
+    public List<BubbleEntry> Contents() => BuildChildren?.Invoke() ?? Children;
+    public bool Available => Enabled && (CanUse?.Invoke() ?? true) && (!IsGroup || Contents().Count > 0);
 }
 internal static class BubbleMenu
 {
     public static List<BubbleEntry> Compress(IEnumerable<BubbleEntry> entries) => entries.Select(entry =>
     {
-        entry.Children = Compress(entry.Children);
-        return !entry.Keep && entry.Activate is null && entry.Children.Count == 1 ? entry.Children[0] : entry;
+        if (!entry.IsGroup) return entry;
+        entry.Children = Compress(entry.Contents());
+        return entry.Available && !entry.Keep && entry.Children.Count == 1 ? entry.Children[0] : entry;
     }).ToList();
+    public static List<BubbleEntry> Visible(IEnumerable<BubbleEntry> entries)
+    {
+        var visible = Compress(entries);
+        // A level with one pure folder offers no choice. Keep empty/disabled folders visible,
+        // and never execute a lone action or skip its quantity/confirmation interaction.
+        while (visible.Count == 1 && visible[0].IsGroup && visible[0].Available)
+            visible = Compress(visible[0].Contents());
+        return visible;
+    }
+    public static BubbleEntry? Quick(IEnumerable<BubbleEntry> entries, string id)
+    {
+        var entry = entries.FirstOrDefault(e => e.Id == id);
+        return entry?.Available == true ? entry : null;
+    }
 
     public static List<string> Preferred(IGameContext game, WorldObject target) => game.State.TransferCategories.TryGetValue(target.Id, out var chosen) ? chosen : game.Setting(target, "preferredCategories").Split(',').Where(s => s.Length > 0).ToList();
     public static bool InCategory(ContentCatalog catalog, string item, string category) => catalog.Items.TryGetValue(item, out var def) && (def.Category == category || def.Tags.Contains(category));

@@ -75,6 +75,7 @@ internal sealed partial class MainWindow
             SettleCircles();Click("bubble.next");if(bubbleVisuals.Count!=1)throw new Exception("Ninth choice was skipped or duplicated");CloseBubbles();
             RunBubbleNavigationSmoke(SettleCircles, Click);
             RunBubbleLabelSmoke(SettleCircles, Click);
+            RunGroupingSmoke(SettleCircles, Click);
             Game.State.ControlledId=crafter.Id;crafter.Inventory["wood"]=2;ShowRecipes(Game.Find("workbench")!);UpdateLayout();SettleCircles();
             var recipeBubble=bubbleVisuals.Single(v=>v.Entry.Id=="recipe.wooden_sword");
             recipeBubble.Button.RaiseEvent(new MouseEventArgs(Mouse.PrimaryDevice,Environment.TickCount){RoutedEvent=Mouse.MouseEnterEvent});
