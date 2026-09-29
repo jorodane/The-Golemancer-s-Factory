@@ -23,6 +23,7 @@ public sealed partial class Simulation : IGameContext
         }
         foreach (var obj in State.Objects.Values)
         {
+            if (obj.Recording?.Editing == true) obj.Recording = null; // Unsaved editor captures never replace saved memories after loading.
             if (double.IsNaN(obj.SubX) || double.IsInfinity(obj.SubX) || obj.SubX < -.5 || obj.SubX >= .5) obj.SubX = 0;
             if (double.IsNaN(obj.SubY) || double.IsInfinity(obj.SubY) || obj.SubY < -.5 || obj.SubY >= .5) obj.SubY = 0;
             // Old builds kept equipped items in the bag. Transfer ownership once, retaining unknown mod data.
@@ -62,6 +63,12 @@ public sealed partial class Simulation : IGameContext
     {
         if (!State.Map.Inside(destination.X, destination.Y)) return false;
         return Navigate(actor, new ActionApproach(destination.X, destination.Y, 1, 1, range));
+    }
+    public List<Tile>? Route(WorldObject actor, Tile destination, int range = 0)
+    {
+        var saved = actor.Path; actor.Path = [];
+        try { return Navigate(actor, destination, range) ? actor.Path : null; }
+        finally { actor.Path = saved; }
     }
     private bool Navigate(WorldObject actor, ActionApproach approach)
     {
@@ -148,6 +155,7 @@ public sealed partial class Simulation : IGameContext
         if (actor is null || !actor.Alive()) return ActionResult.Fail("조종할 골렘을 선택해줘.", "actor_missing");
         request = request with { ActorId = actor.Id };
         bool recovery = request.Action == "charge" || request.Action == "consume" && request.Item == "mana_jelly";
+        if (def.Recordable && actor.Following is not null && !recovery) return ActionResult.Fail("동행을 마치거나 X로 해제한 뒤 지시해줘.", "following");
         if ((def.Recordable || def.Range >= 0) && !this.CanOperate(actor) && !recovery)
             return ActionResult.Fail("마력이 부족해. 직접 조종하거나 충전하면 이어갈 수 있어.", "no_mana");
         SetManualMovement(actor, 0, 0);
@@ -234,6 +242,7 @@ public sealed partial class Simulation : IGameContext
         if (p is null) return;
         if (result.Ok)
         {
+            p.Failures.Remove(p.Index); p.CycleSuccesses++;
             p.Index++; p.Waiting = false; p.Retries = 0; p.ResumeAt = State.Time + (request.Action == "move" ? 0 : .12); p.Status = "다음 행동";
             return;
         }
@@ -241,12 +250,16 @@ public sealed partial class Simulation : IGameContext
         var def = Content.Failures.GetValueOrDefault(key) ?? Content.Failures.GetValueOrDefault("stop");
         var decision = def is not null && Registry.Failures.TryGetValue(def.Handler, out var handler)
             ? handler.Handle(this, actor, new(request, result, p.Retries, def)) : new FailureDecision(FlowDirective.Halt);
+        p.Failures[p.Index] = result.Message;
+        // Default retry scans the rest of the memory first. Explicit per-step policies remain authoritative.
+        if (request.Failure.Length == 0 && key == "retry" && decision.Directive == FlowDirective.Repeat)
+            decision = new(FlowDirective.Advance, .15);
         p.Waiting = false; p.ResumeAt = State.Time + Math.Max(.15, decision.Delay); p.Status = result.Message;
         switch (decision.Directive)
         {
             case FlowDirective.Advance: p.Index++; p.Retries = 0; break;
             case FlowDirective.Repeat: p.Retries++; break;
-            case FlowDirective.Halt: actor.Playback = null; Notice($"{actor.Name}: {result.Message}", "warning"); break;
+            case FlowDirective.Halt: p.Paused = true; p.PausedAt = State.Time; p.Status = "중단 · " + result.Message; Notice($"{actor.Name}: {result.Message}", "warning"); break;
         }
     }
     public bool Evaluate(ConditionNode node, WorldObject actor, WorldObject? target = null) => Registry.Conditions.TryGetValue(node.Type, out var handler) && handler.Evaluate(this, actor, target, node);
@@ -278,6 +291,11 @@ public sealed partial class Simulation : IGameContext
             if (actor.Work is { } work)
             {
                 if (!Content.Actions.TryGetValue(work.Request.Action, out var def) || !Registry.Actions.ContainsKey(def.Handler)) { actor.Work = null; FinishFailure(actor, work.Request, new(ActionStatus.Unavailable, "액션 팩이 없어.", "unknown_action"), actor.Playback is not null); continue; }
+                if (ApproachFor(Registry.Actions[def.Handler], def, actor, work.Request, out _) is { } workArea && !workArea.Accepts(actor.Tile))
+                {
+                    if (actor.Path.Count == 0 && !Navigate(actor, workArea)) { actor.Work = null; FinishFailure(actor, work.Request, ActionResult.Fail("작업 위치로 돌아갈 수 없어.", "no_path"), actor.Playback is not null); }
+                    continue;
+                }
                 foreach (var (type, amount) in def.Works)
                 {
                     double gain = dt * actor.Get(type, 2.5) * this.Efficiency(actor);

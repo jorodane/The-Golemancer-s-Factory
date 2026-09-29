@@ -93,7 +93,9 @@ public sealed class WorldObject
     public ActionRequest? Ongoing { get; set; }
     public ActiveWork? Work { get; set; }
     public Playback? Playback { get; set; }
+    public FollowState? Following { get; set; }
     public Recording? Recording { get; set; }
+    [JsonIgnore] public Recording? CompletedDraft { get; set; }
     public List<ProductionJob> Production { get; set; } = [];
     [JsonExtensionData] public Dictionary<string, JsonElement>? ExtensionData { get; set; }
     public double Get(string key, double fallback = 0) => Values.GetValueOrDefault(key, fallback);
@@ -157,12 +159,26 @@ public sealed class Recording
     public List<RecordedStep> Steps { get; set; } = [];
     public double StartedAt { get; set; }
     public bool Combat { get; set; }
+    public Dictionary<string, int>? InitialInventory { get; set; }
+    public Dictionary<string, string>? InitialEquipment { get; set; }
+    public bool Editing { get; set; }
+    public int Revision { get; set; }
+    [JsonExtensionData] public Dictionary<string, JsonElement>? ExtensionData { get; set; }
+    public Recording Copy() => new()
+    {
+        Id = Id, Name = Name, ActorDefinition = ActorDefinition, Origin = Origin, StartedAt = StartedAt, Combat = Combat,
+        InitialInventory = InitialInventory is null ? null : new(InitialInventory), InitialEquipment = InitialEquipment is null ? null : new(InitialEquipment),
+        Editing = Editing, Revision = Revision, ExtensionData = ExtensionData is null ? null : new(ExtensionData),
+        Steps = Steps.Select(s => s.Copy()).ToList()
+    };
 }
 public sealed class RecordedStep
 {
     public ActionRequest Request { get; set; } = new();
     public double Offset { get; set; }
     public Tile ActorTile { get; set; }
+    [JsonExtensionData] public Dictionary<string, JsonElement>? ExtensionData { get; set; }
+    public RecordedStep Copy() => new() { Request = Request with { Route = new(Request.Route) }, Offset = Offset, ActorTile = ActorTile, ExtensionData = ExtensionData is null ? null : new(ExtensionData) };
 }
 public sealed class Playback
 {
@@ -174,6 +190,19 @@ public sealed class Playback
     public int Retries { get; set; }
     public string Status { get; set; } = "반복 준비";
     public double CycleStartedAt { get; set; }
+    public bool Paused { get; set; }
+    public double PausedAt { get; set; }
+    public int CycleSuccesses { get; set; }
+    public Dictionary<int, string> Failures { get; set; } = [];
+    public Recording? Snapshot { get; set; }
+    [JsonExtensionData] public Dictionary<string, JsonElement>? ExtensionData { get; set; }
+}
+public sealed class FollowState
+{
+    public string LeaderId { get; set; } = "";
+    public List<Tile> Path { get; set; } = [];
+    public double RepathAt { get; set; }
+    public string Status { get; set; } = "동행 중";
 }
 public sealed class ProductionJob
 {

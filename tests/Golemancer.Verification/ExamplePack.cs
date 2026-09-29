@@ -17,6 +17,7 @@ internal static class ExamplePack
         if (presentation.DisplayName != "차 마시기" || presentation.DisplayBadge != "휴식" || presentation.HasDetails) throw new Exception("Independent action bubble metadata/localization failed");
         Console.WriteLine("PASS: independent pack supplies localized bubble name, additional badge and hover policy through shared contracts");
         var s = new Simulation(game); var crafter = s.Spawn("craft_golem", 7, 25); crafter.Inventory["wood"] = 4;
+        s.Dispatch(new() { Action = "select", TargetId = crafter.Id });
         var build = s.Dispatch(new() { Action = "build", ActorId = crafter.Id, Item = "tea.table", X = 8, Y = 25 });
         if (!build.Ok) throw new Exception(build.Message);
         for (int i = 0; i < 60; i++) s.Tick(.1);

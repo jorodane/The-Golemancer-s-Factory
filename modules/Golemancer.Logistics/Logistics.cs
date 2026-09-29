@@ -73,6 +73,7 @@ public sealed class Transfer : IActionHandler, IInventoryAction, IActionProjecti
         if (!c.AcceptsInput(pair.Value.To, r.Item)) return CheckResult.No("이 물건을 받는 투입칸이 없어.", "input_slot");
         if (c.InputSlot(pair.Value.To, r.Item) is { } slot && pair.Value.To.Inventory.Any(k => k.Value > 0 && k.Key != r.Item && c.InputSlot(pair.Value.To, k.Key)?.Id == slot.Id)) return CheckResult.No(slot.Name + "의 물건을 먼저 가져와줘.", "input_slot");
         int n = Count(c, pair.Value.From, pair.Value.To, r);
+        if (r.Option == "take" && c.IsGolem(pair.Value.From) && n == 0 && (r.Mode != "fill" || pair.Value.To.Count(r.Item) < r.Quantity)) return CheckResult.No("상대 골렘에게 가져올 물건이 남아 있지 않아.", "insufficient");
         if (r.Mode == "exact" && n < r.Quantity) return CheckResult.No("정확한 수량이나 빈 공간이 부족해.", "insufficient");
         return CheckResult.Yes;
     }
@@ -80,10 +81,14 @@ public sealed class Transfer : IActionHandler, IInventoryAction, IActionProjecti
     {
         var pair = Pair(c, a, r)!.Value;
         int n = Count(c, pair.From, pair.To, r);
+        // Taking from a worker is an arrival-time exchange. Do not lock its cargo while approaching.
+        if (r.Option == "take" && c.IsGolem(pair.From)) return new(r with { Quantity = n, Mode = "exact" }, []);
         return new(r with { Quantity = n, Mode = "exact" }, [new(pair.From.Id, r.Item, n, r.Option == "take" && r.SlotId.Length > 0 && r.SlotId != "output")]);
     }
     public ActionResult Execute(IGameContext c, WorldObject a, ActionRequest r)
     {
+        var check = Check(c, a, r);
+        if (!check.Allowed) return ActionResult.Fail(check.Message, check.Reason);
         var pair = Pair(c, a, r)!.Value;
         int n = Count(c, pair.From, pair.To, r);
         c.Take(pair.From, r.Item, n, r.Option == "take" && r.SlotId.Length > 0 && r.SlotId != "output"); c.Give(pair.To, r.Item, n);

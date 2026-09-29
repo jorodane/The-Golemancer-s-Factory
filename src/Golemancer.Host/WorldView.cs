@@ -28,6 +28,7 @@ internal sealed partial class WorldView : FrameworkElement
     public double CameraX { get; set; } = 10;
     public double CameraY { get; set; } = 27;
     public bool Follow { get; set; }
+    private double followOffsetX, followOffsetY;
     public double Zoom { get; set; } = 52;
     public Tile Hover { get; private set; }
     public event Action<Tile, bool>? TileClicked;
@@ -79,7 +80,16 @@ internal sealed partial class WorldView : FrameworkElement
         MouseWheel += (_, e) => { Zoom = Math.Max(26, Math.Min(96, Zoom + e.Delta / 60.0)); InvalidateVisual(); e.Handled = true; };
     }
     public void Reset() { poses.Clear(); terrain?.Clear(); Follow = false; Selected = Highlighted = CommandAction = ""; Building = ""; CenterOnActor(); }
-    public void CenterOnActor() { if (session.Actor is { } actor) { CameraX = actor.WorldX + .5; CameraY = actor.WorldY + .5; Follow = actor.GetText("mode") == "combat"; } }
+    public void CenterOnActor() { if (session.Actor is { } actor) { followOffsetX = followOffsetY = 0; CameraX = actor.WorldX + .5; CameraY = actor.WorldY + .5; Follow = actor.GetText("mode") == "combat"; } }
+    public bool Visible(WorldObject actor) => new Rect(0, 0, ActualWidth, ActualHeight).Contains(Screen(actor.WorldX + .5, actor.WorldY + .5));
+    public void ControlChanged()
+    {
+        if (session.Actor is not { } actor) return;
+        if (!Visible(actor)) { CenterOnActor(); return; }
+        // Preserve the clicked golem's screen position, including the combat follow camera.
+        followOffsetX = CameraX - actor.WorldX - .5; followOffsetY = CameraY - actor.WorldY - .5;
+        Follow = actor.GetText("mode") == "combat";
+    }
     public void Pan(double x, double y)
     { if (session.Actor?.GetText("mode") == "combat") return; Follow = false; CameraX = Math.Max(0, Math.Min(session.Game.State.Map.Width, CameraX + x)); CameraY = Math.Max(0, Math.Min(session.Game.State.Map.Height, CameraY + y)); InvalidateVisual(); }
     public Point Screen(double x, double y) => new((x - CameraX) * Zoom + ActualWidth / 2, (y - CameraY) * Zoom + ActualHeight / 2);
@@ -93,7 +103,11 @@ internal sealed partial class WorldView : FrameworkElement
     {
         base.OnRender(dc);
         var g = session.Game; var s = g.State; var a = session.Actor;
-        if (Follow && a?.GetText("mode") == "combat") { CameraX += (a.WorldX + .5 - CameraX) * .16; CameraY += (a.WorldY + .4 - CameraY) * .16; }
+        if (Follow && a?.GetText("mode") == "combat")
+        {
+            if (!Visible(a)) CenterOnActor();
+            CameraX += (a.WorldX + .5 + followOffsetX - CameraX) * .16; CameraY += (a.WorldY + .5 + followOffsetY - CameraY) * .16;
+        }
         dc.DrawRectangle(Brushes.Black, null, new Rect(RenderSize));
         if (!g.Content.Tilesets.ContainsKey(s.Map.TilesetId)) { Text(dc, "저장된 타일셋 팩을 다시 설치해줘: " + s.Map.TilesetId, new Point(20,20)); return; }
         int left = Math.Max(0,(int)(CameraX - ActualWidth / Zoom / 2) - 1), top = Math.Max(0,(int)(CameraY - ActualHeight / Zoom / 2) - 1);

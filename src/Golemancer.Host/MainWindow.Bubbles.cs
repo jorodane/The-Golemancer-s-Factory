@@ -203,6 +203,12 @@ internal sealed partial class MainWindow
         entry.Shortcut = new() { Action = action, TargetId = target.Id, Mode = action == "attack" ? "until_down" : "exact" };
         // Quantity inputs are real interaction steps. Validate complete requests only.
         if (action is not ("fuel_tower" or "wait")) entry.CanUse = () => session.Actor is { } actor && InteractionChoices.Check(Game, actor, target, action, queueBubbles || Held("queue")).Allowed;
+        if (action is "follow" or "unfollow" or "charge_other" || target.DefinitionId == "sweetfruit_tree" && action == "harvest")
+            entry.Preview = () =>
+            {
+                var check = InteractionChoices.Check(Game, session.Actor!, target, action, queueBubbles || Held("queue"));
+                return new() { Title = label, Description = Game.Content.Actions[action].Description, Note = check.Message, Locked = !check.Allowed, IconId = Game.Content.Actions[action].Icon };
+            };
         return entry;
     }
     private void UseAction(WorldObject target, string action)
@@ -211,7 +217,7 @@ internal sealed partial class MainWindow
         {
             case "fuel_tower": ShowQuantity("마나 수정 넣기", () => session.Actor!.Available("mana_crystal"), n => Send(action, target.Id, amount: n)); return;
             case "wait": ShowQuantity("대기 시간 · 초", () => 3600, n => Send(action, amount: n), 5); return;
-            default: Finish(() => Send(action, target.Id)); if (action == "select") world.CenterOnActor(); return;
+            default: Finish(() => Send(action, target.Id)); return;
         }
     }
     private List<BubbleEntry> TransferEntries(WorldObject target, string direction)

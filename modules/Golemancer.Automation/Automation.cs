@@ -2,7 +2,7 @@ using Golemancer.Contracts;
 namespace Golemancer.Automation;
 public sealed class Module : IGameModule
 {
-    public void Register(IModuleRegistry r) { r.Action("automation.record", new Record()); r.Action("automation.play", new Play()); r.Action("automation.wait", new Wait()); r.System(new Executor()); }
+    public void Register(IModuleRegistry r) { r.Action("automation.record", new Record()); r.Action("automation.play", new Play()); r.Action("automation.pause", new Pause()); r.Action("automation.wait", new Wait()); r.System(new Executor()); }
 }
 public sealed class Record : IActionHandler
 {
@@ -19,6 +19,7 @@ public sealed class Record : IActionHandler
                 queued.RecordedIn = recording.Id;
             }
             a.Recording = null; a.ManualRecording = null;
+            if (recording.Editing) { a.CompletedDraft = recording; return ActionResult.Success("재녹화를 초안에 반영했어. 메모리 창에서 검토하고 저장해줘."); }
             if (recording.Steps.Count == 0) return ActionResult.Success("빈 녹화는 저장하지 않았어.");
             recording.Name = string.IsNullOrWhiteSpace(r.Option) ? $"{a.Name} · {recording.Steps.Count}단계" : r.Option.Substring(0, Math.Min(40, r.Option.Length));
             c.State.Recordings[recording.Id] = recording; a.Data["lastRecording"] = recording.Id;
@@ -26,7 +27,7 @@ public sealed class Record : IActionHandler
             return ActionResult.Success($"{recording.Steps.Count}단계의 행동을 저장했어.");
         }
         c.CancelActions(a);
-        a.Recording = new() { ActorDefinition = a.DefinitionId, Origin = a.Tile, StartedAt = c.State.Time, Combat = a.GetText("mode") == "combat" };
+        a.Recording = new() { ActorDefinition = a.DefinitionId, Origin = a.Tile, StartedAt = c.State.Time, Combat = a.GetText("mode") == "combat", InitialInventory = new(a.Inventory), InitialEquipment = new(a.Equipment) };
         return ActionResult.Success("녹화 시작. 평소처럼 행동한 뒤 R로 마쳐줘.");
     }
 }
@@ -34,23 +35,42 @@ public sealed class Play : IActionHandler
 {
     public CheckResult Check(IGameContext c, WorldObject a, ActionRequest r)
     {
-        if (a.Playback is not null) return CheckResult.Yes;
+        if (a.Playback is not null && r.Mode != "from") return CheckResult.Yes;
         if (!c.State.Flags.Contains("automation")) return CheckResult.No("마나 수정탑을 가동하면 자동 반복을 시작할 수 있어.", "locked");
         if (a.Recording is not null) return CheckResult.No("녹화를 먼저 마쳐줘.", "recording");
         string id = string.IsNullOrEmpty(r.Item) ? a.GetText("lastRecording") : r.Item;
         if (!c.State.Recordings.TryGetValue(id, out var recording) || recording.Steps.Count == 0) return CheckResult.No("재생할 녹화를 선택해줘.", "recording_missing");
+        if (r.Mode == "from" && (r.X < 0 || r.X >= recording.Steps.Count)) return CheckResult.No("재생할 키프레임을 선택해줘.", "index");
         if (a.Get("mana") <= 0) return CheckResult.No("먼저 골렘을 충전해줘.", "no_mana");
         return CheckResult.Yes;
     }
     public ActionResult Execute(IGameContext c, WorldObject a, ActionRequest r)
     {
-        if (a.Playback is not null) { c.CancelActions(a); return ActionResult.Success("직접 조종으로 돌아왔어."); }
+        if (a.Playback is not null && r.Mode != "from") { c.CancelActions(a); return ActionResult.Success("직접 조종으로 돌아왔어."); }
         string id = string.IsNullOrEmpty(r.Item) ? a.GetText("lastRecording") : r.Item;
-        c.CancelActions(a);
         var recording = c.State.Recordings[id];
-        if (!c.Navigate(a, recording.Origin)) return ActionResult.Fail("녹화 시작점으로 돌아갈 수 없어.", "no_path");
-        a.Playback = new() { RecordingId = id, CycleStartedAt = c.State.Time, Status = "시작점으로 이동" };
+        int index = r.Mode == "from" ? r.X : 0;
+        var start = index == 0 ? recording.Origin : recording.Steps[index].ActorTile;
+        var route = c.Route(a, start);
+        if (route is null) return ActionResult.Fail("선택한 시작점으로 갈 수 없어.", "no_path");
+        c.CancelActions(a); a.Path = route; a.Data["lastRecording"] = id;
+        a.Playback = new() { RecordingId = id, Snapshot = recording.Copy(), Index = index, CycleStartedAt = c.State.Time - recording.Steps[index].Offset, Status = $"{index + 1}번 시작점으로 이동" };
         return ActionResult.Success("골렘이 기록한 일을 반복하기 시작했어.");
+    }
+}
+public sealed class Pause : IActionHandler
+{
+    public CheckResult Check(IGameContext c, WorldObject a, ActionRequest r) => a.Playback is null ? CheckResult.No("재생 중인 메모리가 없어.", "recording_missing") : CheckResult.Yes;
+    public ActionResult Execute(IGameContext c, WorldObject a, ActionRequest r)
+    {
+        var p = a.Playback!;
+        if (p.Paused)
+        {
+            double paused = Math.Max(0, c.State.Time - p.PausedAt); p.CycleStartedAt += paused; p.ResumeAt += paused;
+            if (a.Get("waitUntil") > p.PausedAt) a.Set("waitUntil", a.Get("waitUntil") + paused);
+        }
+        else p.PausedAt = c.State.Time;
+        p.Paused = !p.Paused; p.Status = p.Paused ? "일시정지 · 현재 단계 보존" : "현재 단계 재개"; return ActionResult.Success(p.Status);
     }
 }
 public sealed class Wait : IActionHandler
@@ -67,20 +87,28 @@ public sealed class Executor : IRuntimeSystem
         foreach (var a in c.OfKind("golem").Where(a => a.Playback is not null).ToArray())
         {
             var p = a.Playback!;
-            if (!c.State.Recordings.TryGetValue(p.RecordingId, out var rec)) { a.Playback = null; continue; }
+            var rec = p.Snapshot ?? c.State.Recordings.GetValueOrDefault(p.RecordingId);
+            if (rec is null || rec.Steps.Count == 0) { a.Playback = null; continue; }
+            if (p.Paused || a.Following is not null) continue;
             if (a.Get("mana") <= 0) { p.Status = "마력 부족 · 정지"; continue; }
             if (a.Ongoing is not null || a.Work is not null || a.Pending is not null || a.Path.Count > 0 || a.Get("rollRemaining") > 0 || a.Get("pushRemaining") > 0 || c.State.Time < p.ResumeAt || c.State.Time < a.Get("waitUntil")) continue;
             if (p.Returning)
             {
-                if (a.Tile != rec.Origin) { a.Playback = null; c.Notice("녹화 시작점이 막혀 반복을 멈췄어.", "warning"); continue; }
-                p.Returning = false; p.Index = 0; p.Waiting = false; p.CycleStartedAt = c.State.Time;
+                if (a.Tile != rec.Origin) { p.Returning = false; p.Paused = true; p.PausedAt = c.State.Time; p.Status = "원점 복귀 실패 · 길 막힘"; c.Notice("녹화 시작점이 막혀 반복을 멈췄어.", "warning"); continue; }
+                p.Returning = false; p.Index = 0; p.Waiting = false; p.CycleStartedAt = c.State.Time; p.CycleSuccesses = 0;
                 c.State.Add("automationLoops"); a.Set("loops", a.Get("loops") + 1);
                 c.Effect("loop", a.X, a.Y, "순환 완료");
             }
             if (p.Index >= rec.Steps.Count)
             {
+                if (p.CycleSuccesses == 0)
+                {
+                    p.Index = 0; p.Waiting = false; p.ResumeAt = c.State.Time + 2; p.CycleStartedAt = p.ResumeAt;
+                    p.Status = "모든 단계 실패 · 자원/조건을 기다린 뒤 다시 확인";
+                    continue;
+                }
                 p.Returning = true; p.Waiting = false; p.Status = "원점 복귀";
-                if (!c.Navigate(a, rec.Origin)) { a.Playback = null; c.Notice("원점으로 돌아갈 길이 없어.", "warning"); }
+                if (!c.Navigate(a, rec.Origin)) { p.Paused = true; p.PausedAt = c.State.Time; p.Returning = false; p.Status = "원점 복귀 실패 · 길 막힘"; c.Notice("원점으로 돌아갈 길이 없어.", "warning"); }
                 continue;
             }
             if (p.Waiting) continue;

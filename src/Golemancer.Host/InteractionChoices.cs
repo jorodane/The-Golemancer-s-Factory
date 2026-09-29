@@ -15,13 +15,15 @@ internal static class InteractionChoices
             {
                 result.Add(new("give","물건 건네기","transfer",Option:"give"));
                 result.Add(new("take","물건 가져오기","transfer",Option:"take"));
-                result.Add(new("select","조종하기",Action:"select"));
+                result.Add(new("select","선택 · 상태 확인",Action:"select"));
+                result.Add(target.Following?.LeaderId == actor.Id ? new("unfollow", "동행 마치기", Action:"unfollow") : new("follow", target.Get("mana") > 0 ? "동행 요청" : "끌고 가기", Action:"follow"));
+                result.Add(new("charge_other", "대신 충전", Action:"charge_other"));
             }
             else result.Add(new("equipment","장비와 강화","equipment"));
         }
         else if(def.Kind == "resource")
             foreach(var id in def.Actions.Where(id => id is "harvest" or "fell" or "mine"))
-                result.Add(new(id,game.Content.Actions[id].Name,Action:id));
+                result.Add(new(id,target.DefinitionId == "sweetfruit_tree" && id == "harvest" ? "열매 수확" : game.Content.Actions[id].Name,Action:id));
         else if(def.Kind is "monster" or "boss" or "boss_part") result.Add(new("attack",actor.GetText("mode") == "combat" ? "공격" : "쓰러질 때까지 공격",Action:"attack"));
         else if(def.Kind == "drop") result.Add(new("pickup","줍기 · E",Action:"pickup"));
         else if(target.DefinitionId == "merchant") result.Add(new("shop","상품 보기","shop"));

@@ -3,6 +3,7 @@
   <Actions>
     <Action id="record" description="직접 수행하는 이동과 행동의 기록을 시작하거나 마쳐." name="녹화 시작·종료" handler="automation.record" range="-1" recordable="false" />
     <Action id="play" description="기록한 루틴을 반복해. 마력이 없으면 충전될 때까지 기다려." name="반복 시작·정지" handler="automation.play" range="-1" recordable="false" />
+    <Action id="pause_playback" description="작업 진행도와 반복 위치를 보존하며 일시정지하거나 재개해." name="반복 일시정지·재개" handler="automation.pause" range="-1" recordable="false" />
     <Action id="wait" description="지정한 시간 동안 기다려. 대기 시간도 행동 기록에 포함돼." name="기다리기" handler="automation.wait" range="-1" />
   </Actions>
 </GameContent>

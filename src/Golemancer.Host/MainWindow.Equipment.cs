@@ -21,13 +21,16 @@ internal sealed partial class MainWindow
             pair.Item1.Child = new ScrollViewer { Content = pair.Item2, MaxHeight = 480, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
             hud.Children.Add(pair.Item1);
         }
+        memoryWindow.HorizontalAlignment = HorizontalAlignment.Right; memoryWindow.VerticalAlignment = VerticalAlignment.Bottom;
+        memoryWindow.Margin = new Thickness(0, 70, 18, 108); memoryWindow.Width = 560;
+        ((ScrollViewer)memoryWindow.Child).MaxHeight = 420;
     }
     private void OpenEquipment(string actorId = "")
     {
         if (!session.Started || Game.State.Dialogues.Count > 0) return;
         string owner = actorId.Length > 0 ? actorId : session.Actor?.Id ?? "";
         if (equipmentWindow.Visibility == Visibility.Visible && equipmentOwner == owner) { equipmentWindow.Visibility = Visibility.Collapsed; return; }
-        CloseBubbles(); CloseOverlay(); memoryWindow.Visibility = Visibility.Collapsed;
+        CloseBubbles(); CloseOverlay(); CloseMemory();
         equipmentOwner = owner; equipmentKey = "";
         equipmentWindow.Visibility = Visibility.Visible; RefreshEquipmentWindow();
     }
@@ -76,24 +79,6 @@ internal sealed partial class MainWindow
         }
         if (actor.Id == Game.State.ControlledId)
             equipmentContents.Children.Add(HudBubble(Group("upgrades", "강화", () => GameEntries("equipment").Where(e => e.Id == "upgrades").ToList()), 44));
-    }
-    private void OpenMemory()
-    {
-        if (memoryWindow.Visibility == Visibility.Visible) { memoryWindow.Visibility = Visibility.Collapsed; return; }
-        CloseBubbles(); CloseOverlay(); equipmentWindow.Visibility = Visibility.Collapsed; memoryWindow.Visibility = Visibility.Visible; memoryKey = ""; RefreshMemoryWindow();
-    }
-    private void RefreshMemoryWindow()
-    {
-        if (memoryWindow.Visibility != Visibility.Visible || session.Actor is not { } actor) return;
-        string key = actor.Id + actor.Recording?.Id + actor.Recording?.Steps.Count + actor.Playback?.Status + string.Join("|", Game.State.Recordings.Keys) + session.Failure;
-        if (key == memoryKey) return; memoryKey = key; memoryContents.Children.Clear();
-        memoryContents.Children.Add(Button("닫기 ×", () => memoryWindow.Visibility = Visibility.Collapsed, "memory.close"));
-        memoryContents.Children.Add(HudLabel(actor.Name + " · 메모리", 19));
-        var row = new WrapPanel(); memoryContents.Children.Add(row);
-        var entries = GameEntries("routines");
-        entries.Insert(1, Leaf("play", actor.Playback is null ? "반복 · T" : "반복 정지", () => Send("play")));
-        foreach (var entry in entries) row.Children.Add(HudBubble(entry, 48, "memory." + entry.Id));
-        memoryContents.Children.Add(HudLabel(actor.Recording is { } recording ? $"● {recording.Steps.Count}단계 · 남은 예약도 종료 시 저장해." : actor.Playback?.Status ?? "R 녹화 · T 반복", 12));
     }
     private bool EquipDragged(Point point, WorldObject actor, string item, bool execute)
     {

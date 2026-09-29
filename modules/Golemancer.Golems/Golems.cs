@@ -6,6 +6,7 @@ public sealed class Module : IGameModule
     {
         r.Action("golem.assemble", new Assemble()); r.Action("golem.select", new Select()); r.Action("golem.equip", new Equip());
         r.Action("golem.upgrade", new Upgrade()); r.Action("mana.fuel", new Fuel()); r.Action("mana.charge", new Charge()); r.Action("golem.consume", new Consume()); r.System(new Lifecycle());
+        r.Action("golem.follow", new Follow()); r.Action("golem.unfollow", new Unfollow()); r.Action("mana.charge_other", new ChargeOther()); r.System(new Followers());
     }
 }
 public sealed class Assemble : IActionHandler, IActionProjection
@@ -35,7 +36,7 @@ public sealed class Select : IActionHandler
     public CheckResult Check(IGameContext c, WorldObject a, ActionRequest r) => c.Target(r) is { } t && t.Alive() && c.IsGolem(t) ? CheckResult.Yes : CheckResult.No("조종할 수 없는 대상이야.", "target_missing");
     public ActionResult Execute(IGameContext c, WorldObject a, ActionRequest r)
     {
-        var target = c.Target(r)!; if (target.Playback is not null) c.CancelActions(target);
+        var target = c.Target(r)!;
         c.State.ControlledId = target.Id;
         c.State.MapId = target.GetText("area", "feast_trail");
         return ActionResult.Success(target.Name + " 조종 시작");
@@ -160,7 +161,7 @@ public sealed class Lifecycle : IRuntimeSystem
             a.Set("dead", 1); c.CancelActions(a);
             string core = a.GetText("core");
             if (core != "") c.State.Treasury[core] = c.State.Treasury.GetValueOrDefault(core) + 1;
-            if (a.Recording is not null) { c.State.Recordings[a.Recording.Id] = a.Recording; a.Recording = null; }
+            if (a.Recording is not null) { if (!a.Recording.Editing) c.State.Recordings[a.Recording.Id] = a.Recording; a.Recording = null; }
             var lost = new Dictionary<string, int>();
             foreach (var item in a.Inventory)
             {

@@ -156,7 +156,7 @@ internal sealed partial class MainWindow
                 }
             case "routines":
                 {
-                    var entries = state.Recordings.Values.Select(r => Leaf("recording." + r.Id, r.Name, () => Finish(() => Send("play", item: r.Id)), string.Join(" → ", r.Steps.Select(s => (Game.Content.Actions.GetValueOrDefault(s.Request.Action)?.Name ?? s.Request.Action) + " " + Game.ItemName(s.Request.Item))))).ToList();
+                    var entries = state.Recordings.Values.Select(r => Leaf("recording." + r.Id, r.Name, () => OpenMemoryEditor(r.Id), "클릭: 타임라인 편집 · " + r.Steps.Count + "단계")).ToList();
                     entries.Add(Leaf("record", actor.Recording is null ? "녹화 시작" : "녹화 종료", () => Finish(() => Send("record"))));
                     entries.Add(Leaf("wait", "N초 대기 기록", () => ShowQuantity("대기 시간 · 초", () => 3600, n => Send("wait", amount: n), 5)));
                     entries.Add(Group("failure", "실패할 때", () => new[] { ("", "기본 처리"), ("stop", "중단"), ("skip", "건너뛰기"), ("retry", "재시도") }.Select(p => Leaf("failure." + p.Item1, (session.Failure == p.Item1 ? "✓ " : "") + p.Item2, () => { session.Failure = p.Item1; RenderBubbles(); })).ToList()));

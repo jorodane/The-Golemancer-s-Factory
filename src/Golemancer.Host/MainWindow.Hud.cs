@@ -100,7 +100,7 @@ internal sealed partial class MainWindow
         actorTitle.Text = a.Name + (a.GetText("mode") == "combat" ? " · 전투" : " · 일상");
         selectedIcon.Icon = assets.Sprite(Game.Definition(a)?.Sprite ?? ""); selectedIcon.Health = a.Get("health") / Math.Max(1, a.Get("maxHealth")); selectedIcon.Mana = a.Get("mana") / Math.Max(1, a.Get("maxMana", 100)); selectedIcon.InvalidateVisual();
         selectedIcon.ToolTip = $"내구도 {a.Get("health"):0}/{a.Get("maxHealth"):0} · 마력 {a.Get("mana"):0}/{a.Get("maxMana", 100):0}";
-        status.Text = a.Recording is not null ? $"● 녹화 {a.Recording.Steps.Count} · 예약 {a.ActionQueue.Count}" : a.Playback?.Status ?? (a.Ongoing is { } ongoing ? ongoing.Action == "attack" ? "처치까지 공격 중" : Game.Content.Actions.GetValueOrDefault(ongoing.Action)?.Name ?? ongoing.Action : a.Work is not null ? "작업 중" : a.Pending is not null || a.Path.Count > 0 ? "이동 중" : a.ActionQueue.FirstOrDefault()?.Status ?? "대기");
+        status.Text = a.Recording is not null ? $"● 녹화 {a.Recording.Steps.Count} · 예약 {a.ActionQueue.Count}" : a.Following?.Status ?? a.Playback?.Status ?? (a.Ongoing is { } ongoing ? ongoing.Action == "attack" ? "처치까지 공격 중" : Game.Content.Actions.GetValueOrDefault(ongoing.Action)?.Name ?? ongoing.Action : a.Work is not null ? "작업 중" : a.Pending is not null || a.Path.Count > 0 ? "이동 중" : a.ActionQueue.FirstOrDefault()?.Status ?? "대기");
         status.ToolTip = a.ActionQueue.FirstOrDefault()?.Status;
         if (a.ActionQueue.Count > 0 && a.Recording is null) status.Text += $" · 예약 {a.ActionQueue.Count}";
         var q = Game.Content.Quests.Values.FirstOrDefault(q => !s.CompletedQuests.Contains(q.Id) && (q.Requires.Length == 0 || s.CompletedQuests.Contains(q.Requires)));

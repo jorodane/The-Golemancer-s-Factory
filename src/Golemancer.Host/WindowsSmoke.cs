@@ -107,6 +107,7 @@ internal sealed partial class MainWindow
             RunRevisionSmoke(SettleCircles, Click);
             RunUsabilitySmoke(SettleCircles, Click);
             RunCollectionSmoke(SettleCircles);
+            RunMemorySmoke(Click);
             world.Reset();RefreshHud();UpdateLayout();world.InvalidateVisual();ClickTile(crafter.Tile,true);ShowCategories(crafter);
             SettleCircles();
             for(int i=0;i<3;i++){world.UpdateLayout();UpdateLayout();}

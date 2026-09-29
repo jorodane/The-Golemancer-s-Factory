@@ -20,3 +20,7 @@
 
 - On golem death, worn/carried equipment and upgrades are lost; ordinary inventory drops in stack-limited piles. Installed and carried cores return to the treasury immediately, exactly once.
 - Region collection is a persistent, recordable logistics action around a fixed tile; E remains instant nearby pickup. Missing materials disable recipe buttons without hiding their hover details. Purchase choices obey shared quantity limits; permanent recipe books can be bought only once.
+
+- Selecting a golem is observation/possession only: preserve playback, work, reservations and queues. World selection of a visible actor preserves the camera; management/hotbar/offscreen selection focuses it.
+- Follow/rescue suspends the follower's existing commands. Powered followers spend their own mana; externally towed empty followers obey continuous collision/tether rules while slowing the leader. Never enable ordinary unpowered work as a towing shortcut. Charging another golem requires that golem to be adjacent to a fueled tower.
+- Memory editing uses a detached draft with undo/redo, dependency validation and explicit save. Closing through any path discards unsaved changes; re-recording must never silently overwrite a saved memory. Active playback owns an immutable snapshot and keeps diagnostics for failed steps. Default retry scans later frames and waits only after a wholly failed cycle; explicit failure policies remain intact.

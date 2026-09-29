@@ -2,7 +2,10 @@
 <GameContent version="1.0" balance="first-playable">
   <Actions>
     <Action id="assemble" description="엔린이 골렘 핵을 사용해 새로운 골렘을 조립해." icon="item.harvest_core" name="골렘 조립" handler="golem.assemble" range="-1" recordable="false" />
-    <Action id="select" description="이 골렘으로 조종을 전환해. 진행하던 반복 재생은 멈춰." name="직접 조종" handler="golem.select" range="-1" recordable="false" />
+    <Action id="select" description="이 골렘을 선택해 보관함과 작업을 확인해. 진행 중인 반복과 예약은 유지해." name="골렘 선택" handler="golem.select" range="-1" recordable="false" />
+    <Action id="follow" description="함께 이동해. 방전된 골렘은 느리게 끌고 가며 이전 작업은 동행이 끝나면 이어가." name="동행 요청" handler="golem.follow" range="1" />
+    <Action id="unfollow" description="동행을 끝내고 이전 작업을 이어가게 해." name="동행 마치기" handler="golem.unfollow" range="-1" />
+    <Action id="charge_other" description="마력이 있는 수정탑에 붙어 있는 다른 골렘을 대신 충전해." icon="item.mana_crystal" name="대신 충전" handler="mana.charge_other" range="1" />
     <Action id="equip" description="보관함의 무기나 방패를 장착해." icon="item.wooden_sword" name="장비 장착" handler="golem.equip" range="-1" recordable="true" />
     <Action id="upgrade_golem" description="금화를 사용해 마력 용량, 보관함, 방어력을 강화해." icon="item.craft_core" name="골렘 강화" handler="golem.upgrade" range="-1" recordable="false" />
     <Action id="fuel_tower" description="무색 마나 수정 한 개로 탑의 마력 1000을 보충해." icon="item.mana_crystal" name="마나 수정 넣기" handler="mana.fuel" range="1" recordable="true" />

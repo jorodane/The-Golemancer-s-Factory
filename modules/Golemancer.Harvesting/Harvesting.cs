@@ -13,7 +13,13 @@ public sealed class Collect : IActionHandler, IActionProjection
         if (t is null || !c.Is(t, "resource")) return CheckResult.No("채집 대상을 찾지 못했어.", "target_missing");
         string skill = t.GetText("skill", "harvest");
         if (!c.Capability(a, skill)) return CheckResult.No(skill == "mining" ? "채광 골렘이 필요해." : "이 골렘은 수확할 수 없어.", "capability");
-        if (t.Get("depleted") > 0 || (r.Action != "fell" && t.Get("stock", 1) <= 0)) return CheckResult.No("다시 자랄 때까지 기다려야 해.", "resource_empty");
+        if (t.Get("depleted") > 0) return CheckResult.No("수확한 자원이 다시 자랄 때까지 기다려야 해.", "resource_empty");
+        if (r.Action != "fell" && t.Get("stock", 1) <= 0)
+        {
+            if (t.DefinitionId == "sweetfruit_tree")
+                return CheckResult.No(t.Get("refillAt") > 0 ? "열매가 없어. 달달과는 여름·가을에 다시 열려. 목재는 베어넘기기로 얻어." : "열매가 없는 나무야. 목재가 필요하면 베어넘기기를 골라줘.", "resource_empty");
+            return CheckResult.No("수확할 자원이 아직 없어.", "resource_empty");
+        }
         return CheckResult.Yes;
     }
     public ActionResult Execute(IGameContext c, WorldObject a, ActionRequest r)

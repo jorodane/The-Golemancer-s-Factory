@@ -87,11 +87,12 @@ internal sealed partial class MainWindow : Window
         if (action == "attack" && mode == "exact") mode = session.Actor?.GetText("mode") == "combat" ? "once" : "until_down";
         var request = new ActionRequest { Action=action,TargetId=target,Item=item,Quantity=amount,Mode=mode,Option=option,X=x,Y=y,SlotId=slotId,Enqueue=queueBubbles||Held("queue") };
         var result=session.Command(request); if (result.Ok) lastIssuedAction = Shortcut(request);
-        if (action == "toggle_mode" || action == "roll" || action == "select") world.Follow = session.Actor?.GetText("mode") == "combat";
+        if (result.Ok && action == "select") world.ControlChanged();
+        if (action == "toggle_mode" || action == "roll") world.Follow = session.Actor?.GetText("mode") == "combat";
         if(result.Message.Length>0)Notify(result.Message);RefreshHud();return result;
     }
     private void Begin(bool load=false,string slot="manual")
-    {if(load)session.Load(slot);else session.NewGame();world.Reset();shownDay=-1;actionHistory.Clear();selected="";lastDialogue="";inventoryKey=crewKey=questKey="";CloseOverlay();RefreshHud();world.Focus();}
+    {CloseMemory();if(load)session.Load(slot);else session.NewGame();world.Reset();shownDay=-1;actionHistory.Clear();selected="";lastDialogue="";inventoryKey=crewKey=questKey="";CloseOverlay();RefreshHud();world.Focus();}
     private void Select(string id){selected=id;world.Selected=id;}
     private void ClickTile(Tile tile,bool right) => ClickTarget(tile,world.Target(tile),right);
     private void ClickTarget(Tile tile,WorldObject? target,bool right)
@@ -161,7 +162,8 @@ internal sealed partial class MainWindow : Window
         if (IsKey(actualKey, "quantity.one") || IsKey(actualKey, "quantity.all")) { e.Handled = true; return; }
         if(Keyboard.FocusedElement is TextBox or ComboBox or Slider)return;
         if(!session.Started)return;
-        if(e.Key==Key.Escape){if(dragItem.Length>0){CancelInventoryDrag();e.Handled=true;return;}if(world.CommandAction.Length>0){world.CommandAction="";e.Handled=true;return;}if(Game.State.Dialogues.Count>0)return;if(world.Building!="")world.Building="";else if(equipmentWindow.Visibility==Visibility.Visible)equipmentWindow.Visibility=Visibility.Collapsed;else if(memoryWindow.Visibility==Visibility.Visible)memoryWindow.Visibility=Visibility.Collapsed;else if(modalType!="")CloseOverlay();else if(bubbleLayer.Children.Count>0)BackBubble();else Open("menu");e.Handled=true;return;}
+        if (HandleMemoryKey(e)) return;
+        if(e.Key==Key.Escape){if(dragItem.Length>0){CancelInventoryDrag();e.Handled=true;return;}if(world.CommandAction.Length>0){world.CommandAction="";e.Handled=true;return;}if(Game.State.Dialogues.Count>0)return;if(world.Building!="")world.Building="";else if(equipmentWindow.Visibility==Visibility.Visible)equipmentWindow.Visibility=Visibility.Collapsed;else if(memoryWindow.Visibility==Visibility.Visible)CloseMemory();else if(modalType!="")CloseOverlay();else if(bubbleLayer.Children.Count>0)BackBubble();else Open("menu");e.Handled=true;return;}
         if(Game.State.Dialogues.Count>0){if(e.Key is Key.Enter or Key.Space){AdvanceDialogue();e.Handled=true;}return;}
         if(modalType!="")return;var a=session.Actor;if(a is null)return;
         if(new[]{"move.up","move.down","move.left","move.right","pickup"}.Any(id=>IsKey(e.Key,id))){e.Handled=true;return;}
@@ -174,7 +176,7 @@ internal sealed partial class MainWindow : Window
             CloseBubbles();Send("roll",x:dx,y:dy);
         }
         else if(IsKey(e.Key,"toggle_mode")){CloseBubbles();Send("toggle_mode");}
-        else if(IsKey(e.Key,"record"))Send("record");else if(IsKey(e.Key,"play"))Send("play");
+        else if(IsKey(e.Key,"record"))MemoryRecordShortcut();else if(IsKey(e.Key,"play"))Send("play");
         else if(IsKey(e.Key,"build"))Open("build");else if(IsKey(e.Key,"equipment"))OpenEquipment();
         else if(IsKey(e.Key,"follow"))world.CenterOnActor();else if(IsKey(e.Key,"cancel"))Send("cancel");
         else if(IsKey(e.Key,"heal"))Send("consume",item:"healing_jelly");else if(IsKey(e.Key,"mana"))Send("consume",item:"mana_jelly");else return;

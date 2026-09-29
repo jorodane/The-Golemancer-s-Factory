@@ -7,7 +7,7 @@ public sealed partial class Simulation
     {
         double length = Math.Sqrt(x*x+y*y);
         if (length > 1) { x /= length; y /= length; }
-        if (!this.IsGolem(actor) || !actor.Alive() || actor.Playback is not null) x = y = 0;
+        if (!this.IsGolem(actor) || !actor.Alive() || actor.Playback is not null || actor.Following is not null) x = y = 0;
         bool starting = actor.InputX == 0 && actor.InputY == 0 && (x != 0 || y != 0);
         actor.InputX = x; actor.InputY = y;
         if (starting) this.CancelActions(actor);
@@ -24,6 +24,13 @@ public sealed partial class Simulation
     private double MovePiece(WorldObject actor, double dx, double dy, bool slide, bool consumeMana)
     {
         double x = actor.WorldX, y = actor.WorldY;
+        // A towing link cannot stretch through a wall or leave the discharged follower behind.
+        foreach (var follower in this.OfKind("golem").Where(o => o.Following?.LeaderId == actor.Id && o.Get("mana") <= 0))
+        {
+            double before = Math.Abs(x - follower.WorldX) + Math.Abs(y - follower.WorldY);
+            double after = Math.Abs(x + dx - follower.WorldX) + Math.Abs(y + dy - follower.WorldY);
+            if (after > 2.8 && after > before) return 0;
+        }
         if (CanMoveTo(actor,x+dx,y+dy)) actor.SetPosition(x+dx,y+dy);
         else if (slide)
         {
@@ -35,6 +42,20 @@ public sealed partial class Simulation
         {
             actor.Set("facingX", dx); actor.Set("facingY", dy); actor.Set("movingUntil", State.Time+.04);
             if (consumeMana && this.IsGolem(actor)) actor.Set("mana", Math.Max(0,actor.Get("mana")-moved*.08));
+        }
+        return moved;
+    }
+    // Module-owned external motion still uses the engine's continuous collision rules.
+    public double MoveExternal(WorldObject actor, double dx, double dy, bool consumeMana)
+    {
+        double distance = Math.Sqrt(dx * dx + dy * dy), moved = 0;
+        if (!actor.Alive() || double.IsNaN(distance) || double.IsInfinity(distance) || distance > 4) return 0;
+        for (double left = distance; left > .000001;)
+        {
+            if (consumeMana && actor.Get("mana") <= 0) break;
+            double step = Math.Min(.04, left); left -= step;
+            double part = MovePiece(actor, dx / distance * step, dy / distance * step, false, consumeMana);
+            moved += part; if (part < .000001) break;
         }
         return moved;
     }
@@ -60,6 +81,7 @@ public sealed partial class Simulation
         bool rolling = !pushed && actor.Get("rollRemaining") > 0;
         bool manual = actor.InputX != 0 || actor.InputY != 0;
         double budget = pushed ? Math.Min(actor.Get("pushRemaining"),dt*actor.Get("pushSpeed")) : rolling ? Math.Min(actor.Get("rollRemaining"), dt*2/.28) : dt*actor.Get("speed",5)*(this.IsGolem(actor)?this.Efficiency(actor):1);
+        if (!pushed) budget *= Math.Pow(.6, this.OfKind("golem").Count(o => o.Following?.LeaderId == actor.Id && o.Get("mana") <= 0));
         while (budget > .000001 && (pushed || rolling || manual || actor.Path.Count > 0))
         {
             if (!pushed && !this.CanOperate(actor)) break;

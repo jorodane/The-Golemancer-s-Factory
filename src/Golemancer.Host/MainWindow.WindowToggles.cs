@@ -16,7 +16,7 @@ internal sealed partial class MainWindow
         else if (bubbleMenuType.Length > 0)
         { id = bubbleMenuType == "orders" ? "open.orders" : "hud." + bubbleMenuType; close = CloseBubbles; }
         else if (memoryWindow.Visibility == Visibility.Visible)
-        { id = "hud.routines"; close = () => memoryWindow.Visibility = Visibility.Collapsed; }
+        { id = "hud.routines"; close = CloseMemory; }
         else if (equipmentWindow.Visibility == Visibility.Visible && equipmentOwner == session.Actor?.Id)
         { id = "actiongrid.equipment"; close = () => equipmentWindow.Visibility = Visibility.Collapsed; }
         if (close is null || !buttons.TryGetValue(id, out var button) || !button.IsVisible || !button.IsDescendantOf(root)) return;
