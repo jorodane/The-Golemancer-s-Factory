@@ -1,0 +1,40 @@
+<?xml version='1.0' encoding='utf-8'?>
+<GameContent>
+  <Sprites>
+    <Sprite id="dialogue.enrin.neutral">
+      <Animation state="idle" image="Images/enrin_neutral_v2.png" frameWidth="768" frameHeight="1024" columns="1" frames="1" x="0" y="0" drawWidth="1" drawHeight="1" />
+      <Animation state="talk" image="Images/enrin_neutral_v2.png" frameWidth="32" frameHeight="30" columns="1" frames="1" x="1118" y="345" compositeOver="idle" overlayX="382" overlayY="342" drawWidth="1" drawHeight="1" />
+    </Sprite>
+    <Sprite id="dialogue.enrin.tired">
+      <Animation state="idle" image="Images/enrin_tired_v2.png" frameWidth="768" frameHeight="1024" columns="1" frames="1" x="0" y="0" drawWidth="1" drawHeight="1" />
+      <Animation state="talk" image="Images/enrin_tired_v2.png" frameWidth="36" frameHeight="32" columns="1" frames="1" x="1151" y="356" compositeOver="idle" overlayX="392" overlayY="354" drawWidth="1" drawHeight="1" />
+    </Sprite>
+    <Sprite id="dialogue.enrin.smile">
+      <Animation state="idle" image="Images/enrin_smile_v2.png" frameWidth="768" frameHeight="1024" columns="1" frames="1" x="0" y="0" drawWidth="1" drawHeight="1" />
+      <Animation state="talk" image="Images/enrin_smile_v2.png" frameWidth="38" frameHeight="30" columns="1" frames="1" x="1128" y="339" compositeOver="idle" overlayX="394" overlayY="336" drawWidth="1" drawHeight="1" />
+    </Sprite>
+    <Sprite id="dialogue.enrin.worried">
+      <Animation state="idle" image="Images/enrin_worried_v2.png" frameWidth="768" frameHeight="1024" columns="1" frames="1" x="0" y="0" drawWidth="1" drawHeight="1" />
+      <Animation state="talk" image="Images/enrin_worried_v2.png" frameWidth="34" frameHeight="32" columns="1" frames="1" x="1149" y="369" compositeOver="idle" overlayX="384" overlayY="368" drawWidth="1" drawHeight="1" />
+    </Sprite>
+    <Sprite id="dialogue.enrin.surprised">
+      <Animation state="idle" image="Images/enrin_surprised_v2.png" frameWidth="768" frameHeight="1024" columns="1" frames="1" x="0" y="0" drawWidth="1" drawHeight="1" />
+      <Animation state="talk" image="Images/enrin_surprised_v2.png" frameWidth="34" frameHeight="32" columns="1" frames="1" x="1107" y="343" compositeOver="idle" overlayX="404" overlayY="340" drawWidth="1" drawHeight="1" />
+    </Sprite>
+    <Sprite id="dialogue.enrin.curious">
+      <Animation state="idle" image="Images/enrin_curious_v2.png" frameWidth="768" frameHeight="1024" columns="1" frames="1" x="0" y="0" drawWidth="1" drawHeight="1" />
+      <Animation state="talk" image="Images/enrin_curious_v2.png" frameWidth="40" frameHeight="34" columns="1" frames="1" x="1132" y="347" compositeOver="idle" overlayX="388" overlayY="341" drawWidth="1" drawHeight="1" />
+    </Sprite>
+    <Sprite id="dialogue.enrin.sleepy">
+      <Animation state="idle" image="Images/enrin_tired_v2.png" frameWidth="768" frameHeight="1024" columns="1" frames="1" x="0" y="0" drawWidth="1" drawHeight="1" />
+      <Animation state="talk" image="Images/enrin_tired_v2.png" frameWidth="36" frameHeight="32" columns="1" frames="1" x="1151" y="356" compositeOver="idle" overlayX="392" overlayY="354" drawWidth="1" drawHeight="1" />
+    </Sprite>
+    <Sprite id="dialogue.enrin.happy">
+      <Animation state="idle" image="Images/enrin_smile_v2.png" frameWidth="768" frameHeight="1024" columns="1" frames="1" x="0" y="0" drawWidth="1" drawHeight="1" />
+      <Animation state="talk" image="Images/enrin_smile_v2.png" frameWidth="38" frameHeight="30" columns="1" frames="1" x="1128" y="339" compositeOver="idle" overlayX="394" overlayY="336" drawWidth="1" drawHeight="1" />
+    </Sprite>
+    <Sprite id="effect.fumigator">
+      <Animation state="idle" image="Images/fumigator_fire_smoke.png" frameWidth="384" frameHeight="1024" columns="4" frames="4" frameSeconds=".15" loop="true" drawWidth="1" drawHeight="1.9" />
+    </Sprite>
+  </Sprites>
+</GameContent>

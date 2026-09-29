@@ -1,0 +1,139 @@
+{
+  "pack": "dialogue_art",
+  "version": "2.0.0",
+  "reference": "엔린과 칠키의 골렘 공방 설정집.png (2026-09-29 23:33 KST)",
+  "generation": "built-in image_gen",
+  "code_changed": false,
+  "windows_runtime_executed": false,
+  "images": [
+    {
+      "file": "Images/enrin_neutral_v2.png",
+      "size": [
+        1536,
+        1024
+      ],
+      "transparent_pixels": 673203,
+      "mouth_source": [
+        1118,
+        345,
+        32,
+        30
+      ],
+      "mouth_target": [
+        382,
+        342
+      ],
+      "mouth_boundary_mean_rgb_delta": 1.086,
+      "sha256": "e64076a422355f4d9c88b242509fecd0dd7f60c3f198d9b966df30617f096211"
+    },
+    {
+      "file": "Images/enrin_tired_v2.png",
+      "size": [
+        1536,
+        1024
+      ],
+      "transparent_pixels": 601495,
+      "mouth_source": [
+        1151,
+        356,
+        36,
+        32
+      ],
+      "mouth_target": [
+        392,
+        354
+      ],
+      "mouth_boundary_mean_rgb_delta": 0.94,
+      "sha256": "0ecf8c2cfa291a486c3e4f2f0b532a75a4966cabb684eeb404e41e3d21e57ba7"
+    },
+    {
+      "file": "Images/enrin_smile_v2.png",
+      "size": [
+        1536,
+        1024
+      ],
+      "transparent_pixels": 659825,
+      "mouth_source": [
+        1128,
+        339,
+        38,
+        30
+      ],
+      "mouth_target": [
+        394,
+        336
+      ],
+      "mouth_boundary_mean_rgb_delta": 1.032,
+      "sha256": "2054f4f8546efbeb8040cf169208297c4450c46e99f05620169449246f795945"
+    },
+    {
+      "file": "Images/enrin_worried_v2.png",
+      "size": [
+        1536,
+        1024
+      ],
+      "transparent_pixels": 662242,
+      "mouth_source": [
+        1149,
+        369,
+        34,
+        32
+      ],
+      "mouth_target": [
+        384,
+        368
+      ],
+      "mouth_boundary_mean_rgb_delta": 1.285,
+      "sha256": "e80fcd6756d34b3cc6c0094adbb6f727afa8a3833b5409f2f42d3b31dfd332d2"
+    },
+    {
+      "file": "Images/enrin_surprised_v2.png",
+      "size": [
+        1536,
+        1024
+      ],
+      "transparent_pixels": 638535,
+      "mouth_source": [
+        1107,
+        343,
+        34,
+        32
+      ],
+      "mouth_target": [
+        404,
+        340
+      ],
+      "mouth_boundary_mean_rgb_delta": 1.357,
+      "sha256": "05c9093f1d7dd305abbb1ffa23e7e12632e5c74ec665c7f2aa6b59a7f5588ece"
+    },
+    {
+      "file": "Images/enrin_curious_v2.png",
+      "size": [
+        1536,
+        1024
+      ],
+      "transparent_pixels": 617951,
+      "mouth_source": [
+        1132,
+        347,
+        40,
+        34
+      ],
+      "mouth_target": [
+        388,
+        341
+      ],
+      "mouth_boundary_mean_rgb_delta": 1.699,
+      "sha256": "5cf8fb16d5058729c10fd213029a949ca0f59afaec53aa9d9931a90a69a3c075"
+    }
+  ],
+  "animation_count": 17,
+  "covered_quest_moods": [
+    "curious",
+    "neutral",
+    "smile",
+    "surprised",
+    "tired",
+    "worried"
+  ]
+}
