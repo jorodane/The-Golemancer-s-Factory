@@ -8,6 +8,8 @@
 
 Windows용 **WPF / .NET Framework 4.8** 앱이야.
 
+검증한 실행 파일은 저장소의 [Builds 폴더](Builds/README.md)에 함께 올려뒀어. [Windows 빌드 ZIP 다운로드](Builds/The-Golemancers-Factory-Windows-net48.zip?raw=true) 후 아래 순서로 실행하면 돼.
+
 1. `The-Golemancers-Factory-Windows-net48.zip`을 쓰기 가능한 폴더에 풀어.
 2. `The-Golemancers-Factory-Image-Packs-v2.zip`도 같은 폴더에 풀어 `Content` 폴더를 합쳐.
 3. `Golemancer.exe`를 실행해. .NET Framework 4.8 런타임이 필요해.

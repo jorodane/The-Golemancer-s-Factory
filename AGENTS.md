@@ -5,6 +5,7 @@
 - Contracts specify semantics, ownership and partial effects. Keep module implementations local and depend on shared contracts, not other modules' concrete types.
 - Maps, construction footprints, collision and action ranges use integer tiles. Actors move continuously with persisted sub-tile offsets; manual input and replay must never snap to tile centers.
 - Native Windows WPF application targeting .NET Framework 4.8. No browser host. Portable net10.0 is for shared-engine verification only.
+- Track the verified Windows distribution ZIP at Builds/The-Golemancers-Factory-Windows-net48.zip with its source commit and SHA-256 in Builds/README.md. Intermediate bin/obj outputs stay ignored; generated image packs remain separate.
 - Actual external SVG/PNG images are required. Tilesets are independent object packs. Deliver images in a separate ZIP; do not commit generated image assets. Never synthesize replacement tile or character artwork in the renderer.
 - Characters use animation sheets with per-animation offsets and frame metadata. Do not animate a static character by bobbing its whole image. Animation display offsets are separate from continuous world position and tile collision footprints.
 - Enrin MUST retain her emerald bracelet, head-mounted calculating mini golem and its chalkboard. Quest portraits include all three; the chalkboard draws emotion faces.
