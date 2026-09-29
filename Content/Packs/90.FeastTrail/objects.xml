@@ -1,9 +1,15 @@
 <?xml version='1.0' encoding='utf-8'?>
 <GameContent version="1.0" balance="first-playable">
   <Objects>
-    <Object id="stone_sprite" name="돌멩이 정령" kind="monster" sprite="stone_sprite" actions="attack">
+    <!-- 데굴돌: 승인된 생태/행동을 구현한다. ID와 아래 수치는 플레이 검증용이며 확정 밸런스가 아니다. -->
+    <Object id="rolling_stone" name="데굴돌" kind="monster" sprite="rolling_stone" actions="attack">
       <Value key="health" value="35" /><Value key="maxHealth" value="35" /><Value key="damage" value="6" />
-      <Value key="weakSlash" value="0.6" /><Value key="weakCrush" value="1.5" /><Data key="loot" value="stone" /><Value key="lootAmount" value="6" />
+      <Value key="weakSlash" value="1" /><Value key="weakCrush" value="1.5" /><Data key="loot" value="stone" /><Value key="lootAmount" value="6" />
+      <Data key="aggression" value="Territorial" /><Data key="combatBehavior" value="territorial_charge" />
+      <Data key="habitat" value="trail_stone_field" />
+      <Value key="speed" value="2.5" /><Value key="territoryRadius" value="3" /><Value key="pursuitRadius" value="6" />
+      <Value key="chargeRange" value="4" /><Value key="chargeSpeed" value="8" />
+      <Value key="chargeWindup" value="0.8" /><Value key="chargeCooldown" value="2.2" />
     </Object>
     <Object id="harvest_golem" name="수확 골렘" kind="golem" slots="6" actions="select,transfer,upgrade_golem">
       <Value key="health" value="110" />

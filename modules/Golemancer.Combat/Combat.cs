@@ -132,7 +132,10 @@ public sealed class Encounters : IRuntimeSystem
     public int Order => 60;
     internal static void DropLoot(IGameContext c, WorldObject monster)
     {
+        if (!monster.Values.ContainsKey("homeX")) monster.Set("homeX", monster.X);
+        if (!monster.Values.ContainsKey("homeY")) monster.Set("homeY", monster.Y);
         monster.Set("dead", 1); monster.Set("respawnAt", c.State.Time + 45);
+        monster.Path.Clear(); monster.Set("attackDue", 0); monster.Set("chargeRemaining", 0);
         var bag = c.Spawn("dropped_items", monster.X, monster.Y);
         string loot = c.Setting(monster, "loot", "springwater_drop"); bag.Inventory[loot] = (int)monster.Get("lootAmount", 8);
         if (loot == "springwater_drop") bag.Inventory["newflesh_herb"] = 2;
@@ -146,9 +149,14 @@ public sealed class Encounters : IRuntimeSystem
             {
                 if (c.State.Time >= monster.Get("respawnAt"))
                 {
+                    bool territorial = c.Setting(monster, "combatBehavior") == "territorial_charge";
+                    int homeX = (int)monster.Get("homeX", monster.X), homeY = (int)monster.Get("homeY", monster.Y);
+                    if (territorial && !c.Walkable(homeX, homeY, monster.Id)) continue;
                     bool ice = c.Phase() is "SpringNight" or "WinterDay" or "WinterNight";
                     if (monster.DefinitionId is "springwater_pouch" or "icewater_pouch") monster.DefinitionId = ice ? "icewater_pouch" : "springwater_pouch";
                     var d = c.Definition(monster)!; monster.Values = new(d.Values); monster.Data = new(d.Data); monster.Name = d.Name;
+                    monster.Path.Clear();
+                    if (territorial) monster.SetPosition(homeX, homeY);
                     monster.Set("homeX", monster.X); monster.Set("homeY", monster.Y);
                 }
                 continue;
@@ -157,6 +165,8 @@ public sealed class Encounters : IRuntimeSystem
             {
                 DropLoot(c, monster); continue;
             }
+            if (c.Setting(monster, "combatBehavior") == "territorial_charge")
+            { TerritorialCharge.Tick(c, monster, dt); continue; }
             var target = c.Find(monster.GetText("attacker"));
             if (target is null || !target.Alive() || c.Distance(target, monster) > 7)
                 target = c.Night() ? c.OfKind("golem").Where(g => c.Distance(g, monster) <= 4).OrderBy(g => c.Distance(g, monster)).FirstOrDefault() : null;
@@ -172,7 +182,7 @@ public sealed class Encounters : IRuntimeSystem
             else if (c.State.Time >= monster.Get("nextAttack"))
             {
                 monster.Set("warnX", target.X); monster.Set("warnY", target.Y); monster.Set("attackDue", c.State.Time + 1.1);
-                c.Effect("telegraph", target.X, target.Y, monster.DefinitionId == "stone_sprite" ? "돌 구르기" : "샘물 튀기기", 1.1);
+                c.Effect("telegraph", target.X, target.Y, "샘물 튀기기", 1.1);
             }
         }
         var boss = c.Find("springwater-king");

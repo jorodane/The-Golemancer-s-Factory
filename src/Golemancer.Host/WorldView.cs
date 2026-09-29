@@ -142,13 +142,13 @@ internal sealed class WorldView : FrameworkElement
         foreach(var effect in s.Effects)
         {
             var p=Screen(effect.X+.5,effect.Y+.5);
-            if(effect.Kind.StartsWith("boss_warn",StringComparison.Ordinal)||effect.Kind=="telegraph")
+            if(effect.Kind.StartsWith("boss_warn",StringComparison.Ordinal)||effect.Kind is "telegraph" or "charge_warn")
             {
                 if(effect.Kind=="boss_warn_2")
                 {
                     var diamond=new StreamGeometry();using(var c=diamond.Open()){c.BeginFigure(new Point(p.X,p.Y-Zoom*7),true,true);c.LineTo(new Point(p.X+Zoom*7,p.Y),true,false);c.LineTo(new Point(p.X,p.Y+Zoom*7),true,false);c.LineTo(new Point(p.X-Zoom*7,p.Y),true,false);}dc.DrawGeometry(SvgImage.Brush("#cc5a464f"),new Pen(SvgImage.Brush("#f9c5a4"),2),diamond);
                 }
-                else {double w=effect.Kind=="boss_warn_1"?11:3;dc.DrawRectangle(SvgImage.Brush("#cc5a4660"),new Pen(SvgImage.Brush("#f9c5a4"),2),new Rect(p.X-Zoom*w/2,p.Y-Zoom*1.5,Zoom*w,Zoom*3));}
+                else {double w=effect.Kind=="charge_warn"?1:effect.Kind=="boss_warn_1"?11:3;double h=effect.Kind=="charge_warn"?1:3;dc.DrawRectangle(SvgImage.Brush("#cc5a4660"),new Pen(SvgImage.Brush("#f9c5a4"),2),new Rect(p.X-Zoom*w/2,p.Y-Zoom*h/2,Zoom*w,Zoom*h));}
                 Text(dc,effect.Text,new Point(p.X-40,p.Y-Zoom*1.7),12);
             }
             else if(effect.Text.Length>0) Text(dc,effect.Text,new Point(p.X-15,p.Y-Zoom*.8),13);

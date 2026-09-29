@@ -457,5 +457,44 @@
         <Frame x="768" y="1395" width="223" height="107" pivotX="0.47758" pivotY="0.98131" />
       </Animation>
     </Sprite>
+    <!-- 데굴돌 전용 시트가 준비될 때까지 기존 돌 주먹 시트를 임시 재사용한다. -->
+    <Sprite id="rolling_stone">
+      <Animation state="idle" image="Images/stone_fist.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="0" frameSeconds=".3" loop="true" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.05" drawHeight="1.1">
+        <Frame x="25" y="56" width="208" height="172" pivotX="0.48798" pivotY="0.98837" />
+        <Frame x="283" y="47" width="211" height="187" pivotX="0.45261" pivotY="0.98930" />
+        <Frame x="533" y="32" width="210" height="201" pivotX="0.42619" pivotY="0.99005" />
+        <Frame x="791" y="57" width="209" height="174" pivotX="0.46172" pivotY="0.98851" />
+      </Animation>
+      <Animation state="move" image="Images/stone_fist.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="256" frameSeconds=".12" loop="true" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.05" drawHeight="1.1">
+        <Frame x="21" y="291" width="219" height="203" pivotX="0.65068" pivotY="0.99015" />
+        <Frame x="281" y="286" width="212" height="208" pivotX="0.33255" pivotY="0.99038" />
+        <Frame x="531" y="292" width="208" height="203" pivotX="0.33894" pivotY="0.99015" />
+        <Frame x="791" y="292" width="209" height="203" pivotX="0.26555" pivotY="0.99015" />
+      </Animation>
+      <Animation state="work" image="Images/stone_fist.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="512" frameSeconds=".12" loop="true" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.05" drawHeight="1.1">
+        <Frame x="28" y="549" width="214" height="195" pivotX="0.31542" pivotY="0.98974" />
+        <Frame x="288" y="543" width="205" height="205" pivotX="0.29512" pivotY="0.99024" />
+        <Frame x="540" y="535" width="201" height="217" pivotX="0.36816" pivotY="0.99078" />
+        <Frame x="789" y="549" width="209" height="203" pivotX="0.30383" pivotY="0.99015" />
+      </Animation>
+      <Animation state="attack" image="Images/stone_fist.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="768" frameSeconds=".12" loop="false" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.05" drawHeight="1.1">
+        <Frame x="18" y="780" width="226" height="225" pivotX="0.42257" pivotY="0.99111" />
+        <Frame x="280" y="792" width="219" height="209" pivotX="0.81507" pivotY="0.99043" />
+        <Frame x="512" y="839" width="265" height="178" pivotX="0.50000" pivotY="0.98876" />
+        <Frame x="790" y="801" width="210" height="208" pivotX="0.32143" pivotY="0.99038" />
+      </Animation>
+      <Animation state="hit" image="Images/stone_fist.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="1024" frameSeconds=".12" loop="false" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.05" drawHeight="1.1">
+        <Frame x="19" y="1056" width="218" height="206" pivotX="0.39220" pivotY="0.99029" />
+        <Frame x="280" y="1046" width="231" height="218" pivotX="0.37662" pivotY="0.99083" />
+        <Frame x="541" y="1070" width="221" height="191" pivotX="0.32353" pivotY="0.98953" />
+        <Frame x="794" y="1070" width="209" height="192" pivotX="0.38038" pivotY="0.98958" />
+      </Animation>
+      <Animation state="death" image="Images/stone_fist.png" frameWidth="256" frameHeight="256" columns="4" frames="4" x="0" y="1280" frameSeconds=".12" loop="false" pivotX=".5" pivotY=".92" offsetX="0" offsetY="0" drawWidth="1.05" drawHeight="1.1">
+        <Frame x="21" y="1310" width="231" height="199" pivotX="0.44372" pivotY="0.98995" />
+        <Frame x="270" y="1302" width="237" height="207" pivotX="0.52954" pivotY="0.99034" />
+        <Frame x="519" y="1352" width="240" height="159" pivotX="0.55208" pivotY="0.98742" />
+        <Frame x="774" y="1399" width="236" height="113" pivotX="0.45975" pivotY="0.98230" />
+      </Animation>
+    </Sprite>
   </Sprites>
 </GameContent>

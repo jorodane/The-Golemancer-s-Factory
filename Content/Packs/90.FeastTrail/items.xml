@@ -13,7 +13,7 @@
     <Category id="trophy" name="기념품" />
   </ItemCategories>
   <Items>
-    <Item id="stone" name="돌" price="3" category="material" description="돌멩이 정령이 남긴 단단한 돌. 바닥에서 E로 주울 수 있어." stack="50" />
+    <Item id="stone" name="돌멩이" price="3" category="material" description="데굴돌에게서 얻는 단단한 돌멩이. 여러 시설의 재료로 쓰인다." stack="50" />
     <Item id="common_herb" tags="herb" name="널린초" price="2" color="#a0bd6a" category="material" description="성질이 순한 약초. 샘물젤리의 기본 재료." stack="50" />
     <Item id="newflesh_herb" tags="herb" name="새살초" price="5" color="#cf897f" category="material" description="상처에 새살을 돋게 하는 붉은 약초." stack="50" />
     <Item id="spark_herb" tags="herb" name="번쩍초" price="10" color="#b4a5dc" category="material" description="잎맥에 마나가 반짝이는 약초." stack="50" />

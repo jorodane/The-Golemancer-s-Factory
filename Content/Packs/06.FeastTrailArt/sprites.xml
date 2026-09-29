@@ -1,7 +1,8 @@
 <?xml version='1.0' encoding='utf-8'?>
 <GameContent version="1.0">
   <Sprites>
-    <Sprite id="stone_sprite"><Animation state="idle" image="Images/Enemies/stone_fist.svg" drawWidth="1.05" drawHeight="1.1" /></Sprite>
+    <!-- 데굴돌 전용 이미지가 아직 없어 기존 돌 주먹 이미지를 임시 연결한다. -->
+    <Sprite id="rolling_stone"><Animation state="idle" image="Images/Enemies/stone_fist.svg" drawWidth="1.05" drawHeight="1.1" /></Sprite>
     <Sprite id="item.stone"><Animation state="idle" image="Images/Enemies/stone_fist.svg" /></Sprite>
     <Sprite id="harvest_golem">
       <Animation state="idle" image="Images/Actors/harvest_golem.svg" drawWidth="1.16" drawHeight="1.25" />

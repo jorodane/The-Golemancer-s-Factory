@@ -13,7 +13,7 @@ Assert(cooked.Content.Actions["transfer"].Failure == "retry", "XML failure bindi
 Assert(cooked.Fingerprint.Length == 64, "cook content fingerprint");
 Console.WriteLine($"PASS: {cooked.Content.Packs.Count} packs, {cooked.Registry.Actions.Count} action implementations, {cooked.Registry.Systems.Count} systems.");
 if (args.Contains("--example")) ExamplePack.Run(root);
-else if (!args.Contains("--foundation")) { InteractionTests.Run(cooked, root); BubbleTests.Run(cooked, root); QueueTests.Run(cooked, root); PlayFeelTests.Run(cooked); Campaign.Run(cooked, root); Regression.Run(cooked, root); DesktopTests.Run(cooked, root); }
+else if (!args.Contains("--foundation")) { InteractionTests.Run(cooked, root); BubbleTests.Run(cooked, root); QueueTests.Run(cooked, root); PlayFeelTests.Run(cooked); RollingStoneTests.Run(cooked); Campaign.Run(cooked, root); Regression.Run(cooked, root); DesktopTests.Run(cooked, root); }
 
 static void Assert(bool condition, string label)
 {

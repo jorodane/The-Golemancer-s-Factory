@@ -62,5 +62,6 @@ for i, preview in enumerate(frames):
     ImageDraw.Draw(preview).text((12, 12), 'Animation sheet frames - XML crops and pivots (QA preview)', fill='#274936')
     preview.save(out / f'frames-{i}.png')
 frames[0].save(out/'Animation-Preview.gif', save_all=True, append_images=frames[1:], duration=220, loop=0)
-print(f'PASS: {len(images)} actual images; {len(sprites)} RGBA sheets; 72 clips; {count} bounded, nonempty, distinct frames.')
+sheet_count = len({clip.get('image') for sprite in sprites for clip in sprite.findall('Animation')})
+print(f'PASS: {len(images)} actual images; {sheet_count} RGBA sheets; {len(sprites)} sprite bindings; {len(sprites)*len(states)} clips; {count} bounded, nonempty, distinct frames.')
 print(f'QA previews: {out}')

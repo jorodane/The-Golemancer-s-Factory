@@ -10,6 +10,8 @@
         <Tile char="r" type="rock" />
         <Tile char="s" type="shore" />
         <Tile char="c" type="cave" />
+        <Tile char="t" type="stone_field" />
+        <Tile char="v" type="gravel" />
       </Legend>
       <Rows>
         <Row>rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr</Row>
@@ -39,13 +41,13 @@
         <Row>rrgffffffffffffgggggggppggggggggggggggggggggggggggggggggggggggrr</Row>
         <Row>rrgffffffffffffpppppppppggggggggggggggggggggggggggggggggggggggrr</Row>
         <Row>rrgffffffffffffppppppppgggggggggggggggggggggggggggggggggggggggrr</Row>
-        <Row>rrgffffffffffffgggggggggggggggggggggggggggggggggggggggggggggggrr</Row>
-        <Row>rrgffffffffffffgggggggggggggggggggggggggggggggggggggggggggggggrr</Row>
-        <Row>rrgffffffffffffgggggggggggggggggggggggggggggggggggggggggggggggrr</Row>
-        <Row>rrgffffffffffffgggggggggggggggggggggggggggggggggggggggggggggggrr</Row>
-        <Row>rrgffffffffffffgggggggggggggggggggggggggggggggggggggggggggggggrr</Row>
-        <Row>rrgffffffffffffgggggggggggggggggggggggggggggggggggggggggggggggrr</Row>
-        <Row>rrggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggrr</Row>
+        <Row>rrgffffffffffffggggggggggggggggggggtttvttttgggggggggggggggggggrr</Row>
+        <Row>rrgffffffffffffggggggggggggggggggggttvttttvgggggggggggggggggggrr</Row>
+        <Row>rrgffffffffffffggggggggggggggggggggtvttttvtgggggggggggggggggggrr</Row>
+        <Row>rrgffffffffffffggggggggggggggggggggvttttvttgggggggggggggggggggrr</Row>
+        <Row>rrgffffffffffffggggggggggggggggggggttttvtttgggggggggggggggggggrr</Row>
+        <Row>rrgffffffffffffggggggggggggggggggggtttvttttgggggggggggggggggggrr</Row>
+        <Row>rrgggggggggggggggggggggggggggggggggttvttttvgggggggggggggggggggrr</Row>
         <Row>rrggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggrr</Row>
         <Row>rrggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggrr</Row>
         <Row>rrggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggrr</Row>
@@ -54,9 +56,10 @@
         <Row>rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr</Row>
       </Rows>
       <Spawns>
-        <Spawn id="stone-0" definition="stone_sprite" x="22" y="29" />
-        <Spawn id="stone-1" definition="stone_sprite" x="26" y="26" />
-        <Spawn id="stone-2" definition="stone_sprite" x="29" y="23" />
+        <!-- trail_stone_field: 주 동선 남쪽의 선택적 위험 구역. 다른 채집물은 배치하지 않는다. -->
+        <Spawn id="stone-0" definition="rolling_stone" x="37" y="28" />
+        <Spawn id="stone-1" definition="rolling_stone" x="40" y="30" />
+        <Spawn id="stone-2" definition="rolling_stone" x="36" y="32" />
         <Spawn id="golem-1" definition="harvest_golem" x="9" y="28" />
         <Spawn id="enrin" definition="enrin" x="8" y="22" />
         <Spawn id="merchant" definition="merchant" x="13" y="26" />

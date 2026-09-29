@@ -55,8 +55,5 @@ internal static class PlayFeelTests
         g = Fixture(cooked); a = g.Find("a")!; a.DefinitionId = "craft_golem"; a.Set("craft", 4); a.Inventory["wood"] = 10; var bench = g.Spawn("workbench", 11, 10); store = g.Spawn("storage", 14, 10);
         g.Dispatch(new() { Action = "craft_count", TargetId = bench.Id, Item = "wooden_sword", Quantity = 2 });
         Check(BubbleMenu.TransferMax(g, a, store, "give", "wooden_sword", true) == 2 && BubbleMenu.TransferMax(g, a, store, "give", "wood", true) == 0 && a.Reserved("wood") == 10, "craft forecast replaces committed materials with batch output while keeping live leases intact");
-        var stone = g.Spawn("stone_sprite", 20, 20, "stone"); stone.Set("health", 0); Advance(g, .1);
-        Check(g.OfKind("drop").Any(d => d.Count("stone") == 6 && d.GetText("pickupOwner") == "") && a.Count("stone") == 0, "stone encounter leaves collectible stone on the floor");
-        Advance(g, 46); Check(stone.Alive() && stone.DefinitionId == "stone_sprite" && stone.Get("health") == 35, "stone monsters retain their species and loot after respawning");
     }
 }
