@@ -103,6 +103,7 @@ internal sealed partial class MainWindow
             Click("bubble.back");if(!buttons.ContainsKey("bubble.slot.herb")||focusedFacility!=machine.Id||BubbleCenter!=facilityCenter)throw new Exception("Slot parent navigation lost facility focus or its position");
             CloseBubbles();if(facilityShadeLayer.Children.Count!=0||world.FocusedFacility.Length!=0)throw new Exception("Closing facility left its spotlight active");
             RunPlayFeelSmoke(SettleCircles, Click);
+            RunTerrainSmoke(directory);
             world.Reset();RefreshHud();UpdateLayout();world.InvalidateVisual();ClickTile(crafter.Tile,true);ShowCategories(crafter);
             SettleCircles();
             for(int i=0;i<3;i++){world.UpdateLayout();UpdateLayout();}

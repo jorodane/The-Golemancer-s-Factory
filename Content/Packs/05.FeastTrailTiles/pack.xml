@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ObjectPack id="feast_trail_tiles" version="1.0.0" contracts="1">
   <Depends id="foundation" minVersion="1.0.0" />
+  <Depends id="terrain_rules" minVersion="1.0.0" />
   <Data path="tileset.xml" />
 </ObjectPack>

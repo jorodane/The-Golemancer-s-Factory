@@ -12,8 +12,8 @@ packs = root / 'Content/Packs'
 out = root / 'TestResults/art'
 out.mkdir(parents=True, exist_ok=True)
 images = set()
-for name in ('05.FeastTrailTiles', '06.FeastTrailArt', '07.FeastTrailAnimations'):
-    for xml in (packs / name).glob('*.xml'):
+for folder in sorted(packs.iterdir()):
+    for xml in folder.glob('*.xml'):
         for entry in ET.parse(xml).iter():
             if 'image' in entry.attrib:
                 path = (xml.parent / entry.get('image')).resolve()
@@ -64,4 +64,15 @@ for i, preview in enumerate(frames):
 frames[0].save(out/'Animation-Preview.gif', save_all=True, append_images=frames[1:], duration=220, loop=0)
 sheet_count = len({clip.get('image') for sprite in sprites for clip in sprite.findall('Animation')})
 print(f'PASS: {len(images)} actual images; {sheet_count} RGBA sheets; {len(sprites)} sprite bindings; {len(sprites)*len(states)} clips; {count} bounded, nonempty, distinct frames.')
+dedicated = packs / '91.DeguldolArt'
+if dedicated.exists():
+    for clip in ET.parse(dedicated / 'sprites.xml').findall('.//Animation'):
+        sheet = Image.open(dedicated / clip.get('image')).convert('RGBA')
+        rectangles = clip.findall('Frame') or [clip]
+        for rect in rectangles:
+            x, y = int(rect.get('x', 0)), int(rect.get('y', 0))
+            w, h = int(rect.get('width', clip.get('frameWidth'))), int(rect.get('height', clip.get('frameHeight')))
+            assert 0 <= x < x+w <= sheet.width and 0 <= y < y+h <= sheet.height
+            assert np.count_nonzero(np.asarray(sheet.crop((x, y, x+w, y+h)).getchannel('A')) > 32) > 500
+    print('PASS: pulled dedicated Deguldol sheet (24 frames) and stone icon have valid, nonempty PNG crops.')
 print(f'QA previews: {out}')

@@ -1,6 +1,6 @@
 # 객체팩 작성 명세 v1
 
-실제 게임 DLL 12개가 이 계약으로 동작한다. `IGameModule`은 등록 시에만 호출되고, 개별 액션·조건·실패 처리·시스템·월드 객체를 레지스트리에 등록한다. 공유 타입은 `Golemancer.Contracts.dll` 하나다. Windows 모듈은 .NET Framework 4.8 / 계약 메이저 버전 1을 사용한다. Linux 검증용 모듈은 net10.0으로 별도 빌드하며 런타임별 DLL을 섞지 않는다.
+실제 게임 DLL 13개가 이 계약으로 동작한다. `IGameModule`은 등록 시에만 호출되고, 개별 액션·조건·실패 처리·시스템·월드·지형 마스크 객체를 레지스트리에 등록한다. 공유 타입은 `Golemancer.Contracts.dll` 하나다. Windows 모듈은 .NET Framework 4.8 / 계약 메이저 버전 1을 사용한다. Linux 검증용 모듈은 net10.0으로 별도 빌드하며 런타임별 DLL을 섞지 않는다.
 
 ## 배포 폴더
 

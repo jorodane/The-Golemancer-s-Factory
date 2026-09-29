@@ -2,16 +2,34 @@
 <GameContent version="1.0">
   <Tilesets>
     <Tileset id="feast_trail">
-      <Tile id="grass" image="Images/grass.svg" walkable="true" />
-      <Tile id="path" image="Images/path.svg" walkable="true" />
+      <Tile id="grass" image="Images/grass.svg" walkable="true">
+        <Terrain tags="vegetation"><Blend handler="terrain.grass" width=".30"><Param key="clump" value=".12" /></Blend></Terrain>
+      </Tile>
+      <Tile id="path" image="Images/path.svg" walkable="true">
+        <Terrain tags="soil"><Blend handler="terrain.scatter" width=".22"><Param key="grain" value=".055" /></Blend></Terrain>
+      </Tile>
       <!-- 전용 지면 이미지가 준비되기 전에는 기존 외부 이미지로 돌밭을 표시한다. -->
-      <Tile id="stone_field" image="Images/path.svg" walkable="true" />
-      <Tile id="gravel" image="Images/rock.svg" walkable="true" />
-      <Tile id="floor" image="Images/floor.svg" walkable="true" />
-      <Tile id="water" image="Images/water.svg" walkable="false" />
-      <Tile id="rock" image="Images/rock.svg" walkable="false" />
-      <Tile id="shore" image="Images/shore.svg" walkable="true" />
-      <Tile id="cave" image="Images/cave.svg" walkable="true" />
+      <Tile id="stone_field" image="Images/path.svg" walkable="true">
+        <Terrain tags="soil"><Blend handler="terrain.scatter" width=".24" /></Terrain>
+      </Tile>
+      <Tile id="gravel" image="Images/rock.svg" walkable="true">
+        <Terrain tags="stone"><Blend handler="terrain.scatter" width=".14" /></Terrain>
+      </Tile>
+      <Tile id="floor" image="Images/floor.svg" walkable="true">
+        <Terrain tags="floor"><Blend handler="terrain.smooth" width=".025" /><Receive distance=".025" strength=".08" /></Terrain>
+      </Tile>
+      <Tile id="water" image="Images/water.svg" walkable="false">
+        <Terrain tags="water"><Blend handler="terrain.smooth" width=".08" /><Receive distance=".04" strength=".4" rejectTags="vegetation" /></Terrain>
+      </Tile>
+      <Tile id="rock" image="Images/rock.svg" walkable="false">
+        <Terrain tags="stone"><Blend handler="terrain.smooth" width=".025" /><Receive distance=".025" strength=".15" /></Terrain>
+      </Tile>
+      <Tile id="shore" image="Images/shore.svg" walkable="true">
+        <Terrain tags="soil"><Blend handler="terrain.scatter" width=".20" /></Terrain>
+      </Tile>
+      <Tile id="cave" image="Images/cave.svg" walkable="true">
+        <Terrain tags="stone"><Blend handler="terrain.smooth" width=".04" /><Receive distance=".04" strength=".2" /></Terrain>
+      </Tile>
     </Tileset>
   </Tilesets>
 </GameContent>

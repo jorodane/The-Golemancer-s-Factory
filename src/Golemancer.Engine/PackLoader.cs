@@ -11,13 +11,15 @@ using Golemancer.Contracts;
 
 namespace Golemancer.Engine;
 
-public sealed class ModuleRegistry : IModuleRegistry
+public sealed class ModuleRegistry : IModuleRegistry, ITerrainRegistry
 {
     public Dictionary<string, IActionHandler> Actions { get; } = [];
     public Dictionary<string, IConditionHandler> Conditions { get; } = [];
     public Dictionary<string, IFailureHandler> Failures { get; } = [];
     public Dictionary<string, IWorldGenerator> Worlds { get; } = [];
     public List<IRuntimeSystem> Systems { get; } = [];
+    public Dictionary<string, ITerrainBlendRule> TerrainBlends { get; } = [];
+    public void TerrainBlend(string id, ITerrainBlendRule rule) => TerrainBlends.Add(id, rule);
     public void Action(string id, IActionHandler a) => Actions.Add(id, a);
     public void Condition(string id, IConditionHandler a) => Conditions.Add(id, a);
     public void Failure(string id, IFailureHandler a) => Failures.Add(id, a);
@@ -45,7 +47,7 @@ public sealed class PackLoadContext(string file) : AssemblyLoadContext(Path.GetF
 
 public sealed record CookedGame(ContentCatalog Content, ModuleRegistry Registry, string Fingerprint);
 
-public static class PackLoader
+public static partial class PackLoader
 {
 #if NETFRAMEWORK
     public const string RuntimeFolder = "net48";
@@ -160,9 +162,7 @@ public static class PackLoader
             if (recipe.Work <= 0 || recipe.Amount <= 0 || recipe.Inputs.Values.Any(n => n <= 0)) throw new InvalidDataException($"Invalid recipe quantities: {recipe.Id}");
         }
         if (catalog.Packs.Count == 0) throw new InvalidDataException("No object packs found.");
-        foreach (var map in catalog.Maps.Values)
-            if (!catalog.Tilesets.TryGetValue(map.Map.TilesetId, out var set) || map.Map.Tiles.Any(t => !set.Tiles.ContainsKey(t)))
-                throw new InvalidDataException($"Map {map.Id} has an unresolved tileset or tile type: {map.Map.TilesetId}");
+        ValidateTerrain(catalog, registry);
         return new(catalog, registry, Hash(Encoding.UTF8.GetBytes(fingerprint.ToString())));
     }
     private static void ValidateCondition(ConditionNode? node, ModuleRegistry registry)
@@ -215,16 +215,13 @@ public static class PackLoader
                 if (image.Length == 0 || tileId.Length == 0) throw new InvalidDataException("Tiles require id and image");
                 var tile = new TileDef { Id = tileId, ImagePath = SafePath(packDirectory, image), Walkable = B(t, "walkable", true), SourceX = (int)N(t, "x"), SourceY = (int)N(t, "y"), SourceWidth = (int)N(t, "width"), SourceHeight = (int)N(t, "height") };
                 if (tile.SourceX < 0 || tile.SourceY < 0 || tile.SourceWidth < 0 || tile.SourceHeight < 0 || (tile.SourceWidth == 0) != (tile.SourceHeight == 0)) throw new InvalidDataException("Invalid tile atlas rectangle");
+                tile.Terrain = ReadTerrain(t.Element("Terrain"), packDirectory);
                 set.Tiles[tile.Id] = tile;
             }
         }
         foreach (var e in root.Element("Maps")?.Elements("Map") ?? [])
         {
-            var legend = e.Element("Legend")!.Elements("Tile").ToDictionary(t => S(t, "char")[0], t => S(t, "type"));
-            var rows = e.Element("Rows")!.Elements("Row").Select(r => r.Value.Trim()).ToArray();
-            int width = (int)N(e, "width"), height = (int)N(e, "height");
-            if (rows.Length != height || rows.Any(r => r.Length != width)) throw new InvalidDataException("Invalid tile map dimensions");
-            c.Maps[S(e, "id")] = new() { Id = S(e, "id"), Map = new() { TilesetId = S(e, "tileset", "feast_trail"), Width = width, Height = height, Tiles = rows.SelectMany(r => r.Select(ch => legend[ch])).ToArray() }, Spawns = e.Element("Spawns")!.Elements("Spawn").Select(s => new SpawnDefinition(S(s, "id"), S(s, "definition"), (int)N(s, "x"), (int)N(s, "y"))).ToList() };
+            c.Maps[S(e, "id")] = ReadMap(e);
         }
         foreach (var e in root.Element("Texts")?.Elements("Text") ?? []) c.Texts[S(e, "id")] = e.Value;
         foreach (var e in root.Element("ItemCategories")?.Elements("Category") ?? []) c.ItemCategories[S(e, "id")] = S(e, "name", S(e, "id"));

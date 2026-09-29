@@ -6,7 +6,7 @@ public sealed class World : IWorldGenerator
     public void Populate(IGameContext c)
     {
         var map = c.Content.Maps["feast_trail"];
-        c.State.Map = new() { TilesetId = map.Map.TilesetId, Width = map.Map.Width, Height = map.Map.Height, Tiles = (string[])map.Map.Tiles.Clone() };
+        c.State.Map = map.Map.Clone();
         foreach (var spawn in map.Spawns)
         {
             var obj = c.Spawn(spawn.Definition, spawn.X, spawn.Y, spawn.Id);

@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Golemancer.Contracts;
+using Golemancer.Engine;
 namespace Golemancer.Desktop;
 
 internal sealed class AssetStore
@@ -9,13 +10,14 @@ internal sealed class AssetStore
     private readonly ContentCatalog content;
     private readonly Dictionary<string, ImageSource> images = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, ImageSource> frames = [];
+    private readonly Dictionary<(TileDef, bool), TerrainTexture> terrainTextures = [];
     public int LoadedImages => images.Count;
     public AssetStore(string root, ContentCatalog content)
     {
         this.content = content;
         // Fail with the real missing path. Never synthesize replacement terrain in the renderer.
         foreach (var set in content.Tilesets.Values)
-            foreach (var tile in set.Tiles.Values) Tile(tile);
+            foreach (var tile in set.Tiles.Values) { Tile(tile); if (tile.Terrain.Finish is { } finish) Load(finish.ImagePath); }
         foreach (var sprite in content.Sprites.Values)
             foreach (var clip in sprite.Animations.Values)
                 for (int i = 0; i < clip.Frames; i++) Frame(clip, i);
@@ -54,6 +56,17 @@ internal sealed class AssetStore
         string key = $"tile:{tile.ImagePath}:{tile.SourceX}:{tile.SourceY}:{tile.SourceWidth}:{tile.SourceHeight}";
         if (!frames.TryGetValue(key, out var frame)) frames[key] = frame = Crop(Load(tile.ImagePath), tile.SourceX, tile.SourceY, tile.SourceWidth, tile.SourceHeight);
         return frame;
+    }
+    public TerrainTexture TerrainTexture(TileDef tile, bool finish)
+    {
+        if (terrainTextures.TryGetValue((tile, finish), out var cached)) return cached;
+        var source = finish ? Load(tile.Terrain.Finish!.ImagePath) : Tile(tile);
+        int width = Math.Min(2048, (int)Math.Ceiling(64 * tile.Terrain.RepeatX)), height = Math.Min(2048, (int)Math.Ceiling(64 * tile.Terrain.RepeatY));
+        var visual = new DrawingVisual();
+        using (var dc = visual.RenderOpen()) dc.DrawImage(source, new Rect(0, 0, width, height));
+        var bitmap = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32); bitmap.Render(visual); bitmap.Freeze();
+        var pixels = new byte[width * height * 4]; bitmap.CopyPixels(pixels, width * 4, 0);
+        terrainTextures[(tile, finish)] = cached = new(width, height, pixels); return cached;
     }
     public AnimationDef? Clip(string id, string state = "idle")
     {

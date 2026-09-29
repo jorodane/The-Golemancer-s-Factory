@@ -2,13 +2,20 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using Golemancer.Contracts;
+using Golemancer.Engine;
 namespace Golemancer.Desktop;
 
 internal sealed class WorldView : FrameworkElement
 {
     private readonly DesktopSession session;
     private readonly AssetStore assets;
+    private readonly TerrainRenderer terrainRenderer;
+    private TerrainChunkCache<BitmapSource>? terrain;
+    internal int TerrainDrawCount { get; private set; }
+    internal long TerrainBakeCount => terrain?.Builds ?? 0;
+    internal int TerrainPendingCount => terrain?.PendingCount ?? 0;
     private readonly Dictionary<string, Pose> poses = [];
     public string Highlighted { get; set; } = "";
     public bool? DragValid { get; set; }
@@ -28,6 +35,8 @@ internal sealed class WorldView : FrameworkElement
     public WorldView(DesktopSession session, AssetStore assets)
     {
         this.session = session; this.assets = assets; Focusable = true; ClipToBounds = true;
+        terrainRenderer = new(session.Game.Content, session.Game.Registry, assets.TerrainTexture);
+        Unloaded += (_, _) => terrain?.Clear();
         MouseMove += (_, e) =>
         {
             var point = e.GetPosition(this);
@@ -47,7 +56,7 @@ internal sealed class WorldView : FrameworkElement
         LostMouseCapture += (_, _) => panning = false;
         MouseWheel += (_, e) => { Zoom = Math.Max(26, Math.Min(96, Zoom + e.Delta / 60.0)); InvalidateVisual(); e.Handled = true; };
     }
-    public void Reset() { poses.Clear(); Follow = false; Selected = Highlighted = CommandAction = ""; Building = ""; CenterOnActor(); }
+    public void Reset() { poses.Clear(); terrain?.Clear(); Follow = false; Selected = Highlighted = CommandAction = ""; Building = ""; CenterOnActor(); }
     public void CenterOnActor() { if (session.Actor is { } actor) { CameraX = actor.WorldX + .5; CameraY = actor.WorldY + .5; Follow = actor.GetText("mode") == "combat"; } }
     public void Pan(double x, double y)
     { if (session.Actor?.GetText("mode") == "combat") return; Follow = false; CameraX = Math.Max(0, Math.Min(session.Game.State.Map.Width, CameraX + x)); CameraY = Math.Max(0, Math.Min(session.Game.State.Map.Height, CameraY + y)); InvalidateVisual(); }
@@ -64,14 +73,28 @@ internal sealed class WorldView : FrameworkElement
         var g = session.Game; var s = g.State; var a = session.Actor;
         if (Follow && a?.GetText("mode") == "combat") { CameraX += (a.WorldX + .5 - CameraX) * .16; CameraY += (a.WorldY + .4 - CameraY) * .16; }
         dc.DrawRectangle(Brushes.Black, null, new Rect(RenderSize));
-        if (!g.Content.Tilesets.TryGetValue(s.Map.TilesetId, out var set)) { Text(dc, "저장된 타일셋 팩을 다시 설치해줘: " + s.Map.TilesetId, new Point(20,20)); return; }
+        if (!g.Content.Tilesets.ContainsKey(s.Map.TilesetId)) { Text(dc, "저장된 타일셋 팩을 다시 설치해줘: " + s.Map.TilesetId, new Point(20,20)); return; }
         int left = Math.Max(0,(int)(CameraX - ActualWidth / Zoom / 2) - 1), top = Math.Max(0,(int)(CameraY - ActualHeight / Zoom / 2) - 1);
         int right = Math.Min(s.Map.Width,(int)(CameraX + ActualWidth / Zoom / 2) + 2), bottom = Math.Min(s.Map.Height,(int)(CameraY + ActualHeight / Zoom / 2) + 2);
-        for (int y = top; y < bottom; y++) for (int x = left; x < right; x++)
+        // Rasterize SVG/PNG artwork and masks only on terrain changes. Zoom/panning just draw regions.
+        int resolution = Zoom < 48 ? 32 : 64;
+        if (terrain is null || terrain.Resolution != resolution)
         {
-            if (set.Tiles.TryGetValue(s.Map.At(x,y), out var tile)) dc.DrawImage(assets.Tile(tile), new Rect(Screen(x,y),new Size(Zoom+.5,Zoom+.5)));
-            else Text(dc,"?",Screen(x,y));
+            terrain?.Dispose();
+            terrain = new(terrainRenderer, raster =>
+            {
+                var image = BitmapSource.Create(raster.Width, raster.Height, 96, 96, PixelFormats.Pbgra32, null, raster.Pixels, raster.Width * 4);
+                image.Freeze(); return image;
+            }, resolution: resolution, capacity: resolution == 64 ? 128 : 256, background: true);
         }
+        TerrainDrawCount = 0;
+        foreach (var region in terrain.Visible(s.Map, s.Seed, left, top, right, bottom))
+        {
+            double gutter = region.Gutter;
+            dc.DrawImage(region.Image, new Rect(Screen(region.X - gutter, region.Y - gutter), new Size((region.Width + gutter * 2) * Zoom, (region.Height + gutter * 2) * Zoom)));
+            TerrainDrawCount++;
+        }
+        string hoveredId = IsMouseOver ? Target(Hover)?.Id ?? "" : "";
         foreach (var o in s.Objects.Values.OrderBy(o => o.WorldY + (g.Definition(o)?.Height ?? 1)).ThenBy(o=>o.WorldX))
         {
             var d = g.Definition(o); if (d is null || o.Get("depleted") > 0) continue;
@@ -88,7 +111,7 @@ internal sealed class WorldView : FrameworkElement
             if (o.X<left-4||o.X>right+4||o.Y<top-4||o.Y>bottom+4) continue;
             var p=Screen(pose.X,pose.Y); double w=d.Width*Zoom,h=d.Height*Zoom;
             if (o.Id==s.ControlledId && session.Started) dc.DrawEllipse(null,new Pen(SvgImage.Brush("#f9e4a7"),2),new Point(p.X+Zoom/2,p.Y+Zoom*.84),Zoom*.43,Zoom*.18);
-            if (o.Id==Highlighted || o.Id==Selected || IsMouseOver && Target(Hover)?.Id == o.Id && g.IsGolem(o)) dc.DrawRectangle(SvgImage.Brush("#f5edaa25"),new Pen(SvgImage.Brush(DragValid == false ? "#ff8b7c" : "#f5edaa"),2),new Rect(p,new Size(w,h)));
+            if (o.Id==Highlighted || o.Id==Selected || hoveredId == o.Id && g.IsGolem(o)) dc.DrawRectangle(SvgImage.Brush("#f5edaa25"),new Pen(SvgImage.Brush(DragValid == false ? "#ff8b7c" : "#f5edaa"),2),new Rect(p,new Size(w,h)));
             if(g.Kind(o)=="drop")
             {
                 int index=0;foreach(var item in o.Inventory.Where(k=>k.Value>0).Take(4))

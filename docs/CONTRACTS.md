@@ -4,6 +4,8 @@
 
 ## Lifecycle and ownership
 
+Terrain modules additionally opt into `ITerrainRegistry.TerrainBlend`. This is a separate interface; existing `IModuleRegistry` implementations and old pack entry points remain valid. `ITerrainBlendRule.Coverage` is a pure, deterministic, concurrent-safe mask operation on a value sample and read-only settings. It has no simulation context or I/O. Only this visual operation runs on terrain workers; gameplay handlers retain the simulation-thread contract below. External images supply all artwork. See [TERRAIN_PACKS.md](TERRAIN_PACKS.md).
+
 Registration -> XML definition load -> reference validation -> deterministic cook fingerprint -> world creation or save restoration -> fixed simulation steps. The host owns the single simulation thread and persistence. Modules operate only during calls through `IGameContext`. No module retains the context on background threads. The WPF dispatcher sends held input and actions directly to the authoritative simulation at fixed 1/60-second steps. Systems use the supplied dt; headless callers may use other steps up to 0.25 seconds. No HTTP transport is involved.
 
 Definition IDs are stable content identities. WorldObject.Id is a persistent instance identity. Pack ID is a distribution identity. Multiple definitions, instances and implementation DLLs may belong to a pack. Constructors do not mutate the world. `IWorldGenerator.Populate` creates the initial instances.
@@ -43,6 +45,8 @@ Conditions are independently registered objects. AND/OR recursively call the reg
 Rules.Placement is shared by the native preview and construction checks. Ground factories and storage can be placed outdoors. Retail fixtures declare both Shop placement and shopOnly=true; only these fixtures count against shop capacity.
 
 ## Pack and save compatibility
+
+`TileMap.Layers` contains ordered visual paint layers with full-size cell arrays and empty-string holes. Collision still uses the original base `Tiles`; overlays do not affect pathfinding. `TileMap.Clone` deep-copies cell arrays. Map/layer JSON extension data and unregistered tile IDs survive absent packs. Legacy saves default to no overlays. The renderer consumes detached region snapshots and never repairs, overwrites or removes saved terrain. Layer dimensions must match the base map.
 
 The cooker topologically sorts declared dependencies and validates minimum versions and contract major version. A missing dependency or invalid pack stops cooking with a precise diagnostic. An unresolved individual action is disabled with a warning. Later data definitions with the same ID override earlier definitions in deterministic pack order. Tilesets merge by tile ID, and sprites merge by animation state; one matching tile or animation is replaced as a whole. Visual offsets never alter simulation tile coordinates. XML never loads DTDs or external entities; pack paths remain inside the pack directory.
 

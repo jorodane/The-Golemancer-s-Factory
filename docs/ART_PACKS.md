@@ -11,6 +11,7 @@
 | `05.FeastTrailTiles` | `feast_trail_tiles` | 지형 이미지, 타일 종류·통행 여부 |
 | `06.FeastTrailArt` | `feast_trail_art` | 정적 SVG, 시설·자원·아이콘·초상화 |
 | `07.FeastTrailAnimations` | `feast_trail_animations` | 투명 PNG 12장과 애니메이션 정의 |
+| `91.DeguldolArt` | `deguldol_art` | 데굴돌 전용 시트 24프레임과 돌 아이콘 |
 
 PNG는 투명 RGBA를 권장한다. SVG는 path, rect, ellipse, circle, line, polygon, polyline, group, text, linearGradient와 기본 변환을 지원한다. 필터·마스크·외부 이미지·스크립트가 들어간 복잡한 SVG는 PNG로 내보낸다. 이미지팩이 누락되거나 프레임이 시트 밖을 가리키면 시작 시 오류에 경로 또는 원인을 표시한다.
 
@@ -41,6 +42,8 @@ PNG는 투명 RGBA를 권장한다. SVG는 path, rect, ellipse, circle, line, po
 ```
 
 영역을 생략하면 이미지 전체가 타일 하나다. `Tile` 하나는 같은 ID의 기존 정의를 교체하고 나머지 타일은 유지한다. `walkable`은 실제 이동 판정에 사용된다. 새 타일셋은 새 ID를 만들고 맵에 `<Map ... tileset="my_tileset">`으로 연결한다. 이미 저장된 맵은 저장된 TilesetId를 사용한다.
+
+영역 캐시와 선택적 `Terrain` 설정으로 풀 무리·흙 알갱이·양쪽의 경계 조건을 적용한다. 위에 덮는 레이어와 카펫의 실/안쪽 마감 이미지는 [TERRAIN_PACKS.md](TERRAIN_PACKS.md)를 참고한다. 실제 기본/마감 이미지를 그대로 샘플링하며 DLL은 표시 비율만 계산한다.
 
 ## 애니메이션별 시트와 오프셋
 

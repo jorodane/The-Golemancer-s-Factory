@@ -42,9 +42,23 @@ public sealed class TileMap
     public int Width { get; set; } = 64;
     public int Height { get; set; } = 40;
     public string[] Tiles { get; set; } = [];
+    public List<TerrainMapLayer> Layers { get; set; } = [];
+    [JsonExtensionData] public Dictionary<string, JsonElement> Extra { get; set; } = [];
     public bool Inside(int x, int y) => x >= 0 && y >= 0 && x < Width && y < Height;
     public string At(int x, int y) => Inside(x, y) && Tiles.Length == Width * Height ? Tiles[y * Width + x] : "void";
     public void Set(int x, int y, string type) { if (Inside(x, y)) Tiles[y * Width + x] = type; }
+    public void SetLayer(string id, int x, int y, string type)
+    {
+        if (!Inside(x, y)) return;
+        var layer = Layers.First(l => l.Id == id);
+        if (layer.Tiles.Length != Width * Height) throw new InvalidOperationException("Invalid terrain layer dimensions");
+        layer.Tiles[y * Width + x] = type;
+    }
+    public TileMap Clone() => new()
+    {
+        TilesetId = TilesetId, Width = Width, Height = Height, Tiles = (string[])Tiles.Clone(), Extra = new(Extra),
+        Layers = Layers.Select(l => new TerrainMapLayer { Id = l.Id, Order = l.Order, TilesetId = l.TilesetId, Visible = l.Visible, Tiles = (string[])l.Tiles.Clone(), Extra = new(l.Extra) }).ToList()
+    };
 }
 
 public sealed class WorldObject
@@ -319,6 +333,7 @@ public sealed class TileDef
     public int SourceY { get; set; }
     public int SourceWidth { get; set; }
     public int SourceHeight { get; set; }
+    public TerrainVisualDef Terrain { get; set; } = new();
 }
 public sealed class SpriteDef
 {

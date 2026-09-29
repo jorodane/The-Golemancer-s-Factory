@@ -16,7 +16,8 @@
       "modules\\Golemancer.Failures\\Golemancer.Failures.csproj",
       "tests\\Golemancer.Verification\\Golemancer.Verification.csproj",
       "src\\Golemancer.Contracts\\Golemancer.Contracts.csproj",
-      "src\\Golemancer.Engine\\Golemancer.Engine.csproj"
+      "src\\Golemancer.Engine\\Golemancer.Engine.csproj",
+      "modules\\Golemancer.Terrain\\Golemancer.Terrain.csproj"
     ]
   }
 }

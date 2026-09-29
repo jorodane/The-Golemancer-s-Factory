@@ -289,6 +289,7 @@ public sealed partial class Simulation : IGameContext
     {
         var state = JsonSerializer.Deserialize<GameState>(File.ReadAllText(path), Json) ?? throw new InvalidDataException("Empty save");
         if (state.SchemaVersion != 1 || state.Map.Width < 1 || state.Map.Height < 1 || state.Map.Width > 1024 || state.Map.Height > 1024 || state.Map.Tiles.Length != state.Map.Width * state.Map.Height) throw new InvalidDataException("Unsupported or damaged save");
+        if (state.Map.Layers.Any(l => l.Tiles.Length != state.Map.Width * state.Map.Height)) throw new InvalidDataException("Damaged saved terrain layer");
         return state;
     }
 }
