@@ -1,5 +1,6 @@
 using Golemancer.Contracts;
 using Golemancer.Engine;
+using Golemancer.Desktop;
 
 internal static class ExamplePack
 {
@@ -17,6 +18,15 @@ internal static class ExamplePack
         if (!build.Ok) throw new Exception(build.Message);
         for (int i = 0; i < 60; i++) s.Tick(.1);
         var table = s.State.Objects.Values.Single(o => o.DefinitionId == "tea.table"); crafter.Set("health", 50);
+        var menu = InteractionChoices.Additional(s, crafter, table);
+        if (menu.Count != 1 || menu[0].ActionId != "tea.rest") throw new Exception("Custom action was lost or its singleton directory was not compressed after removing the action list");
+        game.Content.PreserveMenuDirectories.Add("휴식/차");
+        menu = InteractionChoices.Additional(s, crafter, table);
+        if (menu.Count != 1 || menu[0].Label != "차" || menu[0].Children.Single().ActionId != "tea.rest") throw new Exception("Custom action directory preservation was lost");
+        game.Content.PreserveMenuDirectories.Remove("휴식/차");
+        var harvester = s.Spawn("harvest_golem", 7, 26);
+        if (InteractionChoices.Additional(s, harvester, table).Count != 0) throw new Exception("Custom action condition was bypassed in the top-level menu");
+        Console.WriteLine("PASS: custom DLL action remains directly reachable, preserves XML folders and obeys conditions without a duplicate action list");
         var rest = s.Dispatch(new() { Action = "tea.rest", ActorId = crafter.Id, TargetId = table.Id });
         if (!rest.Ok) throw new Exception(rest.Message);
         for (int i = 0; i < 30; i++) s.Tick(.1);

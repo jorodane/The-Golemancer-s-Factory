@@ -1,6 +1,19 @@
 using Golemancer.Contracts;
 namespace Golemancer.Desktop;
 
+// Each navigation frame owns its last visible center, independently of its parent.
+internal sealed class BubblePosition(double x, double y)
+{
+    public double X { get; private set; } = x;
+    public double Y { get; private set; } = y;
+    public bool Constrain(double width, double height)
+    {
+        var next = BubbleLayout.Center(X, Y, width, height);
+        bool moved = next.X != X || next.Y != Y;
+        X = next.X; Y = next.Y;
+        return moved;
+    }
+}
 internal static class BubbleLayout
 {
     public const int PageSize = 8;

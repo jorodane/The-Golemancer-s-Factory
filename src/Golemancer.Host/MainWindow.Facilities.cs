@@ -14,7 +14,7 @@ internal sealed partial class MainWindow
     {
         focusedFacility = target.Id; world.FocusedFacility = target.Id; facilityStockSignature = facilityMaskSignature = "";
         queueBubbles |= Held("queue"); session.ClearInput(); bubbleActor = session.Actor?.Id ?? "";
-        var frame = new BubbleFrame(target.Name, () => []); facilityFrame = frame;
+        var frame = CreateBubbleFrame(target.Name, () => []); facilityFrame = frame;
         frame.Render = () =>
         {
             var definition = Game.Definition(target); if (definition is null) return;
@@ -33,7 +33,7 @@ internal sealed partial class MainWindow
                 return entry;
             }).ToList();
             entries.Add(Leaf("take", "물건 꺼내기", () => ShowTransfer(target, "take"), "완성품과 보관 중인 물건을 가져와."));
-            entries.Add(Leaf("actions", "시설 행동", () => ShowBubbles(target)));
+            entries.AddRange(InteractionEntries(target, inputs: true));
             int pages = BubbleLayout.Pages(entries.Count); frame.Page = Math.Min(frame.Page, pages - 1);
             var shown = entries.Skip(frame.Page * BubbleLayout.PageSize).Take(BubbleLayout.PageSize).ToList();
             for (int i = 0; i < shown.Count; i++)
@@ -45,8 +45,7 @@ internal sealed partial class MainWindow
                     button.PreviewMouseRightButtonDown += (_, e) => { e.Handled = true; ShowSlotTransfer(target, slot, "take"); };
                 }
             }
-            var back = AddBubble(Leaf("back", "닫기", BackBubble), 0, 1, center: true);
-            Canvas.SetTop(back, BubbleCenter.Y + 170);
+            AddBackBubble();
             if (pages > 1)
             {
                 AddPageButton("previous", "‹", () => { frame.Page = (frame.Page + pages - 1) % pages; RenderBubbles(); }, -60);
@@ -56,7 +55,7 @@ internal sealed partial class MainWindow
             caption.Width = 320; caption.TextAlignment = TextAlignment.Center;
             Canvas.SetLeft(caption, BubbleCenter.X - 160); Canvas.SetTop(caption, BubbleCenter.Y - 198); bubbleLayer.Children.Add(caption);
         };
-        bubbleHistory.Add(frame); RenderBubbles(); RefreshFacilityFocus();
+        PushBubbleFrame(frame); RefreshFacilityFocus();
     }
     private void ShowSlotTransfer(WorldObject target, InputSlotDef slot, string direction)
     {

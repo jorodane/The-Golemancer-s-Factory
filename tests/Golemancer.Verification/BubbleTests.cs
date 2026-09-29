@@ -14,6 +14,15 @@ internal static class BubbleTests
         Check(Math.Abs(positions[0].X) < .001 && positions[0].Y < 0 && positions[1].X > 0 && positions[1].Y < 0 && positions[2].X > 0 && Math.Abs(positions[2].Y) < .001, "circular choices begin at twelve o'clock and proceed clockwise");
         Check(positions.All(p => positions.Where(q => q != p).All(q => Math.Sqrt(Math.Pow(p.X - q.X, 2) + Math.Pow(p.Y - q.Y, 2)) > BubbleLayout.Diameter * BubbleLayout.HoverScale)), "all eight enlarged circles remain separated");
         Check(7 * BubbleLayout.Stagger < .07 && 7 * BubbleLayout.Stagger + BubbleLayout.Settle < .3, "clockwise stagger completes in under 300ms");
+        foreach (var click in new[] { (4.0, 4.0), (1096.0, 4.0), (4.0, 716.0), (1096.0, 716.0) })
+        {
+            var position = new BubblePosition(click.Item1, click.Item2);
+            Check(position.Constrain(1100, 720) && position.X >= 190 && position.X <= 910 && position.Y >= 205 && position.Y <= 430 && !position.Constrain(1100, 720), "edge menu center is corrected once at " + click);
+        }
+        var parentPosition = new BubblePosition(500, 330); var childPosition = new BubblePosition(626, 330);
+        Check(!parentPosition.Constrain(1100, 720) && !childPosition.Constrain(1100, 720) && parentPosition.X == 500 && childPosition.X == 626, "submenu owns its click position without shifting the remembered parent");
+        childPosition.Constrain(800, 600);
+        Check(childPosition.X == 610 && childPosition.Y == 310 && parentPosition.X == 500 && parentPosition.Y == 330 && !childPosition.Constrain(1100, 720), "resized frame remembers its corrected visible position independently");
         var above = BubbleLayout.PreviewPosition(600, 500, 310, 200, 1100, 720);
         var edge = BubbleLayout.PreviewPosition(920, 120, 310, 230, 1100, 720);
         Check(above.Y + 200 < 500 - BubbleLayout.Diameter / 2 && edge.X >= 8 && edge.X + 310 < 920 - BubbleLayout.Diameter / 2 && edge.Y >= 8 && edge.Y + 230 <= 720, "hover preview prefers above and avoids the circle at viewport edges");
@@ -74,10 +83,18 @@ internal static class BubbleTests
         s.Give(noFuel, "wood", 1); Advance(s, 3.5); Check(noFuel.Count("springwater_jelly") == 1, "fuel arrival resumes work for an old object using new XML defaults");
         var legacy = s.Spawn("herb_fumigator", 23, 25); legacy.Production.Add(new() { RecipeId = "springwater_jelly", IngredientsCommitted = true, Progress = 14 }); s.Give(legacy, "wood", 1); Advance(s, 1);
         Check(legacy.Count("springwater_jelly") == 1 && legacy.Production.Count == 0, "already committed queues from old saves finish without a second ingredient debit");
-        Check(!InteractionChoices.For(s, actor, f).Any(c => c.Panel == "recipes"), "automatic facilities do not expose manual production reservations");
+        Check(!InteractionChoices.For(s, actor, f).Any(c => c.Panel == "recipes") && !ActionIds(InteractionChoices.Additional(s, actor, f)).Any(id => id.StartsWith("craft_", StringComparison.Ordinal)), "automatic facilities do not expose manual production reservations");
+        foreach (var objectId in new[] { "craft_golem", "merchant", "enrin", "order_board", "mana_tower", "workbench", "herb_fumigator" })
+        {
+            var subject = s.Spawn(objectId, 30, 25);
+            var primary = InteractionChoices.For(s, actor, subject);
+            var extra = ActionIds(InteractionChoices.Additional(s, actor, subject)).ToArray();
+            Check(!primary.Any(c => c.Id == "actions" || c.Panel == "actions") && !extra.Intersect(primary.Select(c => c.Action)).Any() && !extra.Intersect(new[] { "transfer", "buy", "assemble", "order", "charge", "craft_single", "craft_count", "craft_until" }).Any(), objectId + ": top-level actions have no redundant list or duplicate specialized commands");
+        }
         var fill = s.Spawn("herb_fumigator", 26, 25); fill.Data["autoProduce"] = "false";
         fill.OutputInventory["springwater_jelly"] = 20; actor.Inventory["springwater_jelly"] = 5; actor.SetPosition(25, 25);
         var filled = s.Dispatch(new() { ActorId = actor.Id, Action = "transfer", TargetId = fill.Id, Item = "springwater_jelly", Quantity = 3, Mode = "fill" });
         Check(filled.Ok && fill.Inventory.GetValueOrDefault("springwater_jelly") == 3 && fill.OutputInventory["springwater_jelly"] == 20 && actor.Count("springwater_jelly") == 2, "fill-to feeds liquid inputs independently of existing finished jelly");
     }
+    private static IEnumerable<string> ActionIds(IEnumerable<MenuEntry> entries) => entries.SelectMany(e => e.ActionId.Length > 0 ? new[] { e.ActionId } : ActionIds(e.Children));
 }

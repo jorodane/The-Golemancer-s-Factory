@@ -39,8 +39,24 @@ internal static class InteractionChoices
         }
         foreach(var id in def.Actions.Where(id=>id is "dismantle" or "challenge" or "enter_cave" or "talk"))
             if(!result.Any(c=>c.Action==id))result.Add(new(id,game.Content.Actions[id].Name,Action:id));
-        result.Add(new("actions","행동 목록","actions"));
         return result;
     }
-    public static InteractionChoice? Quick(Simulation game,WorldObject actor,WorldObject target) => For(game,actor,target).FirstOrDefault(c=>c.Id!="actions");
+    public static InteractionChoice? Quick(Simulation game,WorldObject actor,WorldObject target) => For(game,actor,target).FirstOrDefault();
+    public static List<MenuEntry> Additional(Simulation game, WorldObject actor, WorldObject target)
+    {
+        var choices = For(game, actor, target);
+        var covered = new HashSet<string>(choices.Where(c => c.Action.Length > 0).Select(c => c.Action));
+        foreach (var choice in choices)
+            foreach (string id in choice.Panel switch
+            {
+                "transfer" => new[] { "transfer" }, "shop" => new[] { "buy" }, "assembly" => new[] { "assemble" },
+                "equipment" => new[] { "equip", "upgrade_golem" }, "orders" => new[] { "order" }, "charge" => new[] { "charge" }, _ => Array.Empty<string>()
+            }) covered.Add(id);
+        bool recipesCovered = choices.Any(c => c.Panel == "recipes") || game.Setting(target, "autoProduce") == "true";
+        var definitions = (game.Definition(target)?.Actions ?? []).Distinct().Where(id => !covered.Contains(id) && !(recipesCovered && id.StartsWith("craft_", StringComparison.Ordinal)))
+            .Select(id => game.Content.Actions.GetValueOrDefault(id))
+            .Where(d => d is not null && game.Registry.Actions.ContainsKey(d.Handler) && (d.Condition is null || game.Evaluate(d.Condition, actor, target))).Cast<ActionDef>();
+        // Retain XML directories and singleton compression without a redundant action-list wrapper.
+        return MenuBuilder.Build(definitions, game.Content.PreserveMenuDirectories);
+    }
 }

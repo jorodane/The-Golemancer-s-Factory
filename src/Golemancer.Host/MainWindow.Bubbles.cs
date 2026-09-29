@@ -10,8 +10,14 @@ internal sealed partial class MainWindow
 {
     private readonly Canvas bubbleLayer = new();
     private Point bubbleAnchor;
-    private sealed class BubbleFrame(string title, Func<List<BubbleEntry>> build)
-    { public string Title = title; public Func<List<BubbleEntry>> Build = build; public int Page; public Action? Render; }
+    private sealed class BubbleFrame(string title, Func<List<BubbleEntry>> build, Point position)
+    {
+        public string Title = title;
+        public Func<List<BubbleEntry>> Build = build;
+        public BubblePosition Position = new(position.X, position.Y);
+        public int Page;
+        public Action? Render;
+    }
     private readonly List<BubbleFrame> bubbleHistory = [];
     private TextBox? quantityInput;
     private Slider? quantitySlider;
@@ -30,32 +36,41 @@ internal sealed partial class MainWindow
         ClearBubbleVisuals(); bubbleHistory.Clear(); selected = ""; world.Selected = ""; bubbleActor = "";
         if (open) world.Focus();
     }
-    private Point BubbleCenter { get { var p = BubbleLayout.Center(bubbleAnchor.X, bubbleAnchor.Y, world.ActualWidth, world.ActualHeight); return new(p.X, p.Y); } }
+    private Point BubbleCenter { get { var p = bubbleHistory[bubbleHistory.Count - 1].Position; return new(p.X, p.Y); } }
+    private BubbleFrame CreateBubbleFrame(string title, Func<List<BubbleEntry>> build) =>
+        new(title, build, bubbleHistory.Count == 0 ? bubbleAnchor : NativePointer.Position(world));
+    private void PushBubbleFrame(BubbleFrame frame, bool animate = false, bool present = true)
+    {
+        queueBubbles |= Held("queue"); session.ClearInput(); bubbleActor = session.Actor?.Id ?? "";
+        bubbleHistory.Add(frame);
+        if (present) RenderBubbles(animate, alignCursor: true);
+    }
     private BubbleEntry Leaf(string id, string label, Action action, string hint = "", bool enabled = true)
     {
         string actionId = id.StartsWith("action.", StringComparison.Ordinal) ? id.Substring(7) : id;
         var definition = Game.Content.Actions.GetValueOrDefault(actionId);
         return new() { Id = id, Label = label, Activate = action, Hint = hint.Length > 0 ? hint : definition?.Description ?? "", IconId = definition?.Icon ?? "", Enabled = enabled };
     }
-    private void ShowMenu(string title, Func<List<BubbleEntry>> build)
-    {
-        queueBubbles |= Held("queue"); session.ClearInput(); bubbleActor = session.Actor?.Id ?? "";
-        bubbleHistory.Add(new(title, build)); RenderBubbles(true);
-    }
+    private void ShowMenu(string title, Func<List<BubbleEntry>> build, bool present = true) =>
+        PushBubbleFrame(CreateBubbleFrame(title, build), animate: true, present: present);
     private void BackBubble()
     {
         if (bubbleHistory.Count <= 1) { CloseBubbles(); return; }
-        bubbleHistory.RemoveAt(bubbleHistory.Count - 1); world.Focus(); RenderBubbles(true);
+        bubbleHistory.RemoveAt(bubbleHistory.Count - 1); world.Focus(); RenderBubbles(true, alignCursor: true);
     }
-    private void RenderBubbles(bool animate = false)
+    private void RenderBubbles(bool animate = false, bool alignCursor = false)
     {
         ClearBubbleVisuals(); if (bubbleHistory.Count == 0) return;
         var frame = bubbleHistory[bubbleHistory.Count - 1];
+        bool adjusted = frame.Position.Constrain(world.ActualWidth, world.ActualHeight);
+        // Only opening a corrected menu moves the pointer; live refreshes and pagination never do.
+        if (adjusted && alignCursor && IsActive && new Rect(root.RenderSize).Contains(NativePointer.Position(root)))
+            NativePointer.MoveTo(world, BubbleCenter);
         if (frame.Render is not null) { frame.Render(); return; }
         var entries = BubbleMenu.Compress(frame.Build());
         int pages = BubbleLayout.Pages(entries.Count); frame.Page = Math.Min(frame.Page, pages - 1);
         var shown = entries.Skip(frame.Page * BubbleLayout.PageSize).Take(BubbleLayout.PageSize).ToList();
-        AddBubble(Leaf("back", bubbleHistory.Count > 1 ? "상위 메뉴" : "닫기", BackBubble, "한 단계 돌아가. 최상위에서는 메뉴를 닫아."), 0, 1, center: true, animate: animate);
+        AddBackBubble();
         var title = Label(frame.Title + (queueBubbles ? " · 행동 예약" : ""), 12); title.TextAlignment = TextAlignment.Center; title.Width = 330; title.Background = Paper; title.IsHitTestVisible = false;
         Canvas.SetLeft(title, BubbleCenter.X - 165); Canvas.SetTop(title, BubbleCenter.Y - 199); bubbleLayer.Children.Add(title);
         for (int i = 0; i < shown.Count; i++) AddBubble(shown[i], i, shown.Count, animate: animate);
@@ -72,9 +87,20 @@ internal sealed partial class MainWindow
             Canvas.SetLeft(empty, BubbleCenter.X - 90); Canvas.SetTop(empty, BubbleCenter.Y + 50); bubbleLayer.Children.Add(empty);
         }
     }
+    private void AddBackBubble()
+    {
+        if (bubbleHistory.Count > 1) AddBubble(Leaf("back", "상위 메뉴", BackBubble, "이전 메뉴가 있던 자리로 돌아가."), 0, 1, center: true);
+    }
     private void Finish(Func<ActionResult> command)
     { if (command().Ok) CloseBubbles(); }
-    private void ShowBubbles(WorldObject target) => ShowMenu(target.Name, () => InteractionChoices.For(Game, session.Actor!, target).Select(choice => Leaf(choice.Id, choice.Label, () => UseChoice(target, choice))).ToList());
+    private List<BubbleEntry> InteractionEntries(WorldObject target, bool inputs = false)
+    {
+        var entries = InteractionChoices.For(Game, session.Actor!, target).Where(c => !inputs || c.Panel != "transfer")
+            .Select(choice => Leaf(choice.Id, choice.Label, () => UseChoice(target, choice))).ToList();
+        entries.AddRange(ActionEntries(InteractionChoices.Additional(Game, session.Actor!, target), target));
+        return entries;
+    }
+    private void ShowBubbles(WorldObject target, bool present = true) => ShowMenu(target.Name, () => InteractionEntries(target), present);
     private void ShowGroundBubbles(Tile tile) => ShowMenu("주변 행동", () => [
         Leaf("move", "여기로 이동", () => Finish(() => Send("move", x: tile.X, y: tile.Y))),
         Leaf("build", "시설 건설", () => ShowGameBubbles("build")),
@@ -88,7 +114,6 @@ internal sealed partial class MainWindow
             case "recipes": ShowRecipes(target); break;
             case "shop": ShowShop(target); break;
             case "charge": ShowCharge(target); break;
-            case "actions": ShowMenu(target.Name + " · 행동", () => ActionEntries(session.Menu(target), target)); break;
             default: ShowGameBubbles(choice.Panel); break;
         }
     }
@@ -153,11 +178,11 @@ internal sealed partial class MainWindow
     private void ShowQuantity(string title, Func<int> maximum, Func<int, ActionResult> confirm, int initial = 1, Func<int, BubblePreview>? preview = null)
     {
         queueBubbles |= Held("queue");
-        var frame = new BubbleFrame(title, () => []);
+        var frame = CreateBubbleFrame(title, () => []);
         frame.Render = () =>
         {
             int max = Math.Max(0, Math.Min(9999, maximum()));
-            AddBubble(Leaf("back", "상위 메뉴", BackBubble), 0, 1, center: true);
+            AddBackBubble();
             var panel = new StackPanel(); var caption = Label(title + (queueBubbles ? " · 예약" : ""), 16); caption.TextAlignment = TextAlignment.Center; panel.Children.Add(caption);
             var field = new TextBox { Text = QuantityPicker.Clamp(initial, max).ToString(), Width = 95, FontSize = 20, HorizontalContentAlignment = HorizontalAlignment.Center, Padding = new Thickness(4) }; quantityInput = field;
             System.Windows.Automation.AutomationProperties.SetName(field, "수량");
@@ -211,7 +236,7 @@ internal sealed partial class MainWindow
             Canvas.SetLeft(border, BubbleCenter.X - 185); Canvas.SetTop(border, BubbleCenter.Y + 38); bubbleLayer.Children.Add(border);
             field.Focus(); field.SelectAll();
         };
-        bubbleHistory.Add(frame); session.ClearInput(); RenderBubbles();
+        PushBubbleFrame(frame);
     }
     private void OpenItemBubble(string item)
     {

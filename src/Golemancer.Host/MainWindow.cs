@@ -94,7 +94,7 @@ internal sealed partial class MainWindow : Window
         if(!session.Started||modalType!=""||Game.State.Dialogues.Count>0)return;
         if(bubbleVisuals.Any(v=>!v.Ready))return; // Do not send clicks through circles while they spread out.
         if(world.Building.Length>0){if(right){world.Building="";Notify("건설 선택을 취소했어.");return;}if(Send("build",item:world.Building,x:tile.X,y:tile.Y).Ok)world.Building="";return;}
-        CloseBubbles();var target=world.Target(tile);bubbleAnchor=Mouse.GetPosition(world);
+        CloseBubbles();var target=world.Target(tile);bubbleAnchor=NativePointer.Position(world);
         if(target is null)
         {
             if(right)ShowGroundBubbles(tile);
@@ -105,7 +105,12 @@ internal sealed partial class MainWindow : Window
         else if(session.Actor?.GetText("mode")=="combat")
         { if(Game.Kind(target) is "monster" or "boss" or "boss_part")Send("attack",target.Id); }
         else if(Game.Definition(target)?.InputSlots.Count>0)ShowFacilityFocus(target);
-        else if(session.Actor is { } actor && InteractionChoices.Quick(Game,actor,target) is { } choice){ShowBubbles(target);UseChoice(target,choice);}
+        else if(session.Actor is { } actor && InteractionChoices.Quick(Game,actor,target) is { } choice)
+        {
+            // Keep the parent for Back without briefly drawing or recentering a skipped menu.
+            ShowBubbles(target, present:false);UseChoice(target,choice);
+            if(bubbleHistory.Count>0&&bubbleLayer.Children.Count==0)RenderBubbles(true,alignCursor:true);
+        }
     }
     private void RefreshHud()
     {

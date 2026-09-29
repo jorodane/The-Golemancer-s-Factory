@@ -70,9 +70,10 @@ internal sealed partial class MainWindow
                 System.Windows.Threading.Dispatcher.PushFrame(frame);
             }
             CloseBubbles();ShowMenu("8개 원형 아이콘",()=>Enumerable.Range(0,9).Select(i=>new BubbleEntry{Id="native."+i,Label="물건 "+i,ItemId="wood",Activate=()=>{}}).ToList());UpdateLayout();
-            if(bubbleVisuals.Count!=9||!buttons.ContainsKey("bubble.next")||bubbleVisuals.Any(v=>v.Button.Width!=v.Button.Height||v.Button.Clip is not EllipseGeometry))throw new Exception("Eight circular image buttons or separate pagination failed");
+            if(bubbleVisuals.Count!=8||buttons.ContainsKey("bubble.back")||!buttons.ContainsKey("bubble.next")||bubbleVisuals.Any(v=>v.Button.Width!=v.Button.Height||v.Button.Clip is not EllipseGeometry))throw new Exception("Eight circular image buttons or separate pagination failed");
             if(SystemParameters.ClientAreaAnimation&&!bubbleVisuals.Where(v=>v.Entry.Id!="back").All(v=>v.Arrival.HasAnimatedProperties&&v.Travel.HasAnimatedProperties))throw new Exception("Arrival animation clocks missing");
-            SettleCircles();Click("bubble.next");if(bubbleVisuals.Count!=2)throw new Exception("Ninth choice was skipped or duplicated");CloseBubbles();
+            SettleCircles();Click("bubble.next");if(bubbleVisuals.Count!=1)throw new Exception("Ninth choice was skipped or duplicated");CloseBubbles();
+            RunBubbleNavigationSmoke(SettleCircles, Click);
             Game.State.ControlledId=crafter.Id;crafter.Inventory["wood"]=2;ShowRecipes(Game.Find("workbench")!);UpdateLayout();SettleCircles();
             var recipeBubble=bubbleVisuals.Single(v=>v.Entry.Id=="recipe.wooden_sword");
             recipeBubble.Button.RaiseEvent(new MouseEventArgs(Mouse.PrimaryDevice,Environment.TickCount){RoutedEvent=Mouse.MouseEnterEvent});
@@ -89,13 +90,15 @@ internal sealed partial class MainWindow
             machine.Inventory["springwater_jelly"]=3;machine.OutputInventory["springwater_jelly"]=7;
             bubbleAnchor=world.Screen(machine.X+.5,machine.Y+.5);ShowFacilityFocus(machine);UpdateLayout();RefreshFacilityFocus();
             if(!buttons.ContainsKey("bubble.slot.fuel")||!buttons.ContainsKey("bubble.slot.herb")||!buttons.ContainsKey("bubble.slot.liquid")||facilityShadeLayer.Children.Count!=1)throw new Exception("Interactive facility slots or focus layer missing");
+            if(buttons.ContainsKey("bubble.back")||buttons.ContainsKey("bubble.actions")||!buttons.ContainsKey("bubble.dismantle"))throw new Exception("Facility root retained close/action-list wrappers or lost direct actions");
+            var facilityCenter=BubbleCenter;
             var facilityMask=((System.Windows.Shapes.Path)facilityShadeLayer.Children[0]).Data;
             var slotButton=buttons["bubble.slot.fuel"];var slotCenter=slotButton.TranslatePoint(new Point(slotButton.Width/2,slotButton.Height/2),root);
             if(facilityMask.FillContains(slotCenter)||!facilityMask.FillContains(new Point(1,1)))throw new Exception("Facility mask covered an active input slot");
             Click("bubble.slot.fuel");if(quantityInput is null||quantitySlider?.Maximum!=5||bubbleHistory.Count!=2)throw new Exception("Single compatible slot item did not skip straight to quantity");
             Click("bubble.back");buttons["bubble.slot.liquid"].RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice,Environment.TickCount,MouseButton.Right){RoutedEvent=UIElement.PreviewMouseRightButtonDownEvent});UpdateLayout();
             if(quantityInput is null||quantitySlider?.Maximum!=3)throw new Exception("Right-click input slot did not use input-only quantity");
-            Click("bubble.back");if(!buttons.ContainsKey("bubble.slot.herb")||focusedFacility!=machine.Id)throw new Exception("Slot parent navigation lost facility focus");
+            Click("bubble.back");if(!buttons.ContainsKey("bubble.slot.herb")||focusedFacility!=machine.Id||BubbleCenter!=facilityCenter)throw new Exception("Slot parent navigation lost facility focus or its position");
             CloseBubbles();if(facilityShadeLayer.Children.Count!=0||world.FocusedFacility.Length!=0)throw new Exception("Closing facility left its spotlight active");
             world.Reset();RefreshHud();UpdateLayout();world.InvalidateVisual();ClickTile(crafter.Tile,true);ShowCategories(crafter);
             SettleCircles();

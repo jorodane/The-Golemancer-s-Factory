@@ -105,7 +105,7 @@ ActionRequest에는 `Action, ActorId, TargetId, X, Y, Route, Item, Quantity, Mod
 
 ## 분류와 자동 생산 투입칸
 
-`ItemCategories/Category`의 `id, name`으로 버블 분류를 정의하고 Item의 `tags="herb"`, `tags="liquid,jelly"`처럼 여러 분류를 지정할 수 있다. 기존 category는 판매 등 기존 규칙에도 사용한다. 아이템 즐겨찾기와 대상별 우선 분류는 저장 파일에 보존하며 양방향 운반에 동일하게 적용한다. 모든 선택 단계는 공통 버블과 가운데 상위 메뉴를 사용한다. 한 품목 분류는 재귀적으로 압축한다.
+`ItemCategories/Category`의 `id, name`으로 버블 분류를 정의하고 Item의 `tags="herb"`, `tags="liquid,jelly"`처럼 여러 분류를 지정할 수 있다. 기존 category는 판매 등 기존 규칙에도 사용한다. 아이템 즐겨찾기와 대상별 우선 분류는 저장 파일에 보존하며 양방향 운반에 동일하게 적용한다. 모든 선택 단계는 공통 버블을 사용하며 하위 단계에만 가운데 상위 메뉴 버튼을 표시한다. 각 단계는 클릭 위치에서 열리고 뒤로가면 저장된 위치와 페이지를 복원한다. 화면 보정으로 메뉴 중심이 이동한 경우에만 실제 커서를 그 중심에 맞춘다. 전용 UI로 이미 제공하는 액션은 중복시키지 않고, 그 밖의 팩 액션은 별도 행동 목록 없이 기존 XML path·SubName·Condition·PreserveMenuDirectories 규칙에 따라 직접 노출한다. 한 품목 분류는 재귀적으로 압축한다.
 
 ```xml
 <Data key="autoProduce" value="true" />

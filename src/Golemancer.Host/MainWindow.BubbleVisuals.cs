@@ -188,7 +188,7 @@ internal sealed partial class MainWindow
         if (id.StartsWith("charge.", StringComparison.Ordinal)) return "ϟ";
         if (id.StartsWith("transfer.", StringComparison.Ordinal)) return "⇄";
         if (id.StartsWith("drop.", StringComparison.Ordinal)) return "↓";
-        return id switch { "back" => bubbleHistory.Count > 1 ? "↶" : "×", "give" => "↗", "take" => "↙", "select" => "◎", "move" => "➜", "record" => "●", "play" => "▶", "routines" or "wait" => "◷", "failure" => "!", "confirm" => "✓", "roll" => "↻", "cancel" or "retreat" => "×", "actions" => "≡", _ => entry.Children.Count > 0 ? "≡" : "◇" };
+        return id switch { "back" => "↶", "give" => "↗", "take" => "↙", "select" => "◎", "move" => "➜", "record" => "●", "play" => "▶", "routines" or "wait" => "◷", "failure" => "!", "confirm" => "✓", "roll" => "↻", "cancel" or "retreat" => "×", _ => entry.Children.Count > 0 ? "≡" : "◇" };
     }
     private static string BadgeFor(BubbleEntry entry)
     {
@@ -211,7 +211,7 @@ internal sealed partial class MainWindow
             "categories" => "이 대상에서 먼저 보여줄 카테고리를 지정해.", "favorite" => "즐겨찾기는 건네기와 가져오기에서 먼저 표시돼.",
             "recipes" => "결과물을 골라 제작해. 마우스를 올리면 필요한 재료를 볼 수 있어.", "build" => "시설을 고르고 바닥의 빈 타일에 설치해.",
             "assembly" => "골렘 핵을 사용해 엔린에게 조립을 부탁해.", "equipment" => "장비를 장착하거나 골렘을 강화해.",
-            "shop" => "행상인의 상품을 살펴보고 구매할 물건을 골라.", "orders" => "주문을 수락하거나 준비한 물건을 납품해.", "actions" => "이 대상에서 할 수 있는 다른 행동을 살펴봐.",
+            "shop" => "행상인의 상품을 살펴보고 구매할 물건을 골라.", "orders" => "주문을 수락하거나 준비한 물건을 납품해.",
             "charge.all" => "탑의 마력과 골렘의 남은 용량만큼 충전해.", "charge.number" => "이번에 충전할 마력의 양을 정해.", "charge.fill" => "지정한 마력에 도달할 때까지 부족분을 충전해.",
             _ => entry.Children.Count > 0 ? $"{entry.Children.Count}개 항목에서 선택해." : ""
         };
