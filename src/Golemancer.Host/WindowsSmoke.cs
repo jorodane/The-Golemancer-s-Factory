@@ -6,8 +6,10 @@ using Golemancer.Contracts;
 namespace Golemancer.Desktop;
 internal sealed partial class MainWindow
 {
+    private bool smokeStarted;
     internal void RunSmoke()
     {
+        if(smokeStarted)return;smokeStarted=true;
         string directory=Path.Combine(session.Root,"TestResults","windows");Directory.CreateDirectory(directory);
         try
         {
@@ -51,10 +53,39 @@ internal sealed partial class MainWindow
             foreach(string type in new[]{"build","assembly","orders","equipment","routines","journal","help"})
             {Open(type);UpdateLayout();if(UsesBubbles(type)&&(overlay.Visibility!=Visibility.Collapsed||bubbleHistory.Count==0))throw new Exception(type+" still opened a form");CloseBubbles();CloseOverlay();}
             Open("menu");buttons["resume"].RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
-            world.Reset();RefreshHud();UpdateLayout();world.InvalidateVisual();ClickTile(crafter.Tile,true);
+            void SettleCircles()
+            {
+                foreach(var v in bubbleVisuals)
+                {
+                    v.Arrival.BeginAnimation(ScaleTransform.ScaleXProperty,null);v.Arrival.BeginAnimation(ScaleTransform.ScaleYProperty,null);v.Arrival.ScaleX=v.Arrival.ScaleY=1;
+                    v.Travel.BeginAnimation(TranslateTransform.XProperty,null);v.Travel.BeginAnimation(TranslateTransform.YProperty,null);v.Travel.X=v.Travel.Y=0;
+                    v.Button.BeginAnimation(OpacityProperty,null);v.Button.Opacity=1;v.Button.IsHitTestVisible=true;v.Ready=true;
+                }
+                UpdateLayout();
+                var frame=new System.Windows.Threading.DispatcherFrame();
+                Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background,new Action(()=>frame.Continue=false));
+                System.Windows.Threading.Dispatcher.PushFrame(frame);
+            }
+            CloseBubbles();ShowMenu("8개 원형 아이콘",()=>Enumerable.Range(0,9).Select(i=>new BubbleEntry{Id="native."+i,Label="물건 "+i,ItemId="wood",Activate=()=>{}}).ToList());UpdateLayout();
+            if(bubbleVisuals.Count!=9||!buttons.ContainsKey("bubble.next")||bubbleVisuals.Any(v=>v.Button.Width!=v.Button.Height||v.Button.Clip is not EllipseGeometry))throw new Exception("Eight circular image buttons or separate pagination failed");
+            if(SystemParameters.ClientAreaAnimation&&!bubbleVisuals.Where(v=>v.Entry.Id!="back").All(v=>v.Arrival.HasAnimatedProperties&&v.Travel.HasAnimatedProperties))throw new Exception("Arrival animation clocks missing");
+            SettleCircles();Click("bubble.next");if(bubbleVisuals.Count!=2)throw new Exception("Ninth choice was skipped or duplicated");CloseBubbles();
+            Game.State.ControlledId=crafter.Id;crafter.Inventory["wood"]=2;ShowRecipes(Game.Find("workbench")!);UpdateLayout();SettleCircles();
+            var recipeBubble=bubbleVisuals.Single(v=>v.Entry.Id=="recipe.wooden_sword");
+            recipeBubble.Button.RaiseEvent(new MouseEventArgs(Mouse.PrimaryDevice,Environment.TickCount){RoutedEvent=Mouse.MouseEnterEvent});
+            if(hoveredBubble!=recipeBubble||bubbleHoverLayer.Children.Count!=2||bubbleHoverLayer.IsHitTestVisible||!recipeBubble.Hover.HasAnimatedProperties)throw new Exception("Craft hover, spotlight or hover enlargement failed");
+            var mask=((System.Windows.Shapes.Path)bubbleHoverLayer.Children[0]).Data;
+            var spotlightCenter=recipeBubble.Button.TranslatePoint(new Point(recipeBubble.Button.Width/2,recipeBubble.Button.Height/2),root);
+            if(mask.FillContains(spotlightCenter)||!mask.FillContains(new Point(1,1)))throw new Exception("Spotlight did not exclude the hovered circle");
+            string oldPreview=hoverSignature;crafter.Inventory["wood"]=10;RefreshBubbleHover();if(hoverSignature==oldPreview)throw new Exception("Hovered materials did not refresh");
+            recipeBubble.Button.RaiseEvent(new MouseEventArgs(Mouse.PrimaryDevice,Environment.TickCount){RoutedEvent=Mouse.MouseLeaveEvent});
+            if(bubbleHoverLayer.Children.Count!=0||hoveredBubble is not null)throw new Exception("Hover overlay remained after pointer exit");
+            EnterBubble(recipeBubble);CloseBubbles();if(bubbleHoverLayer.Children.Count!=0)throw new Exception("Closing bubbles leaked the spotlight");
+            world.Reset();RefreshHud();UpdateLayout();world.InvalidateVisual();ClickTile(crafter.Tile,true);ShowCategories(crafter);
+            SettleCircles();
             for(int i=0;i<3;i++){world.UpdateLayout();UpdateLayout();}
             var image=new RenderTargetBitmap((int)ActualWidth,(int)ActualHeight,96,96,PixelFormats.Pbgra32);image.Render(root);var png=new PngBitmapEncoder();png.Frames.Add(BitmapFrame.Create(image));using(var stream=File.Create(Path.Combine(directory,"native-window.png")))png.Save(stream);
-            File.WriteAllText(Path.Combine(directory,"result.txt"),"PASS: native WPF startup, image/atlas bounds, new-game button, dialogue, continuous movement and save/load, Tab/Space handlers, giving AND taking bubbles without changing control, favorites, parent navigation, invalid quantity and all five shortcuts, E tap/hold, inspector removal and all interaction bubbles.\n");
+            File.WriteAllText(Path.Combine(directory,"result.txt"),"PASS: native WPF startup, image/atlas bounds, new-game button, dialogue, continuous movement and save/load, Tab/Space handlers, giving AND taking bubbles without changing control, favorites, parent navigation, invalid quantity and all five shortcuts, E tap/hold, eight circular icons, separate pagination, arrival/hover animation clocks, craft result/material hover, nonblocking spotlight exclusion, live stock refresh and cleanup.\n");
             Application.Current.Shutdown(0);
         }
         catch(Exception e){File.WriteAllText(Path.Combine(directory,"result.txt"),e.ToString());Application.Current.Shutdown(1);}

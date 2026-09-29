@@ -1,17 +1,17 @@
 <?xml version='1.0' encoding='utf-8'?>
 <GameContent version="1.0" balance="first-playable">
   <Actions>
-    <Action id="craft_single" name="1개 생산" handler="craft.produce" path="제작/생산" targetKind="facility" failure="retry">
+    <Action id="craft_single" description="선택한 레시피를 한 번 제작해. 결과물과 필요한 재료를 확인해." icon="workbench" name="1개 생산" handler="craft.produce" path="제작/생산" targetKind="facility" failure="retry">
       <Works>
         <Work type="craft" amount="2" />
       </Works>
     </Action>
-    <Action id="craft_count" name="N개 생산" handler="craft.produce" path="제작/생산" targetKind="facility" failure="retry">
+    <Action id="craft_count" description="제작 횟수를 지정해. 수량을 바꾸면 재료 필요량도 달라져." icon="workbench" name="N개 생산" handler="craft.produce" path="제작/생산" targetKind="facility" failure="retry">
       <Works>
         <Work type="craft" amount="2" />
       </Works>
     </Action>
-    <Action id="craft_until" name="N개까지 생산" handler="craft.produce" path="제작/생산" targetKind="facility" failure="retry">
+    <Action id="craft_until" description="완성품이 목표 재고에 도달하도록 부족한 만큼 제작해." icon="workbench" name="N개까지 생산" handler="craft.produce" path="제작/생산" targetKind="facility" failure="retry">
       <Works>
         <Work type="craft" amount="2" />
       </Works>

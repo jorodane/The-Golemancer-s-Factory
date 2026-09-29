@@ -43,7 +43,8 @@ internal sealed partial class MainWindow : Window
         side.Children.Add(Label("공방 일지",22));side.Children.Add(journal);side.Children.Add(Button("전체 일지",()=>Open("journal")));side.Children.Add(Label("골렘들",18));side.Children.Add(crew);
         side.Children.Add(Button("골렘 조립",()=>Open("assembly")));side.Children.Add(Button("시설 건설 · B",()=>Open("build")));side.Children.Add(Button("행동 기록",()=>Open("routines")));side.Children.Add(Button("주문 게시판",()=>Open("orders")));side.Children.Add(Button("공방 안내",()=>Open("help")));
         Place(new ScrollViewer{Content=side,VerticalScrollBarVisibility=ScrollBarVisibility.Auto,HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled},1,0);
-        var worldLayer=new Grid();worldLayer.Children.Add(world);worldLayer.Children.Add(bubbleLayer);Place(worldLayer,1,1);
+        var worldLayer=new Grid();worldLayer.Children.Add(world);worldLayer.Children.Add(bubbleLayer);Place(worldLayer,1,1);root.Children.Add(bubbleHoverLayer);
+        bubbleLayer.SizeChanged+=(_,_)=>{if(bubbleHistory.Count>0)RenderBubbles();};
         var foot=new DockPanel{Margin=new Thickness(12,4,12,4)};Place(foot,2,0,2);
         var commands=new StackPanel{Orientation=Orientation.Horizontal};DockPanel.SetDock(commands,Dock.Right);foot.Children.Add(commands);
         commands.Children.Add(Button("녹화 · R",()=>Send("record"),"record"));commands.Children.Add(Button("반복 · T",()=>Send("play"),"play"));commands.Children.Add(Button("장비 · I",()=>Open("equipment")));commands.Children.Add(Button("전투모드 · Tab",()=>Send("toggle_mode"),"mode"));commands.Children.Add(Button("추적 · F",()=>world.Follow=true));
@@ -75,7 +76,7 @@ internal sealed partial class MainWindow : Window
         const double step=1.0/60;
         try{while(accumulator>=step){session.Advance(step);accumulator-=step;}}
         catch(Exception ex){session.MenuPaused=true;Notify("게임 처리를 멈췄어: "+ex.Message);}
-        if(now-lastHud>=.2){RefreshHud();lastHud=now;}
+        if(now-lastHud>=.2){RefreshHud();RefreshBubbleHover();lastHud=now;}
         if(now>toastUntil)toast.Visibility=Visibility.Collapsed;
         world.InvalidateVisual();
     }
@@ -91,6 +92,7 @@ internal sealed partial class MainWindow : Window
     private void ClickTile(Tile tile,bool right)
     {
         if(!session.Started||modalType!=""||Game.State.Dialogues.Count>0)return;
+        if(bubbleVisuals.Any(v=>!v.Ready))return; // Do not send clicks through circles while they spread out.
         if(world.Building.Length>0){if(right){world.Building="";Notify("건설 선택을 취소했어.");return;}if(Send("build",item:world.Building,x:tile.X,y:tile.Y).Ok)world.Building="";return;}
         CloseBubbles();var target=world.Target(tile);bubbleAnchor=Mouse.GetPosition(world);
         if(target is null)

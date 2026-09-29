@@ -42,7 +42,7 @@
 |---|---|
 | Items / Item | `id, name, description, price, stack, color, category, tags` |
 | Objects / Object | `id, name, kind, sprite, width, height, solid, slots, actions`; Value, Data, Cost, Placement, InputSlots |
-| Actions / Action | `id, name, handler, path, subName, range, failure, recordable, interrupts`; Works, Condition |
+| Actions / Action | `id, name, description, icon, handler, path, subName, range, failure, recordable, interrupts`; Works, Condition |
 | ActionSets / ActionSet | `id, actions` — 쉼표로 구분한 구체 액션 ID |
 | MenuDirectories / Directory | `path, collapse` — `collapse="false"`로 한 자식 폴더 유지 |
 | Failures / Failure | `id, handler, delay, maxRetries` |
@@ -120,3 +120,11 @@ ActionRequest에는 `Action, ActorId, TargetId, X, Y, Route, Item, Quantity, Mod
 각 Slot은 한 품목을 받는다. items 또는 tags에 맞지 않는 물건과 다른 품목의 혼입은 거부한다. InputSlots가 없는 보관함은 기존 공용 슬롯 규칙을 따른다. Inventory는 투입 재고, OutputInventory는 별도 완성품이다. Count/Stock은 두 재고의 합, Has/Pay는 투입 재고만 사용한다. 제품은 GiveOutput으로 넣고 Take는 제품부터 꺼낸다. 목표 재고 운반은 도착지 투입 재고를 기준으로 한다.
 
 훈증기는 수동 예약 없이 준비된 재료 조합에 맞는 해금 레시피를 한 회씩 자동 시작한다. 연료와 완성품 공간이 없으면 새 재료를 차감하지 않는다. 기본 열 공급은 목재 1개당 열 100이며 남은 열도 사용할 수 있다. 완성품이 다시 투입 재료로 자동 전환되지는 않는다. 기존 저장의 섞인 약초·과적·알 수 없는 물건을 지우지 않으며, 같은 칸에 여러 품목이 남아 있으면 정리를 기다린다. 기존의 지불 완료 생산 예약은 이어서 처리한다.
+
+## 액션 아이콘과 호버 설명
+
+Action의 `description`은 직접 문자열 또는 `@번역키`, `icon`은 기존 Sprite ID 또는 팩 내부 이미지 경로다. 예: `description="@action.harvest.help" icon="item.common_herb"`. 별도 이미지 경로는 SafePath로 검사하고 시작 시 로드한다. 생략한 액션은 기본 UI 기호를 사용한다. 아이템·레시피는 기존 아이템 이미지와 설명을 재사용한다.
+
+원형 선택지는 페이지당 8개이며 페이지 이동은 선택지 수를 차지하지 않는다. 12시부터 시계방향 9ms 간격, 이동 170ms, 크기 24% → 114% → 100%(220ms)로 등장한다. 마지막 아이콘까지 약 283ms다. 이동 중에는 클릭을 받지 않으며 진입 애니메이션과 호버 확대(110%, 100ms)는 별도 변환을 쓴다. Windows의 클라이언트 영역 애니메이션 설정이 꺼져 있으면 진입 연출을 생략한다.
+
+제작 호버는 Recipe/Item 데이터와 실제 재료 원본 보관함을 조회한다. 수량 확정 단계에서는 입력 수량에 맞춘 결과·필요 재료를 보여준다. 결과물 설명, 해금 조건, 부족 수량은 별도로 표시한다. 어두운 화면과 설명 레이어는 마우스 입력을 차단하지 않고 선택한 원형 버튼 영역을 밝게 남긴다. 상위 메뉴 이동·페이지 전환·닫기·리사이즈에서 설명과 애니메이션을 정리한다.

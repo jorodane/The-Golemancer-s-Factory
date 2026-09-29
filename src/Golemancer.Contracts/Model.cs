@@ -196,6 +196,8 @@ public sealed class ActionDef
 {
     public string Id { get; set; } = "";
     public string Name { get; set; } = "";
+    public string Description { get; set; } = "";
+    public string Icon { get; set; } = "";
     public string Handler { get; set; } = "";
     public string Path { get; set; } = "";
     public string SubName { get; set; } = "";

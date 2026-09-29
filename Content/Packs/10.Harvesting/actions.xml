@@ -1,17 +1,17 @@
 <?xml version='1.0' encoding='utf-8'?>
 <GameContent version="1.0" balance="first-playable">
   <Actions>
-    <Action id="harvest" name="수확하기" handler="harvest.collect" targetKind="resource" failure="retry">
+    <Action id="harvest" description="수확물을 바닥에 떨어뜨린 뒤 작업한 골렘이 자동으로 주워." icon="item.common_herb" name="수확하기" handler="harvest.collect" targetKind="resource" failure="retry">
       <Works>
         <Work type="harvest" amount="6" />
       </Works>
     </Action>
-    <Action id="fell" name="베어넘기기" handler="harvest.collect" targetKind="resource" failure="retry">
+    <Action id="fell" description="나무를 베어 건설 재료와 연료로 쓰는 목재를 얻어." icon="item.wood" name="베어넘기기" handler="harvest.collect" targetKind="resource" failure="retry">
       <Works>
         <Work type="harvest" amount="16" />
       </Works>
     </Action>
-    <Action id="mine" name="수정 채광" handler="harvest.collect" targetKind="resource" failure="retry">
+    <Action id="mine" description="채광 골렘으로 광맥에서 무색 마나 수정을 얻어." icon="item.mana_crystal" name="수정 채광" handler="harvest.collect" targetKind="resource" failure="retry">
       <Works>
         <Work type="mining" amount="8" />
       </Works>

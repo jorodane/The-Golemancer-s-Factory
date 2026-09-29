@@ -17,7 +17,7 @@ internal sealed partial class MainWindow
     private string bubbleActor = "";
     private void ClearBubbleVisuals()
     {
-        bubbleLayer.Children.Clear(); quantityInput = null;
+        ClearBubblePresentation(); bubbleLayer.Children.Clear(); quantityInput = null;
         foreach (string id in buttons.Keys.Where(k => k.StartsWith("bubble.", StringComparison.Ordinal) || k.StartsWith("quantity.", StringComparison.Ordinal)).ToArray()) buttons.Remove(id);
     }
     private void CloseBubbles()
@@ -26,63 +26,41 @@ internal sealed partial class MainWindow
         ClearBubbleVisuals(); bubbleHistory.Clear(); selected = ""; world.Selected = ""; bubbleActor = "";
         if (open) world.Focus();
     }
-    private Point BubbleCenter => new(Math.Max(275, Math.Min(world.ActualWidth - 275, bubbleAnchor.X)), Math.Max(195, Math.Min(world.ActualHeight - 205, bubbleAnchor.Y)));
-    private Button AddBubble(string label, Action action, int index, int count, string id = "", bool center = false)
+    private Point BubbleCenter { get { var p = BubbleLayout.Center(bubbleAnchor.X, bubbleAnchor.Y, world.ActualWidth, world.ActualHeight); return new(p.X, p.Y); } }
+    private BubbleEntry Leaf(string id, string label, Action action, string hint = "", bool enabled = true)
     {
-        double angle = -Math.PI / 2 + index * 2 * Math.PI / Math.Max(1, count);
-        var button = Button(label, action, id); button.Width = 140; button.Height = 56; button.Margin = new Thickness(0);
-        button.HorizontalContentAlignment = HorizontalAlignment.Center;
-        var border = new FrameworkElementFactory(typeof(Border)); border.SetValue(Border.CornerRadiusProperty, new CornerRadius(26));
-        border.SetValue(Border.BackgroundProperty, new TemplateBindingExtension(Control.BackgroundProperty));
-        border.SetValue(Border.BorderBrushProperty, Ink); border.SetValue(Border.BorderThicknessProperty, new Thickness(1));
-        var content = new FrameworkElementFactory(typeof(ContentPresenter)); content.SetValue(FrameworkElement.HorizontalAlignmentProperty, HorizontalAlignment.Center); content.SetValue(FrameworkElement.VerticalAlignmentProperty, VerticalAlignment.Center); content.SetValue(FrameworkElement.MarginProperty, new Thickness(9, 5, 9, 5)); border.AppendChild(content);
-        var template = new ControlTemplate(typeof(Button)) { VisualTree = border }; var hover = new Trigger { Property = IsMouseOverProperty, Value = true }; hover.Setters.Add(new Setter(Control.BackgroundProperty, SvgImage.Brush("#eef0d8"))); template.Triggers.Add(hover); button.Template = template;
-        var p = BubbleCenter;
-        Canvas.SetLeft(button, p.X + (center ? 0 : Math.Cos(angle) * 204) - 70);
-        Canvas.SetTop(button, p.Y + (center ? 0 : Math.Sin(angle) * 136) - 28);
-        bubbleLayer.Children.Add(button); return button;
+        string actionId = id.StartsWith("action.", StringComparison.Ordinal) ? id.Substring(7) : id;
+        var definition = Game.Content.Actions.GetValueOrDefault(actionId);
+        return new() { Id = id, Label = label, Activate = action, Hint = hint.Length > 0 ? hint : definition?.Description ?? "", IconId = definition?.Icon ?? "", Enabled = enabled };
     }
-    private BubbleEntry Leaf(string id, string label, Action action, string hint = "", bool enabled = true) => new() { Id = id, Label = label, Activate = action, Hint = hint, Enabled = enabled };
     private void ShowMenu(string title, Func<List<BubbleEntry>> build)
     {
         session.ClearInput(); bubbleActor = session.Actor?.Id ?? "";
-        bubbleHistory.Add(new(title, build)); RenderBubbles();
+        bubbleHistory.Add(new(title, build)); RenderBubbles(true);
     }
     private void BackBubble()
     {
         if (bubbleHistory.Count <= 1) { CloseBubbles(); return; }
-        bubbleHistory.RemoveAt(bubbleHistory.Count - 1); world.Focus(); RenderBubbles();
+        bubbleHistory.RemoveAt(bubbleHistory.Count - 1); world.Focus(); RenderBubbles(true);
     }
-    private void RenderBubbles()
+    private void RenderBubbles(bool animate = false)
     {
         ClearBubbleVisuals(); if (bubbleHistory.Count == 0) return;
         var frame = bubbleHistory[bubbleHistory.Count - 1];
         if (frame.Render is not null) { frame.Render(); return; }
         var entries = BubbleMenu.Compress(frame.Build());
-        int pages = Math.Max(1, (entries.Count + 5) / 6); frame.Page = Math.Min(frame.Page, pages - 1);
-        var shown = entries.Skip(frame.Page * 6).Take(6).ToList();
+        int pages = BubbleLayout.Pages(entries.Count); frame.Page = Math.Min(frame.Page, pages - 1);
+        var shown = entries.Skip(frame.Page * BubbleLayout.PageSize).Take(BubbleLayout.PageSize).ToList();
+        AddBubble(Leaf("back", bubbleHistory.Count > 1 ? "상위 메뉴" : "닫기", BackBubble, "한 단계 돌아가. 최상위에서는 메뉴를 닫아."), 0, 1, center: true, animate: animate);
+        var title = Label(frame.Title, 12); title.TextAlignment = TextAlignment.Center; title.Width = 330; title.Background = Paper; title.IsHitTestVisible = false;
+        Canvas.SetLeft(title, BubbleCenter.X - 165); Canvas.SetTop(title, BubbleCenter.Y - 199); bubbleLayer.Children.Add(title);
+        for (int i = 0; i < shown.Count; i++) AddBubble(shown[i], i, shown.Count, animate: animate);
         if (pages > 1)
         {
-            shown.Add(Leaf("previous", "‹ 이전", () => { frame.Page = (frame.Page + pages - 1) % pages; RenderBubbles(); }));
-            shown.Add(Leaf("next", "다음 ›", () => { frame.Page = (frame.Page + 1) % pages; RenderBubbles(); }));
-        }
-        AddBubble(bubbleHistory.Count > 1 ? "↶ 상위 메뉴" : "닫기", BackBubble, 0, 1, "bubble.back", true);
-        var title = Label(frame.Title + (pages > 1 ? $" · {frame.Page + 1}/{pages}" : ""), 12); title.TextAlignment = TextAlignment.Center; title.Width = 330; title.Background = Paper; title.IsHitTestVisible = false;
-        Canvas.SetLeft(title, BubbleCenter.X - 165); Canvas.SetTop(title, BubbleCenter.Y - 194); bubbleLayer.Children.Add(title);
-        for (int i = 0; i < shown.Count; i++)
-        {
-            var entry = shown[i];
-            var button = AddBubble(entry.Label, () =>
-            {
-                if (entry.Children.Count > 0) ShowMenu(entry.Label, () => entry.Children);
-                else entry.Activate?.Invoke();
-            }, i, shown.Count, "bubble." + entry.Id);
-            button.IsEnabled = entry.Enabled; button.ToolTip = entry.Hint.Length > 0 ? entry.Hint : entry.Label;
-            if (entry.ItemId.Length > 0 && assets.Sprite("item." + entry.ItemId) is { } icon)
-            {
-                var row = new DockPanel(); var image = new Image { Source = icon, Width = 26, Height = 26, Margin = new Thickness(0, 0, 5, 0) }; row.Children.Add(image);
-                row.Children.Add(new TextBlock { Text = entry.Label, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center }); button.Content = row;
-            }
+            AddPageButton("previous", "‹", () => { frame.Page = (frame.Page + pages - 1) % pages; RenderBubbles(true); }, -48);
+            AddPageButton("next", "›", () => { frame.Page = (frame.Page + 1) % pages; RenderBubbles(true); }, 48);
+            var page = Label($"{frame.Page + 1} / {pages}", 11); page.Width = 60; page.TextAlignment = TextAlignment.Center; page.IsHitTestVisible = false; page.Background = Paper;
+            Canvas.SetLeft(page, BubbleCenter.X - 30); Canvas.SetTop(page, BubbleCenter.Y + 177); bubbleLayer.Children.Add(page);
         }
         if (shown.Count == 0)
         {
@@ -138,7 +116,8 @@ internal sealed partial class MainWindow
             {
                 var (from, to) = BubbleMenu.TransferPair(actor, target, direction);
                 var entry = Leaf("item." + item, (Game.State.FavoriteItems.Contains(item) ? "★ " : "") + Game.ItemName(item) + " ×" + from.Count(item), () => ShowTransferItem(target, direction, item), $"보유 {from.Count(item)} · 받는 쪽 {to.Inventory.GetValueOrDefault(item)} · 옮길 수량 {BubbleMenu.TransferMax(Game, actor, target, direction, item)}");
-                entry.ItemId = item; return entry;
+                entry.ItemId = item; entry.Badge = from.Count(item).ToString();
+                entry.Preview = () => new BubblePreview { Title = Game.ItemName(item), IconId = "item." + item, Description = Game.Content.Items.GetValueOrDefault(item)?.Description ?? "", Note = $"{from.Name} → {to.Name}\n보유 {from.Count(item)} · 받는 쪽 {to.Inventory.GetValueOrDefault(item)} · 가능 {BubbleMenu.TransferMax(Game, actor, target, direction, item)}" }; return entry;
             });
             result.Add(Leaf("categories", "★ 분류 지정", () => ShowCategories(target)));
             return result;
@@ -149,13 +128,15 @@ internal sealed partial class MainWindow
         var actor = session.Actor!; var (_, to) = BubbleMenu.TransferPair(actor, target, direction);
         int Max() => BubbleMenu.TransferMax(Game, actor, target, direction, item);
         string verb = direction == "take" ? "가져오기" : "건네기";
-        ShowMenu(Game.ItemName(item), () => [
+        ShowMenu(Game.ItemName(item), () => ItemChoices(item, [
             Leaf("transfer.one", "1개 " + verb, () => Finish(() => Send("transfer", target.Id, item, 1, option: direction)), enabled: Max() > 0),
             Leaf("transfer.number", "N개 " + verb, () => ShowQuantity("N개 " + verb, Max, n => Send("transfer", target.Id, item, n, option: direction)), enabled: Max() > 0),
             Leaf("transfer.fill", "목표 재고까지", () => ShowQuantity("받는 쪽 목표 재고", () => to.Inventory.GetValueOrDefault(item) + Max(), n => Send("transfer", target.Id, item, n, "fill", direction), to.Inventory.GetValueOrDefault(item) + Max())),
             Leaf("transfer.all", "가능한 전부", () => Finish(() => Send("transfer", target.Id, item, mode: "all", option: direction)), enabled: Max() > 0),
-            Favorite(item) ]);
+            Favorite(item) ]));
     }
+    private static List<BubbleEntry> ItemChoices(string item, List<BubbleEntry> entries)
+    { foreach(var entry in entries.Where(e => e.Id != "favorite")) entry.ItemId = item; return entries; }
     private BubbleEntry Favorite(string item) => Leaf("favorite", Game.State.FavoriteItems.Contains(item) ? "★ 즐겨찾기 해제" : "☆ 즐겨찾기 등록", () =>
     { if (!Game.State.FavoriteItems.Add(item)) Game.State.FavoriteItems.Remove(item); RenderBubbles(); });
     private void ShowCategories(WorldObject target) => ShowMenu("우선 분류 · " + target.Name, () => Game.Content.ItemCategories.Select(pair =>
@@ -165,17 +146,18 @@ internal sealed partial class MainWindow
             if (!categories.Remove(pair.Key)) categories.Add(pair.Key);
             Game.State.TransferCategories[target.Id] = categories; RenderBubbles();
         })).ToList());
-    private void ShowQuantity(string title, Func<int> maximum, Func<int, ActionResult> confirm, int initial = 1)
+    private void ShowQuantity(string title, Func<int> maximum, Func<int, ActionResult> confirm, int initial = 1, Func<int, BubblePreview>? preview = null)
     {
         var frame = new BubbleFrame(title, () => []);
         frame.Render = () =>
         {
             int max = Math.Max(0, Math.Min(9999, maximum()));
-            AddBubble("↶ 상위 메뉴", BackBubble, 0, 1, "bubble.back", true);
+            AddBubble(Leaf("back", "상위 메뉴", BackBubble), 0, 1, center: true);
             var panel = new StackPanel(); var caption = Label(title, 16); caption.TextAlignment = TextAlignment.Center; panel.Children.Add(caption);
             var field = new TextBox { Text = QuantityPicker.Clamp(initial, max).ToString(), Width = 95, FontSize = 20, HorizontalContentAlignment = HorizontalAlignment.Center, Padding = new Thickness(4) }; quantityInput = field;
             System.Windows.Automation.AutomationProperties.SetName(field, "수량");
             field.PreviewTextInput += (_, e) => e.Handled = !e.Text.All(char.IsDigit);
+            field.TextChanged += (_, _) => { if(int.TryParse(field.Text, out int n)) initial = n; RefreshBubbleHover(); };
             panel.Children.Add(field);
             var limits = Label($"1 ~ {max}개", 11); limits.TextAlignment = TextAlignment.Center; panel.Children.Add(limits);
             var shortcuts = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center }; panel.Children.Add(shortcuts);
@@ -191,7 +173,10 @@ internal sealed partial class MainWindow
                 Finish(() => confirm(value));
             }
             field.KeyDown += (_, e) => { if (e.Key == Key.Enter) { Commit(); e.Handled = true; } else if (e.Key == Key.Escape) { BackBubble(); e.Handled = true; } };
-            AddBubble("확인", Commit, 0, 1, "quantity.confirm");
+            var confirmation = Leaf("confirm", "확인", Commit, "선택한 수량으로 실행해.");
+            confirmation.Glyph = "✓";
+            if (preview is not null) confirmation.Preview = () => preview(int.TryParse(field.Text, out int n) ? QuantityPicker.Clamp(n, Math.Min(9999, maximum())) : 1);
+            AddBubble(confirmation, 0, 1, id: "quantity.confirm");
             var border = new Border { Background = Paper, Padding = new Thickness(12), CornerRadius = new CornerRadius(20), BorderBrush = Ink, BorderThickness = new Thickness(1), Child = panel, Width = 370 };
             Canvas.SetLeft(border, BubbleCenter.X - 185); Canvas.SetTop(border, BubbleCenter.Y + 38); bubbleLayer.Children.Add(border);
             field.Focus(); field.SelectAll();
@@ -206,7 +191,7 @@ internal sealed partial class MainWindow
         {
             var entries = new List<BubbleEntry> { Favorite(item), Leaf("drop.number", "N개 내려놓기", () => ShowQuantity("내려놓을 수량", () => actor.Count(item), n => Send("drop", item: item, amount: n))), Leaf("drop.all", "전부 내려놓기", () => Finish(() => Send("drop", item: item, mode: "all"))) };
             if (item is "healing_jelly" or "mana_jelly" or "sweetfruit" || item.StartsWith("wooden_", StringComparison.Ordinal)) entries.Insert(0, Leaf("use", "사용 / 장착", () => { UseItem(item); CloseBubbles(); }));
-            return entries;
+            return ItemChoices(item, entries);
         });
     }
 }

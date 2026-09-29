@@ -1,8 +1,8 @@
 <?xml version='1.0' encoding='utf-8'?>
 <GameContent version="1.0" balance="first-playable">
   <Actions>
-    <Action id="buy" name="구매" handler="commerce.buy" recordable="false" />
-    <Action id="expand_shop" name="상점 확장" handler="commerce.expand" range="-1" recordable="false" />
-    <Action id="order" name="주문 접수·납품" handler="commerce.order" recordable="false" />
+    <Action id="buy" description="상품을 골라 구매해. 핵은 공방에 보관하고 책은 바로 읽어." icon="merchant" name="구매" handler="commerce.buy" recordable="false" />
+    <Action id="expand_shop" description="금화를 사용해 상점을 확장하고 판매 시설과 주문의 규모를 늘려." icon="display_shelf" name="상점 확장" handler="commerce.expand" range="-1" recordable="false" />
+    <Action id="order" description="주문을 수락하거나 준비한 물건을 납품해서 금화와 평판을 얻어." icon="order_board" name="주문 접수·납품" handler="commerce.order" recordable="false" />
   </Actions>
 </GameContent>

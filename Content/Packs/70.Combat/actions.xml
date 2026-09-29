@@ -1,11 +1,11 @@
 <?xml version='1.0' encoding='utf-8'?>
 <GameContent version="1.0" balance="first-playable">
   <Actions>
-    <Action id="attack" name="공격" handler="combat.attack" range="1" failure="retry" />
-    <Action id="roll" name="구르기" handler="combat.roll" range="-1" interrupts="true" />
-    <Action id="toggle_mode" name="일상·공격 전환" handler="combat.mode" range="-1" recordable="false" />
-    <Action id="guard" name="이 지역 경호" handler="combat.guard" range="-1" />
-    <Action id="challenge" name="샘물의 왕에게 도전" handler="combat.challenge" range="2" recordable="false" />
-    <Action id="retreat" name="호수에서 후퇴" handler="combat.retreat" range="-1" recordable="false" />
+    <Action id="attack" description="선택한 적에게 접근해 공격해. 무기와 적의 약점이 피해에 영향을 줘." icon="item.wooden_sword" name="공격" handler="combat.attack" range="1" failure="retry" />
+    <Action id="roll" description="바라보는 방향으로 짧게 굴러 공격을 피해." name="구르기" handler="combat.roll" range="-1" interrupts="true" />
+    <Action id="toggle_mode" description="현재 골렘의 일상 모드와 전투 모드를 전환해." icon="item.wooden_sword" name="일상·공격 전환" handler="combat.mode" range="-1" recordable="false" />
+    <Action id="guard" description="지정한 시간 동안 주변을 지켜." icon="item.wooden_shield" name="이 지역 경호" handler="combat.guard" range="-1" />
+    <Action id="challenge" description="호수의 표식에서 샘물의 왕에게 도전해." icon="lake_shrine" name="샘물의 왕에게 도전" handler="combat.challenge" range="2" recordable="false" />
+    <Action id="retreat" description="전투에서 물러나. 보스와 호수의 상태가 초기화돼." name="호수에서 후퇴" handler="combat.retreat" range="-1" recordable="false" />
   </Actions>
 </GameContent>

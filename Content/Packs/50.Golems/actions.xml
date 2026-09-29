@@ -1,12 +1,12 @@
 <?xml version='1.0' encoding='utf-8'?>
 <GameContent version="1.0" balance="first-playable">
   <Actions>
-    <Action id="assemble" name="골렘 조립" handler="golem.assemble" range="-1" recordable="false" />
-    <Action id="select" name="직접 조종" handler="golem.select" range="-1" recordable="false" />
-    <Action id="equip" name="장비 장착" handler="golem.equip" range="-1" recordable="true" />
-    <Action id="upgrade_golem" name="골렘 강화" handler="golem.upgrade" range="-1" recordable="false" />
-    <Action id="fuel_tower" name="마나 수정 넣기" handler="mana.fuel" range="1" recordable="true" />
-    <Action id="charge" name="마력 충전" handler="mana.charge" range="1" recordable="true" />
-    <Action id="consume" name="회복 아이템 사용" handler="golem.consume" range="-1" recordable="true" />
+    <Action id="assemble" description="엔린이 골렘 핵을 사용해 새로운 골렘을 조립해." icon="item.harvest_core" name="골렘 조립" handler="golem.assemble" range="-1" recordable="false" />
+    <Action id="select" description="이 골렘으로 조종을 전환해. 진행하던 반복 재생은 멈춰." name="직접 조종" handler="golem.select" range="-1" recordable="false" />
+    <Action id="equip" description="보관함의 무기나 방패를 장착해." icon="item.wooden_sword" name="장비 장착" handler="golem.equip" range="-1" recordable="true" />
+    <Action id="upgrade_golem" description="금화를 사용해 마력 용량, 보관함, 방어력을 강화해." icon="item.craft_core" name="골렘 강화" handler="golem.upgrade" range="-1" recordable="false" />
+    <Action id="fuel_tower" description="무색 마나 수정 한 개로 탑의 마력 1000을 보충해." icon="item.mana_crystal" name="마나 수정 넣기" handler="mana.fuel" range="1" recordable="true" />
+    <Action id="charge" description="탑에 저장된 마력을 골렘으로 충전해. 충전 행동도 녹화할 수 있어." icon="item.mana_crystal" name="마력 충전" handler="mana.charge" range="1" recordable="true" />
+    <Action id="consume" description="보관함의 회복 물건을 한 개 사용해." icon="item.healing_jelly" name="회복 아이템 사용" handler="golem.consume" range="-1" recordable="true" />
   </Actions>
 </GameContent>

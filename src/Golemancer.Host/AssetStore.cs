@@ -19,6 +19,7 @@ internal sealed class AssetStore
         foreach (var sprite in content.Sprites.Values)
             foreach (var clip in sprite.Animations.Values)
                 for (int i = 0; i < clip.Frames; i++) Frame(clip, i);
+        foreach (var action in content.Actions.Values.Where(a => Path.IsPathRooted(a.Icon))) Load(action.Icon);
     }
     private ImageSource Load(string path)
     {

@@ -8,6 +8,10 @@ internal sealed class BubbleEntry
     public string Label { get; set; } = "";
     public string Hint { get; set; } = "";
     public string ItemId { get; set; } = "";
+    public string IconId { get; set; } = "";
+    public string Glyph { get; set; } = "";
+    public string Badge { get; set; } = "";
+    public Func<BubblePreview>? Preview { get; set; }
     public bool Enabled { get; set; } = true;
     public bool Keep { get; set; }
     public Action? Activate { get; set; }

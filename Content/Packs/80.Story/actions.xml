@@ -1,8 +1,8 @@
 <?xml version='1.0' encoding='utf-8'?>
 <GameContent version="1.0" balance="first-playable">
   <Actions>
-    <Action id="talk" name="이야기" handler="story.talk" recordable="false" />
-    <Action id="enter_cave" name="동굴 진입" handler="story.enter" range="2" recordable="false" />
-    <Action id="return_cave" name="오솔길로 돌아가기" handler="story.enter" range="-1" recordable="false" />
+    <Action id="talk" description="대상에게 말을 걸고 이야기를 이어가." icon="enrin" name="이야기" handler="story.talk" recordable="false" />
+    <Action id="enter_cave" description="열린 동굴 입구로 이동해 다음 지역에 들어가." icon="cave_gate" name="동굴 진입" handler="story.enter" range="2" recordable="false" />
+    <Action id="return_cave" description="공방이 있는 만찬의 오솔길로 돌아가." icon="cave_gate" name="오솔길로 돌아가기" handler="story.enter" range="-1" recordable="false" />
   </Actions>
 </GameContent>

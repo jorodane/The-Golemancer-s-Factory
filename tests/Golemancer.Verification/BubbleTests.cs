@@ -9,6 +9,22 @@ internal static class BubbleTests
     private static IEnumerable<string> Items(IEnumerable<BubbleEntry> entries) => entries.SelectMany(e => e.ItemId.Length > 0 ? new[] { e.ItemId } : Items(e.Children));
     public static void Run(CookedGame cooked, string root)
     {
+        Check(BubbleLayout.Pages(8) == 1 && BubbleLayout.Pages(9) == 2 && BubbleLayout.Pages(16) == 2, "eight actual choices per page, with navigation outside the ring");
+        var positions = Enumerable.Range(0, 8).Select(i => BubbleLayout.Offset(i, 8)).ToArray();
+        Check(Math.Abs(positions[0].X) < .001 && positions[0].Y < 0 && positions[1].X > 0 && positions[1].Y < 0 && positions[2].X > 0 && Math.Abs(positions[2].Y) < .001, "circular choices begin at twelve o'clock and proceed clockwise");
+        Check(positions.All(p => positions.Where(q => q != p).All(q => Math.Sqrt(Math.Pow(p.X - q.X, 2) + Math.Pow(p.Y - q.Y, 2)) > BubbleLayout.Diameter * BubbleLayout.HoverScale)), "all eight enlarged circles remain separated");
+        Check(7 * BubbleLayout.Stagger < .07 && 7 * BubbleLayout.Stagger + BubbleLayout.Settle < .3, "clockwise stagger completes in under 300ms");
+        var above = BubbleLayout.PreviewPosition(600, 500, 310, 200, 1100, 720);
+        var edge = BubbleLayout.PreviewPosition(920, 120, 310, 230, 1100, 720);
+        Check(above.Y + 200 < 500 - BubbleLayout.Diameter / 2 && edge.X >= 8 && edge.X + 310 < 920 - BubbleLayout.Diameter / 2 && edge.Y >= 8 && edge.Y + 230 <= 720, "hover preview prefers above and avoids the circle at viewport edges");
+        var previewGame = new Simulation(cooked); var source = previewGame.Find("golem-1")!;
+        source.Inventory["wood"] = 4; source.OutputInventory["wood"] = 100;
+        var preview = BubblePreviews.Recipe(previewGame, source, cooked.Content.Recipes["wooden_sword"], 2);
+        Check(preview.Spotlight && preview.IconId == "item.wooden_sword" && preview.Description.Length > 0 && preview.Materials.Single() is { Required: 10, Available: 4, Missing: true }, "craft hover uses result art/description and actual input stock, including batch shortages");
+        source.Inventory["wood"] = 12;
+        Check(!BubblePreviews.Recipe(previewGame, source, cooked.Content.Recipes["wooden_sword"], 2).Materials.Single().Missing, "craft preview reflects live inventory changes");
+        Check(BubblePreviews.Recipe(previewGame, source, cooked.Content.Recipes["springwater_jelly"]).Locked && BubblePreviews.Recipe(previewGame, source, cooked.Content.Recipes["wooden_sword"], 0).Materials.Single().Required == 0, "locked and already-satisfied production previews expose the correct requirements");
+        Check(cooked.Content.Actions["harvest"].Description != cooked.Content.Actions["fell"].Description && cooked.Content.Actions["harvest"].Description.Length > 0 && cooked.Content.Sprites.ContainsKey(cooked.Content.Actions["harvest"].Icon), "action-specific descriptions and existing image IDs load from pack XML");
         var s = new Simulation(cooked); var actor = s.Find("golem-1")!; var target = s.Spawn("craft_golem", actor.X + 1, actor.Y);
         actor.Inventory = new() { ["wood"] = 9, ["common_herb"] = 3, ["newflesh_herb"] = 2 };
         target.Inventory = new(actor.Inventory);

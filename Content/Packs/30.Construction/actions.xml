@@ -1,12 +1,12 @@
 <?xml version='1.0' encoding='utf-8'?>
 <GameContent version="1.0" balance="first-playable">
   <Actions>
-    <Action id="build" name="건설" handler="build.place" range="2" failure="stop">
+    <Action id="build" description="시설을 선택한 뒤 빈 타일에 설치해. 판매 시설은 상점 안에 놓아." icon="workbench" name="건설" handler="build.place" range="2" failure="stop">
       <Works>
         <Work type="craft" amount="8" />
       </Works>
     </Action>
-    <Action id="dismantle" name="철거" handler="build.remove" targetKind="facility" failure="stop">
+    <Action id="dismantle" description="생산 중인 시설은 먼저 작업을 끝내야 해. 재고와 회수 재료는 바닥에 남아." icon="item.wooden_club" name="철거" handler="build.remove" targetKind="facility" failure="stop">
       <Works>
         <Work type="craft" amount="4" />
       </Works>
