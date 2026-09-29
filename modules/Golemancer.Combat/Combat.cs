@@ -58,8 +58,14 @@ public static class Battle
             if (Math.Pow((x - 47) / 6.3, 2) + Math.Pow((y - 11) / 5.2, 2) < 1 && c.State.Map.At(x, y) == "shore") c.State.Map.Set(x, y, "water");
     }
 }
-public sealed class Attack : IActionHandler
+public sealed class Attack : IActionHandler, IActionProjection
 {
+    public ActionResult Project(IGameContext c, WorldObject a, ActionRequest r)
+    {
+        var result = Execute(c, a, r); var target = c.Target(r)!;
+        if (c.Is(target, "monster") && target.Get("health") <= 0) Encounters.DropLoot(c, target);
+        return result;
+    }
     public CheckResult Check(IGameContext c, WorldObject a, ActionRequest r)
     {
         if (!c.Capability(a, "combat")) return CheckResult.No("이 골렘은 공격할 수 없어.", "capability");
@@ -71,11 +77,13 @@ public sealed class Attack : IActionHandler
     }
     public ActionResult Execute(IGameContext c, WorldObject a, ActionRequest r) { Battle.Hit(c, a, c.Target(r)!, r.Option); return ActionResult.Success(); }
 }
-public sealed class Roll : IActionHandler
+public sealed class Roll : IActionHandler, IActionProjection
 {
+    public ActionResult Project(IGameContext c, WorldObject a, ActionRequest r) => Execute(c, a, r);
     public CheckResult Check(IGameContext c, WorldObject a, ActionRequest r) => !c.Capability(a, "combat") ? CheckResult.No("이 골렘은 구를 수 없어.", "capability") : a.Get("rollReady") > c.State.Time ? CheckResult.No("구르기 재사용 대기 중이야.", "cooldown") : CheckResult.Yes;
     public ActionResult Execute(IGameContext c, WorldObject a, ActionRequest r)
     {
+        a.Data["mode"] = "combat";
         double dx = r.X is >= -1 and <= 1 ? r.X : a.Get("facingX", 1), dy = r.Y is >= -1 and <= 1 ? r.Y : a.Get("facingY");
         if (dx == 0 && dy == 0) dx = 1;
         double length = Math.Sqrt(dx * dx + dy * dy);
@@ -122,6 +130,14 @@ public sealed class Encounters : IRuntimeSystem
 {
     public string Id => "combat.encounters";
     public int Order => 60;
+    internal static void DropLoot(IGameContext c, WorldObject monster)
+    {
+        monster.Set("dead", 1); monster.Set("respawnAt", c.State.Time + 45);
+        var bag = c.Spawn("dropped_items", monster.X, monster.Y);
+        string loot = c.Setting(monster, "loot", "springwater_drop"); bag.Inventory[loot] = (int)monster.Get("lootAmount", 8);
+        if (loot == "springwater_drop") bag.Inventory["newflesh_herb"] = 2;
+        c.State.Add("monstersDefeated"); c.Effect("splash", monster.X, monster.Y, c.ItemName(loot), 1.5);
+    }
     public void Tick(IGameContext c, double dt)
     {
         foreach (var monster in c.State.Objects.Values.Where(o => c.Is(o, "monster")).ToArray())
@@ -131,7 +147,7 @@ public sealed class Encounters : IRuntimeSystem
                 if (c.State.Time >= monster.Get("respawnAt"))
                 {
                     bool ice = c.Phase() is "SpringNight" or "WinterDay" or "WinterNight";
-                    monster.DefinitionId = ice ? "icewater_pouch" : "springwater_pouch";
+                    if (monster.DefinitionId is "springwater_pouch" or "icewater_pouch") monster.DefinitionId = ice ? "icewater_pouch" : "springwater_pouch";
                     var d = c.Definition(monster)!; monster.Values = new(d.Values); monster.Data = new(d.Data); monster.Name = d.Name;
                     monster.Set("homeX", monster.X); monster.Set("homeY", monster.Y);
                 }
@@ -139,9 +155,7 @@ public sealed class Encounters : IRuntimeSystem
             }
             if (monster.Get("health") <= 0)
             {
-                monster.Set("dead", 1); monster.Set("respawnAt", c.State.Time + 45);
-                var bag = c.Spawn("dropped_items", monster.X, monster.Y); bag.Inventory["springwater_drop"] = 8; bag.Inventory["newflesh_herb"] = 2;
-                c.State.Add("monstersDefeated"); c.Effect("splash", monster.X, monster.Y, "샘물방울", 1.5); continue;
+                DropLoot(c, monster); continue;
             }
             var target = c.Find(monster.GetText("attacker"));
             if (target is null || !target.Alive() || c.Distance(target, monster) > 7)
@@ -158,7 +172,7 @@ public sealed class Encounters : IRuntimeSystem
             else if (c.State.Time >= monster.Get("nextAttack"))
             {
                 monster.Set("warnX", target.X); monster.Set("warnY", target.Y); monster.Set("attackDue", c.State.Time + 1.1);
-                c.Effect("telegraph", target.X, target.Y, "샘물 튀기기", 1.1);
+                c.Effect("telegraph", target.X, target.Y, monster.DefinitionId == "stone_sprite" ? "돌 구르기" : "샘물 튀기기", 1.1);
             }
         }
         var boss = c.Find("springwater-king");

@@ -180,6 +180,7 @@ internal sealed partial class MainWindow
         return id switch
         {
             "fuel" or "fell" => "item.wood", "herb" or "harvest" => "item.common_herb", "liquid" => "item.springwater_drop", "jelly" or "product" => "item.springwater_jelly",
+            "crew" => "harvest_golem", "map" => "signpost", "journal" => "item.jelly_book",
             "core" or "assembly" => "item.harvest_core", "book" => "item.jelly_book", "trophy" => "item.king_token", "material" => "storage",
             "recipes" or "build" or "craft_single" or "craft_count" or "craft_until" => "workbench", "shop" or "buy" => "merchant",
             "equipment" or "guard" or "upgrade.armor" => "item.wooden_shield", "attack" or "mode" => "item.wooden_sword",
@@ -197,7 +198,7 @@ internal sealed partial class MainWindow
         if (id.StartsWith("charge.", StringComparison.Ordinal)) return "ϟ";
         if (id.StartsWith("transfer.", StringComparison.Ordinal)) return "⇄";
         if (id.StartsWith("drop.", StringComparison.Ordinal)) return "↓";
-        return id switch { "back" => "↶", "give" => "↗", "take" => "↙", "select" => "◎", "move" => "➜", "record" => "●", "play" => "▶", "routines" or "wait" => "◷", "failure" => "!", "confirm" => "✓", "roll" => "↻", "cancel" or "retreat" => "×", _ => entry.Children.Count > 0 ? "≡" : "◇" };
+        return id switch { "pause" => "Ⅱ", "help" => "?", "next" => "›", "back" => "↶", "give" => "↗", "take" => "↙", "select" => "◎", "move" => "➜", "record" => "●", "play" => "▶", "routines" or "wait" => "◷", "failure" => "!", "confirm" => "✓", "roll" => "↻", "cancel" or "retreat" => "×", _ => entry.Children.Count > 0 ? "≡" : "◇" };
     }
     private static string BadgeFor(BubbleEntry entry)
     {
@@ -238,6 +239,6 @@ internal sealed partial class MainWindow
             "charge.all" => "탑의 마력과 골렘의 남은 용량만큼 충전해.", "charge.number" => "이번에 충전할 마력의 양을 정해.", "charge.fill" => "지정한 마력에 도달할 때까지 부족분을 충전해.",
             _ => entry.Children.Count > 0 ? $"{entry.Children.Count}개 항목에서 선택해." : ""
         };
-        return new() { Title = entry.Label, Description = description, Note = hint, IconId = IconIdFor(entry), Locked = !entry.Enabled };
+        return new() { Title = entry.Label, Description = description, Note = hint, IconId = IconIdFor(entry), Locked = !entry.Available };
     }
 }

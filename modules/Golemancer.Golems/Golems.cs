@@ -8,8 +8,9 @@ public sealed class Module : IGameModule
         r.Action("golem.upgrade", new Upgrade()); r.Action("mana.fuel", new Fuel()); r.Action("mana.charge", new Charge()); r.Action("golem.consume", new Consume()); r.System(new Lifecycle());
     }
 }
-public sealed class Assemble : IActionHandler
+public sealed class Assemble : IActionHandler, IActionProjection
 {
+    public ActionResult Project(IGameContext c, WorldObject a, ActionRequest r) => Execute(c, a, r);
     public CheckResult Check(IGameContext c, WorldObject a, ActionRequest r)
     {
         if (!c.Content.Objects.TryGetValue(r.Item, out var d) || d.Kind != "golem") return CheckResult.No("골렘 종류를 골라줘.", "definition_missing");
@@ -40,8 +41,9 @@ public sealed class Select : IActionHandler
         return ActionResult.Success(target.Name + " 조종 시작");
     }
 }
-public sealed class Equip : IActionHandler
+public sealed class Equip : IActionHandler, IActionProjection
 {
+    public ActionResult Project(IGameContext c, WorldObject a, ActionRequest r) => Execute(c, a, r);
     private static readonly HashSet<string> Equipment = ["wooden_sword", "wooden_club", "wooden_shield"];
     public CheckResult Check(IGameContext c, WorldObject a, ActionRequest r)
     {
@@ -57,8 +59,9 @@ public sealed class Equip : IActionHandler
         return ActionResult.Success(c.ItemName(r.Item) + " 장착");
     }
 }
-public sealed class Upgrade : IActionHandler
+public sealed class Upgrade : IActionHandler, IActionProjection
 {
+    public ActionResult Project(IGameContext c, WorldObject a, ActionRequest r) => Execute(c, a, r);
     public CheckResult Check(IGameContext c, WorldObject a, ActionRequest r)
     {
         if (!c.IsGolem(a)) return CheckResult.No("골렘을 선택해줘.", "capability");
@@ -76,8 +79,9 @@ public sealed class Upgrade : IActionHandler
         return ActionResult.Success("골렘 강화 완료");
     }
 }
-public sealed class Fuel : IActionHandler, IInventoryAction
+public sealed class Fuel : IActionHandler, IInventoryAction, IActionProjection
 {
+    public ActionResult Project(IGameContext c, WorldObject a, ActionRequest r) => Execute(c, a, r);
     public PreparedAction Prepare(IGameContext c, WorldObject a, ActionRequest r) => new(r, [new(a.Id, "mana_crystal", Math.Max(1, r.Quantity))]);
     public CheckResult Check(IGameContext c, WorldObject a, ActionRequest r) => c.Target(r)?.DefinitionId != "mana_tower" ? CheckResult.No("마나 수정탑을 선택해줘.", "target_missing") : c.Available(a, "mana_crystal") < Math.Max(1, r.Quantity) ? CheckResult.No("무색 마나 수정이 부족해.", "ingredients") : CheckResult.Yes;
     public ActionResult Execute(IGameContext c, WorldObject a, ActionRequest r)
@@ -87,8 +91,9 @@ public sealed class Fuel : IActionHandler, IInventoryAction
         return ActionResult.Success("수정탑에 마력이 차올랐어. 충전과 자동화를 시작할 수 있어.");
     }
 }
-public sealed class Charge : IActionHandler
+public sealed class Charge : IActionHandler, IActionProjection
 {
+    public ActionResult Project(IGameContext c, WorldObject a, ActionRequest r) => Execute(c, a, r);
     public CheckResult Check(IGameContext c, WorldObject a, ActionRequest r)
     {
         var t = c.Target(r);
@@ -106,8 +111,9 @@ public sealed class Charge : IActionHandler
         return ActionResult.Success($"마력 {n:0} 충전");
     }
 }
-public sealed class Consume : IActionHandler
+public sealed class Consume : IActionHandler, IActionProjection
 {
+    public ActionResult Project(IGameContext c, WorldObject a, ActionRequest r) => Execute(c, a, r);
     public CheckResult Check(IGameContext c, WorldObject a, ActionRequest r) => r.Item is "healing_jelly" or "mana_jelly" or "sweetfruit" && c.Available(a, r.Item) > 0 ? CheckResult.Yes : CheckResult.No("사용할 회복 물건이 없어.", "ingredients");
     public ActionResult Execute(IGameContext c, WorldObject a, ActionRequest r)
     {

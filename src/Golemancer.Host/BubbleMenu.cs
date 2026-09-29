@@ -1,4 +1,5 @@
 using Golemancer.Contracts;
+using Golemancer.Engine;
 namespace Golemancer.Desktop;
 
 // The same tree, compression and inventory projection serve every interaction.
@@ -73,34 +74,46 @@ internal static class BubbleMenu
     public static (WorldObject From, WorldObject To) TransferPair(WorldObject actor, WorldObject target, string direction) => direction == "take" ? (target, actor) : (actor, target);
     public static List<BubbleEntry> Transfer(IGameContext game, WorldObject actor, WorldObject target, string direction, Func<string, BubbleEntry> make, bool planning = false)
     {
+        (game, actor, target) = Project(game, actor, target, planning);
         var (from, to) = TransferPair(actor, target, direction);
-        var items = planning ? game.Content.Items.Keys.AsEnumerable() : from.Stock().Keys.Where(i => from.Available(i) > 0);
-        return GroupItems(game, items.Where(i => game.AcceptsInput(to, i)), Preferred(game, target), make);
+        return GroupItems(game, from.Stock().Keys.Where(i => from.Available(i) > 0 && game.AcceptsInput(to, i) && game.Room(to, i) > 0), Preferred(game, target), make);
     }
     public static int TransferMax(IGameContext game, WorldObject actor, WorldObject target, string direction, string item, bool planning = false)
-    { var (from, to) = TransferPair(actor, target, direction); return planning ? PlannedCapacity(game, to, item) : Math.Min(from.Available(item), game.Room(to, item)); }
+    { (game, actor, target) = Project(game, actor, target, planning); var (from, to) = TransferPair(actor, target, direction); return Math.Min(from.Available(item), game.Room(to, item)); }
     public static List<string> SlotItems(IGameContext game, WorldObject actor, WorldObject target, InputSlotDef slot, string direction, bool planning = false)
     {
+        (game, actor, target) = Project(game, actor, target, planning);
         var (from, _) = TransferPair(actor, target, direction);
         var stock = direction == "take" ? from.Inventory : from.Stock();
-        var items = planning ? game.Content.Items.Keys.AsEnumerable() : stock.Keys;
-        return items.Where(item => game.InputSlot(target, item)?.Id == slot.Id && SlotMax(game, actor, target, slot, direction, item, planning) > 0).OrderBy(game.ItemName, StringComparer.Ordinal).ToList();
+        var items = stock.Keys;
+        return items.Where(item => game.InputSlot(target, item)?.Id == slot.Id && SlotMax(game, actor, target, slot, direction, item) > 0).OrderBy(game.ItemName, StringComparer.Ordinal).ToList();
     }
     public static int SlotMax(IGameContext game, WorldObject actor, WorldObject target, InputSlotDef slot, string direction, string item, bool planning = false)
     {
+        (game, actor, target) = Project(game, actor, target, planning);
         if (game.InputSlot(target, item)?.Id != slot.Id) return 0;
         var (from, to) = TransferPair(actor, target, direction);
-        return planning ? PlannedCapacity(game, to, item) : Math.Min(direction == "take" ? from.AvailableInput(item) : from.Available(item), game.Room(to, item));
+        return Math.Min(direction == "take" ? from.AvailableInput(item) : from.Available(item), game.Room(to, item));
     }
 
-    private static int PlannedCapacity(IGameContext game, WorldObject to, string item) => !game.AcceptsInput(to, item) ? 0 : game.InputSlot(to, item)?.Capacity ?? Math.Min(9999, game.Slots(to) * (game.Content.Items.GetValueOrDefault(item)?.Stack ?? 50));
+    public static (IGameContext Game, WorldObject Actor, WorldObject Target) Project(IGameContext game, WorldObject actor, WorldObject target, bool planning)
+    {
+        if (game is not Simulation simulation || !planning && actor.Pending is null && actor.Work is null && actor.ActionQueue.Count == 0) return (game, actor, target);
+        var view = simulation.ProjectCommands(actor, planning);
+        return (view, view.Find(actor.Id)!, view.Find(target.Id)!);
+    }
 }
 internal static class QuantityPicker
 {
+    public static int Modifier(bool control, bool alt, int maximum) => maximum <= 0 ? 0 : control ? 1 : alt ? maximum : 0;
     public static int Clamp(int value, int max) => Math.Max(1, Math.Min(value, Math.Max(1, max)));
     public static int Shortcut(string id, int value, int max)
     {
         value = Clamp(value, max); max = Math.Max(1, max);
-        return id switch { "one" => 1, "half" => Math.Max(1, value / 2), "mean" => 1 + (max - 1) / 2, "plusHalf" => value + (int)(((long)max - value + 1) / 2), "max" => max, _ => value };
+        if (id == "one") return 1;
+        if (id == "mean") return 1 + (max - 1) / 2;
+        if (id == "max") return max;
+        if (int.TryParse(id, out int delta)) return (int)Math.Max(1L, Math.Min(max, (long)value + delta));
+        return value;
     }
 }

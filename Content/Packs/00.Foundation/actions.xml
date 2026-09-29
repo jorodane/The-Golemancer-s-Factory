@@ -7,6 +7,6 @@
     <Action id="pickup" description="가까이 다가가 떨어진 물건을 보관함이 허용하는 만큼 주워." icon="dropped_items" name="주워 담기" handler="inventory.pickup" targetKind="drop" failure="skip" />
     <Action id="pickup_nearest" description="한 칸 안에서 가장 가까운 물건 묶음을 주워." icon="dropped_items" name="가까운 물건 줍기" handler="inventory.pickup_nearest" range="-1" failure="skip" />
     <Action id="pickup_nearby" description="주변 두 칸 범위의 물건을 한 번에 주워." icon="dropped_items" name="주변 물건 줍기" handler="inventory.pickup_nearby" range="-1" failure="skip" />
-    <Action id="drop" description="보관함의 물건을 바닥에 내려놓아. 다시 주우려면 E를 눌러." icon="dropped_items" name="물건 내려놓기" handler="inventory.drop" range="-1" failure="skip" />
+    <Action id="drop" description="보관함의 물건을 바닥에 내려놓아. 다시 주우려면 E를 눌러." icon="dropped_items" name="물건 내려놓기" handler="inventory.drop" range="1" failure="skip" />
   </Actions>
 </GameContent>

@@ -54,6 +54,9 @@
         <Row>rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr</Row>
       </Rows>
       <Spawns>
+        <Spawn id="stone-0" definition="stone_sprite" x="22" y="29" />
+        <Spawn id="stone-1" definition="stone_sprite" x="26" y="26" />
+        <Spawn id="stone-2" definition="stone_sprite" x="29" y="23" />
         <Spawn id="golem-1" definition="harvest_golem" x="9" y="28" />
         <Spawn id="enrin" definition="enrin" x="8" y="22" />
         <Spawn id="merchant" definition="merchant" x="13" y="26" />

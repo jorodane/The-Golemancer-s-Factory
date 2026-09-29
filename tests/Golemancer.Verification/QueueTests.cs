@@ -62,8 +62,9 @@ internal static class QueueTests
         store.Inventory["wood"] = 3; Advance(s, 1); Check(a.ActionQueue.Count == 0 && a.Count("wood") == 3, "queued prerequisite is checked at execution and resumes after stock arrives");
 
         s = Fixture(cooked); a = s.Find("a")!; a.DefinitionId = "harvest_golem"; a.Set("harvest", 4); var tree = s.Spawn("upright_tree", 11, 10); store = s.Spawn("storage", 13, 10, "store");
-        Check(BubbleMenu.Transfer(s, a, store, "give", item => new() { ItemId = item, Activate = () => { } }, planning: true).Count > 0 && BubbleMenu.TransferMax(s, a, store, "give", "wood", planning: true) >= 5 && a.Count("wood") == 0, "Shift planning can choose a future harvest before its items exist");
+        Check(BubbleMenu.Transfer(s, a, store, "give", item => new() { ItemId = item, Activate = () => { } }, planning: true).Count == 0, "planning with no harvest queued never exposes the item catalog");
         s.Dispatch(new() { Action = "record" }); s.Dispatch(new() { Action = "fell", TargetId = tree.Id });
+        Check(BubbleMenu.TransferMax(s, a, store, "give", "wood", planning: true) == 5 && a.Count("wood") == 0, "current harvest is projected as five wood without mutating live stock");
         s.Dispatch(new() { Action = "transfer", TargetId = store.Id, Item = "wood", Quantity = 5, Enqueue = true }); s.Dispatch(new() { Action = "wait", Quantity = 2, Enqueue = true });
         Check(cooked.Content.Inputs["queue"] == "LeftShift,RightShift", "Shift reservation modifier is supplied by input XML");
         Check(s.Dispatch(new() { Action = "record" }).Ok && a.Work is not null, "R can finish recording while the current action is still working");

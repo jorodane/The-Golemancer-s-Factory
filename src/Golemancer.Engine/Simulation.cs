@@ -92,6 +92,7 @@ public sealed partial class Simulation : IGameContext
     }
     public ActionResult Dispatch(ActionRequest request, bool playback = false)
     {
+        State.Revision++;
         request = request with { ReservationId = "" };
         var actor = Find(string.IsNullOrEmpty(request.ActorId) ? State.ControlledId : request.ActorId);
         if (!playback && request.Enqueue && Content.Actions.TryGetValue(request.Action, out var action) && action.Recordable)
@@ -124,7 +125,9 @@ public sealed partial class Simulation : IGameContext
         SetManualMovement(actor, 0, 0);
         bool emergencyRecovery = request.Action == "consume" && actor.Playback is not null && !playback;
         if (def.Recordable && actor.Playback is not null && !playback && !emergencyRecovery) return ActionResult.Fail("직접 조종하려면 먼저 반복을 멈춰줘.", "automated");
-        if (def.Interrupts && !continuation && queued is null) this.CancelActions(actor, stopPlayback: false);
+        // A fresh manual order replaces the running command and its tail. Queued/replayed
+        // successors and non-recordable UI commands never cancel that tail.
+        if ((def.Interrupts || def.Recordable && !playback && !emergencyRecovery) && !continuation && queued is null) this.CancelActions(actor, stopPlayback: false);
         if ((def.Recordable || def.Range >= 0) && !emergencyRecovery && !continuation && (actor.Work is not null || actor.Pending is not null)) return ActionResult.Fail("작업 중이야. Shift로 다음 행동을 예약하거나 X로 취소해줘.", "busy");
         if (playback && actor.Get("mana") <= 0 && request.Action != "charge") return ActionResult.Fail("마력이 부족해. 충전 후 이어갈 수 있어.", "no_mana");
         WorldObject? target = Find(request.TargetId);

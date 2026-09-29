@@ -47,7 +47,7 @@ internal static class BubbleTests
         Check(preview.Spotlight && preview.IconId == "item.wooden_sword" && preview.Description.Length > 0 && preview.Materials.Single() is { Required: 10, Available: 4, Missing: true }, "craft hover uses result art/description and actual input stock, including batch shortages");
         source.Inventory["wood"] = 12;
         Check(!BubblePreviews.Recipe(previewGame, source, cooked.Content.Recipes["wooden_sword"], 2).Materials.Single().Missing, "craft preview reflects live inventory changes");
-        Check(BubblePreviews.Recipe(previewGame, source, cooked.Content.Recipes["springwater_jelly"]).Locked && BubblePreviews.Recipe(previewGame, source, cooked.Content.Recipes["wooden_sword"], 0).Materials.Single().Required == 0, "locked and already-satisfied production previews expose the correct requirements");
+        Check(BubblePreviews.Recipe(previewGame, source, cooked.Content.Recipes["healing_jelly"]).Locked && BubblePreviews.Recipe(previewGame, source, cooked.Content.Recipes["wooden_sword"], 0).Materials.Single().Required == 0, "locked and already-satisfied production previews expose the correct requirements");
         Check(cooked.Content.Actions["harvest"].Description != cooked.Content.Actions["fell"].Description && cooked.Content.Actions["harvest"].Description.Length > 0 && cooked.Content.Sprites.ContainsKey(cooked.Content.Actions["harvest"].Icon), "action-specific descriptions and existing image IDs load from pack XML");
         var back = new BubbleEntry { Id = "back", Label = "상위 메뉴", Hint = "이전 메뉴가 있던 자리로 돌아가." };
         var craft = new BubbleEntry { Preview = () => preview };
@@ -86,8 +86,8 @@ internal static class BubbleTests
         Check(!orders.Available && BubbleMenu.Visible([orders]).Single() == orders, "emptying a dynamic group does not retain stale promoted children");
         var lockedFolder = new BubbleEntry { Enabled = false, Children = [Item("locked")] };
         Check(BubbleMenu.Visible([lockedFolder]).Single() == lockedFolder && !lockedFolder.Available, "flattening cannot bypass a disabled parent or expose a locked action");
-        Check(QuantityPicker.Shortcut("one", 30, 99) == 1 && QuantityPicker.Shortcut("half", 31, 99) == 15 && QuantityPicker.Shortcut("mean", 1, 99) == 50 && QuantityPicker.Shortcut("plusHalf", 31, 99) == 65 && QuantityPicker.Shortcut("max", 1, 99) == 99, "single-field quantity shortcuts have predictable integer rounding");
-        Check(QuantityPicker.Shortcut("plusHalf", 1, int.MaxValue) == 1073741824 && QuantityPicker.Clamp(100, 7) == 7 && QuantityPicker.Shortcut("half", 1, 1) == 1, "quantity shortcuts handle endpoints, shrinking limits and overflow");
+        Check(QuantityPicker.Shortcut("one", 30, 99) == 1 && QuantityPicker.Shortcut("-5", 31, 99) == 26 && QuantityPicker.Shortcut("mean", 1, 99) == 50 && QuantityPicker.Shortcut("10", 31, 99) == 41 && QuantityPicker.Shortcut("max", 1, 99) == 99, "single-field quantity shortcuts have predictable integer rounding");
+        Check(QuantityPicker.Shortcut("10", int.MaxValue - 1, int.MaxValue) == int.MaxValue && QuantityPicker.Clamp(100, 7) == 7 && QuantityPicker.Shortcut("-10", 1, 1) == 1, "quantity shortcuts handle endpoints, shrinking limits and overflow");
 
         var f = s.Spawn("herb_fumigator", actor.X + 1, actor.Y + 1); s.State.Flags.Add("jelly_book");
         Check(s.Definition(f)!.InputSlots.Select(i => i.Id).SequenceEqual(new[] { "fuel", "herb", "liquid" }), "XML defines three physical input compartments");

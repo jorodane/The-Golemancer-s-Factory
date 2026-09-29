@@ -12,6 +12,8 @@ internal sealed partial class MainWindow
     private BubbleFrame? facilityFrame;
     private void ShowFacilityFocus(WorldObject target)
     {
+        facilityHoverLayer.Children.Clear(); hoverFacility = "";
+        if (bubbleHistory.Count == 0) bubbleAnchor = world.TranslatePoint(world.Screen(target.WorldX + (Game.Definition(target)?.Width ?? 1) / 2.0, target.WorldY + (Game.Definition(target)?.Height ?? 1) / 2.0), root);
         focusedFacility = target.Id; world.FocusedFacility = target.Id; facilityStockSignature = facilityMaskSignature = "";
         queueBubbles |= Held("queue"); session.ClearInput(); bubbleActor = session.Actor?.Id ?? "";
         var frame = CreateBubbleFrame(target.Name, () => []); facilityFrame = frame;
@@ -19,31 +21,19 @@ internal sealed partial class MainWindow
         {
             var definition = Game.Definition(target); if (definition is null) return;
             var slots = definition.InputSlots;
-            var entries = slots.Select(slot =>
-            {
-                var item = target.Inventory.Keys.FirstOrDefault(i => Game.InputSlot(target, i)?.Id == slot.Id) ?? Game.Content.Items.Keys.FirstOrDefault(i => Game.InputSlot(target, i)?.Id == slot.Id) ?? "";
-                var entry = Leaf("slot." + slot.Id, slot.Name, () => ShowSlotTransfer(target, slot, "give"));
-                entry.ItemId = item; entry.Badge = target.Inventory.Where(k => Game.InputSlot(target, k.Key)?.Id == slot.Id).Sum(k => k.Value).ToString();
-                entry.Preview = () => new BubblePreview
-                {
-                    Title = slot.Name, IconId = "item." + item,
-                    Description = string.Join(" · ", target.Inventory.Where(k => k.Value > 0 && Game.InputSlot(target, k.Key)?.Id == slot.Id).Select(k => $"{Game.ItemName(k.Key)} ×{k.Value} · 점유 {target.Reserved(k.Key)}")),
-                    Note = $"좌클릭: 넣기 · 우클릭: 꺼내기\n한 종류 · 최대 {slot.Capacity}개" + (slot.Id == "fuel" ? $"\n남은 열 {target.Get("heat"):0}" : "")
-                };
-                return entry;
-            }).ToList();
-            entries.Add(Group("take", "물건 꺼내기", () => TransferEntries(target, "take")));
+            var entries = FacilityEntries(target);
             entries.AddRange(InteractionEntries(target, inputs: true));
             int pages = BubbleLayout.Pages(entries.Count); frame.Page = Math.Min(frame.Page, pages - 1);
             var shown = entries.Skip(frame.Page * BubbleLayout.PageSize).Take(BubbleLayout.PageSize).ToList();
             for (int i = 0; i < shown.Count; i++)
             {
                 var entry = shown[i]; var button = AddBubble(entry, i, shown.Count);
-                if (entry.Id.StartsWith("slot.", StringComparison.Ordinal))
+                if (entry.Id.StartsWith("slot.", StringComparison.Ordinal) && entry.Id != "slot.output")
                 {
                     var slot = slots.First(s => "slot." + s.Id == entry.Id);
                     button.PreviewMouseRightButtonDown += (_, e) => { e.Handled = true; ShowSlotTransfer(target, slot, "take"); };
                 }
+                else if (entry.Id == "slot.output") button.PreviewMouseRightButtonDown += (_, e) => { e.Handled = true; ShowOutputTransfer(target); };
             }
             AddBackBubble();
             if (pages > 1)
@@ -52,9 +42,69 @@ internal sealed partial class MainWindow
                 AddPageButton("previous", "‹", () => { frame.Page = (frame.Page + pages - 1) % pages; RenderBubbles(); }, -60, top);
                 AddPageButton("next", "›", () => { frame.Page = (frame.Page + 1) % pages; RenderBubbles(); }, 60, top);
             }
-            AddBubbleTitle(target.Name + " · 투입칸", shown.Count);
+            AddBubbleTitle(target.Name + " · " + target.GetText("status", "재료 대기"), shown.Count);
         };
         PushBubbleFrame(frame); RefreshFacilityFocus();
+    }
+    private readonly Canvas facilityHoverLayer = new();
+    private string hoverFacility = "", hoverFacilitySignature = "";
+    private List<BubbleEntry> FacilityEntries(WorldObject target)
+    {
+        var definition = Game.Definition(target)!;
+        var entries = definition.InputSlots.Select(slot =>
+        {
+            string item = target.Inventory.Keys.FirstOrDefault(i => target.Inventory[i] > 0 && Game.InputSlot(target, i)?.Id == slot.Id) ?? Game.Content.Items.Keys.FirstOrDefault(i => Game.InputSlot(target, i)?.Id == slot.Id) ?? "";
+            var entry = Leaf("slot." + slot.Id, slot.Name, () => ShowSlotTransfer(target, slot, "give"));
+            entry.ItemId = item; entry.Badge = target.Inventory.Where(k => Game.InputSlot(target, k.Key)?.Id == slot.Id).Sum(k => k.Value).ToString();
+            entry.Display = new() { Details = false }; return entry;
+        }).ToList();
+        string output = target.OutputInventory.Keys.FirstOrDefault(i => target.OutputInventory[i] > 0) ?? Game.Content.Recipes.Values.FirstOrDefault(r => r.Facility == target.DefinitionId)?.Output ?? "";
+        var tray = Leaf("slot.output", "완성품", () => ShowOutputTransfer(target)); tray.ItemId = output; tray.Badge = target.OutputInventory.Values.Sum().ToString(); tray.Display = new() { Details = false }; entries.Add(tray);
+        return entries;
+    }
+    private void ShowOutputTransfer(WorldObject target)
+    {
+        List<string> Items() => PlanningGame.Find(target.Id)!.OutputInventory.Keys.Where(i => Max(i) > 0).ToList();
+        int Max(string item) { var g = PlanningGame; return Math.Min(g.Find(target.Id)!.AvailableOutput(item), g.Room(g.Find(session.Actor!.Id)!, item)); }
+        void Quantity(string item) => ShowQuantity(Game.ItemName(item) + " · 완성품 꺼내기", () => Max(item), n => Send("transfer", target.Id, item, n, option: "take", slotId: "output"));
+        var items = Items();
+        if (items.Count == 1) { Quantity(items[0]); return; }
+        if (items.Count == 0) { Notify(target.GetText("status", "완성품 대기")); return; }
+        ShowMenu("완성품", () => BubbleMenu.GroupItems(Game, Items(), [], item => { var entry = Leaf("output." + item, Game.ItemName(item), () => Quantity(item)); entry.ItemId = item; entry.Badge = Max(item).ToString(); return entry; }));
+    }
+    private void RefreshFacilityHover()
+    {
+        if (!session.Started || modalType.Length > 0 || bubbleHistory.Count > 0 || dragItem.Length > 0 || Game.State.Dialogues.Count > 0)
+        { facilityHoverLayer.Children.Clear(); hoverFacilitySignature = hoverFacility = ""; return; }
+        var target = world.IsMouseOver ? world.Target(world.Hover) : facilityHoverLayer.IsMouseOver ? Game.Find(hoverFacility) : null;
+        if ((target is null || Game.Definition(target)?.InputSlots.Count is not > 0) && world.IsMouseOver && Game.Find(hoverFacility) is { } previous)
+        {
+            var center = world.TranslatePoint(world.Screen(previous.WorldX + (Game.Definition(previous)?.Width ?? 1) / 2.0, previous.WorldY + (Game.Definition(previous)?.Height ?? 1) / 2.0), root);
+            if ((NativePointer.Position(root) - center).Length < 150) target = previous;
+        }
+        if (target is null || Game.Definition(target)?.InputSlots.Count is not > 0)
+        { facilityHoverLayer.Children.Clear(); hoverFacilitySignature = hoverFacility = ""; return; }
+        hoverFacility = target.Id; var definition = Game.Definition(target)!;
+        var origin = world.TranslatePoint(world.Screen(target.WorldX + definition.Width / 2.0, target.WorldY + definition.Height / 2.0), root);
+        var position = new BubblePosition(origin.X, origin.Y); position.Constrain(root.ActualWidth, root.ActualHeight, new BubbleBounds(-137, -137, 137, 137));
+        string signature = target.Id + string.Join("|", target.Stock()) + target.Production.FirstOrDefault()?.Progress.ToString("0") + target.GetText("status") + position.X + ":" + position.Y;
+        if (signature == hoverFacilitySignature) return; hoverFacilitySignature = signature; facilityHoverLayer.Children.Clear();
+        var entries = FacilityEntries(target);
+        for (int i = 0; i < entries.Count; i++)
+        {
+            var entry = entries[i]; var slot = definition.InputSlots.FirstOrDefault(s => "slot." + s.Id == entry.Id);
+            void OpenSlot(bool take)
+            {
+                CloseBubbles(); ShowFacilityFocus(target);
+                if (slot is null) ShowOutputTransfer(target); else ShowSlotTransfer(target, slot, take ? "take" : "give");
+            }
+            var cell = (StackPanel)HudBubble(entry, 52, activate: () => OpenSlot(false)); var button = (Button)cell.Children[0];
+            button.PreviewMouseRightButtonDown += (_, e) => { e.Handled = true; OpenSlot(true); };
+            if (slot is null && target.Production.FirstOrDefault() is { } job && Game.Content.Recipes.TryGetValue(job.RecipeId, out var recipe)) ((HudIcon)button.Content).Clock = job.Progress / recipe.Work;
+            var offset = BubbleLayout.Offset(i, entries.Count); Canvas.SetLeft(cell, position.X + offset.X - 36); Canvas.SetTop(cell, position.Y + offset.Y - 26); facilityHoverLayer.Children.Add(cell);
+        }
+        var label = HudLabel(target.GetText("status", "재료 대기"), 12); label.Width = 170; label.TextAlignment = TextAlignment.Center; label.IsHitTestVisible = false;
+        Canvas.SetLeft(label, position.X - 85); Canvas.SetTop(label, position.Y + 50); facilityHoverLayer.Children.Add(label);
     }
     private void ShowSlotTransfer(WorldObject target, InputSlotDef slot, string direction)
     {

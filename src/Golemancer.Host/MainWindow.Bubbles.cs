@@ -26,6 +26,7 @@ internal sealed partial class MainWindow
     private Action? refreshQuantity;
     private string bubbleActor = "";
     private bool queueBubbles;
+    private Simulation PlanningGame => session.Actor is { } actor ? Game.ProjectCommands(actor, queueBubbles || Held("queue")) : Game;
     private void ClearBubbleVisuals()
     {
         ClearBubblePresentation(); bubbleLayer.Children.Clear(); quantityInput = null; quantitySlider = null; refreshQuantity = null;
@@ -108,8 +109,8 @@ internal sealed partial class MainWindow
     }
     private void AddBubbleTitle(string text, int count)
     {
-        var title = Label(text, 12); title.TextAlignment = TextAlignment.Center; title.MaxWidth = 240;
-        title.Margin = new Thickness(0); title.Padding = new Thickness(7, 2, 7, 2); title.Background = Paper; title.IsHitTestVisible = false;
+        var title = HudLabel(text, 12); title.TextAlignment = TextAlignment.Center; title.MaxWidth = 240;
+        title.Margin = new Thickness(0); title.Padding = new Thickness(7, 2, 7, 2); title.Background = Brushes.Transparent; title.IsHitTestVisible = false;
         title.Measure(new Size(title.MaxWidth, double.PositiveInfinity));
         Canvas.SetLeft(title, BubbleCenter.X - title.DesiredSize.Width / 2);
         Canvas.SetTop(title, BubbleCenter.Y + BubbleLayout.RingTop(count) - 8 - title.DesiredSize.Height);
@@ -198,7 +199,7 @@ internal sealed partial class MainWindow
         {
             case "fuel_tower": ShowQuantity("마나 수정 넣기", () => session.Actor!.Available("mana_crystal"), n => Send(action, target.Id, amount: n)); return;
             case "wait": ShowQuantity("대기 시간 · 초", () => 3600, n => Send(action, amount: n), 5); return;
-            default: Finish(() => Send(action, target.Id)); if (action == "select") world.Follow = true; return;
+            default: Finish(() => Send(action, target.Id)); if (action == "select") world.CenterOnActor(); return;
         }
     }
     private List<BubbleEntry> TransferEntries(WorldObject target, string direction)
@@ -206,7 +207,8 @@ internal sealed partial class MainWindow
         var actor = session.Actor!;
         var result = BubbleMenu.Transfer(Game, actor, target, direction, item =>
         {
-            var (from, to) = BubbleMenu.TransferPair(actor, target, direction);
+            var (_, projectedActor, projectedTarget) = BubbleMenu.Project(Game, actor, target, queueBubbles);
+            var (from, to) = BubbleMenu.TransferPair(projectedActor, projectedTarget, direction);
             var entry = Group("item." + item, (Game.State.FavoriteItems.Contains(item) ? "★ " : "") + Game.ItemName(item) + " ×" + from.Count(item), () => TransferItemEntries(target, direction, item));
             entry.ItemId = item; entry.Badge = from.Count(item).ToString();
             entry.Preview = () => new BubblePreview { Title = Game.ItemName(item), IconId = "item." + item, Description = Game.Content.Items.GetValueOrDefault(item)?.Description ?? "", Note = $"{from.Name} → {to.Name}\n보유 {from.Count(item)} · 점유 {from.Reserved(item)} · 받는 쪽 {to.Inventory.GetValueOrDefault(item)} · 가능 {BubbleMenu.TransferMax(Game, actor, target, direction, item, queueBubbles)}" }; return entry;
@@ -241,6 +243,8 @@ internal sealed partial class MainWindow
     private void ShowQuantity(string title, Func<int> maximum, Func<int, ActionResult> confirm, int initial = 1, Func<int, BubblePreview>? preview = null, Action<BubbleEntry, Func<int>>? decorate = null)
     {
         queueBubbles |= Held("queue");
+        int shortcut = QuantityPicker.Modifier(Held("quantity.one"), Held("quantity.all"), Math.Min(9999, maximum()));
+        if (shortcut > 0) { Finish(() => confirm(shortcut)); return; }
         var frame = CreateBubbleFrame(title, () => []);
         frame.Render = () =>
         {
@@ -254,7 +258,7 @@ internal sealed partial class MainWindow
             var slider = new Slider { Minimum = 1, Maximum = Math.Max(1, max), Value = QuantityPicker.Clamp(initial, max), TickFrequency = 1, IsSnapToTickEnabled = true, SmallChange = 1, LargeChange = Math.Max(1, max / 10), IsMoveToPointEnabled = true, Width = 316, Margin = new Thickness(2, 12, 2, 2), IsEnabled = max > 0 };
             quantitySlider = slider; System.Windows.Automation.AutomationProperties.SetName(slider, "수량 슬라이더"); panel.Children.Add(slider);
             var limits = Label(max > 0 ? $"1 ~ {max}개" : "지금 가능한 수량이 없어.", 11); limits.TextAlignment = TextAlignment.Center; panel.Children.Add(limits);
-            if (queueBubbles) { var hint = Label("차례가 되면 재고와 조건을 확인해.", 11); hint.TextAlignment = TextAlignment.Center; panel.Children.Add(hint); }
+            if (queueBubbles) { var hint = Label("앞선 예약을 마친 뒤의 예상 수량", 11); hint.TextAlignment = TextAlignment.Center; panel.Children.Add(hint); }
             bool syncing = false;
             field.TextChanged += (_, _) =>
             {
@@ -277,8 +281,8 @@ internal sealed partial class MainWindow
                 limits.Text = max > 0 ? $"1 ~ {max}개" : "지금 가능한 수량이 없어.";
             }
             refreshQuantity = RefreshMaximum;
-            var shortcuts = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center }; panel.Children.Add(shortcuts);
-            foreach (var (id, text, hint) in new[] { ("one", "1개", "최소 수량"), ("half", "−절반", "현재 수량을 절반으로"), ("mean", "평균", "1과 Max의 중간값"), ("plusHalf", "+절반", "Max까지 남은 수량의 절반 추가"), ("max", "Max", "현재 가능한 최대 수량") })
+            var shortcuts = new System.Windows.Controls.Primitives.UniformGrid { Columns = 3 }; panel.Children.Add(shortcuts);
+            foreach (var (id, text, hint) in new[] { ("-10", "−10", "10개 빼기"), ("-5", "−5", "5개 빼기"), ("-1", "−1", "1개 빼기"), ("10", "+10", "10개 더하기"), ("5", "+5", "5개 더하기"), ("1", "+1", "1개 더하기"), ("one", "1개", "최소 수량"), ("mean", "중간", "가능한 수량의 중간값"), ("max", "Max", "현재 가능한 최대 수량") })
             {
                 var button = Button(text, () => { RefreshMaximum(); int.TryParse(field.Text, out int value); field.Text = QuantityPicker.Shortcut(id, value, max).ToString(); field.SelectAll(); field.Focus(); limits.Text = $"1 ~ {max}개"; }, "quantity." + id);
                 button.Padding = new Thickness(8, 5, 8, 5); button.ToolTip = hint; shortcuts.Children.Add(button);
@@ -297,6 +301,7 @@ internal sealed partial class MainWindow
             if (preview is not null) confirmation.Preview = () => preview(Current());
             decorate?.Invoke(confirmation, Current);
             AddBubble(confirmation, 0, 1, id: "quantity.confirm");
+            var apply = Button("✓  확인", Commit, "quantity.apply"); apply.HorizontalContentAlignment = HorizontalAlignment.Center; panel.Children.Add(apply);
             var border = new Border { Background = Paper, Padding = new Thickness(12), CornerRadius = new CornerRadius(20), BorderBrush = Ink, BorderThickness = new Thickness(1), Child = panel, Width = 370 };
             Canvas.SetLeft(border, BubbleCenter.X - 185); Canvas.SetTop(border, BubbleCenter.Y + 46); bubbleLayer.Children.Add(border);
             field.Focus(); field.SelectAll();
@@ -306,7 +311,7 @@ internal sealed partial class MainWindow
     private void OpenItemBubble(string item)
     {
         var actor = session.Actor; if (actor is null) return;
-        CloseBubbles(); bubbleAnchor = world.TranslatePoint(world.Screen(actor.WorldX + .5, actor.WorldY + .5), root);
+        CloseBubbles(); bubbleAnchor = NativePointer.Position(root);
         ShowMenu(Game.ItemName(item), () =>
         {
             var entries = new List<BubbleEntry> { Favorite(item), Leaf("drop.number", "N개 내려놓기", () => ShowQuantity("내려놓을 수량", () => actor.Available(item), n => Send("drop", item: item, amount: n))), Leaf("drop.all", "전부 내려놓기", () => Finish(() => Send("drop", item: item, mode: "all"))) };

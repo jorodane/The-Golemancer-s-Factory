@@ -8,6 +8,8 @@
     <Bind action="roll" keys="Space" />
     <Bind action="pickup" keys="E" />
     <Bind action="queue" keys="LeftShift,RightShift" />
+    <Bind action="quantity.one" keys="LeftCtrl,RightCtrl" />
+    <Bind action="quantity.all" keys="LeftAlt,RightAlt" />
     <Bind action="record" keys="R" />
     <Bind action="play" keys="T" />
     <Bind action="build" keys="B" />

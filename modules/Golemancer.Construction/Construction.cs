@@ -4,8 +4,9 @@ public sealed class Module : IGameModule
 {
     public void Register(IModuleRegistry r) { r.Action("build.place", new Build()); r.Action("build.remove", new Remove()); }
 }
-public sealed class Build : IActionHandler, IInventoryAction
+public sealed class Build : IActionHandler, IInventoryAction, IActionProjection
 {
+    public ActionResult Project(IGameContext c, WorldObject a, ActionRequest r) => Execute(c, a, r);
     public CheckResult Check(IGameContext c, WorldObject a, ActionRequest r)
     {
         if (!c.Capability(a, "craft")) return CheckResult.No("건설은 제작 골렘이 담당해.", "capability");
@@ -29,8 +30,9 @@ public sealed class Build : IActionHandler, IInventoryAction
         return ActionResult.Success(def.Name + " 건설 완료");
     }
 }
-public sealed class Remove : IActionHandler
+public sealed class Remove : IActionHandler, IActionProjection
 {
+    public ActionResult Project(IGameContext c, WorldObject a, ActionRequest r) => Execute(c, a, r);
     public CheckResult Check(IGameContext c, WorldObject a, ActionRequest r)
     {
         var target = c.Target(r);

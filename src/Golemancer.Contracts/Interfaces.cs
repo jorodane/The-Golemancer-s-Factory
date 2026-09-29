@@ -21,6 +21,13 @@ public interface IInventoryAction
 {
     PreparedAction Prepare(IGameContext context, WorldObject actor, ActionRequest request);
 }
+/// <summary>Optional, deterministic forecast. Only mutate the supplied detached context; no I/O or retained state.</summary>
+public interface IActionProjection
+{
+    ActionResult Project(IGameContext context, WorldObject actor, ActionRequest request);
+}
+/// <summary>Optional forecast of production completion on a detached context only.</summary>
+public interface IProductionProjection { void Project(IGameContext context); }
 public interface IConditionHandler { bool Evaluate(IGameContext context, WorldObject actor, WorldObject? target, ConditionNode node); }
 public interface IFailureHandler { FailureDecision Handle(IGameContext context, WorldObject actor, FailureContext failure); }
 public interface IRuntimeSystem

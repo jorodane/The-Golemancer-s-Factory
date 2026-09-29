@@ -22,7 +22,7 @@
         <Item id="mana_crystal" amount="2" />
       </Inputs>
     </Recipe>
-    <Recipe id="springwater_jelly" name="샘물젤리" facility="herb_fumigator" unlock="jelly_book" output="springwater_jelly" amount="1" work="15" defaultEfficiency="1">
+    <Recipe id="springwater_jelly" name="샘물젤리" facility="herb_fumigator" unlock="" output="springwater_jelly" amount="1" work="15" defaultEfficiency="1">
       <Inputs>
         <Item id="common_herb" amount="1" />
         <Item id="springwater_drop" amount="1" />

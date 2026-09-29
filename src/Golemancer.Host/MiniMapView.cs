@@ -11,7 +11,7 @@ internal sealed class MiniMapView : FrameworkElement
     {
         session=s;assets=a;world=w;
         timer.Tick+=(_,_)=>InvalidateVisual();Loaded+=(_,_)=>timer.Start();Unloaded+=(_,_)=>timer.Stop();
-        MouseDown+=(_,e)=>{var p=e.GetPosition(this);world.CameraX=p.X/ActualWidth*session.Game.State.Map.Width;world.CameraY=p.Y/ActualHeight*session.Game.State.Map.Height;world.Follow=false;};
+        MouseDown+=(_,e)=>{if(session.Actor?.GetText("mode")=="combat")return;var p=e.GetPosition(this);world.CameraX=p.X/ActualWidth*session.Game.State.Map.Width;world.CameraY=p.Y/ActualHeight*session.Game.State.Map.Height;world.Follow=false;};
     }
     protected override void OnRender(DrawingContext dc)
     {

@@ -33,24 +33,26 @@ public sealed class Cancel : IActionHandler
         return ActionResult.Success("작업을 멈췄어.");
     }
 }
-public sealed class Transfer : IActionHandler, IInventoryAction
+public sealed class Transfer : IActionHandler, IInventoryAction, IActionProjection
 {
+    public ActionResult Project(IGameContext c, WorldObject a, ActionRequest r) => Execute(c, a, r);
     private static (WorldObject From, WorldObject To)? Pair(IGameContext c, WorldObject a, ActionRequest r)
     {
         var target = c.Target(r);
         if (target is null || target.Id == a.Id || !target.Alive() || c.Kind(target) is not ("facility" or "golem" or "drop")) return null;
         return r.Option == "take" ? (target, a) : (a, target);
     }
+    private static int Available(IGameContext c, WorldObject from, ActionRequest r) => r.SlotId == "output" ? from.AvailableOutput(r.Item, c.ReservationId) : c.Available(from, r.Item, r.Option == "take" && r.SlotId.Length > 0);
     private static int Count(IGameContext c, WorldObject from, WorldObject to, ActionRequest r)
     {
-        int wanted = r.Mode switch { "all" => c.Available(from, r.Item, r.Option == "take" && r.SlotId.Length > 0), "fill" => Math.Max(0, r.Quantity - to.Inventory.GetValueOrDefault(r.Item)), _ => r.Quantity };
-        return Math.Min(wanted, Math.Min(c.Available(from, r.Item, r.Option == "take" && r.SlotId.Length > 0), c.Room(to, r.Item)));
+        int wanted = r.Mode switch { "all" => Available(c, from, r), "fill" => Math.Max(0, r.Quantity - to.Inventory.GetValueOrDefault(r.Item)), _ => r.Quantity };
+        return Math.Min(wanted, Math.Min(Available(c, from, r), c.Room(to, r.Item)));
     }
     public CheckResult Check(IGameContext c, WorldObject a, ActionRequest r)
     {
         var pair = Pair(c, a, r);
         if (pair is null) return CheckResult.No("옮길 대상을 찾을 수 없어.", "target_missing");
-        if (r.SlotId.Length > 0 && c.InputSlot(c.Target(r)!, r.Item)?.Id != r.SlotId) return CheckResult.No("이 투입칸에 맞는 물건을 골라줘.", "input_slot");
+        if (r.SlotId == "output" ? r.Option != "take" || c.Definition(c.Target(r)!)?.InputSlots.Count == 0 : r.SlotId.Length > 0 && c.InputSlot(c.Target(r)!, r.Item)?.Id != r.SlotId) return CheckResult.No("이 투입칸에 맞는 물건을 골라줘.", "input_slot");
         if (!c.Content.Items.ContainsKey(r.Item)) return CheckResult.No("옮길 물건을 골라줘.", "item_missing");
         if (r.Quantity < 0 || r.Mode is not ("exact" or "fill" or "all")) return CheckResult.No("옮길 수량을 확인해줘.", "quantity");
         if (!c.AcceptsInput(pair.Value.To, r.Item)) return CheckResult.No("이 물건을 받는 투입칸이 없어.", "input_slot");
@@ -63,21 +65,22 @@ public sealed class Transfer : IActionHandler, IInventoryAction
     {
         var pair = Pair(c, a, r)!.Value;
         int n = Count(c, pair.From, pair.To, r);
-        return new(r with { Quantity = n, Mode = "exact" }, [new(pair.From.Id, r.Item, n, r.Option == "take" && r.SlotId.Length > 0)]);
+        return new(r with { Quantity = n, Mode = "exact" }, [new(pair.From.Id, r.Item, n, r.Option == "take" && r.SlotId.Length > 0 && r.SlotId != "output")]);
     }
     public ActionResult Execute(IGameContext c, WorldObject a, ActionRequest r)
     {
         var pair = Pair(c, a, r)!.Value;
         int n = Count(c, pair.From, pair.To, r);
-        c.Take(pair.From, r.Item, n, r.Option == "take" && r.SlotId.Length > 0); c.Give(pair.To, r.Item, n);
+        c.Take(pair.From, r.Item, n, r.Option == "take" && r.SlotId.Length > 0 && r.SlotId != "output"); c.Give(pair.To, r.Item, n);
         if (a.DefinitionId == "mini_golem" && n > 0 && pair.From == a) c.State.Add("mini_delivered", n);
         if (a.Playback is not null && n > 0 && pair.From == a) c.State.Add("automation_delivered", n);
         if (n > 0) { c.State.Add("transported", n); c.Effect("item", a.X, a.Y, $"{c.ItemName(r.Item)} {n}"); }
         return ActionResult.Success(n > 0 ? $"{c.ItemName(r.Item)} {n}개를 옮겼어." : "이미 목표 수량이야.", n);
     }
 }
-public sealed class Pickup : IActionHandler, IInventoryAction
+public sealed class Pickup : IActionHandler, IInventoryAction, IActionProjection
 {
+    public ActionResult Project(IGameContext c, WorldObject a, ActionRequest r) => Execute(c, a, r);
     public CheckResult Check(IGameContext c, WorldObject a, ActionRequest r) => c.RequireTarget(r, "drop");
     public PreparedAction Prepare(IGameContext c, WorldObject a, ActionRequest r) => new(r, c.Target(r)!.Inventory.Select(k => new ItemRequirement(r.TargetId, k.Key, Math.Min(c.Available(c.Target(r)!, k.Key), c.Room(a, k.Key)))).ToList());
     public ActionResult Execute(IGameContext c, WorldObject a, ActionRequest r)

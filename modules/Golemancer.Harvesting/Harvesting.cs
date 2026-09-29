@@ -4,8 +4,9 @@ public sealed class Module : IGameModule
 {
     public void Register(IModuleRegistry r) { r.Action("harvest.collect", new Collect()); r.System(new Regrowth()); }
 }
-public sealed class Collect : IActionHandler
+public sealed class Collect : IActionHandler, IActionProjection
 {
+    public ActionResult Project(IGameContext c, WorldObject a, ActionRequest r) => Execute(c, a, r);
     public CheckResult Check(IGameContext c, WorldObject a, ActionRequest r)
     {
         var t = c.Target(r);

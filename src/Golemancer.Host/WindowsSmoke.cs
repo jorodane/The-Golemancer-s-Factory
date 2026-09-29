@@ -27,7 +27,7 @@ internal sealed partial class MainWindow
             if(a.WorldX<=x||a.WorldX>=x+1)throw new Exception("Roll did not move continuously");Advance(20);Press(Key.Tab);
             var crafter=Game.Spawn("craft_golem",a.X+1,a.Y+1,"native-test-crafter");a.Inventory.Clear();a.Inventory["wood"]=4;
             ClickTile(crafter.Tile,true);UpdateLayout();
-            if(bubbleLayer.Children.Count<3||layout.ColumnDefinitions.Count!=2)throw new Exception("Interaction bubbles or inspector removal failed");
+            if(bubbleLayer.Children.Count<3||layout.ColumnDefinitions.Count!=0||world.ActualWidth!=layout.ActualWidth)throw new Exception("Interaction bubbles or inspector removal failed");
             buttons["bubble.give"].RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));UpdateLayout();
             void Click(string id){buttons[id].RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));UpdateLayout();}
             Click("bubble.item.wood");Click("bubble.transfer.number");
@@ -41,9 +41,9 @@ internal sealed partial class MainWindow
             ClickTile(crafter.Tile,true);Click("bubble.take");Click("bubble.item.wood");
             int depth=bubbleHistory.Count;Click("bubble.favorite");Click("bubble.back");
             if(bubbleHistory.Count!=depth-1||!Game.State.FavoriteItems.Contains("wood"))throw new Exception("Back or favorite bubble failed");
-            Click("bubble.item.wood");Click("bubble.transfer.number");Click("quantity.max");Click("quantity.half");
-            if(quantityInput!.Text!="2")throw new Exception("Half quantity shortcut failed");
-            Click("quantity.plusHalf");if(quantityInput!.Text!="3")throw new Exception("Plus-half shortcut failed");
+            Click("bubble.item.wood");Click("bubble.transfer.number");Click("quantity.max");Click("quantity.-1");Click("quantity.-1");
+            if(quantityInput!.Text!="2")throw new Exception("Minus-one quantity shortcut failed");
+            Click("quantity.1");if(quantityInput!.Text!="3")throw new Exception("Plus-one shortcut failed");
             Click("quantity.mean");if(quantityInput!.Text!="2")throw new Exception("Mean shortcut failed");
             Click("quantity.one");Click("quantity.confirm");Advance(120);
             if(a.Count("wood")!=1||crafter.Count("wood")!=3||Game.State.ControlledId!=controlled)throw new Exception("Native taking bubble failed");
@@ -83,7 +83,7 @@ internal sealed partial class MainWindow
             var mask=((System.Windows.Shapes.Path)bubbleHoverLayer.Children[0]).Data;
             var spotlightCenter=recipeBubble.Button.TranslatePoint(new Point(recipeBubble.Button.Width/2,recipeBubble.Button.Height/2),root);
             if(mask.FillContains(spotlightCenter)||!mask.FillContains(new Point(1,1)))throw new Exception("Spotlight did not exclude the hovered circle");
-            string oldPreview=hoverSignature;crafter.Inventory["wood"]=10;RefreshBubbleHover();if(hoverSignature==oldPreview)throw new Exception("Hovered materials did not refresh");
+            string oldPreview=hoverSignature;crafter.Inventory["wood"]=10;Game.State.Revision++;RefreshBubbleHover();if(hoverSignature==oldPreview)throw new Exception("Hovered materials did not refresh");
             recipeBubble.Button.RaiseEvent(new MouseEventArgs(Mouse.PrimaryDevice,Environment.TickCount){RoutedEvent=Mouse.MouseLeaveEvent});
             if(bubbleHoverLayer.Children.Count!=0||hoveredBubble is not null)throw new Exception("Hover overlay remained after pointer exit");
             EnterBubble(recipeBubble);CloseBubbles();if(bubbleHoverLayer.Children.Count!=0)throw new Exception("Closing bubbles leaked the spotlight");
@@ -102,11 +102,12 @@ internal sealed partial class MainWindow
             if(quantityInput is null||quantitySlider?.Maximum!=3)throw new Exception("Right-click input slot did not use input-only quantity");
             Click("bubble.back");if(!buttons.ContainsKey("bubble.slot.herb")||focusedFacility!=machine.Id||BubbleCenter!=facilityCenter)throw new Exception("Slot parent navigation lost facility focus or its position");
             CloseBubbles();if(facilityShadeLayer.Children.Count!=0||world.FocusedFacility.Length!=0)throw new Exception("Closing facility left its spotlight active");
+            RunPlayFeelSmoke(SettleCircles, Click);
             world.Reset();RefreshHud();UpdateLayout();world.InvalidateVisual();ClickTile(crafter.Tile,true);ShowCategories(crafter);
             SettleCircles();
             for(int i=0;i<3;i++){world.UpdateLayout();UpdateLayout();}
             var image=new RenderTargetBitmap((int)ActualWidth,(int)ActualHeight,96,96,PixelFormats.Pbgra32);image.Render(root);var png=new PngBitmapEncoder();png.Frames.Add(BitmapFrame.Create(image));using(var stream=File.Create(Path.Combine(directory,"native-window.png")))png.Save(stream);
-            File.WriteAllText(Path.Combine(directory,"result.txt"),"PASS: native WPF startup, image/atlas bounds, new-game button, dialogue, continuous movement and save/load, Tab/Space handlers, giving AND taking bubbles without changing control, favorites, parent navigation, invalid quantity and all five shortcuts, E tap/hold, eight circular icons, separate pagination, arrival/hover animation clocks, craft result/material hover, nonblocking spotlight exclusion, live stock refresh and cleanup, two-way integer quantity slider/live bounds/shortcuts, facility spotlight hit mask, singleton slot quantity and right-click input-only retrieval, compact harvest/eight-choice geometry, full-window HUD overlap and input shielding, minimal cursor correction and remembered menu positions.\n");
+            File.WriteAllText(Path.Combine(directory,"result.txt"),"PASS: native WPF startup, image/atlas bounds, new-game button, dialogue, continuous movement and save/load, Tab/Space handlers, giving AND taking bubbles without changing control, favorites, parent navigation, invalid quantity and fixed integer shortcuts, mouse confirmation, full-client HUD, categorized crew gauges, inventory icons/slots, free everyday camera, ground-click movement, golem no-quick-use fallback, output-slot icons and day rollover, E tap/hold, eight circular icons, separate pagination, arrival/hover animation clocks, craft result/material hover, nonblocking spotlight exclusion, live stock refresh and cleanup, two-way integer quantity slider/live bounds/shortcuts, facility spotlight hit mask, singleton slot quantity and right-click input-only retrieval, compact harvest/eight-choice geometry, full-window HUD overlap and input shielding, minimal cursor correction and remembered menu positions.\n");
             Application.Current.Shutdown(0);
         }
         catch(Exception e){File.WriteAllText(Path.Combine(directory,"result.txt"),e.ToString());Application.Current.Shutdown(1);}

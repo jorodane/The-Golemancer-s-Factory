@@ -1,6 +1,10 @@
 <?xml version='1.0' encoding='utf-8'?>
 <GameContent version="1.0" balance="first-playable">
   <Objects>
+    <Object id="stone_sprite" name="돌멩이 정령" kind="monster" sprite="stone_sprite" actions="attack">
+      <Value key="health" value="35" /><Value key="maxHealth" value="35" /><Value key="damage" value="6" />
+      <Value key="weakSlash" value="0.6" /><Value key="weakCrush" value="1.5" /><Data key="loot" value="stone" /><Value key="lootAmount" value="6" />
+    </Object>
     <Object id="harvest_golem" name="수확 골렘" kind="golem" slots="6" actions="select,transfer,upgrade_golem">
       <Value key="health" value="110" />
       <Value key="maxHealth" value="110" />
@@ -49,8 +53,12 @@
       <Value key="speed" value="5" />
       <Data key="core" value="mini_core" />
     </Object>
-    <Object id="enrin" name="엔린" kind="npc" actions="talk,assemble" />
-    <Object id="merchant" name="행상인" kind="npc" actions="buy" />
+    <Object id="enrin" name="엔린" kind="npc" actions="talk,assemble">
+      <Data key="quickUse" value="talk" />
+    </Object>
+    <Object id="merchant" name="행상인" kind="npc" actions="buy">
+      <Data key="quickUse" value="shop" />
+    </Object>
     <Object id="customer" name="손님" kind="customer" slots="1" />
     <Object id="workbench" name="목공 작업대" kind="facility" width="2" solid="true" slots="8" actions="craft,dismantle">
       <Data key="buildable" value="true" />
@@ -122,6 +130,7 @@
       </InputSlots>
     </Object>
     <Object id="mana_tower" name="마나 수정탑" kind="facility" width="2" height="2" solid="true" slots="8" actions="fuel_tower,charge">
+      <Data key="quickUse" value="charge" />
       <Value key="reserve" value="0" />
       <Data key="buildable" value="true" />
       <Data key="unlock" value="mana_book" />
@@ -135,8 +144,11 @@
         </And>
       </Placement>
     </Object>
-    <Object id="order_board" name="주문 게시판" kind="facility" solid="true" actions="order" />
+    <Object id="order_board" name="주문 게시판" kind="facility" solid="true" actions="order">
+      <Data key="quickUse" value="orders" />
+    </Object>
     <Object id="common_herb_patch" name="널린초" kind="resource" solid="false" actions="harvest">
+      <Data key="quickUse" value="harvest" />
       <Value key="stock" value="3" />
       <Value key="yieldAmount" value="3" />
       <Value key="dayRespawn" value="80" />
@@ -145,6 +157,7 @@
       <Data key="skill" value="harvest" />
     </Object>
     <Object id="newflesh_herb_patch" name="새살초" kind="resource" solid="false" actions="harvest">
+      <Data key="quickUse" value="harvest" />
       <Value key="stock" value="3" />
       <Value key="yieldAmount" value="3" />
       <Value key="dayRespawn" value="90" />
@@ -153,6 +166,7 @@
       <Data key="skill" value="harvest" />
     </Object>
     <Object id="spark_herb_patch" name="번쩍초" kind="resource" solid="false" actions="harvest">
+      <Data key="quickUse" value="harvest" />
       <Value key="stock" value="3" />
       <Value key="yieldAmount" value="3" />
       <Value key="dayRespawn" value="160" />
@@ -161,6 +175,7 @@
       <Data key="skill" value="harvest" />
     </Object>
     <Object id="upright_tree" name="꼿꼿이 나무" kind="resource" solid="true" actions="fell">
+      <Data key="quickUse" value="fell" />
       <Value key="stock" value="3" />
       <Value key="yieldAmount" value="5" />
       <Value key="dayRespawn" value="100" />
@@ -169,6 +184,7 @@
       <Data key="skill" value="harvest" />
     </Object>
     <Object id="sweetfruit_tree" name="달달과 나무" kind="resource" solid="true" actions="harvest,fell">
+      <Data key="quickUse" value="harvest" />
       <Value key="stock" value="3" />
       <Value key="yieldAmount" value="3" />
       <Value key="dayRespawn" value="140" />
@@ -177,6 +193,7 @@
       <Data key="skill" value="harvest" />
     </Object>
     <Object id="mana_deposit" name="무색 마나 수정맥" kind="resource" solid="false" actions="mine">
+      <Data key="quickUse" value="mine" />
       <Value key="stock" value="3" />
       <Value key="yieldAmount" value="3" />
       <Value key="dayRespawn" value="90" />
@@ -214,7 +231,9 @@
     </Object>
     <Object id="lake_shrine" name="호수의 표식" kind="landmark" actions="challenge" />
     <Object id="cave_gate" name="깊은 돌의 입구" kind="landmark" width="3" height="2" actions="enter_cave" />
-    <Object id="dropped_items" name="떨어진 물건" kind="drop" slots="100" actions="pickup,transfer" />
+    <Object id="dropped_items" name="떨어진 물건" kind="drop" slots="100" actions="pickup,transfer">
+      <Data key="quickUse" value="pickup" />
+    </Object>
     <Object id="signpost" name="만찬의 오솔길" kind="landmark" actions="talk" />
   </Objects>
 </GameContent>

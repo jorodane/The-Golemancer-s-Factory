@@ -4,8 +4,9 @@ public sealed class Module : IGameModule
 {
     public void Register(IModuleRegistry r) { r.Action("craft.produce", new Produce()); r.System(new Production()); }
 }
-public sealed class Produce : IActionHandler, IInventoryAction
+public sealed class Produce : IActionHandler, IInventoryAction, IActionProjection
 {
+    public ActionResult Project(IGameContext c, WorldObject a, ActionRequest r) => Execute(c, a, r);
     private static int Count(WorldObject source, WorldObject facility, RecipeDef recipe, ActionRequest r)
     {
         if (r.ReservationId.Length > 0) return r.Quantity;
@@ -60,7 +61,7 @@ public sealed class Produce : IActionHandler, IInventoryAction
         return ActionResult.Success($"{recipe.Name} {n}회 생산을 시작했어. 다른 일을 해도 돼.", n);
     }
 }
-public sealed class Production : IRuntimeSystem
+public sealed class Production : IRuntimeSystem, IProductionProjection
 {
     public string Id => "craft.production";
     public int Order => 20;
@@ -98,13 +99,28 @@ public sealed class Production : IRuntimeSystem
             f.Data["status"] = "훈증 중";
         }
     }
+    public void Project(IGameContext c)
+    {
+        // Settle only this module's machines; the world clock, encounters and shops never tick.
+        for (int i = 0; i < 200; i++)
+        {
+            string before = string.Join("|", c.OfKind("facility").Select(f => f.Id + ":" + string.Join(",", f.Stock()) + ":" + f.Get("heat") + ":" + string.Join(",", f.Production.Select(j => j.RecipeId + j.Progress))));
+            Tick(c, 1000);
+            string after = string.Join("|", c.OfKind("facility").Select(f => f.Id + ":" + string.Join(",", f.Stock()) + ":" + f.Get("heat") + ":" + string.Join(",", f.Production.Select(j => j.RecipeId + j.Progress))));
+            if (before == after) break;
+        }
+    }
     private static void StartAutomatic(IGameContext c, WorldObject f)
     {
         var slots = c.Definition(f)?.InputSlots ?? [];
         if (slots.Any(slot => f.Inventory.Count(k => k.Value > 0 && c.InputSlot(f, k.Key)?.Id == slot.Id) > 1))
         { f.Data["status"] = "같은 투입칸의 기존 재료를 정리해줘"; return; }
         var recipe = c.Content.Recipes.Values.FirstOrDefault(r => r.Facility == f.DefinitionId && (r.Unlock.Length == 0 || c.State.Flags.Contains(r.Unlock)) && f.Has(r.Inputs));
-        if (recipe is null) { f.Data["status"] = "약초·액체 조합 / 레시피 대기"; return; }
+        if (recipe is null)
+        {
+            bool locked = c.Content.Recipes.Values.Any(r => r.Facility == f.DefinitionId && f.Has(r.Inputs) && r.Unlock.Length > 0 && !c.State.Flags.Contains(r.Unlock));
+            f.Data["status"] = locked ? "입문서 필요" : "재료 조합 대기"; return;
+        }
         if (f.GetText("workSource", "heat") == "heat" && f.AvailableInput("wood") == 0 && f.Get("heat") <= 0)
         { f.Data["status"] = "연료 대기"; return; }
         if (c.OutputRoom(f, recipe.Output) < recipe.Amount) { f.Data["status"] = "완성품 공간 대기"; return; }

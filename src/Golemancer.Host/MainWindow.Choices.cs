@@ -53,10 +53,10 @@ internal sealed partial class MainWindow
         entry.ItemId = item; entry.Display = Game.Content.Actions.GetValueOrDefault("buy")?.Bubble ?? new();
         entry.DisplayValue = key => BubbleText.PurchaseValue(key, ShopPrices[item], quantity(), perItem) ?? CommonBubbleValue(key);
     }
-    private WorldObject CraftSource(WorldObject target) => target.DefinitionId == "workbench" ? session.Actor! : target;
+    private WorldObject CraftSource(WorldObject target) => PlanningGame.Find(target.DefinitionId == "workbench" ? session.Actor!.Id : target.Id)!;
     private int CraftMax(WorldObject target, RecipeDef recipe)
     {
-        if (queueBubbles) return 99;
+        target = PlanningGame.Find(target.Id)!;
         var source = CraftSource(target); int max = 0;
         for (int n = 1; n <= 99 - target.Production.Count && source.Has(recipe.Inputs, n); n++)
         {

@@ -1,8 +1,9 @@
 using Golemancer.Contracts;
 namespace Golemancer.Logistics;
 
-public sealed class NearbyPickup(bool area) : IActionHandler
+public sealed class NearbyPickup(bool area) : IActionHandler, IActionProjection
 {
+    public ActionResult Project(IGameContext c, WorldObject a, ActionRequest r) => Execute(c, a, r);
     public CheckResult Check(IGameContext c, WorldObject a, ActionRequest r) => c.IsGolem(a) ? CheckResult.Yes : CheckResult.No("골렘을 선택해줘.","capability");
     public ActionResult Execute(IGameContext c, WorldObject a, ActionRequest r)
     {
@@ -24,14 +25,20 @@ internal static class GroundItems
         return total;
     }
 }
-public sealed class DropItems : IActionHandler
+public sealed class DropItems : IActionHandler, IActionProjection, IInventoryAction
 {
-    public CheckResult Check(IGameContext c, WorldObject a, ActionRequest r) => !c.IsGolem(a) || !c.Content.Items.ContainsKey(r.Item) || r.Mode != "all" && r.Quantity < 1 || c.Available(a,r.Item) < (r.Mode == "all" ? 1 : r.Quantity) ? CheckResult.No("내려놓을 물건과 수량을 선택해줘.","insufficient") : CheckResult.Yes;
+    public ActionResult Project(IGameContext c, WorldObject a, ActionRequest r) => Execute(c, a, r);
+    public PreparedAction Prepare(IGameContext c, WorldObject a, ActionRequest r)
+    {
+        int n = r.Mode == "all" ? c.Available(a, r.Item) : r.Quantity;
+        return new(r with { Mode = "exact", Quantity = n }, [new(a.Id, r.Item, n)]);
+    }
+    public CheckResult Check(IGameContext c, WorldObject a, ActionRequest r) => r.X >= 0 && !c.Walkable(r.X, r.Y, a.Id) || !c.IsGolem(a) || !c.Content.Items.ContainsKey(r.Item) || r.Mode != "all" && r.Quantity < 1 || c.Available(a,r.Item) < (r.Mode == "all" ? 1 : r.Quantity) ? CheckResult.No("내려놓을 물건과 수량을 선택해줘.","insufficient") : CheckResult.Yes;
     public ActionResult Execute(IGameContext c, WorldObject a, ActionRequest r)
     {
         int n=r.Mode == "all" ? c.Available(a,r.Item) : r.Quantity;
-        c.Take(a,r.Item,n);var drop=c.Drop(a.X,a.Y,new Dictionary<string,int>{{r.Item,n}});
-        drop.SetPosition(a.WorldX,a.WorldY);
+        c.Take(a,r.Item,n);var drop=c.Drop(r.X >= 0 ? r.X : a.X,r.Y >= 0 ? r.Y : a.Y,new Dictionary<string,int>{{r.Item,n}});
+        if (r.X < 0) drop.SetPosition(a.WorldX,a.WorldY);
         return ActionResult.Success($"{c.ItemName(r.Item)} {n}개를 바닥에 내려놓았어.",n);
     }
 }

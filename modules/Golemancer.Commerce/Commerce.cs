@@ -7,8 +7,9 @@ public sealed class Module : IGameModule
         r.Action("commerce.buy", new Buy()); r.Action("commerce.expand", new Expand()); r.Action("commerce.order", new Order()); r.System(new Customers());
     }
 }
-public sealed class Buy : IActionHandler
+public sealed class Buy : IActionHandler, IActionProjection
 {
+    public ActionResult Project(IGameContext c, WorldObject a, ActionRequest r) => Execute(c, a, r);
     public static readonly Dictionary<string, int> Prices = new() { ["harvest_core"] = 20, ["craft_core"] = 35, ["combat_core"] = 75, ["jelly_book"] = 12, ["mana_book"] = 65, ["healing_jelly"] = 22, ["wood"] = 3 };
     public CheckResult Check(IGameContext c, WorldObject a, ActionRequest r)
     {
@@ -29,8 +30,9 @@ public sealed class Buy : IActionHandler
         return ActionResult.Success(c.ItemName(r.Item) + " 구매 완료");
     }
 }
-public sealed class Expand : IActionHandler
+public sealed class Expand : IActionHandler, IActionProjection
 {
+    public ActionResult Project(IGameContext c, WorldObject a, ActionRequest r) => Execute(c, a, r);
     public CheckResult Check(IGameContext c, WorldObject a, ActionRequest r)
     {
         int tier = (int)c.State.Get("shopTier", 1);
@@ -44,8 +46,9 @@ public sealed class Expand : IActionHandler
         return ActionResult.Success("상점 규모가 늘었어. 더 많은 시설과 주문을 받을 수 있어.");
     }
 }
-public sealed class Order : IActionHandler, IInventoryAction
+public sealed class Order : IActionHandler, IInventoryAction, IActionProjection
 {
+    public ActionResult Project(IGameContext c, WorldObject a, ActionRequest r) => Execute(c, a, r);
     public CheckResult Check(IGameContext c, WorldObject a, ActionRequest r)
     {
         var order = c.State.Orders.FirstOrDefault(o => o.Id == r.Item && !o.Delivered);
