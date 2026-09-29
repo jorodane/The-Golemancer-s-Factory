@@ -48,12 +48,11 @@ internal sealed partial class MainWindow
             AddBackBubble();
             if (pages > 1)
             {
-                AddPageButton("previous", "‹", () => { frame.Page = (frame.Page + pages - 1) % pages; RenderBubbles(); }, -60);
-                AddPageButton("next", "›", () => { frame.Page = (frame.Page + 1) % pages; RenderBubbles(); }, 60);
+                double top = BubbleLayout.NavigationTop(shown.Count);
+                AddPageButton("previous", "‹", () => { frame.Page = (frame.Page + pages - 1) % pages; RenderBubbles(); }, -60, top);
+                AddPageButton("next", "›", () => { frame.Page = (frame.Page + 1) % pages; RenderBubbles(); }, 60, top);
             }
-            var caption = Label(target.Name + " · 투입칸", 13); caption.Background = Paper; caption.IsHitTestVisible = false;
-            caption.Width = 320; caption.TextAlignment = TextAlignment.Center;
-            Canvas.SetLeft(caption, BubbleCenter.X - 160); Canvas.SetTop(caption, BubbleCenter.Y - 198); bubbleLayer.Children.Add(caption);
+            AddBubbleTitle(target.Name + " · 투입칸", shown.Count);
         };
         PushBubbleFrame(frame); RefreshFacilityFocus();
     }

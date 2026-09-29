@@ -88,7 +88,7 @@ internal sealed partial class MainWindow
             CloseBubbles();Game.State.ControlledId=crafter.Id;crafter.Inventory["wood"]=5;
             var machine=Game.Spawn("herb_fumigator",20,28,"native-machine");machine.Data["autoProduce"]="false";
             machine.Inventory["springwater_jelly"]=3;machine.OutputInventory["springwater_jelly"]=7;
-            bubbleAnchor=world.Screen(machine.X+.5,machine.Y+.5);ShowFacilityFocus(machine);UpdateLayout();RefreshFacilityFocus();
+            bubbleAnchor=world.TranslatePoint(world.Screen(machine.X+.5,machine.Y+.5),root);ShowFacilityFocus(machine);UpdateLayout();RefreshFacilityFocus();
             if(!buttons.ContainsKey("bubble.slot.fuel")||!buttons.ContainsKey("bubble.slot.herb")||!buttons.ContainsKey("bubble.slot.liquid")||facilityShadeLayer.Children.Count!=1)throw new Exception("Interactive facility slots or focus layer missing");
             if(buttons.ContainsKey("bubble.back")||buttons.ContainsKey("bubble.actions")||!buttons.ContainsKey("bubble.dismantle"))throw new Exception("Facility root retained close/action-list wrappers or lost direct actions");
             var facilityCenter=BubbleCenter;
@@ -104,7 +104,7 @@ internal sealed partial class MainWindow
             SettleCircles();
             for(int i=0;i<3;i++){world.UpdateLayout();UpdateLayout();}
             var image=new RenderTargetBitmap((int)ActualWidth,(int)ActualHeight,96,96,PixelFormats.Pbgra32);image.Render(root);var png=new PngBitmapEncoder();png.Frames.Add(BitmapFrame.Create(image));using(var stream=File.Create(Path.Combine(directory,"native-window.png")))png.Save(stream);
-            File.WriteAllText(Path.Combine(directory,"result.txt"),"PASS: native WPF startup, image/atlas bounds, new-game button, dialogue, continuous movement and save/load, Tab/Space handlers, giving AND taking bubbles without changing control, favorites, parent navigation, invalid quantity and all five shortcuts, E tap/hold, eight circular icons, separate pagination, arrival/hover animation clocks, craft result/material hover, nonblocking spotlight exclusion, live stock refresh and cleanup, two-way integer quantity slider/live bounds/shortcuts, facility spotlight hit mask, singleton slot quantity and right-click input-only retrieval.\n");
+            File.WriteAllText(Path.Combine(directory,"result.txt"),"PASS: native WPF startup, image/atlas bounds, new-game button, dialogue, continuous movement and save/load, Tab/Space handlers, giving AND taking bubbles without changing control, favorites, parent navigation, invalid quantity and all five shortcuts, E tap/hold, eight circular icons, separate pagination, arrival/hover animation clocks, craft result/material hover, nonblocking spotlight exclusion, live stock refresh and cleanup, two-way integer quantity slider/live bounds/shortcuts, facility spotlight hit mask, singleton slot quantity and right-click input-only retrieval, compact harvest/eight-choice geometry, full-window HUD overlap and input shielding, minimal cursor correction and remembered menu positions.\n");
             Application.Current.Shutdown(0);
         }
         catch(Exception e){File.WriteAllText(Path.Combine(directory,"result.txt"),e.ToString());Application.Current.Shutdown(1);}

@@ -40,7 +40,7 @@ internal sealed partial class MainWindow
             if (entry.Children.Count > 0) ShowMenu(entry.Label, () => entry.Children);
             else entry.Activate?.Invoke();
         }, id.Length > 0 ? id : "bubble." + entry.Id);
-        double diameter = center ? 52 : BubbleLayout.Diameter;
+        double diameter = center ? BubbleLayout.CenterDiameter : BubbleLayout.Diameter;
         button.Width = button.Height = diameter; button.Padding = new Thickness(0); button.Margin = new Thickness(0);
         button.HorizontalContentAlignment = HorizontalAlignment.Center;
         button.VerticalContentAlignment = VerticalAlignment.Center;
@@ -55,8 +55,8 @@ internal sealed partial class MainWindow
         var transforms = new TransformGroup(); transforms.Children.Add(visual.Arrival); transforms.Children.Add(visual.Hover); transforms.Children.Add(visual.Travel); button.RenderTransform = transforms;
         var icon = new Grid { Width = diameter - 10, Height = diameter - 10, IsHitTestVisible = false };
         string iconId = IconIdFor(entry), glyph = GlyphFor(entry);
-        if (glyph.Length == 0 && assets.Sprite(iconId) is { } image) icon.Children.Add(new Image { Source = image, Width = center ? 29 : 41, Height = center ? 29 : 41, Stretch = Stretch.Uniform, Opacity = entry.Enabled ? 1 : .5 });
-        else icon.Children.Add(new TextBlock { Text = glyph.Length > 0 ? glyph : "◇", FontFamily = new FontFamily("Segoe UI Symbol"), FontSize = center ? 25 : 30, Foreground = Ink, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center });
+        if (glyph.Length == 0 && assets.Sprite(iconId) is { } image) icon.Children.Add(new Image { Source = image, Width = center ? 26 : 34, Height = center ? 26 : 34, Stretch = Stretch.Uniform, Opacity = entry.Enabled ? 1 : .5 });
+        else icon.Children.Add(new TextBlock { Text = glyph.Length > 0 ? glyph : "◇", FontFamily = new FontFamily("Segoe UI Symbol"), FontSize = center ? 22 : 25, Foreground = Ink, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center });
         string badge = BadgeFor(entry);
         if (badge.Length > 0)
         {
@@ -74,12 +74,12 @@ internal sealed partial class MainWindow
         else visual.Ready = true;
         return button;
     }
-    private void AddPageButton(string id, string text, Action action, double offset)
+    private void AddPageButton(string id, string text, Action action, double offset, double top)
     {
         var button = Button(text, action, "bubble." + id); button.Width = 34; button.Height = 30; button.Padding = new Thickness(4, 0, 4, 0);
         button.HorizontalContentAlignment = HorizontalAlignment.Center;
         System.Windows.Automation.AutomationProperties.SetName(button, id == "next" ? "다음 페이지" : "이전 페이지");
-        Canvas.SetLeft(button, BubbleCenter.X + offset - 17); Canvas.SetTop(button, BubbleCenter.Y + 178); bubbleLayer.Children.Add(button);
+        Canvas.SetLeft(button, BubbleCenter.X + offset - 17); Canvas.SetTop(button, BubbleCenter.Y + top); bubbleLayer.Children.Add(button);
     }
     private void AnimateBubble(BubbleVisual visual, double dx, double dy, int index)
     {
@@ -90,7 +90,7 @@ internal sealed partial class MainWindow
         visual.Travel.BeginAnimation(TranslateTransform.XProperty, Move(-dx)); visual.Travel.BeginAnimation(TranslateTransform.YProperty, Move(-dy));
         var pop = new DoubleAnimationUsingKeyFrames { BeginTime = delay, Duration = duration };
         pop.KeyFrames.Add(new LinearDoubleKeyFrame(.24, KeyTime.FromTimeSpan(TimeSpan.Zero)));
-        pop.KeyFrames.Add(new SplineDoubleKeyFrame(1.14, KeyTime.FromTimeSpan(TimeSpan.FromSeconds(.13)), new KeySpline(.2, .8, .3, 1)));
+        pop.KeyFrames.Add(new SplineDoubleKeyFrame(BubbleLayout.PeakScale, KeyTime.FromTimeSpan(TimeSpan.FromSeconds(.13)), new KeySpline(.2, .8, .3, 1)));
         pop.KeyFrames.Add(new SplineDoubleKeyFrame(1, KeyTime.FromTimeSpan(duration), new KeySpline(.3, 0, .3, 1)));
         var settle = pop.Clone();
         settle.Completed += (_, _) =>

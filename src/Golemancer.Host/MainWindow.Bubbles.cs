@@ -9,12 +9,14 @@ namespace Golemancer.Desktop;
 internal sealed partial class MainWindow
 {
     private readonly Canvas bubbleLayer = new();
+    private readonly Border bubbleShield = new() { Background = Brushes.Transparent, Visibility = Visibility.Collapsed };
     private Point bubbleAnchor;
     private sealed class BubbleFrame(string title, Func<List<BubbleEntry>> build, Point position)
     {
         public string Title = title;
         public Func<List<BubbleEntry>> Build = build;
         public BubblePosition Position = new(position.X, position.Y);
+        public BubbleBounds Bounds;
         public int Page;
         public Action? Render;
     }
@@ -32,13 +34,14 @@ internal sealed partial class MainWindow
     private void CloseBubbles()
     {
         queueBubbles = false; focusedFacility = ""; facilityShadeLayer.Children.Clear(); world.FocusedFacility = "";
+        bubbleShield.Visibility = Visibility.Collapsed;
         bool open = bubbleLayer.Children.Count > 0;
         ClearBubbleVisuals(); bubbleHistory.Clear(); selected = ""; world.Selected = ""; bubbleActor = "";
         if (open) world.Focus();
     }
     private Point BubbleCenter { get { var p = bubbleHistory[bubbleHistory.Count - 1].Position; return new(p.X, p.Y); } }
     private BubbleFrame CreateBubbleFrame(string title, Func<List<BubbleEntry>> build) =>
-        new(title, build, bubbleHistory.Count == 0 ? bubbleAnchor : NativePointer.Position(world));
+        new(title, build, bubbleHistory.Count == 0 ? bubbleAnchor : NativePointer.Position(root));
     private void PushBubbleFrame(BubbleFrame frame, bool animate = false, bool present = true)
     {
         queueBubbles |= Held("queue"); session.ClearInput(); bubbleActor = session.Actor?.Id ?? "";
@@ -61,31 +64,68 @@ internal sealed partial class MainWindow
     private void RenderBubbles(bool animate = false, bool alignCursor = false)
     {
         ClearBubbleVisuals(); if (bubbleHistory.Count == 0) return;
+        bubbleShield.Visibility = Visibility.Visible;
         var frame = bubbleHistory[bubbleHistory.Count - 1];
-        bool adjusted = frame.Position.Constrain(world.ActualWidth, world.ActualHeight);
-        // Only opening a corrected menu moves the pointer; live refreshes and pagination never do.
-        if (adjusted && alignCursor && IsActive && new Rect(root.RenderSize).Contains(NativePointer.Position(root)))
-            NativePointer.MoveTo(world, BubbleCenter);
-        if (frame.Render is not null) { frame.Render(); return; }
+        if (frame.Render is not null) frame.Render(); else RenderMenu(frame, animate);
+        FitBubbleFrame(frame, alignCursor);
+    }
+    private void RenderMenu(BubbleFrame frame, bool animate)
+    {
         var entries = BubbleMenu.Compress(frame.Build());
         int pages = BubbleLayout.Pages(entries.Count); frame.Page = Math.Min(frame.Page, pages - 1);
         var shown = entries.Skip(frame.Page * BubbleLayout.PageSize).Take(BubbleLayout.PageSize).ToList();
         AddBackBubble();
-        var title = Label(frame.Title + (queueBubbles ? " · 행동 예약" : ""), 12); title.TextAlignment = TextAlignment.Center; title.Width = 330; title.Background = Paper; title.IsHitTestVisible = false;
-        Canvas.SetLeft(title, BubbleCenter.X - 165); Canvas.SetTop(title, BubbleCenter.Y - 199); bubbleLayer.Children.Add(title);
+        AddBubbleTitle(frame.Title + (queueBubbles ? " · 행동 예약" : ""), shown.Count);
         for (int i = 0; i < shown.Count; i++) AddBubble(shown[i], i, shown.Count, animate: animate);
         if (pages > 1)
         {
-            AddPageButton("previous", "‹", () => { frame.Page = (frame.Page + pages - 1) % pages; RenderBubbles(true); }, -48);
-            AddPageButton("next", "›", () => { frame.Page = (frame.Page + 1) % pages; RenderBubbles(true); }, 48);
+            double top = BubbleLayout.NavigationTop(shown.Count);
+            AddPageButton("previous", "‹", () => { frame.Page = (frame.Page + pages - 1) % pages; RenderBubbles(true); }, -48, top);
+            AddPageButton("next", "›", () => { frame.Page = (frame.Page + 1) % pages; RenderBubbles(true); }, 48, top);
             var page = Label($"{frame.Page + 1} / {pages}", 11); page.Width = 60; page.TextAlignment = TextAlignment.Center; page.IsHitTestVisible = false; page.Background = Paper;
-            Canvas.SetLeft(page, BubbleCenter.X - 30); Canvas.SetTop(page, BubbleCenter.Y + 177); bubbleLayer.Children.Add(page);
+            Canvas.SetLeft(page, BubbleCenter.X - 30); Canvas.SetTop(page, BubbleCenter.Y + top - 1); bubbleLayer.Children.Add(page);
         }
         if (shown.Count == 0)
         {
             var empty = Label("지금 선택할 항목이 없어."); empty.Background = Paper;
             Canvas.SetLeft(empty, BubbleCenter.X - 90); Canvas.SetTop(empty, BubbleCenter.Y + 50); bubbleLayer.Children.Add(empty);
         }
+    }
+    private void AddBubbleTitle(string text, int count)
+    {
+        var title = Label(text, 12); title.TextAlignment = TextAlignment.Center; title.MaxWidth = 240;
+        title.Margin = new Thickness(0); title.Padding = new Thickness(7, 2, 7, 2); title.Background = Paper; title.IsHitTestVisible = false;
+        title.Measure(new Size(title.MaxWidth, double.PositiveInfinity));
+        Canvas.SetLeft(title, BubbleCenter.X - title.DesiredSize.Width / 2);
+        Canvas.SetTop(title, BubbleCenter.Y + BubbleLayout.RingTop(count) - 8 - title.DesiredSize.Height);
+        bubbleLayer.Children.Add(title);
+    }
+    private void FitBubbleFrame(BubbleFrame frame, bool alignCursor)
+    {
+        var origin = BubbleCenter;
+        // Include the pointer/arrival origin, then only the controls this menu actually shows.
+        var bounds = new BubbleBounds(-8, -8, 8, 8);
+        foreach (FrameworkElement element in bubbleLayer.Children)
+        {
+            element.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            var size = element.DesiredSize;
+            var circle = bubbleVisuals.FirstOrDefault(v => v.Button == element);
+            double scale = circle is null ? 1 : circle.Entry.Id == "back" ? BubbleLayout.HoverScale : BubbleLayout.PeakScale;
+            double growX = size.Width * (scale - 1) / 2, growY = size.Height * (scale - 1) / 2;
+            double x = Canvas.GetLeft(element) - origin.X, y = Canvas.GetTop(element) - origin.Y;
+            bounds = bounds.Include(x - growX, y - growY, x + size.Width + growX, y + size.Height + growY);
+        }
+        frame.Bounds = bounds;
+        if (!frame.Position.Constrain(root.ActualWidth, root.ActualHeight, bounds)) return;
+        var shift = BubbleCenter - origin;
+        foreach (FrameworkElement element in bubbleLayer.Children)
+        {
+            Canvas.SetLeft(element, Canvas.GetLeft(element) + shift.X);
+            Canvas.SetTop(element, Canvas.GetTop(element) + shift.Y);
+        }
+        // Hover cards fit independently; refreshes and pagination never move the pointer.
+        if (alignCursor && IsActive && new Rect(root.RenderSize).Contains(NativePointer.Position(root)))
+            NativePointer.MoveTo(root, BubbleCenter);
     }
     private void AddBackBubble()
     {
@@ -241,7 +281,7 @@ internal sealed partial class MainWindow
     private void OpenItemBubble(string item)
     {
         var actor = session.Actor; if (actor is null) return;
-        CloseBubbles(); bubbleAnchor = world.Screen(actor.WorldX + .5, actor.WorldY + .5);
+        CloseBubbles(); bubbleAnchor = world.TranslatePoint(world.Screen(actor.WorldX + .5, actor.WorldY + .5), root);
         ShowMenu(Game.ItemName(item), () =>
         {
             var entries = new List<BubbleEntry> { Favorite(item), Leaf("drop.number", "N개 내려놓기", () => ShowQuantity("내려놓을 수량", () => actor.Available(item), n => Send("drop", item: item, amount: n))), Leaf("drop.all", "전부 내려놓기", () => Finish(() => Send("drop", item: item, mode: "all"))) };

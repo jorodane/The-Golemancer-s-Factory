@@ -13,16 +13,31 @@ internal static class BubbleTests
         var positions = Enumerable.Range(0, 8).Select(i => BubbleLayout.Offset(i, 8)).ToArray();
         Check(Math.Abs(positions[0].X) < .001 && positions[0].Y < 0 && positions[1].X > 0 && positions[1].Y < 0 && positions[2].X > 0 && Math.Abs(positions[2].Y) < .001, "circular choices begin at twelve o'clock and proceed clockwise");
         Check(positions.All(p => positions.Where(q => q != p).All(q => Math.Sqrt(Math.Pow(p.X - q.X, 2) + Math.Pow(p.Y - q.Y, 2)) > BubbleLayout.Diameter * BubbleLayout.HoverScale)), "all eight enlarged circles remain separated");
+        Check(BubbleLayout.Radius(1) <= 64 && BubbleLayout.Radius(8) <= 86 && BubbleLayout.Diameter <= 52, "both sparse and eight-choice menus stay close to the pointer");
+        Check(Enumerable.Range(1, 8).All(count =>
+        {
+            var ring = Enumerable.Range(0, count).Select(i => BubbleLayout.Offset(i, count)).ToArray();
+            return ring.All(p => Math.Sqrt(p.X * p.X + p.Y * p.Y) > (BubbleLayout.CenterDiameter * BubbleLayout.HoverScale + BubbleLayout.Diameter * BubbleLayout.PeakScale) / 2 + BubbleLayout.Gap &&
+                ring.Where(q => q != p).All(q => Math.Sqrt(Math.Pow(p.X - q.X, 2) + Math.Pow(p.Y - q.Y, 2)) >= BubbleLayout.Diameter * BubbleLayout.PeakScale + BubbleLayout.Gap - .001));
+        }), "one through eight compact choices keep expansion clearance from neighbors and Back");
         Check(7 * BubbleLayout.Stagger < .07 && 7 * BubbleLayout.Stagger + BubbleLayout.Settle < .3, "clockwise stagger completes in under 300ms");
+        var fullBounds = new BubbleBounds(-120, -155, 120, 160);
         foreach (var click in new[] { (4.0, 4.0), (1096.0, 4.0), (4.0, 716.0), (1096.0, 716.0) })
         {
             var position = new BubblePosition(click.Item1, click.Item2);
-            Check(position.Constrain(1100, 720) && position.X >= 190 && position.X <= 910 && position.Y >= 205 && position.Y <= 430 && !position.Constrain(1100, 720), "edge menu center is corrected once at " + click);
+            Check(position.Constrain(1100, 720, fullBounds) && position.X >= 128 && position.X <= 972 && position.Y >= 163 && position.Y <= 552 && !position.Constrain(1100, 720, fullBounds), "actual menu bounds are corrected once at " + click);
         }
+        var singleBounds = new BubbleBounds(-40, -125, 40, 8);
+        var singlePosition = new BubblePosition(205, 650);
+        Check(!singlePosition.Constrain(1100, 720, singleBounds) && singlePosition.Y == 650, "bottom-edge single harvest menu does not reserve an empty ring or quantity panel");
+        var quantityPosition = new BubblePosition(205, 650);
+        Check(quantityPosition.Constrain(1100, 720, new(-185, -94, 185, 278)) && quantityPosition.Y == 434 && singlePosition.Y == 650, "only the quantity menu reserves its visible input panel height");
+        var hudPosition = new BubblePosition(270, 600);
+        Check(!hudPosition.Constrain(1100, 900, fullBounds), "full-window bounds allow bubbles to extend over sidebar and footer areas");
         var parentPosition = new BubblePosition(500, 330); var childPosition = new BubblePosition(626, 330);
-        Check(!parentPosition.Constrain(1100, 720) && !childPosition.Constrain(1100, 720) && parentPosition.X == 500 && childPosition.X == 626, "submenu owns its click position without shifting the remembered parent");
-        childPosition.Constrain(800, 600);
-        Check(childPosition.X == 610 && childPosition.Y == 310 && parentPosition.X == 500 && parentPosition.Y == 330 && !childPosition.Constrain(1100, 720), "resized frame remembers its corrected visible position independently");
+        Check(!parentPosition.Constrain(1100, 720, fullBounds) && !childPosition.Constrain(1100, 720, fullBounds) && parentPosition.X == 500 && childPosition.X == 626, "submenu owns its click position without shifting the remembered parent");
+        childPosition.Constrain(700, 440, fullBounds);
+        Check(childPosition.X == 572 && childPosition.Y == 272 && parentPosition.X == 500 && parentPosition.Y == 330 && !childPosition.Constrain(1100, 720, fullBounds), "resized frame remembers its corrected visible position independently");
         var above = BubbleLayout.PreviewPosition(600, 500, 310, 200, 1100, 720);
         var edge = BubbleLayout.PreviewPosition(920, 120, 310, 230, 1100, 720);
         Check(above.Y + 200 < 500 - BubbleLayout.Diameter / 2 && edge.X >= 8 && edge.X + 310 < 920 - BubbleLayout.Diameter / 2 && edge.Y >= 8 && edge.Y + 230 <= 720, "hover preview prefers above and avoids the circle at viewport edges");

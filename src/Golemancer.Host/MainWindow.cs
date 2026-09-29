@@ -43,14 +43,18 @@ internal sealed partial class MainWindow : Window
         side.Children.Add(Label("공방 일지",22));side.Children.Add(journal);side.Children.Add(Button("전체 일지",()=>Open("journal")));side.Children.Add(Label("골렘들",18));side.Children.Add(crew);
         side.Children.Add(Button("골렘 조립",()=>Open("assembly")));side.Children.Add(Button("시설 건설 · B",()=>Open("build")));side.Children.Add(Button("행동 기록",()=>Open("routines")));side.Children.Add(Button("주문 게시판",()=>Open("orders")));side.Children.Add(Button("공방 안내",()=>Open("help")));
         Place(new ScrollViewer{Content=side,VerticalScrollBarVisibility=ScrollBarVisibility.Auto,HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled},1,0);
-        var worldLayer=new Grid();worldLayer.Children.Add(world);worldLayer.Children.Add(bubbleLayer);Place(worldLayer,1,1);root.Children.Add(facilityShadeLayer);root.Children.Add(bubbleHoverLayer);
+        Place(world,1,1);
         bubbleLayer.SizeChanged+=(_,_)=>{if(bubbleHistory.Count>0)RenderBubbles();};
+        bubbleShield.PreviewMouseDown+=(_,e)=>{e.Handled=true;CloseBubbles();};
+        bubbleShield.PreviewMouseWheel+=(_,e)=>e.Handled=true;
         var foot=new DockPanel{Margin=new Thickness(12,4,12,4)};Place(foot,2,0,2);
         var commands=new StackPanel{Orientation=Orientation.Horizontal};DockPanel.SetDock(commands,Dock.Right);foot.Children.Add(commands);
         commands.Children.Add(Button("녹화 · R",()=>Send("record"),"record"));commands.Children.Add(Button("반복 · T",()=>Send("play"),"play"));commands.Children.Add(Button("장비 · I",()=>Open("equipment")));commands.Children.Add(Button("전투모드 · Tab",()=>Send("toggle_mode"),"mode"));commands.Children.Add(Button("추적 · F",()=>world.Follow=true));
         var bottom=new StackPanel();foot.Children.Add(bottom);status.Margin=new Thickness(2,3,2,6);bottom.Children.Add(status);
         bottom.Children.Add(new ScrollViewer{Content=inventory,HorizontalScrollBarVisibility=ScrollBarVisibility.Auto,VerticalScrollBarVisibility=ScrollBarVisibility.Disabled});
         toast.Background=SvgImage.Brush("#294638ed");toast.Foreground=Paper;toast.Padding=new Thickness(14);toast.Margin=new Thickness(260,70,20,0);toast.TextWrapping=TextWrapping.Wrap;toast.HorizontalAlignment=HorizontalAlignment.Left;toast.VerticalAlignment=VerticalAlignment.Top;toast.MaxWidth=550;toast.Visibility=Visibility.Collapsed;root.Children.Add(toast);
+        // Menus can overlap the HUD. The transparent shield consumes dismissal clicks above it.
+        root.Children.Add(bubbleShield);root.Children.Add(facilityShadeLayer);root.Children.Add(bubbleLayer);root.Children.Add(bubbleHoverLayer);
         overlay.Background=SvgImage.Brush("#14281fd9");overlay.Visibility=Visibility.Collapsed;overlay.Padding=new Thickness(28);root.Children.Add(overlay);
         var card=new Border{Background=Paper,CornerRadius=new CornerRadius(12),Padding=new Thickness(24),MaxWidth=700,MaxHeight=740,HorizontalAlignment=HorizontalAlignment.Center,VerticalAlignment=VerticalAlignment.Center};overlay.Child=card;
         card.Child=new ScrollViewer{Content=modal,VerticalScrollBarVisibility=ScrollBarVisibility.Auto};
@@ -94,7 +98,7 @@ internal sealed partial class MainWindow : Window
         if(!session.Started||modalType!=""||Game.State.Dialogues.Count>0)return;
         if(bubbleVisuals.Any(v=>!v.Ready))return; // Do not send clicks through circles while they spread out.
         if(world.Building.Length>0){if(right){world.Building="";Notify("건설 선택을 취소했어.");return;}if(Send("build",item:world.Building,x:tile.X,y:tile.Y).Ok)world.Building="";return;}
-        CloseBubbles();var target=world.Target(tile);bubbleAnchor=NativePointer.Position(world);
+        CloseBubbles();var target=world.Target(tile);bubbleAnchor=NativePointer.Position(root);
         if(target is null)
         {
             if(right)ShowGroundBubbles(tile);

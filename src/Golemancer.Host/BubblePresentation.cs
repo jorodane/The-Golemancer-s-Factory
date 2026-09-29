@@ -6,26 +6,43 @@ internal sealed class BubblePosition(double x, double y)
 {
     public double X { get; private set; } = x;
     public double Y { get; private set; } = y;
-    public bool Constrain(double width, double height)
+    public bool Constrain(double width, double height, BubbleBounds bounds)
     {
-        var next = BubbleLayout.Center(X, Y, width, height);
+        var next = BubbleLayout.Center(X, Y, width, height, bounds);
         bool moved = next.X != X || next.Y != Y;
         X = next.X; Y = next.Y;
         return moved;
     }
 }
+internal readonly record struct BubbleBounds(double Left, double Top, double Right, double Bottom)
+{
+    public BubbleBounds Include(double left, double top, double right, double bottom) =>
+        new(Math.Min(Left, left), Math.Min(Top, top), Math.Max(Right, right), Math.Max(Bottom, bottom));
+}
 internal static class BubbleLayout
 {
     public const int PageSize = 8;
-    public const double Diameter = 66, Radius = 126, Stagger = .009, Spread = .17, Settle = .22, HoverScale = 1.1;
+    public const double Diameter = 52, CenterDiameter = 42, Padding = 8, Gap = 6, PeakScale = 1.14;
+    public const double Stagger = .009, Spread = .17, Settle = .22, HoverScale = 1.1;
     public static int Pages(int count) => Math.Max(1, (count + PageSize - 1) / PageSize);
+    // Even eight choices stay close: about 85px from the center, down from 126px.
+    // Fewer choices use a 64px radius, leaving room for the center Back button.
+    public static double Radius(int count) => Math.Max(64, (Diameter * PeakScale + Gap) / (2 * Math.Sin(Math.PI / Math.Max(2, count))));
     public static (double X, double Y) Offset(int index, int count)
     {
         double angle = -Math.PI / 2 + index * 2 * Math.PI / Math.Max(1, count);
-        return (Math.Cos(angle) * Radius, Math.Sin(angle) * Radius);
+        return (Math.Cos(angle) * Radius(count), Math.Sin(angle) * Radius(count));
     }
-    public static (double X, double Y) Center(double x, double y, double width, double height) =>
-        (Math.Max(190, Math.Min(width - 190, x)), Math.Max(205, Math.Min(height - 290, y)));
+    public static double RingTop(int count) => count > 0 ? -Radius(count) - Diameter * PeakScale / 2 : -CenterDiameter * HoverScale / 2;
+    public static double NavigationTop(int count) => Math.Max(CenterDiameter * HoverScale / 2,
+        count > 0 ? Enumerable.Range(0, count).Max(i => Offset(i, count).Y) + Diameter * PeakScale / 2 : 0) + 12;
+    public static (double X, double Y) Center(double x, double y, double width, double height, BubbleBounds bounds) =>
+        (Fit(x, width, bounds.Left, bounds.Right), Fit(y, height, bounds.Top, bounds.Bottom));
+    private static double Fit(double value, double extent, double start, double end)
+    {
+        double min = Padding - start, max = extent - Padding - end;
+        return min <= max ? Math.Max(min, Math.Min(max, value)) : (extent - start - end) / 2;
+    }
     public static (double X, double Y) PreviewPosition(double x, double y, double width, double height, double screenWidth, double screenHeight)
     {
         // Prefer above the hovered circle. Near the top edge use a clear side, never the circle itself.
