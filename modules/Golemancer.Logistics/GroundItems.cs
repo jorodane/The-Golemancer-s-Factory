@@ -52,6 +52,7 @@ public sealed class AutoPickup : IRuntimeSystem
         {
             var owner=c.Find(drop.GetText("pickupOwner"));
             if(owner is null || !owner.Alive() || owner.Get("health") <= 0) { drop.Data.Remove("pickupOwner");continue; }
+            if (!c.CanOperate(owner)) continue;
             if(drop.Get("collectOnLanding") == 0 && owner.Tile.Distance(drop.Tile) > 2)continue;
             drop.Values.Remove("collectOnLanding");
             int n=GroundItems.Take(c,owner,drop);

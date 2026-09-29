@@ -22,6 +22,7 @@ public static class Battle
         if (c.Is(t, "boss") && c.OfKind("boss_part").Any()) damage *= .4;
         t.Set("health", t.Get("health") - damage); t.Data["attacker"] = a.Id; t.Set("lastDamage", c.State.Time);
         a.Set("nextAttack", c.State.Time + .65 / c.Efficiency(a)); a.Set("attackUntil", c.State.Time + .25);
+        a.Set("mana", Math.Max(0, a.Get("mana") - .5));
         c.Effect(type, t.X, t.Y, $"−{damage:0}", .8); c.State.Add("attacks");
     }
     public static void Damage(IGameContext c, WorldObject actor, double amount, WorldObject source, bool push = false)
@@ -196,7 +197,7 @@ public sealed class Encounters : IRuntimeSystem
         if (boss is not null && boss.Alive() && boss.Get("active") > 0) BossTick(c, boss);
         foreach (var a in c.OfKind("golem").Where(o => c.Capability(o, "combat")))
         {
-            if (a.Get("nextAttack") > c.State.Time || a.Work is not null || a.Ongoing is not null) continue;
+            if (!c.CanOperate(a) || a.Get("nextAttack") > c.State.Time || a.Work is not null || a.Ongoing is not null) continue;
             bool guarding = a.Get("guardUntil") > c.State.Time;
             bool combatIdle = a.DefinitionId == "combat_golem" && c.State.ControlledId != a.Id && a.Playback is null;
             var attacker = c.Find(a.GetText("attacker"));

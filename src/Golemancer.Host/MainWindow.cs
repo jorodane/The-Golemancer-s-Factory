@@ -103,7 +103,7 @@ internal sealed partial class MainWindow : Window
         if (world.CommandAction.Length > 0)
         {
             string action = world.CommandAction; world.CommandAction = "";
-            if (!right && action is "guard" or "attack_move") Send(action, x: tile.X, y: tile.Y, mode: action == "guard" ? "hold" : "exact");
+            if (!right && action is "guard" or "attack_move" or "collect_area") Send(action, x: tile.X, y: tile.Y, mode: action is "guard" or "collect_area" ? "hold" : "exact");
             else if (!right && target is not null) Send(action, target.Id);
             return;
         }

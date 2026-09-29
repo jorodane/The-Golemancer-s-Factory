@@ -7,6 +7,8 @@ internal static class Regression
     private static void Advance(Simulation s, double seconds) { for (int i = 0; i < Math.Ceiling(seconds * 10); i++) s.Tick(.1); s.State.Dialogues.Clear(); }
     private static void Act(Simulation s, WorldObject a, ActionRequest r)
     {
+        if (s.IsGolem(a) && s.State.ControlledId != a.Id)
+            Check(s.Dispatch(new() { Action = "select", TargetId = a.Id }).Ok, "select the manual regression actor");
         var result = s.Dispatch(r with { ActorId = a.Id }); Check(result.Ok, "command: " + r.Action);
         for (int i = 0; a.Work is not null || a.Pending is not null || a.Path.Count > 0; i++)
         { if (i > 1200) throw new Exception("Regression command timed out"); s.Tick(.1); }

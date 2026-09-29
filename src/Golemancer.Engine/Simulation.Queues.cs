@@ -29,6 +29,7 @@ public sealed partial class Simulation
     private void TickQueue(WorldObject actor)
     {
         if (actor.Playback is not null || this.CommandBusy(actor) || actor.InputX != 0 || actor.InputY != 0 || actor.ActionQueue.Count == 0) return;
+        if (!this.CanOperate(actor)) { actor.ActionQueue[0].Status = "마력 부족 · 충전 대기"; return; }
         var queued = actor.ActionQueue[0];
         if (State.Time < queued.RetryAt) return;
         var result = StartAction(queued.Request, false, queued: queued);

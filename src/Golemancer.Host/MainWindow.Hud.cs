@@ -120,7 +120,7 @@ internal sealed partial class MainWindow
                     icon.Health = golem.Get("health") / Math.Max(1, golem.Get("maxHealth")); icon.Mana = golem.Get("mana") / Math.Max(1, golem.Get("maxMana", 100)); icon.Selected = golem.Id == a.Id;
                     button.PreviewMouseRightButtonDown += (_, e) => { e.Handled = true; OpenEquipment(golem.Id); };
                     AddCrewEquipment(cell, golem);
-                    button.ToolTip = $"{golem.Name}\n내구도 {golem.Get("health"):0}/{golem.Get("maxHealth"):0} · 마력 {golem.Get("mana"):0}/{golem.Get("maxMana", 100):0}";
+                    button.ToolTip = $"{golem.Name}\n내구도 {golem.Get("health"):0}/{golem.Get("maxHealth"):0} · 마력 {golem.Get("mana"):0}/{golem.Get("maxMana", 100):0}" + (Game.CanOperate(golem) ? "" : "\n마력 부족 · 충전 대기");
                     button.MouseEnter += (_, _) => world.Highlighted = golem.Id; button.MouseLeave += (_, _) => world.Highlighted = ""; button.Unloaded += (_, _) => { if (world.Highlighted == golem.Id) world.Highlighted = ""; }; row.Children.Add(cell);
                 }
             }
@@ -137,6 +137,7 @@ internal sealed partial class MainWindow
         if (Game.Capability(a, "craft")) { list.Add(Group("build", "시설 건설", () => GameEntries("build"))); list.Add(Group("recipes", "제작", () => Game.OfKind("facility").Where(f => Game.Setting(f, "autoProduce") != "true" && Game.Content.Recipes.Values.Any(r => r.Facility == f.DefinitionId)).Select(f => Group("facility." + f.Id, f.Name, () => RecipeEntries(f))).ToList())); }
         if (Game.Capability(a, "combat")) TargetAction("attack");
         if (Game.Capability(a, "tactics")) { TargetAction("guard"); TargetAction("attack_move"); }
+        TargetAction("collect_area");
         list.Add(Leaf("equipment", "장비·강화", () => OpenEquipment()));
         list.Add(Leaf("mode", a.GetText("mode") == "combat" ? "일상 · Tab" : "전투 · Tab", () => Send("toggle_mode")));
         list.Add(Leaf("cancel", "작업 중단", () => Send("cancel")));

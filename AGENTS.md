@@ -11,7 +11,7 @@
 - Enrin MUST retain her emerald bracelet, head-mounted calculating mini golem and its chalkboard. Quest portraits include all three; the chalkboard draws emotion faces.
 - Chapter 1 ends after the Springwater King, mining core, colourless mana crystals, mana tower, recorded automation, mini-golem logistics and opening the cave.
 - Regular cores come from merchant/events/bosses and are recovered immediately on destruction. Only mini cores are craftable. Mini golems are controllable/recordable and have one inventory slot.
-- Unpowered manual golems run at 50%; unpowered replay stops. Charging belongs to recordings.
+- Only the currently controlled, non-replaying golem runs at 50% without mana. Every other unpowered golem pauses movement, work, queues, tactical actions and pickup without losing its progress or reservations. Charging belongs to recordings.
 - Preserve saved unknown object/component data when packs are absent. Do not discard over-capacity inventory.
 - Verify each meaningful module and the full campaign before pushing. User authorizes commits and pushes throughout this task.
 
@@ -19,3 +19,4 @@
 - Harvest outputs and monster loot first exist as ground items, then the harvesting/killing golem auto-collects. Manual drops, demolition byproducts and dead golem cargo require E pickup; holding E collects nearby stacks. Only retail fixtures require shop placement; factories and storage can be built outdoors.
 
 - On golem death, worn/carried equipment and upgrades are lost; ordinary inventory drops in stack-limited piles. Installed and carried cores return to the treasury immediately, exactly once.
+- Region collection is a persistent, recordable logistics action around a fixed tile; E remains instant nearby pickup. Missing materials disable recipe buttons without hiding their hover details. Purchase choices obey shared quantity limits; permanent recipe books can be bought only once.

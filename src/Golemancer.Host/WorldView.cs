@@ -125,7 +125,7 @@ internal sealed partial class WorldView : FrameworkElement
             { if (!o.Alive()) continue; poses[o.Id] = pose = new() { X=o.WorldX,Y=o.WorldY,Since=s.Time }; }
             bool moving = Math.Abs(o.WorldX-pose.X)>.0001 || Math.Abs(o.WorldY-pose.Y)>.0001;
             if (moving) pose.LastMove=s.Time;
-            string state = !o.Alive() ? "death" : o.Get("visualUntil")>s.Time ? o.GetText("visualState","idle") : o.Work is not null || o.Production.Count>0 || o.GetText("assembling")!="" ? "work" : o.Get("movingUntil")>s.Time || o.Path.Count>0 || s.Time-pose.LastMove<.18 && moving ? "move" : "idle";
+            string state = !o.Alive() ? "death" : o.Get("visualUntil")>s.Time ? o.GetText("visualState","idle") : !g.CanOperate(o) ? "idle" : o.Work is not null || o.Production.Count>0 || o.GetText("assembling")!="" ? "work" : o.Get("movingUntil")>s.Time || o.Path.Count>0 || s.Time-pose.LastMove<.18 && moving ? "move" : "idle";
             if (state != pose.State) { pose.State=state;pose.Since=s.Time; }
             var clip = assets.Clip(d.Sprite,state);
             if (!o.Alive()) { pose.Dead=true; if (clip is null || s.Time-pose.Since>clip.Frames*clip.FrameSeconds) continue; }

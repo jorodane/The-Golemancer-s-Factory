@@ -7,28 +7,29 @@ internal sealed partial class MainWindow
     {
         var entry = requested.Length == 0 ? Group("recipe." + recipe.Id, recipe.Name, () => RecipeOptions(target, recipe))
             : Leaf("recipe." + recipe.Id, recipe.Name, () => ActivateBubble(RecipeOptions(target, recipe).First(e => e.Id == (requested == "craft_count" ? "produce.number" : requested == "craft_until" ? "produce.fill" : "produce.one"))));
-        entry.Enabled = recipe.Unlock.Length == 0 || Game.State.Flags.Contains(recipe.Unlock);
+        entry.CanUse = () => CraftCheck(target, recipe).Allowed;
         entry.Display = Game.Content.Actions.GetValueOrDefault(requested.Length > 0 ? requested : "craft_single")?.Bubble ?? new();
         entry.Quantity = () => ActivateBubble(RecipeOptions(target, recipe).First(e => e.Id == "produce.number"));
-        entry.ItemId = recipe.Output; entry.Preview = () => BubblePreviews.Recipe(Game, CraftSource(target), recipe); return entry;
+        entry.ItemId = recipe.Output; entry.Preview = () => RecipePreview(target, recipe); return entry;
     }).ToList();
     private List<BubbleEntry> RecipeOptions(WorldObject target, RecipeDef recipe)
     {
         int Max() => CraftMax(target, recipe);
-        void Count() => ShowQuantity("N개 생산 · " + recipe.Name, Max, n => Send("craft_count", target.Id, recipe.Id, n), preview: n => BubblePreviews.Recipe(Game, CraftSource(target), recipe, n));
-        void Until() => ShowQuantity("목표 완성품 수량", () => CraftSource(target).Count(recipe.Output) + Max() * recipe.Amount, n => Send("craft_until", target.Id, recipe.Id, n), preview: n => BubblePreviews.Recipe(Game, CraftSource(target), recipe, (int)Math.Ceiling(Math.Max(0, n - CraftSource(target).Count(recipe.Output) - target.Production.Count(j => j.RecipeId == recipe.Id) * recipe.Amount) / (double)recipe.Amount)));
-        return RecipeChoices(recipe, target, [Leaf("produce.one", "1개 생산", () => Finish(() => Send("craft_single", target.Id, recipe.Id)), enabled: Max() > 0), Leaf("produce.number", "N개 생산", Count, enabled: Max() > 0), Leaf("produce.fill", "목표 재고까지", Until), Favorite(recipe.Output)]);
+        void Count() => ShowQuantity("N개 생산 · " + recipe.Name, Max, n => Send("craft_count", target.Id, recipe.Id, n), preview: n => RecipePreview(target, recipe, n));
+        void Until() => ShowQuantity("목표 완성품 수량", () => CraftSource(target).Count(recipe.Output) + Max() * recipe.Amount, n => Send("craft_until", target.Id, recipe.Id, n), preview: n => RecipePreview(target, recipe, (int)Math.Ceiling(Math.Max(0, n - CraftSource(target).Count(recipe.Output) - target.Production.Count(j => j.RecipeId == recipe.Id) * recipe.Amount) / (double)recipe.Amount)));
+        return RecipeChoices(recipe, target, [Leaf("produce.one", "1개 생산", () => Finish(() => Send("craft_single", target.Id, recipe.Id))), Leaf("produce.number", "N개 생산", Count), Leaf("produce.fill", "목표 재고까지", Until), Favorite(recipe.Output)]);
     }
     private List<BubbleEntry> RecipeChoices(RecipeDef recipe, WorldObject target, List<BubbleEntry> choices)
     {
         foreach(var entry in choices.Where(e => e.Id.StartsWith("produce.", StringComparison.Ordinal)))
         {
             entry.ItemId = recipe.Output;
+            entry.CanUse = () => CraftCheck(target, recipe).Allowed;
             string action = entry.Id == "produce.one" ? "craft_single" : entry.Id == "produce.number" ? "craft_count" : "craft_until";
             entry.Display = Game.Content.Actions.GetValueOrDefault(action)?.Bubble ?? new();
             entry.Preview = () =>
             {
-                var detail = BubblePreviews.Recipe(Game, CraftSource(target), recipe);
+                var detail = RecipePreview(target, recipe);
                 detail.Title = entry.Label + " · " + recipe.Name;
                 detail.Note = Game.Content.Actions.GetValueOrDefault(action)?.Description + "\n1회 기준 · " + detail.Note;
                 return detail;
@@ -36,13 +37,22 @@ internal sealed partial class MainWindow
         }
         return choices;
     }
-    private BubblePreview PurchasePreview(string item, int quantity = 1) => new()
+    private PurchaseAvailability PurchaseAvailability(string item)
     {
-        Title = Game.ItemName(item) + $" ×{quantity}", IconId = "item." + item,
-        Description = Game.Content.Items.GetValueOrDefault(item)?.Description ?? "",
-        Note = $"가격 {ShopPrices[item] * quantity}G · 보유 {Game.State.Get("gold"):0}G",
-        Locked = Game.State.Get("gold") < ShopPrices[item] * quantity
-    };
+        var g = PlanningGame;
+        return PurchaseRules.Availability(g, g.Find(session.Actor!.Id)!, item, ShopPrices[item]);
+    }
+    private BubblePreview PurchasePreview(string item, int quantity = 1)
+    {
+        var available = PurchaseAvailability(item); var check = available.Check(quantity);
+        return new()
+        {
+            Title = Game.ItemName(item) + $" ×{quantity}", IconId = "item." + item,
+            Description = Game.Content.Items.GetValueOrDefault(item)?.Description ?? "",
+            Note = $"가격 {ShopPrices[item] * quantity}G · 보유 {PlanningGame.State.Get("gold"):0}G\n구매 가능 {available.Maximum}개" + (check.Allowed ? "" : "\n" + check.Message),
+            Locked = !check.Allowed
+        };
+    }
     private List<BubbleEntry> PurchaseChoices(string item, List<BubbleEntry> entries)
     {
         foreach(var entry in entries.Where(e => e.Id.StartsWith("buy.", StringComparison.Ordinal)))
@@ -53,34 +63,47 @@ internal sealed partial class MainWindow
     {
         entry.ItemId = item; entry.Display = Game.Content.Actions.GetValueOrDefault("buy")?.Bubble ?? new();
         entry.DisplayValue = key => BubbleText.PurchaseValue(key, ShopPrices[item], quantity(), perItem) ?? CommonBubbleValue(key);
+        entry.Preview = () => PurchasePreview(item, quantity());
     }
     private WorldObject CraftSource(WorldObject target) => PlanningGame.Find(target.DefinitionId == "workbench" ? session.Actor!.Id : target.Id)!;
+    private CheckResult CraftCheck(WorldObject target, RecipeDef recipe, int batches = 1)
+    {
+        var g = PlanningGame;
+        return g.Content.Actions.TryGetValue("craft_count", out var action) && g.Registry.Actions.TryGetValue(action.Handler, out var handler)
+            ? handler.Check(g, g.Find(session.Actor!.Id)!, new() { Action = "craft_count", TargetId = target.Id, Item = recipe.Id, Quantity = batches })
+            : CheckResult.No("제작 액션 팩을 기다리는 중이야.", "unknown_action");
+    }
+    private BubblePreview RecipePreview(WorldObject target, RecipeDef recipe, int batches = 1)
+    {
+        var detail = BubblePreviews.Recipe(PlanningGame, CraftSource(target), recipe, batches);
+        var check = CraftCheck(target, recipe, batches);
+        if (!check.Allowed) { detail.Locked = true; detail.Note += "\n" + check.Message; }
+        return detail;
+    }
     private int CraftMax(WorldObject target, RecipeDef recipe)
     {
-        target = PlanningGame.Find(target.Id)!;
-        var source = CraftSource(target); int max = 0;
-        for (int n = 1; n <= 99 - target.Production.Count && source.Has(recipe.Inputs, n); n++)
-        {
-            var copy = new WorldObject { DefinitionId = source.DefinitionId, Values = new(source.Values), Inventory = new(source.Inventory), OutputInventory = new(source.OutputInventory) };
-            copy.Pay(recipe.Inputs, n);
-            int pending = target.Production.Where(j => Game.Content.Recipes.GetValueOrDefault(j.RecipeId)?.Output == recipe.Output).Sum(j => Game.Content.Recipes[j.RecipeId].Amount);
-            if (Game.OutputRoom(copy, recipe.Output) >= n * recipe.Amount + pending) max = n;
-        }
+        int max = 0;
+        for (int n = 1; n <= 99 && CraftCheck(target, recipe, n).Allowed; n++) max = n;
         return max;
     }
     private static readonly Dictionary<string, int> ShopPrices = new() { ["harvest_core"] = 20, ["craft_core"] = 35, ["combat_core"] = 75, ["jelly_book"] = 12, ["mana_book"] = 65, ["healing_jelly"] = 22, ["wood"] = 3 };
     private void ShowShop(WorldObject target) => ShowMenu("행상인의 상품", () => ShopEntries(target));
     private List<BubbleEntry> ShopEntries(WorldObject target) => BubbleMenu.GroupItems(Game, ShopPrices.Keys, [], item =>
     {
-        int Max()
+        int Max() => PurchaseAvailability(item).Maximum;
+        var entry = Group("shop." + item, Game.ItemName(item), () =>
         {
-            int n = Math.Min(99, (int)(Game.State.Get("gold") / ShopPrices[item]));
-            if (item.EndsWith("book", StringComparison.Ordinal)) return Game.State.Flags.Contains(item) || item == "mana_book" && !Game.State.Flags.Contains("first_order") ? 0 : Math.Min(1, n);
-            return item.EndsWith("core", StringComparison.Ordinal) ? n : Math.Min(n, Game.Room(session.Actor!, item));
-        }
-        var entry = Group("shop." + item, Game.ItemName(item), () => PurchaseChoices(item, [
-            Leaf("buy.one", "1개 구매", () => Finish(() => Send("buy", target.Id, item)), enabled: Max() > 0),
-            Leaf("buy.number", "N개 구매", () => ShowQuantity("구매 수량", Max, n => Send("buy", target.Id, item, n), decorate: (confirmation, quantity) => DecoratePurchase(confirmation, item, quantity)), enabled: Max() > 0), Favorite(item) ]));
+            var one = Leaf("buy.one", "1개 구매", () => Finish(() => Send("buy", target.Id, item)));
+            one.CanUse = () => Max() > 0;
+            var choices = new List<BubbleEntry> { one };
+            if (Max() > 1)
+            {
+                var number = Leaf("buy.number", "N개 구매", () => ShowQuantity("구매 수량", Max, n => Send("buy", target.Id, item, n), decorate: (confirmation, quantity) => DecoratePurchase(confirmation, item, quantity)));
+                number.CanUse = () => Max() > 1; choices.Add(number);
+            }
+            choices.Add(Favorite(item)); return PurchaseChoices(item, choices);
+        });
+        entry.CanUse = () => Max() > 0;
         entry.Quantity = () => ShowQuantity("구매 수량", Max, n => Send("buy", target.Id, item, n));
         DecoratePurchase(entry, item, () => 1); entry.Preview = () => PurchasePreview(item); return entry;
     });

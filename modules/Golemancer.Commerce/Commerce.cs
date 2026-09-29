@@ -15,14 +15,12 @@ public sealed class Buy : IActionHandler, IActionProjection
     {
         if (c.Target(r)?.DefinitionId != "merchant") return CheckResult.No("행상인에게 말을 걸어줘.", "target_missing");
         if (!Prices.TryGetValue(r.Item, out int price)) return CheckResult.No("행상인이 취급하지 않는 물건이야.", "item_missing");
-        if (r.Item == "mana_book" && !c.State.Flags.Contains("first_order")) return CheckResult.No("첫 주문을 마치면 마나 활용서를 구해올게.", "locked");
-        if (r.Quantity < 1 || r.Quantity > 99 || c.State.Get("gold") < price * r.Quantity) return CheckResult.No("금화가 부족해.", "gold");
-        if (r.Item is "jelly_book" or "mana_book" && c.State.Flags.Contains(r.Item)) return CheckResult.No("이미 읽은 책이야.", "known");
-        if (!r.Item.EndsWith("core", StringComparison.Ordinal) && !r.Item.EndsWith("book", StringComparison.Ordinal) && c.Room(a, r.Item) < r.Quantity) return CheckResult.No("보관함이 가득 찼어.", "output_full");
-        return CheckResult.Yes;
+        return PurchaseRules.Availability(c, a, r.Item, price).Check(r.Quantity);
     }
     public ActionResult Execute(IGameContext c, WorldObject a, ActionRequest r)
     {
+        var check = Check(c, a, r);
+        if (!check.Allowed) return ActionResult.Fail(check.Message, check.Reason);
         c.State.Add("gold", -Prices[r.Item] * r.Quantity);
         if (r.Item.EndsWith("core", StringComparison.Ordinal)) c.State.Treasury[r.Item] = c.State.Treasury.GetValueOrDefault(r.Item) + r.Quantity;
         else if (r.Item.EndsWith("book", StringComparison.Ordinal)) { c.State.Flags.Add(r.Item); c.State.Add("learned." + r.Item); }

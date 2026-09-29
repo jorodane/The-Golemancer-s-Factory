@@ -147,14 +147,16 @@ public sealed partial class Simulation : IGameContext
         var actor = Find(string.IsNullOrEmpty(request.ActorId) ? State.ControlledId : request.ActorId);
         if (actor is null || !actor.Alive()) return ActionResult.Fail("조종할 골렘을 선택해줘.", "actor_missing");
         request = request with { ActorId = actor.Id };
+        bool recovery = request.Action == "charge" || request.Action == "consume" && request.Item == "mana_jelly";
+        if ((def.Recordable || def.Range >= 0) && !this.CanOperate(actor) && !recovery)
+            return ActionResult.Fail("마력이 부족해. 직접 조종하거나 충전하면 이어갈 수 있어.", "no_mana");
         SetManualMovement(actor, 0, 0);
-        bool emergencyRecovery = request.Action == "consume" && actor.Playback is not null && !playback;
+        bool emergencyRecovery = request.Action == "consume" && !playback && (actor.Playback is not null || request.Item == "mana_jelly" && actor.Id != State.ControlledId);
         if (def.Recordable && actor.Playback is not null && !playback && !emergencyRecovery) return ActionResult.Fail("직접 조종하려면 먼저 반복을 멈춰줘.", "automated");
         // A fresh manual order replaces the running command and its tail. Queued/replayed
         // successors and non-recordable UI commands never cancel that tail.
         if ((def.Interrupts || def.Recordable && !playback && !emergencyRecovery) && !continuation && queued is null) this.CancelActions(actor, stopPlayback: false);
         if ((def.Recordable || def.Range >= 0) && !emergencyRecovery && !continuation && (actor.Work is not null || actor.Pending is not null || actor.Ongoing is not null)) return ActionResult.Fail("작업 중이야. Shift로 다음 행동을 예약하거나 X로 취소해줘.", "busy");
-        if (playback && actor.Get("mana") <= 0 && request.Action != "charge") return ActionResult.Fail("마력이 부족해. 충전 후 이어갈 수 있어.", "no_mana");
         WorldObject? target = Find(request.TargetId);
         bool continuous = handler is IContinuousAction continuing && continuing.IsContinuous(this, actor, request);
         if (request.TargetId.Length > 0 && (target is null || !target.Alive()) && !continuous) return FinishFailure(actor, request, ActionResult.Fail("대상을 사용할 수 없어.", "target_missing"), playback);
@@ -265,6 +267,8 @@ public sealed partial class Simulation : IGameContext
         foreach (var actor in State.Objects.Values.Where(o => o.Alive() && (this.IsGolem(o) || o.Path.Count > 0)).ToArray())
         {
             TickMovement(actor, dt);
+            // Preserve paths, progress, ongoing intent and inventory leases while discharged.
+            if (!this.CanOperate(actor)) continue;
             if (actor.Ongoing is { } running) TickOngoing(actor, running);
             if (actor.Path.Count == 0 && actor.Pending is { } pending)
             {
@@ -274,7 +278,6 @@ public sealed partial class Simulation : IGameContext
             if (actor.Work is { } work)
             {
                 if (!Content.Actions.TryGetValue(work.Request.Action, out var def) || !Registry.Actions.ContainsKey(def.Handler)) { actor.Work = null; FinishFailure(actor, work.Request, new(ActionStatus.Unavailable, "액션 팩이 없어.", "unknown_action"), actor.Playback is not null); continue; }
-                if (actor.Playback is not null && actor.Get("mana") <= 0) continue;
                 foreach (var (type, amount) in def.Works)
                 {
                     double gain = dt * actor.Get(type, 2.5) * this.Efficiency(actor);

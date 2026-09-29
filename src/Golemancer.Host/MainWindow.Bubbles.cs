@@ -171,6 +171,7 @@ internal sealed partial class MainWindow
         var entries = new List<BubbleEntry> {
             Leaf("move", "여기로 이동", () => Finish(() => Send("move", x: tile.X, y: tile.Y))),
             Group("build", "시설 건설", () => GameEntries("build")),
+            Leaf("collect_area", Game.Content.Actions["collect_area"].Name, () => Finish(() => Send("collect_area", x: tile.X, y: tile.Y, mode: "hold")), enabled: session.Actor is { } collector && Game.IsGolem(collector)),
             Leaf("pickup", "주변 물건 줍기 · E", () => Finish(() => Send("pickup_nearby"))) };
         if (session.Actor is { } actor && Game.Capability(actor, "tactics"))
             foreach (string action in new[] { "guard", "attack_move" })

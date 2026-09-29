@@ -158,7 +158,10 @@ public static partial class Rules
         foreach (var (item, n) in items) Debit(o.Inventory, item, n * count);
     }
     public static string ItemName(this IGameContext c, string id) => c.Content.Items.GetValueOrDefault(id)?.Name ?? id;
-    public static double Efficiency(this IGameContext c, WorldObject actor) => actor.Get("mana") > 0 ? 1 : 0.5;
+    // Only the currently possessed golem receives the golemancer's emergency power.
+    // Selecting a replaying golem does not turn its recording into manual control.
+    public static bool CanOperate(this IGameContext c, WorldObject actor) => !c.IsGolem(actor) || actor.Get("mana") > 0 || actor.Id == c.State.ControlledId && actor.Playback is null;
+    public static double Efficiency(this IGameContext c, WorldObject actor) => !c.CanOperate(actor) ? 0 : actor.Get("mana") > 0 ? 1 : 0.5;
     public static bool Capability(this IGameContext c, WorldObject actor, string ability) => actor.Get(ability, c.Definition(actor)?.Values.GetValueOrDefault(ability) ?? 0) > 0;
     public static WorldObject? Target(this IGameContext c, ActionRequest r) => c.Find(r.TargetId);
     public static IEnumerable<WorldObject> OfKind(this IGameContext c, string kind) => c.State.Objects.Values.Where(o => o.Alive() && c.Is(o, kind));

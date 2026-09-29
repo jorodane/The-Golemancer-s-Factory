@@ -13,6 +13,12 @@ internal static class Campaign
     }
     private static void Do(WorldObject actor, string action, string target = "", string item = "", int quantity = 1, string mode = "exact", string option = "", int x = -1, int y = -1)
     {
+        // Each scripted manual action represents the player actually possessing this golem.
+        if (s.IsGolem(actor) && s.State.ControlledId != actor.Id)
+        {
+            var select = s.Dispatch(new() { Action = "select", TargetId = actor.Id });
+            if (!select.Ok) throw new Exception("Could not select campaign actor: " + select.Message);
+        }
         var result = s.Dispatch(new() { ActorId = actor.Id, Action = action, TargetId = target, Item = item, Quantity = quantity, Mode = mode, Option = option, X = x, Y = y });
         if (!result.Ok) throw new Exception($"{action}({item},{quantity},{target}) by {actor.Name}@{actor.X},{actor.Y}: {result.Message} [{result.Reason}]");
         for (int i = 0; actor.Path.Count > 0 || actor.Work is not null || actor.Pending is not null || actor.Ongoing is not null; i++)

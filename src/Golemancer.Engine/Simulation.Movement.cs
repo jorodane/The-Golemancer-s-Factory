@@ -56,12 +56,13 @@ public sealed partial class Simulation
     {
         if (actor.Id != State.ControlledId && (actor.InputX != 0 || actor.InputY != 0)) SetManualMovement(actor,0,0);
         bool pushed=actor.Get("pushRemaining")>0;
-        if (!pushed && actor.Playback is not null && actor.Get("mana") <= 0) return;
+        if (!pushed && !this.CanOperate(actor)) return;
         bool rolling = !pushed && actor.Get("rollRemaining") > 0;
         bool manual = actor.InputX != 0 || actor.InputY != 0;
         double budget = pushed ? Math.Min(actor.Get("pushRemaining"),dt*actor.Get("pushSpeed")) : rolling ? Math.Min(actor.Get("rollRemaining"), dt*2/.28) : dt*actor.Get("speed",5)*(this.IsGolem(actor)?this.Efficiency(actor):1);
         while (budget > .000001 && (pushed || rolling || manual || actor.Path.Count > 0))
         {
+            if (!pushed && !this.CanOperate(actor)) break;
             if (!pushed && !rolling && !manual) while (actor.Path.Count > 0 && actor.Path[0] == actor.Tile) actor.Path.RemoveAt(0);
             if (!pushed && !rolling && !manual && actor.Path.Count == 0) break;
             double dx = pushed ? actor.Get("pushX") : rolling ? actor.Get("rollX") : manual ? actor.InputX : actor.Path[0].X-actor.X;
