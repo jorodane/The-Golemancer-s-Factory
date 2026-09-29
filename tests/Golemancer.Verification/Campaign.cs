@@ -21,7 +21,7 @@ internal static class Campaign
             s.Tick(.1);
             if (!actor.Alive()) throw new Exception($"Actor died during {action}");
         }
-        s.State.Dialogues.Clear(); Advance(.2);
+        s.State.Dialogues.Clear(); Advance(action is "harvest" or "fell" or "mine" ? .45 : .2);
     }
     private static void Give(WorldObject actor, WorldObject target, string item, int count) => Do(actor, "transfer", target.Id, item, count);
     private static void Take(WorldObject actor, WorldObject target, string item, int count) => Do(actor, "transfer", target.Id, item, count, option: "take");

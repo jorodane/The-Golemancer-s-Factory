@@ -4,9 +4,11 @@
 
 ## Lifecycle and ownership
 
-Registration -> XML definition load -> reference validation -> deterministic cook fingerprint -> world creation or save restoration -> fixed simulation steps. The host owns the single simulation thread and persistence. Modules operate only during calls through `IGameContext`. No module retains the context on background threads. The WPF dispatcher sends intent directly to the authoritative simulation at fixed 0.05-second steps. No HTTP transport is involved.
+Registration -> XML definition load -> reference validation -> deterministic cook fingerprint -> world creation or save restoration -> fixed simulation steps. The host owns the single simulation thread and persistence. Modules operate only during calls through `IGameContext`. No module retains the context on background threads. The WPF dispatcher sends held input and actions directly to the authoritative simulation at fixed 1/60-second steps. Systems use the supplied dt; headless callers may use other steps up to 0.25 seconds. No HTTP transport is involved.
 
 Definition IDs are stable content identities. WorldObject.Id is a persistent instance identity. Pack ID is a distribution identity. Multiple definitions, instances and implementation DLLs may belong to a pack. Constructors do not mutate the world. `IWorldGenerator.Populate` creates the initial instances.
+
+WorldObject X/Y identify integer collision tiles; SubX/SubY persist continuous offsets in [-0.5, 0.5). WorldX/WorldY are their sums. SetPosition updates tile and offset together; assigning X/Y directly is an explicit tile teleport and resets that axis's offset. Old saves default offsets to zero. Manual movement, navigation, rolls and knockback advance in small continuous steps with tile collision checks. Releasing input or arriving at a path tile never aligns an actor to its center. Rendering offsets belong to animation metadata and do not affect these coordinates. Held manual input is transient and stops on pause, loss of focus, loading or control changes.
 
 ## Actions and work
 
@@ -14,11 +16,19 @@ Definition IDs are stable content identities. WorldObject.Id is a persistent ins
 
 Exact transfers require the full specified amount at both ends. FillTo uses destination's current item count and transfers up to the target. All uses currently available source stock and destination capacity. A satisfied FillTo is a successful no-op. Inventories store total item quantities; slots constrain further additions, not existing saved quantities.
 
+Direct transfers use the same contract for another golem or a facility. They do not change ControlledId. The native host uses left-click quick actions and right-click local bubble choices; selection is a separate explicit action. Inputs are overridable XML data keyed by action ID. Tab binds toggle_mode, and E binds pickup. E's rising edge picks the nearest stack within one tile; after 0.35 seconds held, one area pickup collects stacks within Manhattan distance two.
+
+Harvesting first creates a dropped_items object with pickupOwner and autoPickupAt (0.35 seconds later). The harvesting golem collects within two tiles up to capacity; overflow remains on the ground. Manual drops and destruction byproducts have no pickup owner. Rules.Drop preserves material quantities, and the logistics system owns pickup. Ground items and pending ownership survive saves.
+
+Manual movement recordings store a Route of visited tiles as one movement intent per uninterrupted input segment. Replay follows tile directions, preserves continuous offsets, and uses normal navigation if the recorded start is no longer adjacent. Tile routes, interaction ranges and placement footprints remain integer based.
+
 Unavailable/unknown actions remain in recordings and are skipped by default. Retriable failures retain the action request and partial effects. Failure XML maps to an independently registered `IFailureHandler`. Its result uses the executor's three control operations (advance/repeat/halt); handlers may perform additional effects themselves. Explode is an optional example implementation, never a shipped default.
 
 ## Conditions and composition
 
 Conditions are independently registered objects. AND/OR recursively call the registered evaluator; NOT requires one child. Placement conditions receive a provisional footprint tile as the target. Display checks never replace execution checks. An ActionSet expands to action references; concrete actions retain unique IDs even when display names collide.
+
+Rules.Placement is shared by the native preview and construction checks. Ground factories and storage can be placed outdoors. Retail fixtures declare both Shop placement and shopOnly=true; only these fixtures count against shop capacity.
 
 ## Pack and save compatibility
 

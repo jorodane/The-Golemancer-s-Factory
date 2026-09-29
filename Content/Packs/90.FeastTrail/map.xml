@@ -57,7 +57,7 @@
         <Spawn id="golem-1" definition="harvest_golem" x="9" y="28" />
         <Spawn id="enrin" definition="enrin" x="8" y="22" />
         <Spawn id="merchant" definition="merchant" x="13" y="26" />
-        <Spawn id="workbench" definition="workbench" x="5" y="22" />
+        <Spawn id="workbench" definition="workbench" x="16" y="25" />
         <Spawn id="storage-1" definition="storage" x="5" y="25" />
         <Spawn id="shelf-1" definition="display_shelf" x="10" y="22" />
         <Spawn id="board" definition="order_board" x="13" y="22" />

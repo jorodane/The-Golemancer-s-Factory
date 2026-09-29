@@ -5,7 +5,9 @@ namespace Golemancer.Desktop;
 internal sealed class DesktopSession
 {
     private readonly CookedGame cooked;
-    private double lastSave;
+    private double lastSave, pickupTime;
+    private double moveX, moveY;
+    private bool pickupHeld, pickupWasHeld, pickupSwept;
     public string Root { get; }
     public string SaveDirectory { get; }
     public Simulation Game { get; private set; }
@@ -20,7 +22,14 @@ internal sealed class DesktopSession
         SaveDirectory = Environment.GetEnvironmentVariable("GOLEMANCER_SAVES") ?? Path.Combine(root, "Saves");
         Game.State.Paused = true;
     }
-    public void NewGame() { Game = new(cooked); Started = true; MenuPaused = false; lastSave = 0; }
+    public void SetInput(double x, double y, bool pickup)
+    { moveX=x; moveY=y; pickupHeld=pickup; }
+    public void ClearInput()
+    {
+        moveX=moveY=pickupTime=0;pickupHeld=pickupWasHeld=pickupSwept=false;
+        foreach(var actor in Game.State.Objects.Values.Where(o=>o.InputX!=0||o.InputY!=0))Game.SetManualMovement(actor,0,0);
+    }
+    public void NewGame() { ClearInput(); Game = new(cooked); Started = true; MenuPaused = false; lastSave = 0; }
     public ActionResult Command(ActionRequest request)
     {
         if (!Started || MenuPaused || Inactive) return ActionResult.Fail("게임을 재개해줘.", "paused");
@@ -31,7 +40,16 @@ internal sealed class DesktopSession
     public void Advance(double dt)
     {
         Game.State.Paused = !Started || MenuPaused || Inactive || Game.State.Dialogues.Count > 0;
-        if (Game.State.Paused) return;
+        if (Game.State.Paused) { ClearInput(); return; }
+        if (pickupHeld)
+        {
+            if (!pickupWasHeld) { Command(new() { Action="pickup_nearest" }); pickupTime=0;pickupSwept=false; }
+            pickupTime+=dt;
+            if (pickupTime>=.35 && !pickupSwept) { Command(new() { Action="pickup_nearby" });pickupSwept=true; }
+        }
+        else { pickupTime=0;pickupSwept=false; }
+        pickupWasHeld=pickupHeld;
+        if(Actor is { } actor) Game.SetManualMovement(actor,moveX,moveY);
         Game.Tick(dt);
         if (Game.State.Time - lastSave >= 30) { Save("autosave"); lastSave = Game.State.Time; }
     }
@@ -44,6 +62,7 @@ internal sealed class DesktopSession
     public void Load(string slot)
     {
         if (slot is not ("manual" or "autosave")) throw new ArgumentException("Unknown save slot");
+        ClearInput();
         Game = new(cooked, Simulation.ReadSave(Path.Combine(SaveDirectory, slot + ".json")));
         Game.State.Paused = false; Started = true; MenuPaused = false; lastSave = Game.State.Time;
     }

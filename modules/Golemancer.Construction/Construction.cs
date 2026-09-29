@@ -13,15 +13,12 @@ public sealed class Build : IActionHandler
         string unlock = def.Data.GetValueOrDefault("unlock", "");
         if (unlock != "" && !c.State.Flags.Contains(unlock)) return CheckResult.No("설계도를 아직 배우지 않았어.", "locked");
         if (!a.Has(def.Cost)) return CheckResult.No("골렘이 가진 건설 재료가 부족해.", "ingredients");
-        int count = c.OfKind("facility").Count(o => c.Definition(o)?.Data.GetValueOrDefault("buildable") == "true");
-        int limit = 4 + (int)c.State.Get("shopTier", 1) * 4;
-        if (count >= limit) return CheckResult.No("시설 배치 한도야. 상점 규모를 올려줘.", "facility_limit");
-        for (int y = r.Y; y < r.Y + def.Height; y++) for (int x = r.X; x < r.X + def.Width; x++)
+        if (def.Data.GetValueOrDefault("shopOnly") == "true")
         {
-            var provisional = new WorldObject { X = x, Y = y };
-            if (!c.Walkable(x, y) || c.OfKind("golem").Any(o => o.X == x && o.Y == y) || (def.Placement is not null && !c.Evaluate(def.Placement, a, provisional))) return CheckResult.No("이 타일에는 설치할 수 없어.", "placement");
+            int count = c.OfKind("facility").Count(o => c.Definition(o)?.Data.GetValueOrDefault("shopOnly") == "true");
+            if (count >= 4 + (int)c.State.Get("shopTier",1)*4) return CheckResult.No("상점 판매 시설 한도야. 상점 규모를 올려줘.","facility_limit");
         }
-        return CheckResult.Yes;
+        return c.Placement(a,def,r.X,r.Y);
     }
     public ActionResult Execute(IGameContext c, WorldObject a, ActionRequest r)
     {
@@ -47,12 +44,8 @@ public sealed class Remove : IActionHandler
         var t = c.Target(r)!;
         var returned = new Dictionary<string, int>(t.Inventory);
         foreach (var (item, n) in c.Definition(t)!.Cost) returned[item] = returned.GetValueOrDefault(item) + Math.Max(1, n / 2);
-        foreach (var (item, n) in returned)
-        {
-            int given = c.Give(a, item, n);
-            if (given < n) { var bag = c.Spawn("dropped_items", t.X, t.Y); bag.Inventory[item] = n - given; }
-        }
+        c.Drop(t.X,t.Y,returned);
         t.Inventory.Clear(); t.Set("dead", 1);
-        return ActionResult.Success("철거하고 재료를 회수했어.");
+        return ActionResult.Success("철거했어. 바닥의 재료는 E로 주워줘.");
     }
 }

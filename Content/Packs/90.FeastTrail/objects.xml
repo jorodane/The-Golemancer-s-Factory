@@ -52,7 +52,15 @@
     <Object id="enrin" name="엔린" kind="npc" actions="talk,assemble" />
     <Object id="merchant" name="행상인" kind="npc" actions="buy" />
     <Object id="customer" name="손님" kind="customer" slots="1" />
-    <Object id="workbench" name="목공 작업대" kind="facility" width="2" solid="true" slots="8" actions="craft" />
+    <Object id="workbench" name="목공 작업대" kind="facility" width="2" solid="true" slots="8" actions="craft,dismantle">
+      <Data key="buildable" value="true" />
+      <Cost>
+        <Item id="wood" amount="8" />
+      </Cost>
+      <Placement>
+        <Ground />
+      </Placement>
+    </Object>
     <Object id="storage" name="나무 상자" kind="facility" solid="true" slots="16" actions="transfer,dismantle">
       <Data key="buildable" value="true" />
       <Cost>
@@ -60,7 +68,6 @@
       </Cost>
       <Placement>
         <And>
-          <Shop />
           <Ground />
         </And>
       </Placement>
@@ -76,6 +83,7 @@
           <Ground />
         </And>
       </Placement>
+      <Data key="shopOnly" value="true" />
     </Object>
     <Object id="fine_shelf" name="아름다운 진열대" kind="facility" width="2" solid="true" slots="12" actions="transfer,dismantle">
       <Data key="buildable" value="true" />
@@ -90,6 +98,7 @@
           <Ground />
         </And>
       </Placement>
+      <Data key="shopOnly" value="true" />
     </Object>
     <Object id="herb_fumigator" name="약초 훈증기" kind="facility" width="2" height="2" solid="true" slots="14" actions="transfer,craft,dismantle">
       <Value key="fuelWork" value="100" />
@@ -101,7 +110,6 @@
       </Cost>
       <Placement>
         <And>
-          <Shop />
           <Ground />
         </And>
       </Placement>
@@ -116,7 +124,6 @@
       </Cost>
       <Placement>
         <And>
-          <Shop />
           <Ground />
         </And>
       </Placement>

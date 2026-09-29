@@ -57,7 +57,7 @@ internal sealed class AssetStore
     public AnimationDef? Clip(string id, string state = "idle")
     {
         if (!content.Sprites.TryGetValue(id, out var sprite)) return null;
-        return sprite.Animations.GetValueOrDefault(state) ?? sprite.Animations.GetValueOrDefault(state.Split('.')[0]) ?? sprite.Animations.GetValueOrDefault("idle");
+        return sprite.Animations.GetValueOrDefault(state) ?? sprite.Animations.GetValueOrDefault(state.Split('.')[0]) ?? (state=="roll"?sprite.Animations.GetValueOrDefault("move"):null) ?? sprite.Animations.GetValueOrDefault("idle");
     }
     public ImageSource Frame(AnimationDef clip, int frame)
     {

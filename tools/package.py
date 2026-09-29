@@ -35,6 +35,15 @@ common = '''The Golemancer's Factory — Windows / .NET Framework 4.8
 Saves/manual.json 및 Saves/autosave.json에 진행 상황을 저장해.
 Esc로 저장 메뉴, F11로 전체 화면을 사용할 수 있어.
 
+수정본을 기존 설치 폴더에 덮어쓰면 돼. 이미지팩 v2와 Saves는 그대로 사용해.
+WASD/방향키: 자유 이동. Tab: 일상/전투 모드. Space: 구르기.
+일상 좌클릭: 빠른 사용. 우클릭: 클릭 주변 버블 메뉴.
+수확 골렘으로 제작 골렘 좌클릭 → 목재 선택 → 건네기/선택한 물건 전부.
+E: 가까운 바닥 물건 줍기. 0.35초 이상 누르기: 주변 2칸 범위 줍기.
+수확물만 수확한 골렘이 자동 습득하고, 내려놓기/파괴 부산물은 바닥에 남아.
+작업대·훈증기·창고·수정탑은 야외에 건설 가능하고 판매 진열대만 상점 안에 놓아줘.
+전체 조작과 기능 설명: README.md. 키 설정: Content/Packs/00.Foundation/inputs.xml.
+
 검증: net48 빌드와 Linux net10.0 공유 엔진·세션 검증을 통과했어.
 실제 Windows 창 실행은 이 제작 환경에서 확인하지 못했어.
 이미지·모드 명세: docs/ART_PACKS.md
@@ -49,6 +58,7 @@ with ZipFile(app_file, 'w', ZIP_DEFLATED, compresslevel=9) as archive:
             archive.write(file, file.relative_to(root).as_posix())
     for name in ('ART_PACKS.md','OBJECT_PACKS.md','VERIFICATION.md','CONTRACTS.md'):
         archive.write(root/'docs'/name, 'docs/'+name)
+    archive.write(root/'README.md', 'README.md')
     archive.writestr('READ-ME.txt', common)
     archive.writestr('build-info.json', json.dumps({'commit':revision,'target':'net48','ui':'WPF','windows_gui_tested':False}, indent=2)+'\n')
 art_file = output/'The-Golemancers-Factory-Image-Packs-v2.zip'

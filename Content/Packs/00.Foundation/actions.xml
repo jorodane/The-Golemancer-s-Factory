@@ -1,8 +1,12 @@
+<?xml version='1.0' encoding='utf-8'?>
 <GameContent>
   <Actions>
     <Action id="move" name="이동" handler="movement.move" range="-1" failure="retry" />
     <Action id="cancel" name="작업 중단" handler="movement.cancel" range="-1" recordable="false" />
     <Action id="transfer" name="물건 옮기기" handler="inventory.transfer" path="보관/운반" failure="retry" />
     <Action id="pickup" name="주워 담기" handler="inventory.pickup" targetKind="drop" failure="skip" />
+    <Action id="pickup_nearest" name="가까운 물건 줍기" handler="inventory.pickup_nearest" range="-1" failure="skip" />
+    <Action id="pickup_nearby" name="주변 물건 줍기" handler="inventory.pickup_nearby" range="-1" failure="skip" />
+    <Action id="drop" name="물건 내려놓기" handler="inventory.drop" range="-1" failure="skip" />
   </Actions>
 </GameContent>

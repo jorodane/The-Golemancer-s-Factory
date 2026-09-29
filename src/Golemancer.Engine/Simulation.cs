@@ -3,7 +3,7 @@ using Golemancer.Contracts;
 
 namespace Golemancer.Engine;
 
-public sealed class Simulation : IGameContext
+public sealed partial class Simulation : IGameContext
 {
     public GameState State { get; private set; }
     public ContentCatalog Content => cooked.Content;
@@ -19,6 +19,11 @@ public sealed class Simulation : IGameContext
         {
             if (!Registry.Worlds.TryGetValue("feast_trail", out var world)) throw new InvalidDataException("The feast_trail world pack is missing");
             world.Populate(this);
+        }
+        foreach (var obj in State.Objects.Values)
+        {
+            if (double.IsNaN(obj.SubX) || double.IsInfinity(obj.SubX) || obj.SubX < -.5 || obj.SubX >= .5) obj.SubX = 0;
+            if (double.IsNaN(obj.SubY) || double.IsInfinity(obj.SubY) || obj.SubY < -.5 || obj.SubY >= .5) obj.SubY = 0;
         }
         foreach (var p in Content.Packs) State.PackVersions[p.Id] = p.Version;
     }
@@ -91,6 +96,7 @@ public sealed class Simulation : IGameContext
         var actor = Find(string.IsNullOrEmpty(request.ActorId) ? State.ControlledId : request.ActorId);
         if (actor is null || !actor.Alive()) return ActionResult.Fail("조종할 골렘을 선택해줘.", "actor_missing");
         request = request with { ActorId = actor.Id };
+        SetManualMovement(actor, 0, 0);
         bool emergencyRecovery = request.Action == "consume" && actor.Playback is not null && !playback;
         if (def.Recordable && actor.Playback is not null && !playback && !emergencyRecovery) return ActionResult.Fail("직접 조종하려면 먼저 반복을 멈춰줘.", "automated");
         if (def.Interrupts) { actor.Work = null; actor.Pending = null; actor.Path.Clear(); }
@@ -150,7 +156,7 @@ public sealed class Simulation : IGameContext
         if (p is null) return;
         if (result.Ok)
         {
-            p.Index++; p.Waiting = false; p.Retries = 0; p.ResumeAt = State.Time + .12; p.Status = "다음 행동";
+            p.Index++; p.Waiting = false; p.Retries = 0; p.ResumeAt = State.Time + (request.Action == "move" ? 0 : .12); p.Status = "다음 행동";
             return;
         }
         string key = string.IsNullOrEmpty(request.Failure) ? Content.Actions.GetValueOrDefault(request.Action)?.Failure ?? "skip" : request.Failure;
@@ -180,41 +186,9 @@ public sealed class Simulation : IGameContext
         if (dt <= 0 || dt > .25) throw new ArgumentOutOfRangeException(nameof(dt));
         State.Time += dt; State.Revision++; State.Add("calendarSeconds", dt);
         State.Effects.RemoveAll(e => e.Until < State.Time);
-        foreach (var actor in State.Objects.Values.Where(o => o.Alive() && this.IsGolem(o)).ToArray())
+        foreach (var actor in State.Objects.Values.Where(o => o.Alive() && (this.IsGolem(o) || o.Path.Count > 0)).ToArray())
         {
-            if (actor.Path.Count > 0)
-            {
-                bool unpoweredReplay = actor.Playback is not null && actor.Get("mana") <= 0;
-                if (unpoweredReplay) continue;
-                actor.Set("moveProgress", actor.Get("moveProgress") + dt * actor.Get("speed", 5) * this.Efficiency(actor));
-                if (actor.Get("moveProgress") >= 1)
-                {
-                    var next = actor.Path[0];
-                    if (!Walkable(next.X, next.Y, actor.Id))
-                    {
-                        var end = actor.Path[actor.Path.Count - 1];
-                        if (!Navigate(actor, end)) actor.Set("moveProgress", 0);
-                        continue;
-                    }
-                    // Crossing actors delays movement. Deterministic id priority breaks head-on stand-offs.
-                    var blocker = this.OfKind("golem").FirstOrDefault(o => o.Id != actor.Id && o.X == next.X && o.Y == next.Y);
-                    if (blocker is not null)
-                    {
-                        if (blocker.Path.Count > 0 && blocker.Path[0] == actor.Tile && string.CompareOrdinal(actor.Id, blocker.Id) < 0)
-                        {
-                            var side = new[] { new Tile(actor.X, actor.Y + 1), new Tile(actor.X, actor.Y - 1), new Tile(actor.X + 1, actor.Y), new Tile(actor.X - 1, actor.Y) }.FirstOrDefault(p => Walkable(p.X, p.Y, actor.Id) && !this.OfKind("golem").Any(o => o.Tile == p));
-                            if (side != default) { var destination = actor.Path[actor.Path.Count - 1]; actor.X = side.X; actor.Y = side.Y; Navigate(actor, destination); }
-                        }
-                        actor.Set("moveProgress", 0); continue;
-                    }
-                    int dx = next.X - actor.X, dy = next.Y - actor.Y;
-                    actor.Set("facingX", dx); actor.Set("facingY", dy);
-                    actor.X = next.X; actor.Y = next.Y; actor.Path.RemoveAt(0); actor.Set("moveProgress", 0);
-                    actor.Set("mana", Math.Max(0, actor.Get("mana") - .08));
-                    if (actor.Path.Count == 0 && actor.Pending is null && actor.Playback?.Waiting == true && actor.Work is null)
-                        CompletePlaybackStep(actor, ActionResult.Success(), new ActionRequest { Action = "move" });
-                }
-            }
+            TickMovement(actor, dt);
             if (actor.Path.Count == 0 && actor.Pending is { } pending)
             {
                 actor.Pending = null;

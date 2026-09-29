@@ -46,6 +46,25 @@ public static class Rules
 {
     public static void Animate(this IGameContext c, WorldObject o, string state, double seconds = .48)
     { o.Data["visualState"] = state; o.Set("visualStarted", c.State.Time); o.Set("visualUntil", c.State.Time + seconds); }
+    public static WorldObject Drop(this IGameContext c, int x, int y, IReadOnlyDictionary<string, int> items, string owner = "")
+    {
+        var drop = c.Spawn("dropped_items", x, y);
+        foreach (var pair in items.Where(p => p.Value > 0)) drop.Inventory[pair.Key] = pair.Value;
+        drop.Data["pickupOwner"] = owner; drop.Set("autoPickupAt", c.State.Time + .35);
+        return drop;
+    }
+    public static CheckResult Placement(this IGameContext c, WorldObject actor, ObjectDef definition, int x, int y)
+    {
+        for (int row = y; row < y + definition.Height; row++) for (int col = x; col < x + definition.Width; col++)
+        {
+            var tile = new WorldObject { X = col, Y = row };
+            if (!c.Walkable(col, row) || c.OfKind("golem").Any(o => o.X == col && o.Y == row) ||
+                c.OfKind("facility").Any(o => col >= o.X && col < o.X + (c.Definition(o)?.Width ?? 1) && row >= o.Y && row < o.Y + (c.Definition(o)?.Height ?? 1)) ||
+                definition.Placement is not null && !c.Evaluate(definition.Placement, actor, tile))
+                return CheckResult.No("이 타일에는 설치할 수 없어.", "placement");
+        }
+        return CheckResult.Yes;
+    }
     public static string Kind(this IGameContext c, WorldObject o) => c.Definition(o)?.Kind ?? "missing";
     public static bool Is(this IGameContext c, WorldObject o, string kind) => c.Kind(o) == kind;
     public static bool Alive(this WorldObject o) => o.Get("dead") == 0;

@@ -36,7 +36,9 @@ public static class Battle
         if (push)
         {
             int dx = Math.Sign(actor.X - source.X), dy = Math.Sign(actor.Y - source.Y);
-            if (c.Walkable(actor.X + dx, actor.Y + dy, actor.Id)) { actor.X += dx; actor.Y += dy; actor.Path.Clear(); }
+            double length=Math.Sqrt(dx*dx+dy*dy);
+            if(length>0)
+            { actor.Set("pushX",dx/length);actor.Set("pushY",dy/length);actor.Set("pushRemaining",length);actor.Set("pushSpeed",length/.16);actor.Path.Clear(); }
         }
     }
     public static void DrainLake(IGameContext c, WorldObject boss, bool fully)
@@ -74,13 +76,14 @@ public sealed class Roll : IActionHandler
     public CheckResult Check(IGameContext c, WorldObject a, ActionRequest r) => !c.Capability(a, "combat") ? CheckResult.No("이 골렘은 구를 수 없어.", "capability") : a.Get("rollReady") > c.State.Time ? CheckResult.No("구르기 재사용 대기 중이야.", "cooldown") : CheckResult.Yes;
     public ActionResult Execute(IGameContext c, WorldObject a, ActionRequest r)
     {
-        int dx = r.X is >= -1 and <= 1 ? r.X : (int)a.Get("facingX", 1), dy = r.Y is >= -1 and <= 1 ? r.Y : (int)a.Get("facingY");
+        double dx = r.X is >= -1 and <= 1 ? r.X : a.Get("facingX", 1), dy = r.Y is >= -1 and <= 1 ? r.Y : a.Get("facingY");
         if (dx == 0 && dy == 0) dx = 1;
-        if (dx != 0) dy = 0;
+        double length = Math.Sqrt(dx * dx + dy * dy);
         a.Path.Clear(); a.Pending = null; a.Work = null;
-        for (int i = 0; i < 2; i++) if (c.Walkable(a.X + dx, a.Y + dy, a.Id)) { a.X += dx; a.Y += dy; } else break;
+        a.Set("rollX", dx / length); a.Set("rollY", dy / length); a.Set("rollRemaining", 2);
+        a.Set("rollStarted", c.State.Time); a.Set("rollUntil", c.State.Time + .28);
         a.Set("invulnerableUntil", c.State.Time + .65); a.Set("rollReady", c.State.Time + 1.8);
-        c.Effect("roll", a.X, a.Y, "", .5); return ActionResult.Success();
+        c.Animate(a, "roll", .28); return ActionResult.Success();
     }
 }
 public sealed class Mode : IActionHandler

@@ -180,6 +180,7 @@ public static class PackLoader
     private static Dictionary<string, int> Quantities(XElement? root) => root?.Elements("Item").ToDictionary(e => S(e, "id"), e => (int)N(e, "amount", 1)) ?? [];
     private static void ReadContent(XElement root, ContentCatalog c, string packDirectory)
     {
+        foreach (var e in root.Element("Inputs")?.Elements("Bind") ?? []) c.Inputs[S(e, "action")] = S(e, "keys");
         foreach (var e in root.Element("Sprites")?.Elements("Sprite") ?? [])
         {
             string id = S(e, "id");

@@ -6,6 +6,8 @@ public sealed class Module : IGameModule
     {
         r.Action("movement.move", new Move()); r.Action("movement.cancel", new Cancel());
         r.Action("inventory.transfer", new Transfer()); r.Action("inventory.pickup", new Pickup());
+        r.Action("inventory.pickup_nearest", new NearbyPickup(false)); r.Action("inventory.pickup_nearby", new NearbyPickup(true));
+        r.Action("inventory.drop", new DropItems()); r.System(new AutoPickup());
     }
 }
 public sealed class Move : IActionHandler
@@ -13,6 +15,11 @@ public sealed class Move : IActionHandler
     public CheckResult Check(IGameContext c, WorldObject a, ActionRequest r) => c.IsGolem(a) && c.Walkable(r.X, r.Y, a.Id) ? CheckResult.Yes : CheckResult.No("그 타일로 이동할 수 없어.", "no_path");
     public ActionResult Execute(IGameContext c, WorldObject a, ActionRequest r)
     {
+        if (r.Route.Count > 0 && Math.Abs(r.Route[0].X-a.X) <= 1 && Math.Abs(r.Route[0].Y-a.Y) <= 1 && r.Route.All(t => c.State.Map.Inside(t.X,t.Y)))
+        {
+            a.Path = r.Route.SkipWhile(t => t == a.Tile).ToList();
+            return a.Path.Count == 0 ? ActionResult.Success() : ActionResult.Started();
+        }
         if (!c.Navigate(a, new(r.X, r.Y))) return ActionResult.Fail("길이 막혀 있어.", "no_path");
         return a.Path.Count == 0 ? ActionResult.Success() : ActionResult.Started();
     }

@@ -50,9 +50,19 @@ public sealed class WorldObject
     public string Id { get; set; } = "";
     public string DefinitionId { get; set; } = "";
     public string Name { get; set; } = "";
-    public int X { get; set; }
-    public int Y { get; set; }
+    private int tileX, tileY;
+    public int X { get => tileX; set { tileX = value; SubX = 0; } }
+    public int Y { get => tileY; set { tileY = value; SubY = 0; } }
+    public double SubX { get; set; }
+    public double SubY { get; set; }
+    [JsonIgnore] public double WorldX => X + SubX;
+    [JsonIgnore] public double WorldY => Y + SubY;
     [JsonIgnore] public Tile Tile => new(X, Y);
+    [JsonIgnore] public double InputX { get; set; }
+    [JsonIgnore] public double InputY { get; set; }
+    [JsonIgnore] public RecordedStep? ManualRecording { get; set; }
+    public void SetPosition(double x, double y)
+    { X = (int)Math.Floor(x + .5); Y = (int)Math.Floor(y + .5); SubX = x - X; SubY = y - Y; }
     public Dictionary<string, double> Values { get; set; } = [];
     public Dictionary<string, string> Data { get; set; } = [];
     public Dictionary<string, int> Inventory { get; set; } = [];
@@ -71,6 +81,7 @@ public sealed class WorldObject
 
 public sealed record ActionRequest
 {
+    public List<Tile> Route { get; init; } = [];
     public string Action { get; init; } = "";
     public string ActorId { get; init; } = "";
     public string TargetId { get; init; } = "";
@@ -222,6 +233,7 @@ public sealed record QuestGoal(string Key, double Amount, string Label);
 
 public sealed class ContentCatalog
 {
+    public Dictionary<string, string> Inputs { get; } = [];
     public Dictionary<string, SpriteDef> Sprites { get; } = [];
     public Dictionary<string, TilesetDef> Tilesets { get; } = [];
     public Dictionary<string, ItemDef> Items { get; } = [];

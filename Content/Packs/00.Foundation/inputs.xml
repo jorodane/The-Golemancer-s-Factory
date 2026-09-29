@@ -1,0 +1,19 @@
+<GameContent>
+  <Inputs>
+    <Bind action="move.up" keys="W,Up" />
+    <Bind action="move.down" keys="S,Down" />
+    <Bind action="move.left" keys="A,Left" />
+    <Bind action="move.right" keys="D,Right" />
+    <Bind action="toggle_mode" keys="Tab" />
+    <Bind action="roll" keys="Space" />
+    <Bind action="pickup" keys="E" />
+    <Bind action="record" keys="R" />
+    <Bind action="play" keys="T" />
+    <Bind action="build" keys="B" />
+    <Bind action="equipment" keys="I" />
+    <Bind action="follow" keys="F" />
+    <Bind action="cancel" keys="X" />
+    <Bind action="heal" keys="D1" />
+    <Bind action="mana" keys="D2" />
+  </Inputs>
+</GameContent>

@@ -13,9 +13,6 @@ public sealed class Collect : IActionHandler
         string skill = t.GetText("skill", "harvest");
         if (!c.Capability(a, skill)) return CheckResult.No(skill == "mining" ? "채광 골렘이 필요해." : "이 골렘은 수확할 수 없어.", "capability");
         if (t.Get("depleted") > 0 || (r.Action != "fell" && t.Get("stock", 1) <= 0)) return CheckResult.No("다시 자랄 때까지 기다려야 해.", "resource_empty");
-        string item = r.Action == "fell" ? "wood" : t.GetText("yield", "common_herb");
-        int amount = r.Action == "fell" ? 5 : t.DefinitionId == "sweetfruit_tree" ? (int)t.Get("stock", 3) : (int)t.Get("yieldAmount", 3);
-        if (c.Room(a, item) < amount) return CheckResult.No("보관함에 빈 공간이 필요해.", "output_full");
         return CheckResult.Yes;
     }
     public ActionResult Execute(IGameContext c, WorldObject a, ActionRequest r)
@@ -24,19 +21,16 @@ public sealed class Collect : IActionHandler
         string item = r.Action == "fell" ? "wood" : t.GetText("yield", "common_herb");
         int amount = r.Action == "fell" ? 5 : (int)t.Get("yieldAmount", 3);
         if (t.DefinitionId == "sweetfruit_tree" && r.Action != "fell") amount = (int)t.Get("stock", 3);
-        int n = c.Give(a, item, amount);
-        if (n < amount) return ActionResult.Fail("결과물을 전부 받을 수 없어.", "output_full");
-        if (t.DefinitionId == "sweetfruit_tree" && r.Action == "fell")
-        {
-            int fruit = (int)t.Get("stock", 3);
-            int given = c.Give(a, "sweetfruit", fruit);
-            if (given < fruit) { var drop = c.Spawn("dropped_items", t.X, t.Y); drop.Inventory["sweetfruit"] = fruit - given; }
-        }
+        int n = amount;
+        c.Drop(t.X,t.Y,new Dictionary<string,int>{{item,amount}},a.Id);
+        a.Set("waitUntil",c.State.Time+.4);
+        if (t.DefinitionId == "sweetfruit_tree" && r.Action == "fell" && t.Get("stock") > 0)
+            c.Drop(t.X,t.Y,new Dictionary<string,int>{{"sweetfruit",(int)t.Get("stock")}});
         if (t.DefinitionId == "sweetfruit_tree" && r.Action != "fell") { t.Set("stock", 0); t.Set("refillAt", c.State.Time + 45); }
         else { t.Set("depleted", 1); t.Set("respawnAt", c.State.Time + t.Get(c.Night() ? "nightRespawn" : "dayRespawn", 80)); }
         c.State.Add("harvested", n); c.State.Add("harvested." + item, n);
         c.Effect("harvest", t.X, t.Y, $"+{n} {c.ItemName(item)}", 1.4);
-        return ActionResult.Success($"{c.ItemName(item)} {n}개를 얻었어.", n);
+        return ActionResult.Success($"{c.ItemName(item)} {n}개를 수확했어.", n);
     }
 }
 public sealed class Regrowth : IRuntimeSystem

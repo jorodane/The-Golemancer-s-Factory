@@ -82,18 +82,16 @@ public sealed class Customers : IRuntimeSystem
             var shelf = c.OfKind("facility").Where(o => o.DefinitionId is "display_shelf" or "fine_shelf").FirstOrDefault(o => o.Inventory.Any(k => c.Content.Items.GetValueOrDefault(k.Key)?.Price > 0));
             if (shelf is not null)
             {
-                var buyer = c.Spawn("customer", 7, 33); buyer.Data["shelf"] = shelf.Id; buyer.Set("leaveAt", c.State.Time + 7);
+                var buyer = c.Spawn("customer", 7, 33); buyer.Data["shelf"] = shelf.Id; buyer.Set("leaveAt", c.State.Time + 15); buyer.Set("speed", 2.4);
             }
         }
         foreach (var buyer in c.OfKind("customer").ToArray())
         {
             if (c.State.Time >= buyer.Get("leaveAt")) { buyer.Set("dead", 1); continue; }
             var shelf = c.Find(buyer.GetText("shelf")); if (shelf is null) continue;
-            if (buyer.Get("nextStep") > c.State.Time) continue;
-            buyer.Set("nextStep", c.State.Time + .45);
             if (c.Distance(buyer, shelf) > 1)
             {
-                if (buyer.X != shelf.X) buyer.X += Math.Sign(shelf.X - buyer.X); else buyer.Y += Math.Sign(shelf.Y - buyer.Y);
+                if (buyer.Path.Count == 0) c.Navigate(buyer,shelf.Tile,1);
                 continue;
             }
             if (buyer.Get("bought") > 0) continue;

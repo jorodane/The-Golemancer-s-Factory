@@ -62,7 +62,7 @@ public sealed class Executor : IRuntimeSystem
             var p = a.Playback!;
             if (!c.State.Recordings.TryGetValue(p.RecordingId, out var rec)) { a.Playback = null; continue; }
             if (a.Get("mana") <= 0) { p.Status = "마력 부족 · 정지"; continue; }
-            if (a.Work is not null || a.Pending is not null || a.Path.Count > 0 || c.State.Time < p.ResumeAt || c.State.Time < a.Get("waitUntil")) continue;
+            if (a.Work is not null || a.Pending is not null || a.Path.Count > 0 || a.Get("rollRemaining") > 0 || a.Get("pushRemaining") > 0 || c.State.Time < p.ResumeAt || c.State.Time < a.Get("waitUntil")) continue;
             if (p.Returning)
             {
                 if (a.Tile != rec.Origin) { a.Playback = null; c.Notice("녹화 시작점이 막혀 반복을 멈췄어.", "warning"); continue; }
