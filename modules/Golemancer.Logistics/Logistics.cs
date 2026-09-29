@@ -10,11 +10,25 @@ public sealed class Module : IGameModule
         r.Action("inventory.drop", new DropItems()); r.System(new AutoPickup());
     }
 }
-public sealed class Move : IActionHandler
+public sealed class Move : IActionHandler, IActionApproach
 {
-    public CheckResult Check(IGameContext c, WorldObject a, ActionRequest r) => c.IsGolem(a) && c.Walkable(r.X, r.Y, a.Id) ? CheckResult.Yes : CheckResult.No("그 타일로 이동할 수 없어.", "no_path");
+    public ActionApproach? Approach(IGameContext c, WorldObject a, ActionRequest r)
+    {
+        if (r.Route.Count > 0 || c.Walkable(r.X, r.Y, a.Id)) return null;
+        foreach (var target in c.State.Objects.Values.Where(o => o.Id != a.Id && o.Alive() && o.Get("depleted") == 0))
+        {
+            var def = c.Definition(target);
+            if (def?.Solid == true && r.X >= target.X && r.Y >= target.Y && r.X < target.X + def.Width && r.Y < target.Y + def.Height)
+                return new(target.X, target.Y, def.Width, def.Height, 1, Minimum: 1);
+        }
+        return null;
+    }
+    public CheckResult Check(IGameContext c, WorldObject a, ActionRequest r) => c.IsGolem(a) && c.State.Map.Inside(r.X, r.Y)
+        && (c.Walkable(r.X, r.Y, a.Id) || Approach(c, a, r) is not null) ? CheckResult.Yes : CheckResult.No("그 타일로 이동할 수 없어.", "no_path");
     public ActionResult Execute(IGameContext c, WorldObject a, ActionRequest r)
     {
+        // A ground click on a solid footprint stops beside it, including old queued orders.
+        if (Approach(c, a, r) is { } approach && approach.Accepts(a.Tile)) return ActionResult.Success();
         if (r.Route.Count > 0 && Math.Abs(r.Route[0].X-a.X) <= 1 && Math.Abs(r.Route[0].Y-a.Y) <= 1 && r.Route.All(t => c.State.Map.Inside(t.X,t.Y)))
         {
             a.Path = r.Route.SkipWhile(t => t == a.Tile).ToList();

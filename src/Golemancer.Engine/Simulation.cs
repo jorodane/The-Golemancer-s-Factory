@@ -61,7 +61,11 @@ public sealed partial class Simulation : IGameContext
     public bool Navigate(WorldObject actor, Tile destination, int range = 0)
     {
         if (!State.Map.Inside(destination.X, destination.Y)) return false;
-        if (actor.Tile.Distance(destination) <= range) { actor.Path.Clear(); return true; }
+        return Navigate(actor, new ActionApproach(destination.X, destination.Y, 1, 1, range));
+    }
+    private bool Navigate(WorldObject actor, ActionApproach approach)
+    {
+        if (approach.Accepts(actor.Tile)) { actor.Path.Clear(); return true; }
         var queue = new Queue<Tile>();
         var previous = new Dictionary<Tile, Tile>();
         var origin = actor.Tile;
@@ -70,7 +74,7 @@ public sealed partial class Simulation : IGameContext
         while (queue.Count > 0)
         {
             var current = queue.Dequeue();
-            if (current.Distance(destination) <= range && (range > 0 || Walkable(current.X, current.Y, actor.Id))) { found = current; break; }
+            if (approach.Accepts(current) && Walkable(current.X, current.Y, actor.Id)) { found = current; break; }
             foreach (var next in new[] { new Tile(current.X + 1, current.Y), new Tile(current.X - 1, current.Y), new Tile(current.X, current.Y + 1), new Tile(current.X, current.Y - 1) })
             {
                 if (previous.ContainsKey(next) || !Walkable(next.X, next.Y, actor.Id) || this.OfKind("golem").Any(o => o.Id != actor.Id && o.Tile == next)) continue;
@@ -97,6 +101,19 @@ public sealed partial class Simulation : IGameContext
             }
         foreach (var pos in candidates.OrderBy(p => actor.Tile.Distance(p))) if (Navigate(actor, pos)) return true;
         return false;
+    }
+    private ActionApproach? ApproachFor(IActionHandler handler, ActionDef def, WorldObject actor, ActionRequest request, out bool customized)
+    {
+        var custom = (handler as IActionApproach)?.Approach(this, actor, request);
+        customized = custom is not null;
+        if (custom is not null) return custom;
+        if (def.Range < 0) return null;
+        if (Find(request.TargetId) is { } target && target.Alive())
+        {
+            var shape = Definition(target);
+            return new(target.X, target.Y, shape?.Width ?? 1, shape?.Height ?? 1, def.Range);
+        }
+        return request.X >= 0 && request.Y >= 0 ? new(request.X, request.Y, 1, 1, def.Range) : null;
     }
     public ActionResult Dispatch(ActionRequest request, bool playback = false)
     {
@@ -167,15 +184,13 @@ public sealed partial class Simulation : IGameContext
             rec.Steps.Add(new RecordedStep { Request = intent with { ReservationId = "", Enqueue = false }, Offset = State.Time - rec.StartedAt, ActorTile = actor.Tile });
             if (queued is not null) queued.RecordedIn = rec.Id;
         }
-        if (target is not null && target.Alive() && def.Range >= 0 && this.Distance(actor, target) > def.Range)
+        ActionApproach? approach; bool customized;
+        try { approach = ApproachFor(handler, def, actor, request, out customized); }
+        catch (Exception ex) { return FinishFailure(actor, request, ActionResult.Fail($"접근 위치 검사 오류: {ex.Message}", "module_error"), playback); }
+        if (approach is not null && !approach.Accepts(actor.Tile))
         {
-            if (!NavigateTarget(actor, target, def.Range)) return FinishFailure(actor, request, ActionResult.Fail("대상에게 갈 수 있는 길이 없어.", "no_path"), playback);
-            actor.Pending = request;
-            return ActionResult.Started("대상으로 이동 중");
-        }
-        if (target is null && def.Range >= 0 && request.X >= 0 && actor.Tile.Distance(new(request.X, request.Y)) > def.Range)
-        {
-            if (!Navigate(actor, new(request.X, request.Y), def.Range)) return FinishFailure(actor, request, ActionResult.Fail("작업 위치에 접근할 수 없어.", "no_path"), playback);
+            bool reached = !customized && target is not null ? NavigateTarget(actor, target, def.Range) : Navigate(actor, approach);
+            if (!reached) return FinishFailure(actor, request, ActionResult.Fail("작업 가능한 위치로 갈 수 있는 길이 없어.", "no_path"), playback);
             actor.Pending = request;
             return ActionResult.Started("작업 위치로 이동 중");
         }
@@ -278,6 +293,7 @@ public sealed partial class Simulation : IGameContext
                             if (def.Condition is not null && !Evaluate(def.Condition, actor, Find(work.Request.TargetId))) check = CheckResult.No("실행 조건이 바뀌었어.", "condition");
                             var target = Find(work.Request.TargetId);
                             if (target is not null && (!target.Alive() || def.Range >= 0 && this.Distance(actor, target) > def.Range)) check = CheckResult.No("대상이 사라졌거나 멀어졌어.", "out_of_range");
+                            if (ApproachFor(handler, def, actor, work.Request, out _) is { } area && !area.Accepts(actor.Tile)) check = CheckResult.No("작업 가능한 위치에서 벗어났어.", "out_of_range");
                             if (!check.Allowed) return FinishFailure(actor, work.Request, ActionResult.Fail(check.Message, check.Reason), actor.Playback is not null);
                             var result = Execute(handler, actor, work.Request, actor.Playback is not null);
                             if (result.Ok) actor.Set("mana", Math.Max(0, actor.Get("mana") - .5));

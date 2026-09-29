@@ -4,9 +4,11 @@ public sealed class Module : IGameModule
 {
     public void Register(IModuleRegistry r) { r.Action("build.place", new Build()); r.Action("build.remove", new Remove()); }
 }
-public sealed class Build : IActionHandler, IInventoryAction, IActionProjection
+public sealed class Build : IActionHandler, IInventoryAction, IActionProjection, IActionApproach
 {
-    public ActionResult Project(IGameContext c, WorldObject a, ActionRequest r) => Execute(c, a, r);
+    public ActionResult Project(IGameContext c, WorldObject a, ActionRequest r) => Place(c, a, r);
+    public ActionApproach? Approach(IGameContext c, WorldObject a, ActionRequest r) => c.Content.Objects.TryGetValue(r.Item, out var def)
+        ? new(r.X, r.Y, def.Width, def.Height, Math.Max(1, c.Content.Actions[r.Action].Range), Minimum: 1) : null;
     public CheckResult Check(IGameContext c, WorldObject a, ActionRequest r)
     {
         if (!c.Capability(a, "craft")) return CheckResult.No("건설은 제작 골렘이 담당해.", "capability");
@@ -19,10 +21,16 @@ public sealed class Build : IActionHandler, IInventoryAction, IActionProjection
             int count = c.OfKind("facility").Count(o => c.Definition(o)?.Data.GetValueOrDefault("shopOnly") == "true");
             if (count >= 4 + (int)c.State.Get("shopTier",1)*4) return CheckResult.No("상점 판매 시설 한도야. 상점 규모를 올려줘.","facility_limit");
         }
-        return c.Placement(a,def,r.X,r.Y);
+        // The builder can step off its own site; other occupants must still block placement.
+        return c.Placement(a,def,r.X,r.Y,ignoreActor: true);
     }
     public PreparedAction Prepare(IGameContext c, WorldObject a, ActionRequest r) => new(r, c.Content.Objects[r.Item].Cost.Select(k => new ItemRequirement(a.Id, k.Key, k.Value, true)).ToList());
     public ActionResult Execute(IGameContext c, WorldObject a, ActionRequest r)
+    {
+        var check = c.Placement(a, c.Content.Objects[r.Item], r.X, r.Y);
+        return check.Allowed ? Place(c, a, r) : ActionResult.Fail(check.Message, check.Reason);
+    }
+    private static ActionResult Place(IGameContext c, WorldObject a, ActionRequest r)
     {
         var def = c.Content.Objects[r.Item]; c.Pay(a, def.Cost);
         c.Spawn(def.Id, r.X, r.Y); c.State.Add("built." + def.Id);

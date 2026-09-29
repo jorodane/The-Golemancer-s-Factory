@@ -35,14 +35,22 @@ internal sealed partial class WorldView : FrameworkElement
     private readonly List<(WorldObject Object, ImageSource Image, Rect Bounds, Transform? Rotation)> hitRegions = [];
     public WorldObject? TargetAt(Point point)
     {
+        WorldObject? footprintHit = null;
+        var position = World(point);
         for (int i = hitRegions.Count - 1; i >= 0; i--)
         {
             var hit = hitRegions[i];
             if (!hit.Object.Alive() || hit.Object.Get("depleted") > 0 || session.Game.Kind(hit.Object) == "customer") continue;
             var p = hit.Rotation?.Inverse?.Transform(point) ?? point;
-            if (hit.Bounds.Contains(p) && assets.OpaqueAt(hit.Image, (p.X - hit.Bounds.X) / hit.Bounds.Width, (p.Y - hit.Bounds.Y) / hit.Bounds.Height)) return hit.Object;
+            if (!hit.Bounds.Contains(p)) continue;
+            if (assets.OpaqueAt(hit.Image, (p.X - hit.Bounds.X) / hit.Bounds.Width, (p.Y - hit.Bounds.Y) / hit.Bounds.Height)) return hit.Object;
+            // The drawn base of a solid object is not usable ground, even between sparse
+            // trunk/shadow pixels. Prefer actual opaque art if another object overlaps it.
+            var def = session.Game.Definition(hit.Object);
+            if (footprintHit is null && def?.Solid == true && position.X >= hit.Object.X && position.Y >= hit.Object.Y
+                && position.X < hit.Object.X + def.Width && position.Y < hit.Object.Y + def.Height) footprintHit = hit.Object;
         }
-        return null;
+        return footprintHit;
     }
     private sealed class Pose { public double X, Y, Since, LastMove; public string State = "idle"; public bool Dead; }
     public WorldView(DesktopSession session, AssetStore assets)
@@ -79,7 +87,7 @@ internal sealed partial class WorldView : FrameworkElement
     public WorldObject? Target(Tile tile) => session.Game.State.Objects.Values.Where(o => o.Alive() && o.Get("depleted")==0 && session.Game.Kind(o) != "customer" && tile.X >= o.X && tile.Y >= o.Y && tile.X < o.X + (session.Game.Definition(o)?.Width ?? 1) && tile.Y < o.Y + (session.Game.Definition(o)?.Height ?? 1)).OrderBy(o => session.Game.IsGolem(o) ? 0 : 1).FirstOrDefault();
     public bool ValidBuild(Tile tile, ObjectDef d)
     {
-        return session.Actor is { } actor && session.Game.Placement(actor,d,tile.X,tile.Y).Allowed;
+        return session.Actor is { } actor && session.Game.Placement(actor,d,tile.X,tile.Y,ignoreActor: true).Allowed;
     }
     protected override void OnRender(DrawingContext dc)
     {

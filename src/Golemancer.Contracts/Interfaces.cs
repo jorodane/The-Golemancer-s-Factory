@@ -79,11 +79,13 @@ public static partial class Rules
         var empty = c.Spawn("dropped_items", x, y); empty.Set("dead", 1); return empty;
     }
     public static CheckResult Placement(this IGameContext c, WorldObject actor, ObjectDef definition, int x, int y)
+        => c.Placement(actor, definition, x, y, ignoreActor: false);
+    public static CheckResult Placement(this IGameContext c, WorldObject actor, ObjectDef definition, int x, int y, bool ignoreActor)
     {
         for (int row = y; row < y + definition.Height; row++) for (int col = x; col < x + definition.Width; col++)
         {
             var tile = new WorldObject { X = col, Y = row };
-            if (!c.Walkable(col, row) || c.OfKind("golem").Any(o => o.X == col && o.Y == row) ||
+            if (!c.Walkable(col, row, ignoreActor ? actor.Id : null) || c.OfKind("golem").Any(o => (!ignoreActor || o.Id != actor.Id) && o.X == col && o.Y == row) ||
                 c.OfKind("facility").Any(o => col >= o.X && col < o.X + (c.Definition(o)?.Width ?? 1) && row >= o.Y && row < o.Y + (c.Definition(o)?.Height ?? 1)) ||
                 definition.Placement is not null && !c.Evaluate(definition.Placement, actor, tile))
                 return CheckResult.No("이 타일에는 설치할 수 없어.", "placement");

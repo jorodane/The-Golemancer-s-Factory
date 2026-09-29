@@ -34,6 +34,14 @@ internal sealed partial class MainWindow
             { var point = new Point(px, py); var map = world.World(point); if (world.TargetAt(point)?.Id == target.Id && (int)Math.Floor(map.Y) != target.Y) found = true; }
         clip.OffsetY = oldY; Game.State.Objects.Remove(target.Id); world.Reset();
         if (!found) throw new Exception("Sprite hit test still depends on logical tile/foot position");
+        // Solid tree bases contain transparent gaps; they must not become blocked move orders.
+        var tree = Game.Spawn("upright_tree", 25, 20, "hit-test-tree"); world.CameraX = 25.5; world.CameraY = 20.5;
+        world.InvalidateVisual(); UpdateLayout(); raster.Render(world);
+        var basePoint = world.Screen(tree.X + .05, tree.Y + .95);
+        if (world.TargetAt(basePoint)?.Id != tree.Id) throw new Exception("Solid tree base fell through to a ground-move command");
+        var outside = world.Screen(tree.X + 2.5, tree.Y + .5);
+        if (world.TargetAt(outside)?.Id == tree.Id) throw new Exception("Tree picking escaped its actual drawn bounds");
+        Game.State.Objects.Remove(tree.Id); world.Reset();
         Game.State.Dialogues.Add(new("native-reveal", "엔린", "입이 움직이며 한 글자씩 나오는 대화야.", "smile", "^_^")); RefreshDialogue(); UpdateLayout();
         if (dialogue.ActualWidth != root.ActualWidth || dialogue.ActualHeight != root.ActualHeight || speakerPortrait.Source is null || dialogueText.Text.Length != 0) throw new Exception("Fullscreen dialogue or delayed text reveal failed");
         AdvanceDialogue(); if (Game.State.Dialogues.Count != 1 || dialogueText.Text != Game.State.Dialogues[0].Text) throw new Exception("First click skipped the whole dialogue instead of revealing its text");
