@@ -52,7 +52,13 @@ internal sealed partial class MainWindow
     {
         string actionId = id.StartsWith("action.", StringComparison.Ordinal) ? id.Substring(7) : id;
         var definition = Game.Content.Actions.GetValueOrDefault(actionId);
-        return new() { Id = id, Label = label, Activate = action, Hint = hint.Length > 0 ? hint : definition?.Description ?? "", IconId = definition?.Icon ?? "", Enabled = enabled };
+        return new() { Id = id, Label = label, Activate = action, Hint = hint.Length > 0 ? hint : definition?.Description ?? "", IconId = definition?.Icon ?? "", Enabled = enabled, Display = definition?.Bubble ?? new(), DisplayValue = CommonBubbleValue };
+    }
+    private string? CommonBubbleValue(string key)
+    {
+        if (key.StartsWith("state.", StringComparison.Ordinal) && Game.State.Values.TryGetValue(key.Substring(6), out double state)) return state.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+        if (key.StartsWith("actor.", StringComparison.Ordinal) && session.Actor?.Values.TryGetValue(key.Substring(6), out double actor) == true) return actor.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+        return null;
     }
     private void ShowMenu(string title, Func<List<BubbleEntry>> build, bool present = true) =>
         PushBubbleFrame(CreateBubbleFrame(title, build), animate: true, present: present);
@@ -109,10 +115,17 @@ internal sealed partial class MainWindow
         {
             element.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
             var size = element.DesiredSize;
-            var circle = bubbleVisuals.FirstOrDefault(v => v.Button == element);
+            var caption = bubbleVisuals.FirstOrDefault(v => v.Name == element);
+            var circle = bubbleVisuals.FirstOrDefault(v => v.Button == element) ?? caption;
             double scale = circle is null ? 1 : circle.Entry.Id == "back" ? BubbleLayout.HoverScale : BubbleLayout.PeakScale;
             double growX = size.Width * (scale - 1) / 2, growY = size.Height * (scale - 1) / 2;
             double x = Canvas.GetLeft(element) - origin.X, y = Canvas.GetTop(element) - origin.Y;
+            if (caption is not null)
+            {
+                double offset = BubbleLayout.CaptionTop(caption.Button.Width);
+                bounds = bounds.Include(x - growX, y, x + size.Width + growX, y + size.Height + (offset + size.Height) * (scale - 1));
+                continue;
+            }
             bounds = bounds.Include(x - growX, y - growY, x + size.Width + growX, y + size.Height + growY);
         }
         frame.Bounds = bounds;
@@ -206,7 +219,7 @@ internal sealed partial class MainWindow
     }
     private static List<BubbleEntry> ItemChoices(string item, List<BubbleEntry> entries)
     { foreach(var entry in entries.Where(e => e.Id != "favorite")) entry.ItemId = item; return entries; }
-    private BubbleEntry Favorite(string item) => Leaf("favorite", Game.State.FavoriteItems.Contains(item) ? "★ 즐겨찾기 해제" : "☆ 즐겨찾기 등록", () =>
+    private BubbleEntry Favorite(string item) => Leaf("favorite", Game.State.FavoriteItems.Contains(item) ? "즐겨찾기 해제" : "즐겨찾기 등록", () =>
     { if (!Game.State.FavoriteItems.Add(item)) Game.State.FavoriteItems.Remove(item); RenderBubbles(); });
     private void ShowCategories(WorldObject target) => ShowMenu("우선 분류 · " + target.Name, () => Game.Content.ItemCategories.Select(pair =>
         Leaf("categoryToggle." + pair.Key, (BubbleMenu.Preferred(Game, target).Contains(pair.Key) ? "✓ " : "") + pair.Value, () =>
@@ -215,7 +228,7 @@ internal sealed partial class MainWindow
             if (!categories.Remove(pair.Key)) categories.Add(pair.Key);
             Game.State.TransferCategories[target.Id] = categories; RenderBubbles();
         })).ToList());
-    private void ShowQuantity(string title, Func<int> maximum, Func<int, ActionResult> confirm, int initial = 1, Func<int, BubblePreview>? preview = null)
+    private void ShowQuantity(string title, Func<int> maximum, Func<int, ActionResult> confirm, int initial = 1, Func<int, BubblePreview>? preview = null, Action<BubbleEntry, Func<int>>? decorate = null)
     {
         queueBubbles |= Held("queue");
         var frame = CreateBubbleFrame(title, () => []);
@@ -270,10 +283,12 @@ internal sealed partial class MainWindow
             field.KeyDown += QuantityKey; slider.KeyDown += QuantityKey;
             var confirmation = Leaf("confirm", "확인", Commit, "선택한 수량으로 실행해.");
             confirmation.Glyph = "✓";
-            if (preview is not null) confirmation.Preview = () => preview(int.TryParse(field.Text, out int n) ? QuantityPicker.Clamp(n, Math.Min(9999, maximum())) : 1);
+            int Current() => int.TryParse(field.Text, out int n) ? QuantityPicker.Clamp(n, Math.Min(9999, maximum())) : 1;
+            if (preview is not null) confirmation.Preview = () => preview(Current());
+            decorate?.Invoke(confirmation, Current);
             AddBubble(confirmation, 0, 1, id: "quantity.confirm");
             var border = new Border { Background = Paper, Padding = new Thickness(12), CornerRadius = new CornerRadius(20), BorderBrush = Ink, BorderThickness = new Thickness(1), Child = panel, Width = 370 };
-            Canvas.SetLeft(border, BubbleCenter.X - 185); Canvas.SetTop(border, BubbleCenter.Y + 38); bubbleLayer.Children.Add(border);
+            Canvas.SetLeft(border, BubbleCenter.X - 185); Canvas.SetTop(border, BubbleCenter.Y + 46); bubbleLayer.Children.Add(border);
             field.Focus(); field.SelectAll();
         };
         PushBubbleFrame(frame);

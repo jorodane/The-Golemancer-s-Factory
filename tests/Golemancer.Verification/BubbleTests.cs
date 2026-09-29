@@ -13,7 +13,7 @@ internal static class BubbleTests
         var positions = Enumerable.Range(0, 8).Select(i => BubbleLayout.Offset(i, 8)).ToArray();
         Check(Math.Abs(positions[0].X) < .001 && positions[0].Y < 0 && positions[1].X > 0 && positions[1].Y < 0 && positions[2].X > 0 && Math.Abs(positions[2].Y) < .001, "circular choices begin at twelve o'clock and proceed clockwise");
         Check(positions.All(p => positions.Where(q => q != p).All(q => Math.Sqrt(Math.Pow(p.X - q.X, 2) + Math.Pow(p.Y - q.Y, 2)) > BubbleLayout.Diameter * BubbleLayout.HoverScale)), "all eight enlarged circles remain separated");
-        Check(BubbleLayout.Radius(1) <= 64 && BubbleLayout.Radius(8) <= 86 && BubbleLayout.Diameter <= 52, "both sparse and eight-choice menus stay close to the pointer");
+        Check(Enumerable.Range(1, 8).All(count => BubbleLayout.Radius(count) == 95 && Enumerable.Range(0, count).All(i => BubbleLayout.Offset(i, count) == positions[i])), "all menu sizes and partial pages fill the same eight 95px clockwise slots");
         Check(Enumerable.Range(1, 8).All(count =>
         {
             var ring = Enumerable.Range(0, count).Select(i => BubbleLayout.Offset(i, count)).ToArray();
@@ -49,6 +49,17 @@ internal static class BubbleTests
         Check(!BubblePreviews.Recipe(previewGame, source, cooked.Content.Recipes["wooden_sword"], 2).Materials.Single().Missing, "craft preview reflects live inventory changes");
         Check(BubblePreviews.Recipe(previewGame, source, cooked.Content.Recipes["springwater_jelly"]).Locked && BubblePreviews.Recipe(previewGame, source, cooked.Content.Recipes["wooden_sword"], 0).Materials.Single().Required == 0, "locked and already-satisfied production previews expose the correct requirements");
         Check(cooked.Content.Actions["harvest"].Description != cooked.Content.Actions["fell"].Description && cooked.Content.Actions["harvest"].Description.Length > 0 && cooked.Content.Sprites.ContainsKey(cooked.Content.Actions["harvest"].Icon), "action-specific descriptions and existing image IDs load from pack XML");
+        var back = new BubbleEntry { Id = "back", Label = "상위 메뉴", Hint = "이전 메뉴가 있던 자리로 돌아가." };
+        var craft = new BubbleEntry { Preview = () => preview };
+        Check(!back.HasDetails && craft.HasDetails && back.DisplayName == "상위 메뉴", "simple labeled actions have no hover card; explicit material previews still opt in");
+        craft.Display = new() { Details = false }; back.Display = new() { Details = true };
+        Check(!craft.HasDetails && back.HasDetails, "per-action XML presentation can opt detailed hover in or out");
+        int purchaseQuantity = 1;
+        var purchase = new BubbleEntry { Label = "확인", Display = cooked.Content.Actions["buy"].Bubble, DisplayValue = key => BubbleText.PurchaseValue(key, 3, purchaseQuantity) };
+        Check(purchase.DisplayBadge == "3G" && purchase.Display.BadgeTone == "price" && !purchase.HasDetails, "merchant price uses XML badge metadata without requiring a hover card");
+        purchaseQuantity = 7;
+        Check(purchase.DisplayBadge == "21G" && BubbleText.PurchaseValue("price", 3, 7, true) == "3G/개", "quantity changes update the total while the N-purchase choice identifies its unit price");
+        Check(BubbleText.Resolve("{missing}G", null) == "" && BubbleText.Resolve("남은 마력 {actor.mana}", key => key == "actor.mana" ? "42" : null) == "남은 마력 42" && BubbleText.Resolve("휴식", null) == "휴식", "generic extra text supports context values and literals and hides unavailable tokens");
         var s = new Simulation(cooked); var actor = s.Find("golem-1")!; var target = s.Spawn("craft_golem", actor.X + 1, actor.Y);
         actor.Inventory = new() { ["wood"] = 9, ["common_herb"] = 3, ["newflesh_herb"] = 2 };
         target.Inventory = new(actor.Inventory);

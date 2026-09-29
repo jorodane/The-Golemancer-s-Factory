@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
+using Golemancer.Contracts;
 namespace Golemancer.Desktop;
 
 internal sealed partial class MainWindow
@@ -22,7 +23,7 @@ internal sealed partial class MainWindow
         Same(NativePointer.Position(root), bubbleAnchor, "Bottom harvest menu still moved the pointer unnecessarily");
         var harvest = buttons["bubble.harvest"];
         var at = harvest.TranslatePoint(new Point(harvest.Width / 2, harvest.Height / 2), root);
-        if ((at - bubbleAnchor).Length > 65 || bubbleHistory[0].Bounds.Right - bubbleHistory[0].Bounds.Left > 180)
+        if (Math.Abs((at - bubbleAnchor).Length - 95) > .01 || bubbleHistory[0].Bounds.Right - bubbleHistory[0].Bounds.Left > 180)
             throw new Exception("Single harvest action or its title still uses oversized spacing");
 
         CloseBubbles();
@@ -107,5 +108,43 @@ internal sealed partial class MainWindow
         Same(BubbleCenter, bubbleAnchor, "Paged Back lost the parent center");
         BackBubble();
         if (bubbleHistory.Count != 0 || bubbleLayer.Children.Count != 0) throw new Exception("Esc/root dismissal stopped working without a close bubble");
+    }
+    private void RunBubbleLabelSmoke(Action settle, Action<string> click)
+    {
+        CloseBubbles(); bubbleAnchor = new Point(root.ActualWidth / 2, root.ActualHeight / 2);
+        ShowMenu("고정 위치", () => Enumerable.Range(0, 9).Select(i => new BubbleEntry { Id = "fixed." + i, Label = "행동 " + i, Activate = () => { } }).ToList()); settle();
+        foreach (var visual in bubbleVisuals)
+        {
+            int index = int.Parse(visual.Entry.Id.Substring(6)); var offset = BubbleLayout.Offset(index, 8);
+            var at = visual.Button.TranslatePoint(new Point(visual.Button.Width / 2, visual.Button.Height / 2), root);
+            if ((at - new Point(BubbleCenter.X + offset.X, BubbleCenter.Y + offset.Y)).Length > .01 || visual.Name.Text != visual.Entry.Label || !visual.Name.IsVisible || visual.Name.ActualWidth != BubbleLayout.CaptionWidth || visual.Name.IsHitTestVisible)
+                throw new Exception("Fixed positions or persistent outlined names failed");
+        }
+        click("bubble.next"); settle();
+        var last = bubbleVisuals.Single();
+        var lastCenter = last.Button.TranslatePoint(new Point(last.Button.Width / 2, last.Button.Height / 2), root);
+        if ((lastCenter - new Point(BubbleCenter.X, BubbleCenter.Y - 95)).Length > .01) throw new Exception("Partial page rotated the first slot");
+        ShowMenu("단순 메뉴", () => [Leaf("plain", "선택", () => { }, "길어도 자동으로 설명창을 열지 않는 설명")]); settle();
+        foreach (var simple in bubbleVisuals)
+        {
+            EnterBubble(simple);
+            if (bubbleHoverLayer.Children.Count != 0 || !simple.Hover.HasAnimatedProperties) throw new Exception("Back/simple button opened a detail card or lost hover enlargement");
+            LeaveBubble(simple);
+        }
+        CloseBubbles(); double gold = Game.State.Get("gold"); Game.State.Values["gold"] = 300;
+        ShowShop(Game.State.Objects.Values.First(o => o.DefinitionId == "merchant")); settle();
+        var wood = bubbleVisuals.Single(v => v.Entry.Id == "shop.wood");
+        if (wood.Name.Text != Game.ItemName("wood") || wood.Badge.Text != "3G") throw new Exception("Shop item did not show its name and price without hovering");
+        click("bubble.shop.wood"); settle();
+        var one = bubbleVisuals.Single(v => v.Entry.Id == "buy.one"); var many = bubbleVisuals.Single(v => v.Entry.Id == "buy.number");
+        EnterBubble(one);
+        if (one.Badge.Text != "3G" || many.Badge.Text != "3G/개" || bubbleHoverLayer.Children.Count != 0) throw new Exception("Purchase choices lost visible prices or require unnecessary details");
+        click("bubble.buy.number"); settle();
+        var confirmation = bubbleVisuals.Single(v => v.Entry.Id == "confirm");
+        quantityInput!.Text = "7";
+        if (confirmation.Badge.Text != "21G") throw new Exception("Typed purchase quantity did not refresh visible total");
+        quantitySlider!.Value = 5;
+        if (confirmation.Badge.Text != "15G") throw new Exception("Purchase slider did not refresh visible total");
+        Game.State.Values["gold"] = gold; CloseBubbles();
     }
 }

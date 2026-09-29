@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
@@ -13,6 +14,9 @@ internal sealed partial class MainWindow
     {
         public Button Button = button;
         public BubbleEntry Entry = entry;
+        public OutlinedBubbleName Name = new();
+        public TextBlock Badge = new() { FontSize = 10, FontWeight = FontWeights.Bold };
+        public Border BadgeFrame = new();
         public ScaleTransform Arrival = new(1, 1), Hover = new(1, 1);
         public TranslateTransform Travel = new();
         public bool Ready;
@@ -57,17 +61,19 @@ internal sealed partial class MainWindow
         string iconId = IconIdFor(entry), glyph = GlyphFor(entry);
         if (glyph.Length == 0 && assets.Sprite(iconId) is { } image) icon.Children.Add(new Image { Source = image, Width = center ? 26 : 34, Height = center ? 26 : 34, Stretch = Stretch.Uniform, Opacity = entry.Enabled ? 1 : .5 });
         else icon.Children.Add(new TextBlock { Text = glyph.Length > 0 ? glyph : "◇", FontFamily = new FontFamily("Segoe UI Symbol"), FontSize = center ? 22 : 25, Foreground = Ink, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center });
-        string badge = BadgeFor(entry);
-        if (badge.Length > 0)
-        {
-            icon.Children.Add(new Border { Background = Ink, CornerRadius = new CornerRadius(7), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Bottom, Padding = new Thickness(4, 0, 4, 1), Child = new TextBlock { Text = badge, Foreground = Paper, FontSize = 10, FontWeight = FontWeights.Bold } });
-        }
+        visual.BadgeFrame = new Border { Background = Ink, CornerRadius = new CornerRadius(7), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Bottom, Padding = new Thickness(3, 0, 3, 1), Child = visual.Badge };
+        icon.Children.Add(visual.BadgeFrame);
         button.Content = icon;
         System.Windows.Automation.AutomationProperties.SetHelpText(button, entry.Hint);
-        System.Windows.Automation.AutomationProperties.SetItemStatus(button, entry.Enabled ? "사용 가능" : "사용 불가 · 설명 확인 가능");
         var offset = center ? (X: 0.0, Y: 0.0) : BubbleLayout.Offset(index, count); var p = BubbleCenter;
         Canvas.SetLeft(button, p.X + offset.X - diameter / 2); Canvas.SetTop(button, p.Y + offset.Y - diameter / 2);
         bubbleLayer.Children.Add(button);
+        var name = visual.Name;
+        name.RenderTransformOrigin = new Point(.5, -BubbleLayout.CaptionTop(diameter) / name.Height);
+        var nameTransforms = new TransformGroup(); nameTransforms.Children.Add(visual.Arrival); nameTransforms.Children.Add(visual.Hover); nameTransforms.Children.Add(visual.Travel); name.RenderTransform = nameTransforms;
+        name.SetBinding(OpacityProperty, new Binding(nameof(Opacity)) { Source = button });
+        Canvas.SetLeft(name, p.X + offset.X - name.Width / 2); Canvas.SetTop(name, p.Y + offset.Y + BubbleLayout.CaptionTop(diameter));
+        Panel.SetZIndex(name, 3); bubbleLayer.Children.Add(name); RefreshBubbleLabel(visual);
         button.MouseEnter += (_, _) => { if (visual.Ready) EnterBubble(visual); };
         button.MouseLeave += (_, _) => LeaveBubble(visual);
         if (animate && !center && SystemParameters.ClientAreaAnimation) AnimateBubble(visual, offset.X, offset.Y, index);
@@ -123,7 +129,9 @@ internal sealed partial class MainWindow
     }
     private void RefreshBubbleHover()
     {
+        foreach (var item in bubbleVisuals) RefreshBubbleLabel(item);
         if (hoveredBubble is not { } visual || !bubbleVisuals.Contains(visual) || !visual.Button.IsLoaded) return;
+        if (!visual.Entry.HasDetails) { hoverSignature = ""; bubbleHoverLayer.Children.Clear(); return; }
         var preview = PreviewFor(visual.Entry);
         string signature = preview.Title + preview.Description + preview.Note + preview.Locked + preview.Spotlight + string.Join("|", preview.Materials);
         if (signature == hoverSignature) return;
@@ -132,7 +140,9 @@ internal sealed partial class MainWindow
         if (preview.Spotlight)
         {
             double radius = visual.Button.Width * BubbleLayout.HoverScale / 2 + 2;
-            var outside = new CombinedGeometry(GeometryCombineMode.Exclude, new RectangleGeometry(new Rect(0, 0, root.ActualWidth, root.ActualHeight)), new EllipseGeometry(center, radius, radius));
+            var nameOrigin = visual.Name.TranslatePoint(new Point(), root);
+            var focus = new CombinedGeometry(GeometryCombineMode.Union, new EllipseGeometry(center, radius, radius), new RectangleGeometry(new Rect(nameOrigin, visual.Name.RenderSize)));
+            var outside = new CombinedGeometry(GeometryCombineMode.Exclude, new RectangleGeometry(new Rect(0, 0, root.ActualWidth, root.ActualHeight)), focus);
             var shade = new System.Windows.Shapes.Path { Data = outside, Fill = Brushes.Black, Opacity = .34, IsHitTestVisible = false }; bubbleHoverLayer.Children.Add(shade);
             if (first) shade.BeginAnimation(OpacityProperty, new DoubleAnimation(0, .34, TimeSpan.FromSeconds(.1)));
         }
@@ -192,12 +202,22 @@ internal sealed partial class MainWindow
     }
     private static string BadgeFor(BubbleEntry entry)
     {
+        if (entry.DisplayBadge is { Length: > 0 } display) return display;
         if (entry.Badge.Length > 0) return entry.Badge;
         if (entry.Id.EndsWith(".one", StringComparison.Ordinal)) return "1";
         if (entry.Id.EndsWith(".number", StringComparison.Ordinal)) return "N";
         if (entry.Id.EndsWith(".all", StringComparison.Ordinal)) return "∞";
         if (entry.Id.EndsWith(".fill", StringComparison.Ordinal)) return "↑";
         return entry.Label.StartsWith("✓ ", StringComparison.Ordinal) ? "✓" : "";
+    }
+    private void RefreshBubbleLabel(BubbleVisual visual)
+    {
+        var entry = visual.Entry; visual.Name.Text = entry.DisplayName;
+        string badge = BadgeFor(entry); visual.Badge.Text = badge;
+        visual.Badge.Foreground = entry.Display.BadgeTone switch { "price" => SvgImage.Brush("#ffe08a"), "warning" => SvgImage.Brush("#ffad9d"), _ => Paper };
+        visual.BadgeFrame.Visibility = badge.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
+        System.Windows.Automation.AutomationProperties.SetName(visual.Button, entry.DisplayName + (badge.Length > 0 ? " · " + badge : ""));
+        System.Windows.Automation.AutomationProperties.SetItemStatus(visual.Button, entry.Enabled ? "사용 가능" : "사용 불가");
     }
     private BubblePreview PreviewFor(BubbleEntry entry)
     {

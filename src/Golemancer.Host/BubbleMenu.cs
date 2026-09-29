@@ -11,7 +11,12 @@ internal sealed class BubbleEntry
     public string IconId { get; set; } = "";
     public string Glyph { get; set; } = "";
     public string Badge { get; set; } = "";
+    public BubbleDisplayDef Display { get; set; } = new();
+    public Func<string, string?>? DisplayValue { get; set; }
     public Func<BubblePreview>? Preview { get; set; }
+    public bool HasDetails => Display.Details ?? Preview is not null;
+    public string DisplayName => BubbleText.Resolve(Display.Name, DisplayValue) is { Length: > 0 } name ? name : Label;
+    public string DisplayBadge => BubbleText.Resolve(Display.Badge, DisplayValue);
     public bool Enabled { get; set; } = true;
     public bool Keep { get; set; }
     public Action? Activate { get; set; }

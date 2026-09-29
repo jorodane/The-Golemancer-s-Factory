@@ -14,6 +14,7 @@ internal sealed partial class MainWindow
             else if (requested == "craft_single") Finish(() => Send("craft_single", target.Id, recipe.Id));
             else ShowMenu(recipe.Name, () => RecipeChoices(recipe, target, [Leaf("produce.one", "1개 생산", () => Finish(() => Send("craft_single", target.Id, recipe.Id)), enabled: Max() > 0), Leaf("produce.number", "N개 생산", Count, enabled: Max() > 0), Leaf("produce.fill", "목표 재고까지", Until), Favorite(recipe.Output)]));
         }, Cost(Game, recipe.Inputs), recipe.Unlock.Length == 0 || Game.State.Flags.Contains(recipe.Unlock));
+        entry.Display = Game.Content.Actions.GetValueOrDefault(requested.Length > 0 ? requested : "craft_single")?.Bubble ?? new();
         entry.ItemId = recipe.Output; entry.Preview = () => BubblePreviews.Recipe(Game, CraftSource(target), recipe); return entry;
     }).ToList());
     private List<BubbleEntry> RecipeChoices(RecipeDef recipe, WorldObject target, List<BubbleEntry> choices)
@@ -21,10 +22,11 @@ internal sealed partial class MainWindow
         foreach(var entry in choices.Where(e => e.Id.StartsWith("produce.", StringComparison.Ordinal)))
         {
             entry.ItemId = recipe.Output;
+            string action = entry.Id == "produce.one" ? "craft_single" : entry.Id == "produce.number" ? "craft_count" : "craft_until";
+            entry.Display = Game.Content.Actions.GetValueOrDefault(action)?.Bubble ?? new();
             entry.Preview = () =>
             {
                 var detail = BubblePreviews.Recipe(Game, CraftSource(target), recipe);
-                string action = entry.Id == "produce.one" ? "craft_single" : entry.Id == "produce.number" ? "craft_count" : "craft_until";
                 detail.Title = entry.Label + " · " + recipe.Name;
                 detail.Note = Game.Content.Actions.GetValueOrDefault(action)?.Description + "\n1회 기준 · " + detail.Note;
                 return detail;
@@ -42,8 +44,13 @@ internal sealed partial class MainWindow
     private List<BubbleEntry> PurchaseChoices(string item, List<BubbleEntry> entries)
     {
         foreach(var entry in entries.Where(e => e.Id.StartsWith("buy.", StringComparison.Ordinal)))
-        { entry.ItemId = item; entry.Preview = () => { var detail = PurchasePreview(item); detail.Title = entry.Label + " · " + Game.ItemName(item); detail.Note = "1개 기준 · " + detail.Note; return detail; }; }
+            DecoratePurchase(entry, item, () => 1, entry.Id == "buy.number");
         return entries;
+    }
+    private void DecoratePurchase(BubbleEntry entry, string item, Func<int> quantity, bool perItem = false)
+    {
+        entry.ItemId = item; entry.Display = Game.Content.Actions.GetValueOrDefault("buy")?.Bubble ?? new();
+        entry.DisplayValue = key => BubbleText.PurchaseValue(key, ShopPrices[item], quantity(), perItem) ?? CommonBubbleValue(key);
     }
     private WorldObject CraftSource(WorldObject target) => target.DefinitionId == "workbench" ? session.Actor! : target;
     private int CraftMax(WorldObject target, RecipeDef recipe)
@@ -68,10 +75,10 @@ internal sealed partial class MainWindow
             if (item.EndsWith("book", StringComparison.Ordinal)) return Game.State.Flags.Contains(item) || item == "mana_book" && !Game.State.Flags.Contains("first_order") ? 0 : Math.Min(1, n);
             return item.EndsWith("core", StringComparison.Ordinal) ? n : Math.Min(n, Game.Room(session.Actor!, item));
         }
-        var entry = Leaf("shop." + item, Game.ItemName(item) + $" · {ShopPrices[item]}G", () => ShowMenu(Game.ItemName(item), () => PurchaseChoices(item, [
+        var entry = Leaf("shop." + item, Game.ItemName(item), () => ShowMenu(Game.ItemName(item), () => PurchaseChoices(item, [
             Leaf("buy.one", "1개 구매", () => Finish(() => Send("buy", target.Id, item)), enabled: Max() > 0),
-            Leaf("buy.number", "N개 구매", () => ShowQuantity("구매 수량", Max, n => Send("buy", target.Id, item, n), preview: n => PurchasePreview(item, n)), enabled: Max() > 0), Favorite(item) ])));
-        entry.ItemId = item; entry.Preview = () => PurchasePreview(item); return entry;
+            Leaf("buy.number", "N개 구매", () => ShowQuantity("구매 수량", Max, n => Send("buy", target.Id, item, n), decorate: (confirmation, quantity) => DecoratePurchase(confirmation, item, quantity)), enabled: Max() > 0), Favorite(item) ])));
+        DecoratePurchase(entry, item, () => 1); entry.Preview = () => PurchasePreview(item); return entry;
     }));
     private void ShowCharge(WorldObject target)
     {

@@ -13,6 +13,9 @@ internal static class ExamplePack
         var game = PackLoader.Cook(directory);
         if (!game.Registry.Actions.TryGetValue("tea.rest", out var action) || !PackLoader.IsExternalModule(action.GetType().Assembly)) throw new Exception("Independent DLL was not loaded at runtime");
         if (game.Content.Objects["tea.table"].Name != "작은 찻상" || game.Content.Actions["tea.rest"].Name != "조용한 티타임") throw new Exception("XML localization references failed");
+        var presentation = new BubbleEntry { Label = game.Content.Actions["tea.rest"].Name, Display = game.Content.Actions["tea.rest"].Bubble };
+        if (presentation.DisplayName != "차 마시기" || presentation.DisplayBadge != "휴식" || presentation.HasDetails) throw new Exception("Independent action bubble metadata/localization failed");
+        Console.WriteLine("PASS: independent pack supplies localized bubble name, additional badge and hover policy through shared contracts");
         var s = new Simulation(game); var crafter = s.Spawn("craft_golem", 7, 25); crafter.Inventory["wood"] = 4;
         var build = s.Dispatch(new() { Action = "build", ActorId = crafter.Id, Item = "tea.table", X = 8, Y = 25 });
         if (!build.Ok) throw new Exception(build.Message);

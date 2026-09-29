@@ -74,6 +74,7 @@ internal sealed partial class MainWindow
             if(SystemParameters.ClientAreaAnimation&&!bubbleVisuals.Where(v=>v.Entry.Id!="back").All(v=>v.Arrival.HasAnimatedProperties&&v.Travel.HasAnimatedProperties))throw new Exception("Arrival animation clocks missing");
             SettleCircles();Click("bubble.next");if(bubbleVisuals.Count!=1)throw new Exception("Ninth choice was skipped or duplicated");CloseBubbles();
             RunBubbleNavigationSmoke(SettleCircles, Click);
+            RunBubbleLabelSmoke(SettleCircles, Click);
             Game.State.ControlledId=crafter.Id;crafter.Inventory["wood"]=2;ShowRecipes(Game.Find("workbench")!);UpdateLayout();SettleCircles();
             var recipeBubble=bubbleVisuals.Single(v=>v.Entry.Id=="recipe.wooden_sword");
             recipeBubble.Button.RaiseEvent(new MouseEventArgs(Mouse.PrimaryDevice,Environment.TickCount){RoutedEvent=Mouse.MouseEnterEvent});

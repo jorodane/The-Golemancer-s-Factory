@@ -129,7 +129,11 @@ public static class PackLoader
         foreach (var item in catalog.Items.Values) { item.Name = Localize(item.Name); item.Description = Localize(item.Description); }
         foreach (var key in catalog.ItemCategories.Keys.ToArray()) catalog.ItemCategories[key] = Localize(catalog.ItemCategories[key]);
         foreach (var obj in catalog.Objects.Values) { obj.Name = Localize(obj.Name); foreach (var slot in obj.InputSlots) slot.Name = Localize(slot.Name); }
-        foreach (var action in catalog.Actions.Values) { action.Name = Localize(action.Name); action.SubName = Localize(action.SubName); action.Description = Localize(action.Description); }
+        foreach (var action in catalog.Actions.Values)
+        {
+            action.Name = Localize(action.Name); action.SubName = Localize(action.SubName); action.Description = Localize(action.Description);
+            action.Bubble.Name = Localize(action.Bubble.Name); action.Bubble.Badge = Localize(action.Bubble.Badge);
+        }
         foreach (var recipe in catalog.Recipes.Values) recipe.Name = Localize(recipe.Name);
         foreach (var quest in catalog.Quests.Values) { quest.Name = Localize(quest.Name); quest.Description = Localize(quest.Description); quest.Dialogue = Localize(quest.Dialogue); }
         foreach (var action in catalog.Actions.Values.ToArray())
@@ -247,6 +251,8 @@ public static class PackLoader
         {
             var def = new ActionDef { Id = S(e, "id"), Name = S(e, "name"), Description = S(e, "description"), Icon = S(e, "icon"), Handler = S(e, "handler"), Path = S(e, "path"), SubName = S(e, "subName"), Failure = S(e, "failure", "skip"), TargetKind = S(e, "targetKind"), Range = (int)N(e, "range", 1), Recordable = B(e, "recordable", true), Condition = e.Element("Condition")?.Elements().Select(Condition).FirstOrDefault() };
             if (def.Icon.Contains("/") || def.Icon.Contains("\\")) def.Icon = SafePath(packDirectory, def.Icon);
+            if (e.Element("Bubble") is { } bubble)
+                def.Bubble = new() { Name = S(bubble, "name"), Badge = S(bubble, "badge"), BadgeTone = S(bubble, "badgeTone", "neutral"), Details = bubble.Attribute("details") is null ? null : B(bubble, "details") };
             foreach (var w in e.Element("Works")?.Elements("Work") ?? []) def.Works[S(w, "type")] = N(w, "amount");
             def.Interrupts = B(e, "interrupts");
             c.Actions[def.Id] = def;

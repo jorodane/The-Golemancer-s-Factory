@@ -1,6 +1,7 @@
 <GameContent>
   <Actions>
     <Action id="tea.rest" name="@tea.name" handler="tea.rest" path="휴식/차" range="1" failure="stop">
+      <Bubble name="@tea.bubble" badge="@tea.badge" details="false" />
       <Works><Work type="craft" amount="4" /></Works>
       <Condition><Ability id="craft" /></Condition>
     </Action>

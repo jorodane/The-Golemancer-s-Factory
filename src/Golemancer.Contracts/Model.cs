@@ -216,12 +216,21 @@ public sealed class ObjectDef
     public List<string> Actions { get; set; } = [];
     public ConditionNode? Placement { get; set; }
 }
+// Optional presentation only; action handlers remain independent of the desktop UI.
+public sealed class BubbleDisplayDef
+{
+    public string Name { get; set; } = "";
+    public string Badge { get; set; } = "";
+    public string BadgeTone { get; set; } = "neutral";
+    public bool? Details { get; set; }
+}
 public sealed class ActionDef
 {
     public string Id { get; set; } = "";
     public string Name { get; set; } = "";
     public string Description { get; set; } = "";
     public string Icon { get; set; } = "";
+    public BubbleDisplayDef Bubble { get; set; } = new();
     public string Handler { get; set; } = "";
     public string Path { get; set; } = "";
     public string SubName { get; set; } = "";
