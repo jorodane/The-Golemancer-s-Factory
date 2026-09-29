@@ -9,6 +9,7 @@ internal sealed partial class MainWindow
             : Leaf("recipe." + recipe.Id, recipe.Name, () => ActivateBubble(RecipeOptions(target, recipe).First(e => e.Id == (requested == "craft_count" ? "produce.number" : requested == "craft_until" ? "produce.fill" : "produce.one"))));
         entry.Enabled = recipe.Unlock.Length == 0 || Game.State.Flags.Contains(recipe.Unlock);
         entry.Display = Game.Content.Actions.GetValueOrDefault(requested.Length > 0 ? requested : "craft_single")?.Bubble ?? new();
+        entry.Quantity = () => ActivateBubble(RecipeOptions(target, recipe).First(e => e.Id == "produce.number"));
         entry.ItemId = recipe.Output; entry.Preview = () => BubblePreviews.Recipe(Game, CraftSource(target), recipe); return entry;
     }).ToList();
     private List<BubbleEntry> RecipeOptions(WorldObject target, RecipeDef recipe)
@@ -80,6 +81,7 @@ internal sealed partial class MainWindow
         var entry = Group("shop." + item, Game.ItemName(item), () => PurchaseChoices(item, [
             Leaf("buy.one", "1개 구매", () => Finish(() => Send("buy", target.Id, item)), enabled: Max() > 0),
             Leaf("buy.number", "N개 구매", () => ShowQuantity("구매 수량", Max, n => Send("buy", target.Id, item, n), decorate: (confirmation, quantity) => DecoratePurchase(confirmation, item, quantity)), enabled: Max() > 0), Favorite(item) ]));
+        entry.Quantity = () => ShowQuantity("구매 수량", Max, n => Send("buy", target.Id, item, n));
         DecoratePurchase(entry, item, () => 1); entry.Preview = () => PurchasePreview(item); return entry;
     });
     private List<BubbleEntry> ChargeEntries(WorldObject target)
@@ -91,9 +93,9 @@ internal sealed partial class MainWindow
             Leaf("charge.number", "N만큼 충전", () => ShowQuantity("충전할 마력", Max, n => Send("charge", target.Id, amount: n))),
             Leaf("charge.fill", "목표 마력까지", () => ShowQuantity("목표 마력", () => (int)actor.Get("mana") + Max(), n => Send("charge", target.Id, amount: n, mode: "fill"))) ];
     }
-    private static bool UsesBubbles(string type) => type is "build" or "assembly" or "orders" or "equipment" or "routines";
+    private static bool UsesBubbles(string type) => type is "build" or "assembly" or "orders";
     private string GameMenuTitle(string type) => type switch { "build" => "시설 건설", "assembly" => "골렘 조립", "orders" => "공방 주문", "equipment" => "장비와 강화", "routines" => "행동 기록", _ => type };
-    private void ShowGameBubbles(string type) => ShowMenu(GameMenuTitle(type), () => [Group(type, GameMenuTitle(type), () => GameEntries(type))]);
+    private void ShowGameBubbles(string type) { bubbleMenuType = type; ShowMenu(GameMenuTitle(type), () => [Group(type, GameMenuTitle(type), () => GameEntries(type))]); }
     private List<BubbleEntry> GameEntries(string type)
     {
         var actor = session.Actor!; var state = Game.State;
@@ -113,13 +115,20 @@ internal sealed partial class MainWindow
                     entry.IconId = d.Sprite; entry.Preview = () => new BubblePreview { Title = d.Name, IconId = d.Sprite, Description = $"보관함 {d.Slots}칸 · 엔린이 골렘 핵으로 조립해.", Note = "조립 재료 · 보유 / 필요", Locked = n == 0, Materials = [new(core, Game.ItemName(core), 1, state.Treasury.GetValueOrDefault(core) + actor.Available(core))] }; return entry;
                 }).ToList();
             case "orders":
-                return state.Orders.Where(o => !o.Delivered).Select(o => Leaf("order." + o.Id, o.Name + (o.Accepted ? " · 납품" : " · 수락"), () =>
-                { if (Send("order", "board", o.Id, option: o.Accepted ? "deliver" : "accept").Ok) RenderBubbles(); }, Cost(Game, o.Requirements) + $" · {o.Reward}G / 평판 +{o.Reputation}")).ToList();
+                return state.Orders.Where(o => !o.Delivered).Select(o =>
+                {
+                    var entry = Leaf("order." + o.Id, o.Name + (o.Accepted ? " · 납품" : " · 수락"), () =>
+                    { if (Send("order", "board", o.Id, option: o.Accepted ? "deliver" : "accept").Ok) RenderBubbles(); });
+                    entry.Preview = () => BubblePreviews.Order(Game, session.Actor!, o);
+                    entry.Badge = o.Reward + "G";
+                    entry.CanUse = () => !o.Delivered && (!o.Accepted || o.Requirements.All(k => Game.OrderAvailable(session.Actor!, k.Key) >= k.Value));
+                    return entry;
+                }).ToList();
             case "equipment":
                 {
                     var gear = actor.Inventory.Where(k => k.Value > 0 && (Game.Content.Items.GetValueOrDefault(k.Key)?.EquipmentSlot.Length ?? 0) > 0).Select(k => { var entry = Leaf("equip." + k.Key, Game.ItemName(k.Key), () => Finish(() => Send("equip", item: k.Key))); entry.ItemId = k.Key; return entry; }).ToList();
                     var upgrades = new[] { ("battery", "마력 용량 +50"), ("storage", "보관함 +2칸"), ("armor", "방어 +2 · 내구도 +20") }.Select(k => Leaf("upgrade." + k.Item1, k.Item2, () => Finish(() => Send("upgrade_golem", option: k.Item1)), $"40G · {actor.Get("upgrade." + k.Item1)}/3", actor.Get("upgrade." + k.Item1) < 3 && !(actor.DefinitionId == "mini_golem" && k.Item1 == "storage"))).ToList();
-                    var entries = new List<BubbleEntry> { new() { Id = "upgrades", Label = "골렘 강화", Children = upgrades }, Leaf("mode", "일상 / 전투 전환", () => Finish(() => Send("toggle_mode"))), Leaf("guard", "주변 경호", () => ShowQuantity("경호 시간 · 초", () => 3600, n => Send("guard", amount: n), 30)) };
+                    var entries = new List<BubbleEntry> { new() { Id = "upgrades", Label = "골렘 강화", Children = upgrades }, Leaf("mode", "일상 / 전투 전환", () => Finish(() => Send("toggle_mode"))), Leaf("guard", "주변 경호", () => ShowQuantity("경호 시간 · 초", () => 3600, n => Send("guard", amount: n), 30), enabled: Game.Capability(actor, "tactics")) };
                     entries.Insert(0, new() { Id = "equipment", Label = "장비", Children = gear }); return entries;
                 }
             case "routines":

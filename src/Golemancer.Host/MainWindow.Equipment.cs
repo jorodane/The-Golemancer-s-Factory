@@ -25,8 +25,10 @@ internal sealed partial class MainWindow
     private void OpenEquipment(string actorId = "")
     {
         if (!session.Started || Game.State.Dialogues.Count > 0) return;
-        CloseBubbles(); memoryWindow.Visibility = Visibility.Collapsed;
-        equipmentOwner = actorId.Length > 0 ? actorId : session.Actor?.Id ?? ""; equipmentKey = "";
+        string owner = actorId.Length > 0 ? actorId : session.Actor?.Id ?? "";
+        if (equipmentWindow.Visibility == Visibility.Visible && equipmentOwner == owner) { equipmentWindow.Visibility = Visibility.Collapsed; return; }
+        CloseBubbles(); CloseOverlay(); memoryWindow.Visibility = Visibility.Collapsed;
+        equipmentOwner = owner; equipmentKey = "";
         equipmentWindow.Visibility = Visibility.Visible; RefreshEquipmentWindow();
     }
     private void AddCrewEquipment(StackPanel cell, WorldObject golem)
@@ -77,7 +79,8 @@ internal sealed partial class MainWindow
     }
     private void OpenMemory()
     {
-        CloseBubbles(); equipmentWindow.Visibility = Visibility.Collapsed; memoryWindow.Visibility = Visibility.Visible; memoryKey = ""; RefreshMemoryWindow();
+        if (memoryWindow.Visibility == Visibility.Visible) { memoryWindow.Visibility = Visibility.Collapsed; return; }
+        CloseBubbles(); CloseOverlay(); equipmentWindow.Visibility = Visibility.Collapsed; memoryWindow.Visibility = Visibility.Visible; memoryKey = ""; RefreshMemoryWindow();
     }
     private void RefreshMemoryWindow()
     {

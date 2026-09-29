@@ -16,4 +16,6 @@
 - Verify each meaningful module and the full campaign before pushing. User authorizes commits and pushes throughout this task.
 
 - Tab toggles combat/everyday mode; left click quick-uses, right click opens local interaction bubbles. Never restore a side inspector. Clicking another golem must allow direct item transfer without switching control.
-- Harvest outputs first exist as ground items, then the harvesting golem auto-collects. Other ground items require E pickup; holding E collects nearby stacks. Only retail fixtures require shop placement; factories and storage can be built outdoors.
+- Harvest outputs and monster loot first exist as ground items, then the harvesting/killing golem auto-collects. Manual drops, demolition byproducts and dead golem cargo require E pickup; holding E collects nearby stacks. Only retail fixtures require shop placement; factories and storage can be built outdoors.
+
+- On golem death, worn/carried equipment and upgrades are lost; ordinary inventory drops in stack-limited piles. Installed and carried cores return to the treasury immediately, exactly once.

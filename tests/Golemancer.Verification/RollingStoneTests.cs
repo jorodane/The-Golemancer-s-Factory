@@ -59,7 +59,7 @@ internal static class RollingStoneTests
         Check(slash == 14 && 35 - m.Get("health") == 18, "Deguldol has the planned blunt weakness without invented slash resistance");
         a.Set("combat", 0); a.SetPosition(10, 10); m.Set("health", 0); Advance(g, .1);
         var drop = g.OfKind("drop").Single(d => d.Count("stone") > 0);
-        Check(drop.Count("stone") == 6 && drop.GetText("pickupOwner") == "" && a.Count("stone") == 0, "Deguldol leaves multiple stones on the ground for manual pickup");
+        Check(drop.Count("stone") == 6 && drop.GetText("pickupOwner") == a.Id && a.Count("stone") == 0, "Deguldol leaves killer-owned stones on the ground before nearby auto pickup");
         a.SetPosition(drop.X - 1, drop.Y); g.Dispatch(new() { Action = "pickup", TargetId = drop.Id });
         Check(a.Count("stone") == 6, "ground stones can be collected with the pickup action");
         a.SetPosition(10, 10);

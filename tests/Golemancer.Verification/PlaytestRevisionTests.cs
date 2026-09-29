@@ -61,7 +61,7 @@ internal static class PlaytestRevisionTests
         g = Restore(cooked, g); Advance(g, 17); a = g.Find("a")!;
         Check(!g.Find("first")!.Alive() && !g.Find("second")!.Alive() && g.State.Get("automationLoops") > 0, "saved continuous combat playback completes both targets and loops past already-fallen enemies");
         g.CancelActions(a); a.Inventory["wooden_shield"] = 1; g.Dispatch(new() { Action = "equip", Item = "wooden_shield" }); a.Inventory["wood"] = 80; a.Set("health", 0); Advance(g, .1);
-        Check(a.Equipment.Count == 0 && g.OfKind("drop").Sum(d => d.Count("wooden_shield")) == 1 && g.OfKind("drop").Where(d => d.Count("wood") > 0).All(d => d.Count("wood") <= 50), "destroyed golem drops equipped gear exactly once and splits inventory stacks");
+        Check(a.Equipment.Count == 0 && g.OfKind("drop").Sum(d => d.Count("wooden_shield")) == 0 && g.OfKind("drop").Where(d => d.Count("wood") > 0).All(d => d.Count("wood") <= 50), "destroyed golem loses equipped gear and splits ordinary inventory stacks");
         g.State.Hotbar[0] = new() { Name = a.Name, Icon = a.DefinitionId, Request = new() { Action = "select", TargetId = a.Id } };
         g.State.Hotbar[9] = new() { Name = "회복", Icon = "item.healing_jelly", Request = new() { Action = "consume", Item = "healing_jelly" } };
         g = Restore(cooked, g);

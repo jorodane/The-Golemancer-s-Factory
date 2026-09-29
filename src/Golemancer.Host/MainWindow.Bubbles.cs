@@ -26,6 +26,7 @@ internal sealed partial class MainWindow
     private Action? refreshQuantity;
     private string bubbleActor = "";
     private bool queueBubbles;
+    private string bubbleMenuType = "";
     private Simulation PlanningGame => session.Actor is { } actor ? Game.ProjectCommands(actor, queueBubbles || Held("queue")) : Game;
     private void ClearBubbleVisuals()
     {
@@ -34,7 +35,7 @@ internal sealed partial class MainWindow
     }
     private void CloseBubbles()
     {
-        queueBubbles = false; focusedFacility = ""; facilityShadeLayer.Children.Clear(); world.FocusedFacility = "";
+        bubbleMenuType = ""; queueBubbles = false; focusedFacility = ""; facilityShadeLayer.Children.Clear(); world.FocusedFacility = "";
         bubbleShield.Visibility = Visibility.Collapsed;
         bool open = bubbleLayer.Children.Count > 0;
         ClearBubbleVisuals(); bubbleHistory.Clear(); selected = ""; world.Selected = ""; bubbleActor = "";
@@ -68,7 +69,8 @@ internal sealed partial class MainWindow
     private void ActivateBubble(BubbleEntry entry)
     {
         if (!entry.Available) return;
-        if (entry.IsGroup) ShowMenu(entry.Label, entry.Contents);
+        if (QuantityModifiers is { } modifiers && (modifiers.One || modifiers.All) && entry.Quantity is not null) entry.Quantity();
+        else if (entry.IsGroup) ShowMenu(entry.Label, entry.Contents);
         else entry.Activate?.Invoke();
     }
     private void ShowMenu(string title, Func<List<BubbleEntry>> build, bool present = true) =>
@@ -164,10 +166,17 @@ internal sealed partial class MainWindow
         return entries;
     }
     private void ShowBubbles(WorldObject target, bool present = true) => ShowMenu(target.Name, () => InteractionEntries(target), present);
-    private void ShowGroundBubbles(Tile tile) => ShowMenu("주변 행동", () => [
-        Leaf("move", "여기로 이동", () => Finish(() => Send("move", x: tile.X, y: tile.Y))),
-        Group("build", "시설 건설", () => GameEntries("build")),
-        Leaf("pickup", "주변 물건 줍기 · E", () => Finish(() => Send("pickup_nearby"))) ]);
+    private void ShowGroundBubbles(Tile tile) => ShowMenu("주변 행동", () =>
+    {
+        var entries = new List<BubbleEntry> {
+            Leaf("move", "여기로 이동", () => Finish(() => Send("move", x: tile.X, y: tile.Y))),
+            Group("build", "시설 건설", () => GameEntries("build")),
+            Leaf("pickup", "주변 물건 줍기 · E", () => Finish(() => Send("pickup_nearby"))) };
+        if (session.Actor is { } actor && Game.Capability(actor, "tactics"))
+            foreach (string action in new[] { "guard", "attack_move" })
+                entries.Insert(entries.Count - 1, Leaf(action, Game.Content.Actions[action].Name, () => Finish(() => Send(action, x: tile.X, y: tile.Y, mode: action == "guard" ? "hold" : "exact"))));
+        return entries;
+    });
     private BubbleEntry ChoiceEntry(WorldObject target, InteractionChoice choice) => choice.Panel == "equipment"
         ? Leaf(choice.Id, choice.Label, () => OpenEquipment(target.Id)) : choice.Action.Length > 0
         ? ActionEntry(target, choice.Action, choice.Id, choice.Label)
@@ -213,6 +222,7 @@ internal sealed partial class MainWindow
             var (from, to) = BubbleMenu.TransferPair(projectedActor, projectedTarget, direction);
             var entry = Group("item." + item, (Game.State.FavoriteItems.Contains(item) ? "★ " : "") + Game.ItemName(item) + " ×" + from.Count(item), () => TransferItemEntries(target, direction, item));
             entry.ItemId = item; entry.Badge = from.Count(item).ToString();
+            entry.Quantity = () => TransferItemEntries(target, direction, item).First(e => e.Id == "transfer.number").Activate!();
             entry.Preview = () => new BubblePreview { Title = Game.ItemName(item), IconId = "item." + item, Description = Game.Content.Items.GetValueOrDefault(item)?.Description ?? "", Note = $"{from.Name} → {to.Name}\n보유 {from.Count(item)} · 점유 {from.Reserved(item)} · 받는 쪽 {to.Inventory.GetValueOrDefault(item)} · 가능 {BubbleMenu.TransferMax(Game, actor, target, direction, item, queueBubbles)}" }; return entry;
         }, queueBubbles);
         if (result.Count > 0) result.Add(Group("categories", "★ 분류 지정", () => CategoryEntries(target)));
@@ -245,7 +255,7 @@ internal sealed partial class MainWindow
     private void ShowQuantity(string title, Func<int> maximum, Func<int, ActionResult> confirm, int initial = 1, Func<int, BubblePreview>? preview = null, Action<BubbleEntry, Func<int>>? decorate = null)
     {
         queueBubbles |= Held("queue");
-        int shortcut = QuantityPicker.Modifier(Held("quantity.one"), Held("quantity.all"), Math.Min(9999, maximum()));
+        int shortcut = QuantityPicker.Modifier(QuantityModifiers.One, QuantityModifiers.All, Math.Min(9999, maximum()));
         if (shortcut > 0) { Finish(() => confirm(shortcut)); return; }
         var frame = CreateBubbleFrame(title, () => []);
         frame.Render = () =>

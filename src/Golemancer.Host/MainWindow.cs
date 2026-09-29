@@ -40,6 +40,7 @@ internal sealed partial class MainWindow : Window
         toast.Background=Brushes.Transparent;Outline(toast,13);toast.Padding=new Thickness(4);toast.Margin=new Thickness(330,78,20,0);toast.TextWrapping=TextWrapping.Wrap;toast.HorizontalAlignment=HorizontalAlignment.Left;toast.VerticalAlignment=VerticalAlignment.Top;toast.MaxWidth=550;toast.Visibility=Visibility.Collapsed;root.Children.Add(toast);
         // Menus can overlap the HUD. The transparent shield consumes dismissal clicks above it.
         root.Children.Add(facilityHoverLayer);root.Children.Add(bubbleShield);root.Children.Add(facilityShadeLayer);root.Children.Add(bubbleLayer);root.Children.Add(bubbleHoverLayer);root.Children.Add(dragLayer);
+        root.PreviewMouseDown += DismissFromOpener;
         root.PreviewMouseMove += MoveInventoryDrag; root.PreviewMouseUp += EndInventoryDrag;
         root.LostMouseCapture += (_, _) => { if (dragItem.Length > 0) CancelInventoryDrag(); };
         overlay.Background=SvgImage.Brush("#14281fd9");overlay.Visibility=Visibility.Collapsed;overlay.Padding=new Thickness(28);root.Children.Add(overlay);
@@ -57,7 +58,15 @@ internal sealed partial class MainWindow : Window
     {
         var button=new Button{Content=new TextBlock{Text=text,TextWrapping=TextWrapping.Wrap},Padding=new Thickness(10,7,10,7),Margin=new Thickness(2,3,2,3),Background=SvgImage.Brush("#d9dcc4"),Foreground=Ink,BorderBrush=SvgImage.Brush("#a7b198"),BorderThickness=new Thickness(1),HorizontalContentAlignment=HorizontalAlignment.Left,Focusable=false};
         System.Windows.Automation.AutomationProperties.SetName(button,text);
-        button.Click+=(_,_)=>{try{action();}catch(Exception ex){Notify(ex.Message);} };if(id!="")buttons[id]=button;return button;
+        (bool One, bool All)? pressed = null;
+        button.PreviewMouseLeftButtonDown += (_, _) => pressed = (Held("quantity.one"), Held("quantity.all"));
+        button.Click += (_, _) =>
+        {
+            var previous = activatingQuantity; activatingQuantity = pressed ?? QuantityModifiers; pressed = null;
+            try { action(); } catch (Exception ex) { Notify(ex.Message); } finally { activatingQuantity = previous; }
+        };
+        button.LostMouseCapture += (_, _) => Dispatcher.BeginInvoke(new Action(() => pressed = null));
+        if(id!="")buttons[id]=button;return button;
     }
     private void Tick(object? sender,EventArgs e)
     {
@@ -71,6 +80,8 @@ internal sealed partial class MainWindow : Window
         RefreshDialogue();RefreshFacilityFocus();RefreshFacilityHover();world.InvalidateVisual();
     }
     private void Notify(string text){if(text.Length==0)return;toast.Text=text;toast.Visibility=Visibility.Visible;toastUntil=clock.Elapsed.TotalSeconds+5;}
+    private (bool One, bool All)? activatingQuantity;
+    private (bool One, bool All) QuantityModifiers => activatingQuantity ?? (Held("quantity.one"), Held("quantity.all"));
     private ActionResult Send(string action,string target="",string item="",int amount=1,string mode="exact",string option="",int x=-1,int y=-1,string slotId="")
     {
         if (action == "attack" && mode == "exact") mode = session.Actor?.GetText("mode") == "combat" ? "once" : "until_down";
@@ -92,7 +103,8 @@ internal sealed partial class MainWindow : Window
         if (world.CommandAction.Length > 0)
         {
             string action = world.CommandAction; world.CommandAction = "";
-            if (!right && target is not null) Send(action, target.Id);
+            if (!right && action is "guard" or "attack_move") Send(action, x: tile.X, y: tile.Y, mode: action == "guard" ? "hold" : "exact");
+            else if (!right && target is not null) Send(action, target.Id);
             return;
         }
         if(target is null)
@@ -106,11 +118,12 @@ internal sealed partial class MainWindow : Window
         else if(session.Actor?.GetText("mode")=="combat" && Game.Kind(target) is "monster" or "boss" or "boss_part")
         { Send("attack",target.Id); }
         else if(Game.Definition(target)?.InputSlots.Count>0)ShowFacilityFocus(target);
-        else if(session.Actor is { } actor && InteractionChoices.Quick(Game,actor,target) is { } choice)
+        else if(session.Actor is { } actor)
         {
             queueBubbles = Held("queue");
             var entries = InteractionEntries(target);
-            var quick = BubbleMenu.Quick(entries, choice.Id);
+            var choice = InteractionChoices.Quick(Game, actor, target);
+            var quick = BubbleMenu.SingleAction(entries) ?? (choice is null ? null : BubbleMenu.Quick(entries, choice.Id));
             if (quick is null || quick.IsGroup && !BubbleMenu.Visible(entries).Contains(quick)) { ShowBubbles(target); return; }
             // Keep meaningful alternatives for Back; collapsed wrappers never enter history.
             ShowBubbles(target, present:false);ActivateBubble(quick);
@@ -144,6 +157,8 @@ internal sealed partial class MainWindow : Window
     private void OnGameKey(object sender,KeyEventArgs e)
     {
         if(e.Key==Key.F11){bool full=WindowStyle==WindowStyle.None;WindowStyle=full?WindowStyle.SingleBorderWindow:WindowStyle.None;WindowState=full?WindowState.Normal:WindowState.Maximized;e.Handled=true;return;}
+        var actualKey = e.Key == Key.System ? e.SystemKey : e.Key;
+        if (IsKey(actualKey, "quantity.one") || IsKey(actualKey, "quantity.all")) { e.Handled = true; return; }
         if(Keyboard.FocusedElement is TextBox or ComboBox or Slider)return;
         if(!session.Started)return;
         if(e.Key==Key.Escape){if(dragItem.Length>0){CancelInventoryDrag();e.Handled=true;return;}if(world.CommandAction.Length>0){world.CommandAction="";e.Handled=true;return;}if(Game.State.Dialogues.Count>0)return;if(world.Building!="")world.Building="";else if(equipmentWindow.Visibility==Visibility.Visible)equipmentWindow.Visibility=Visibility.Collapsed;else if(memoryWindow.Visibility==Visibility.Visible)memoryWindow.Visibility=Visibility.Collapsed;else if(modalType!="")CloseOverlay();else if(bubbleLayer.Children.Count>0)BackBubble();else Open("menu");e.Handled=true;return;}

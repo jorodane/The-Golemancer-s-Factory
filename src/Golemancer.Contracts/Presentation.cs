@@ -8,6 +8,9 @@ public sealed class HotbarAction
     public string Icon { get; set; } = "";
 }
 
+/// <summary>Optional continuous command that owns its path during Continue, including moving and stopping.</summary>
+public interface ISelfNavigatingAction { }
+
 /// <summary>Optional long-lived command. Started keeps ownership; Success completes one queued/recorded step.</summary>
 public interface IContinuousAction
 {

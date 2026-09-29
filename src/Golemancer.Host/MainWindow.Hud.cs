@@ -35,7 +35,7 @@ internal sealed partial class MainWindow
         button.MouseEnter += (_, _) => { scale.ScaleX = scale.ScaleY = 1.10; }; button.MouseLeave += (_, _) => { scale.ScaleX = scale.ScaleY = 1; };
         button.Cursor = Cursors.Hand; panel.Children.Add(button);
         if (caption) panel.Children.Add(new OutlinedBubbleName { Width = size + 20, Text = entry.DisplayName });
-        if (entry.HasDetails && caption)
+        if (caption)
         {
             var visual = new BubbleVisual(button, entry) { Name = (OutlinedBubbleName)panel.Children[1], Ready = true, Available = entry.Available };
             button.MouseEnter += (_, _) => { if (!bubbleVisuals.Contains(visual)) bubbleVisuals.Add(visual); EnterBubble(visual); };
@@ -80,7 +80,7 @@ internal sealed partial class MainWindow
         Outline(actorTitle, 16); actorInfo.Children.Add(actorTitle); Outline(status, 11); status.TextWrapping = TextWrapping.Wrap; status.Margin = new Thickness(2, 4, 2, 6); actorInfo.Children.Add(status);
         actionDock.Children.Add(actionGrid); lower.Children.Add(actionDock); hud.Children.Add(lower);
         var tools = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(0, 0, 18, 18) };
-        foreach (var entry in new[] { Leaf("build", "건설 · B", () => Open("build")), Leaf("routines", "메모리", () => Open("routines")), Group("orders", "공방 주문", () => GameEntries("orders")), Leaf("journal", "전체 일지", () => Open("journal")) })
+        foreach (var entry in new[] { Leaf("build", "건설 · B", () => Open("build")), Leaf("routines", "메모리", () => Open("routines")), Leaf("orders", "공방 주문", () => Open("orders")), Leaf("journal", "전체 일지", () => Open("journal")) })
             tools.Children.Add(HudBubble(entry, 48, entry.Id == "orders" ? "open.orders" : "hud." + entry.Id));
         hud.Children.Add(tools); BuildHotbar(); BuildEquipmentWindow();
         dayChange.HorizontalAlignment = HorizontalAlignment.Center; dayChange.VerticalAlignment = VerticalAlignment.Top; dayChange.Margin = new Thickness(0, 120, 0, 0); dayChange.IsHitTestVisible = false; Outline(dayChange, 30); hud.Children.Add(dayChange);
@@ -100,7 +100,7 @@ internal sealed partial class MainWindow
         actorTitle.Text = a.Name + (a.GetText("mode") == "combat" ? " · 전투" : " · 일상");
         selectedIcon.Icon = assets.Sprite(Game.Definition(a)?.Sprite ?? ""); selectedIcon.Health = a.Get("health") / Math.Max(1, a.Get("maxHealth")); selectedIcon.Mana = a.Get("mana") / Math.Max(1, a.Get("maxMana", 100)); selectedIcon.InvalidateVisual();
         selectedIcon.ToolTip = $"내구도 {a.Get("health"):0}/{a.Get("maxHealth"):0} · 마력 {a.Get("mana"):0}/{a.Get("maxMana", 100):0}";
-        status.Text = a.Recording is not null ? $"● 녹화 {a.Recording.Steps.Count} · 예약 {a.ActionQueue.Count}" : a.Playback?.Status ?? (a.Ongoing is not null ? "처치까지 공격 중" : a.Work is not null ? "작업 중" : a.Pending is not null || a.Path.Count > 0 ? "이동 중" : a.ActionQueue.FirstOrDefault()?.Status ?? "대기");
+        status.Text = a.Recording is not null ? $"● 녹화 {a.Recording.Steps.Count} · 예약 {a.ActionQueue.Count}" : a.Playback?.Status ?? (a.Ongoing is { } ongoing ? ongoing.Action == "attack" ? "처치까지 공격 중" : Game.Content.Actions.GetValueOrDefault(ongoing.Action)?.Name ?? ongoing.Action : a.Work is not null ? "작업 중" : a.Pending is not null || a.Path.Count > 0 ? "이동 중" : a.ActionQueue.FirstOrDefault()?.Status ?? "대기");
         status.ToolTip = a.ActionQueue.FirstOrDefault()?.Status;
         if (a.ActionQueue.Count > 0 && a.Recording is null) status.Text += $" · 예약 {a.ActionQueue.Count}";
         var q = Game.Content.Quests.Values.FirstOrDefault(q => !s.CompletedQuests.Contains(q.Id) && (q.Requires.Length == 0 || s.CompletedQuests.Contains(q.Requires)));
@@ -136,6 +136,7 @@ internal sealed partial class MainWindow
         if (Game.Capability(a, "mining")) TargetAction("mine");
         if (Game.Capability(a, "craft")) { list.Add(Group("build", "시설 건설", () => GameEntries("build"))); list.Add(Group("recipes", "제작", () => Game.OfKind("facility").Where(f => Game.Setting(f, "autoProduce") != "true" && Game.Content.Recipes.Values.Any(r => r.Facility == f.DefinitionId)).Select(f => Group("facility." + f.Id, f.Name, () => RecipeEntries(f))).ToList())); }
         if (Game.Capability(a, "combat")) TargetAction("attack");
+        if (Game.Capability(a, "tactics")) { TargetAction("guard"); TargetAction("attack_move"); }
         list.Add(Leaf("equipment", "장비·강화", () => OpenEquipment()));
         list.Add(Leaf("mode", a.GetText("mode") == "combat" ? "일상 · Tab" : "전투 · Tab", () => Send("toggle_mode")));
         list.Add(Leaf("cancel", "작업 중단", () => Send("cancel")));
@@ -158,7 +159,7 @@ internal sealed partial class MainWindow
             actionGrid.Children.Add(HudBubble(entry, 48, "actiongrid." + entry.Id, () =>
             {
                 if (!entry.Available) return;
-                if (entry.IsGroup) { actionHistory.Add((entry.Label, entry.Contents, 0)); RefreshActionGrid(true); }
+                if (entry.IsGroup && (entry.Quantity is null || !(QuantityModifiers.One || QuantityModifiers.All))) { actionHistory.Add((entry.Label, entry.Contents, 0)); RefreshActionGrid(true); }
                 else { bubbleAnchor = NativePointer.Position(root); ActivateBubble(entry); RefreshActionGrid(true); }
             }));
         }

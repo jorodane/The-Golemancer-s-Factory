@@ -22,6 +22,7 @@ internal sealed class BubbleEntry
     public bool Enabled { get; set; } = true;
     public bool Keep { get; set; }
     public Action? Activate { get; set; }
+    public Action? Quantity { get; set; }
     public List<BubbleEntry> Children { get; set; } = [];
     public Func<List<BubbleEntry>>? BuildChildren { get; set; }
     public Func<bool>? CanUse { get; set; }
@@ -45,6 +46,11 @@ internal static class BubbleMenu
         while (visible.Count == 1 && visible[0].IsGroup && visible[0].Available)
             visible = Compress(visible[0].Contents());
         return visible;
+    }
+    public static BubbleEntry? SingleAction(IEnumerable<BubbleEntry> entries)
+    {
+        var visible = Visible(entries);
+        return visible.Count == 1 && !visible[0].IsGroup && visible[0].Available ? visible[0] : null;
     }
     public static BubbleEntry? Quick(IEnumerable<BubbleEntry> entries, string id)
     {

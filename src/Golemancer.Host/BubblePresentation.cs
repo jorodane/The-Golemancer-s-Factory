@@ -95,6 +95,14 @@ internal sealed class BubblePreview
 }
 internal static class BubblePreviews
 {
+    public static BubblePreview Order(IGameContext game, WorldObject actor, OrderState order) => new()
+    {
+        Title = order.Name, IconId = "order_board", Spotlight = true,
+        Description = order.Accepted ? "수락한 주문 · 물건을 준비하면 납품할 수 있어." : "새 주문 · 클릭해서 수락해.",
+        Note = $"보상 {order.Reward}G · 평판 +{order.Reputation}\n{actor.Name} + 상점 안 창고 · 보유 / 필요",
+        Materials = order.Requirements.Select(k => new BubbleMaterial(k.Key, game.ItemName(k.Key), k.Value, game.OrderAvailable(actor, k.Key))).ToList()
+    };
+
     public static BubblePreview Recipe(IGameContext game, WorldObject source, RecipeDef recipe, int batches = 1)
     {
         batches = Math.Max(0, Math.Min(9999, batches));

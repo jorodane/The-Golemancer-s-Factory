@@ -5,7 +5,7 @@ public sealed class Module : IGameModule
     public void Register(IModuleRegistry r)
     {
         r.Action("combat.attack", new Attack()); r.Action("combat.roll", new Roll()); r.Action("combat.mode", new Mode());
-        r.Action("combat.guard", new Guard()); r.Action("combat.challenge", new Challenge()); r.Action("combat.retreat", new Retreat());
+        r.Action("combat.guard", new TacticalCommand(true)); r.Action("combat.attack_move", new TacticalCommand(false)); r.Action("combat.challenge", new Challenge()); r.Action("combat.retreat", new Retreat());
         r.System(new Encounters());
     }
 }
@@ -113,15 +113,6 @@ public sealed class Mode : IActionHandler
     public CheckResult Check(IGameContext c, WorldObject a, ActionRequest r) => CheckResult.Yes;
     public ActionResult Execute(IGameContext c, WorldObject a, ActionRequest r) { a.Data["mode"] = a.GetText("mode") == "combat" ? "everyday" : "combat"; return ActionResult.Success(); }
 }
-public sealed class Guard : IActionHandler
-{
-    public CheckResult Check(IGameContext c, WorldObject a, ActionRequest r) => c.Capability(a, "combat") ? CheckResult.Yes : CheckResult.No("전투 능력이 없는 골렘이야.", "capability");
-    public ActionResult Execute(IGameContext c, WorldObject a, ActionRequest r)
-    {
-        a.Set("guardX", a.X); a.Set("guardY", a.Y); a.Set("guardUntil", c.State.Time + Math.Max(1, Math.Min(r.Quantity, 120))); a.Set("waitUntil", c.State.Time + Math.Max(1, Math.Min(r.Quantity, 120)));
-        return ActionResult.Success($"이 지역을 {r.Quantity}초 동안 경호해.");
-    }
-}
 public sealed class Challenge : IActionHandler
 {
     public CheckResult Check(IGameContext c, WorldObject a, ActionRequest r) => c.State.Flags.Contains("boss_defeated") ? CheckResult.No("샘물의 왕은 이미 사라졌어.", "completed") : !c.State.Flags.Contains("first_order") ? CheckResult.No("첫 주문을 마친 뒤 호수의 길이 열려.", "locked") : c.State.Flags.Contains("boss_engaged") ? CheckResult.No("이미 전투가 진행 중이야.", "busy") : CheckResult.Yes;
@@ -145,6 +136,7 @@ public sealed class Encounters : IRuntimeSystem
 {
     public string Id => "combat.encounters";
     public int Order => 60;
+    private static string LootOwner(IGameContext c, WorldObject enemy) => c.Find(enemy.GetText("attacker")) is { } actor && c.IsGolem(actor) && actor.Alive() && actor.Get("health") > 0 ? actor.Id : "";
     internal static void DropLoot(IGameContext c, WorldObject monster)
     {
         if (!monster.Values.ContainsKey("homeX")) monster.Set("homeX", monster.X);
@@ -153,7 +145,7 @@ public sealed class Encounters : IRuntimeSystem
         monster.Path.Clear(); monster.Set("attackDue", 0); monster.Set("chargeRemaining", 0);
         string loot = c.Setting(monster, "loot", "springwater_drop"); var items = new Dictionary<string, int> { [loot] = (int)monster.Get("lootAmount", 8) };
         if (loot == "springwater_drop") items["newflesh_herb"] = 2;
-        c.Drop(monster.X, monster.Y, items);
+        c.Drop(monster.X, monster.Y, items, LootOwner(c, monster), collectOnLanding: true);
         c.State.Add("monstersDefeated"); c.Effect("splash", monster.X, monster.Y, c.ItemName(loot), 1.5);
     }
     public void Tick(IGameContext c, double dt)
@@ -234,7 +226,7 @@ public sealed class Encounters : IRuntimeSystem
             boss.Set("dead", 1); boss.Set("active", 0); c.State.Flags.Add("boss_defeated"); c.State.Flags.Remove("boss_engaged"); c.State.Add("bossDefeated");
             foreach (var h in c.OfKind("boss_part")) h.Set("dead", 1);
             Battle.DrainLake(c, boss, true); c.State.Treasury["mining_core"] = c.State.Treasury.GetValueOrDefault("mining_core") + 1;
-            c.Drop(46, 16, new Dictionary<string, int> { ["springwater_drop"] = 25, ["king_token"] = 1 });
+            c.Drop(boss.X, boss.Y, new Dictionary<string, int> { ["springwater_drop"] = 25, ["king_token"] = 1 }, LootOwner(c, boss), collectOnLanding: true);
             foreach (var p in new[] { new Tile(44, 10), new Tile(48, 10), new Tile(45, 13), new Tile(50, 13) }) c.Spawn("mana_deposit", p.X, p.Y);
             c.Notice("샘물의 왕을 쓰러뜨렸어! 채광 골렘 핵을 회수했고 호수 아래 수정이 드러났어.", "quest");
             return;

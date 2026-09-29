@@ -131,7 +131,20 @@ internal sealed partial class MainWindow
     {
         foreach (var item in bubbleVisuals) RefreshBubbleLabel(item);
         if (hoveredBubble is not { } visual || !bubbleVisuals.Contains(visual) || !visual.Button.IsLoaded) return;
-        if (!visual.Entry.HasDetails) { hoverSignature = ""; bubbleHoverLayer.Children.Clear(); return; }
+        if (!visual.Entry.HasDetails)
+        {
+            bubbleHoverLayer.Children.Clear(); hoverSignature = "";
+            if (!visual.Name.IsTrimmed) return;
+            // Only the clipped name expands; ordinary actions do not gain a description card.
+            var name = HudLabel(visual.Entry.DisplayName, 13); name.Margin = new Thickness(0);
+            name.MaxWidth = Math.Max(80, Math.Min(320, root.ActualWidth - 32)); name.TextAlignment = TextAlignment.Center;
+            var full = new Border { Child = name, Padding = new Thickness(6, 3, 6, 3), Background = SvgImage.Brush("#20392bea"), CornerRadius = new CornerRadius(6), IsHitTestVisible = false };
+            full.Measure(new Size(name.MaxWidth + 12, double.PositiveInfinity));
+            var p = visual.Name.TranslatePoint(new Point(visual.Name.ActualWidth / 2, visual.Name.ActualHeight), root);
+            var pos = BubbleLayout.Center(p.X, p.Y + 4, root.ActualWidth, root.ActualHeight, new(-full.DesiredSize.Width / 2, 0, full.DesiredSize.Width / 2, full.DesiredSize.Height));
+            Canvas.SetLeft(full, pos.X - full.DesiredSize.Width / 2); Canvas.SetTop(full, pos.Y); bubbleHoverLayer.Children.Add(full);
+            return;
+        }
         var preview = PreviewFor(visual.Entry);
         string signature = preview.Title + preview.Description + preview.Note + preview.Locked + preview.Spotlight + string.Join("|", preview.Materials);
         if (signature == hoverSignature) return;
@@ -155,6 +168,7 @@ internal sealed partial class MainWindow
             var icon = new Image { Source = image, Width = 48, Height = 48, Margin = new Thickness(0, 0, 10, 0), Stretch = Stretch.Uniform }; DockPanel.SetDock(icon, Dock.Left); heading.Children.Add(icon);
         }
         heading.Children.Add(new TextBlock { Text = preview.Title, TextWrapping = TextWrapping.Wrap, FontWeight = FontWeights.Bold, FontSize = 16, VerticalAlignment = VerticalAlignment.Center, Foreground = Ink }); panel.Children.Add(heading);
+        if (visual.Name.IsTrimmed && !preview.Title.Contains(visual.Entry.DisplayName)) panel.Children.Add(Label(visual.Entry.DisplayName, 12));
         if (preview.Description.Length > 0) panel.Children.Add(Label(preview.Description, 12));
         if (preview.Note.Length > 0) { var note = Label(preview.Note, 11); if (preview.Locked) note.Foreground = SvgImage.Brush("#a53e32"); panel.Children.Add(note); }
         foreach (var item in preview.Materials)

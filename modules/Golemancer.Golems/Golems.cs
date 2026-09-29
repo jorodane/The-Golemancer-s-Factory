@@ -161,11 +161,17 @@ public sealed class Lifecycle : IRuntimeSystem
             string core = a.GetText("core");
             if (core != "") c.State.Treasury[core] = c.State.Treasury.GetValueOrDefault(core) + 1;
             if (a.Recording is not null) { c.State.Recordings[a.Recording.Id] = a.Recording; a.Recording = null; }
-            var lost = new Dictionary<string, int>(a.Inventory);
-            foreach (var item in a.Equipment.Values) lost[item] = lost.GetValueOrDefault(item) + 1;
+            var lost = new Dictionary<string, int>();
+            foreach (var item in a.Inventory)
+            {
+                var definition = c.Content.Items.GetValueOrDefault(item.Key);
+                if (definition?.Category == "core") c.State.Treasury[item.Key] = c.State.Treasury.GetValueOrDefault(item.Key) + item.Value;
+                else if (string.IsNullOrEmpty(definition?.EquipmentSlot)) lost[item.Key] = item.Value;
+            }
+            foreach (string upgrade in a.Values.Keys.Where(k => k.StartsWith("upgrade.", StringComparison.Ordinal)).ToArray()) a.Values.Remove(upgrade);
             if (lost.Count > 0) c.Drop(a.X, a.Y, lost);
             a.Inventory.Clear(); a.Equipment.Clear();
-            c.State.Add("golemsDestroyed"); c.Notice(a.Name + "이 쓰러졌어. 핵은 공방으로 즉시 회수했어.", "warning");
+            c.State.Add("golemsDestroyed"); c.Notice(a.Name + "이 쓰러졌어. 핵은 즉시 회수했고 소재는 그 자리에 남았어. 장비와 강화는 소실됐어.", "warning");
             if (c.State.ControlledId == a.Id) { c.State.ControlledId = c.OfKind("golem").FirstOrDefault()?.Id ?? "enrin"; c.State.MapId = c.Find(c.State.ControlledId)?.GetText("area", "feast_trail") ?? "feast_trail"; }
         }
         foreach (var golem in c.OfKind("golem"))

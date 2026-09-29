@@ -9,6 +9,8 @@ public sealed partial class Simulation
         if (!Content.Actions.TryGetValue(request.Action, out var def) || !Registry.Actions.TryGetValue(def.Handler, out var handler))
         { actor.Ongoing = null; actor.Path.Clear(); FinishFailure(actor, request, new(ActionStatus.Unavailable, "액션 팩을 기다리는 중", "unknown_action"), playback); return; }
         if (playback && actor.Get("mana") <= 0) return;
+        if (handler is ISelfNavigatingAction)
+        { InReservation(request.ReservationId, () => Execute(handler, actor, request, playback)); return; }
         var target = Find(request.TargetId);
         if (target is not null && target.Alive() && target.Get("health", 1) > 0 && def.Range >= 0 && this.Distance(actor, target) > def.Range)
         {

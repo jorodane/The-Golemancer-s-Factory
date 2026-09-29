@@ -51,8 +51,9 @@ public sealed class AutoPickup : IRuntimeSystem
         foreach(var drop in c.OfKind("drop").Where(o => o.GetText("pickupOwner") != "" && c.State.Time >= o.Get("autoPickupAt")).ToArray())
         {
             var owner=c.Find(drop.GetText("pickupOwner"));
-            if(owner is null || !owner.Alive()) { drop.Data.Remove("pickupOwner");continue; }
-            if(owner.Tile.Distance(drop.Tile) > 2)continue;
+            if(owner is null || !owner.Alive() || owner.Get("health") <= 0) { drop.Data.Remove("pickupOwner");continue; }
+            if(drop.Get("collectOnLanding") == 0 && owner.Tile.Distance(drop.Tile) > 2)continue;
+            drop.Values.Remove("collectOnLanding");
             int n=GroundItems.Take(c,owner,drop);
             if(n>0)c.Effect("pickup",owner.X,owner.Y,$"+{n}",.5);
             // Overflow stays on the ground and is available to E pickup or another golem.

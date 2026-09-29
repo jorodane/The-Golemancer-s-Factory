@@ -55,7 +55,7 @@ public sealed class Order : IActionHandler, IInventoryAction, IActionProjection
         if (order is null) return CheckResult.No("받을 수 있는 주문이 없어.", "order_missing");
         if (r.Option == "accept") return CheckResult.Yes;
         if (!order.Accepted) return CheckResult.No("주문을 먼저 수락해줘.", "not_accepted");
-        var sources = Sources(c, a).ToArray();
+        var sources = c.OrderSources(a).ToArray();
         return order.Requirements.All(k => sources.Sum(o => c.Available(o, k.Key)) >= k.Value) ? CheckResult.Yes : CheckResult.No("골렘과 상점 창고에 주문 물건이 부족해.", "ingredients");
     }
     public PreparedAction Prepare(IGameContext c, WorldObject a, ActionRequest r)
@@ -64,11 +64,10 @@ public sealed class Order : IActionHandler, IInventoryAction, IActionProjection
         if (r.Option != "accept") foreach (var pair in c.State.Orders.First(o => o.Id == r.Item).Requirements)
         {
             int left = pair.Value;
-            foreach (var source in Sources(c, a)) { int n = Math.Min(left, c.Available(source, pair.Key)); if(n > 0) needs.Add(new(source.Id, pair.Key, n)); left -= n; }
+            foreach (var source in c.OrderSources(a)) { int n = Math.Min(left, c.Available(source, pair.Key)); if(n > 0) needs.Add(new(source.Id, pair.Key, n)); left -= n; }
         }
         return new(r, needs);
     }
-    private static IEnumerable<WorldObject> Sources(IGameContext c, WorldObject a) => new[] { a }.Concat(c.OfKind("facility").Where(o => o.DefinitionId == "storage" && Rules.InShop(o.X, o.Y)));
     public ActionResult Execute(IGameContext c, WorldObject a, ActionRequest r)
     {
         var o = c.State.Orders.First(o => o.Id == r.Item);
@@ -76,7 +75,7 @@ public sealed class Order : IActionHandler, IInventoryAction, IActionProjection
         foreach (var (item, amount) in o.Requirements)
         {
             int left = amount;
-            foreach (var source in Sources(c, a)) { int n = Math.Min(left, c.Available(source, item)); c.Take(source, item, n); left -= n; }
+            foreach (var source in c.OrderSources(a)) { int n = Math.Min(left, c.Available(source, item)); c.Take(source, item, n); left -= n; }
         }
         o.Delivered = true; c.State.Add("gold", o.Reward); c.State.Add("reputation", o.Reputation); c.State.Add("ordersDelivered");
         c.State.Flags.Add("first_order"); c.Effect("gold", a.X, a.Y, $"+{o.Reward}G", 2);

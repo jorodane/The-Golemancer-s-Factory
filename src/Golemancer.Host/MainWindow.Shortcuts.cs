@@ -28,7 +28,7 @@ internal sealed partial class MainWindow
         if (!Game.State.Hotbar.TryGetValue(index, out var action)) return;
         CloseBubbles();
         var r = action.Request with { ActorId = "", ReservationId = "", Enqueue = Held("queue") };
-        if (r.TargetId.Length == 0 && r.Item.Length == 0 && r.X < 0 && Game.Content.Actions.GetValueOrDefault(r.Action)?.Range >= 0)
+        if (r.TargetId.Length == 0 && r.Item.Length == 0 && r.X < 0 && (r.Action is "guard" or "attack_move" || Game.Content.Actions.GetValueOrDefault(r.Action)?.Range >= 0))
         { world.CommandAction = r.Action; Notify(action.Name + " · 대상을 클릭해줘."); return; }
         var result = session.Command(r); Notify(result.Message);
         if (result.Ok && r.Action == "select") world.CenterOnActor();

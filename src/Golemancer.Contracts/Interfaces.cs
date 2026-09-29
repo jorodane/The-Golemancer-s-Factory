@@ -60,6 +60,8 @@ public static partial class Rules
     public static void Animate(this IGameContext c, WorldObject o, string state, double seconds = .48)
     { o.Data["visualState"] = state; o.Set("visualStarted", c.State.Time); o.Set("visualUntil", c.State.Time + seconds); }
     public static WorldObject Drop(this IGameContext c, int x, int y, IReadOnlyDictionary<string, int> items, string owner = "")
+        => c.Drop(x, y, items, owner, collectOnLanding: false);
+    public static WorldObject Drop(this IGameContext c, int x, int y, IReadOnlyDictionary<string, int> items, string owner, bool collectOnLanding)
     {
         WorldObject? first = null;
         int pileIndex = c.OfKind("drop").Count(d => d.X == x && d.Y == y);
@@ -73,6 +75,7 @@ public static partial class Rules
                 pileIndex++;
                 drop.Inventory[pair.Key] = Math.Min(stack, remaining);
                 drop.Data["pickupOwner"] = owner; drop.Set("autoPickupAt", c.State.Time + .35);
+                if (collectOnLanding && owner.Length > 0) drop.Set("collectOnLanding", 1);
             }
         }
         if (first is not null) return first;

@@ -32,6 +32,7 @@
       <Data key="core" value="craft_core" />
     </Object>
     <Object id="combat_golem" name="전투 골렘" kind="golem" slots="6" actions="select,transfer,upgrade_golem">
+      <Value key="tactics" value="1" />
       <Value key="health" value="180" />
       <Value key="maxHealth" value="180" />
       <Value key="mana" value="0" />
