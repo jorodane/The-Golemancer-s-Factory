@@ -69,10 +69,12 @@ public sealed class Production : IRuntimeSystem, IProductionProjection
     {
         foreach (var f in c.OfKind("facility"))
         {
+            f.Set("producing", 0);
             if (f.Production.Count == 0 && c.Setting(f, "autoProduce") == "true") StartAutomatic(c, f);
             if (f.Production.Count == 0) continue;
             var job = f.Production[0];
             if (!c.Content.Recipes.TryGetValue(job.RecipeId, out var recipe)) { f.Data["status"] = "레시피 팩을 기다리는 중"; continue; }
+            if (c.OutputRoom(f, recipe.Output) < recipe.Amount) { f.Data["status"] = "완성품 공간 대기"; continue; }
             if (!job.IngredientsCommitted)
             {
                 if (!f.Has(recipe.Inputs)) { f.Data["status"] = "재료 대기"; continue; }
@@ -96,6 +98,7 @@ public sealed class Production : IRuntimeSystem, IProductionProjection
             double supplied = Math.Min((recipe.Work - job.Progress) / efficiency, Math.Min(f.Get("heat", double.MaxValue), dt * f.Get("workRate", 5)));
             if (source == "heat") f.Set("heat", Math.Max(0, f.Get("heat") - supplied));
             job.Progress = Math.Min(recipe.Work, job.Progress + supplied * efficiency);
+            f.Set("producing", supplied > 0 ? 1 : 0);
             f.Data["status"] = "훈증 중";
         }
     }

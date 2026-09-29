@@ -117,7 +117,7 @@ internal sealed partial class MainWindow
                 { if (Send("order", "board", o.Id, option: o.Accepted ? "deliver" : "accept").Ok) RenderBubbles(); }, Cost(Game, o.Requirements) + $" · {o.Reward}G / 평판 +{o.Reputation}")).ToList();
             case "equipment":
                 {
-                    var gear = actor.Inventory.Where(k => k.Value > 0 && k.Key.StartsWith("wooden_", StringComparison.Ordinal)).Select(k => { var entry = Leaf("equip." + k.Key, Game.ItemName(k.Key), () => Finish(() => Send("equip", item: k.Key))); entry.ItemId = k.Key; return entry; }).ToList();
+                    var gear = actor.Inventory.Where(k => k.Value > 0 && (Game.Content.Items.GetValueOrDefault(k.Key)?.EquipmentSlot.Length ?? 0) > 0).Select(k => { var entry = Leaf("equip." + k.Key, Game.ItemName(k.Key), () => Finish(() => Send("equip", item: k.Key))); entry.ItemId = k.Key; return entry; }).ToList();
                     var upgrades = new[] { ("battery", "마력 용량 +50"), ("storage", "보관함 +2칸"), ("armor", "방어 +2 · 내구도 +20") }.Select(k => Leaf("upgrade." + k.Item1, k.Item2, () => Finish(() => Send("upgrade_golem", option: k.Item1)), $"40G · {actor.Get("upgrade." + k.Item1)}/3", actor.Get("upgrade." + k.Item1) < 3 && !(actor.DefinitionId == "mini_golem" && k.Item1 == "storage"))).ToList();
                     var entries = new List<BubbleEntry> { new() { Id = "upgrades", Label = "골렘 강화", Children = upgrades }, Leaf("mode", "일상 / 전투 전환", () => Finish(() => Send("toggle_mode"))), Leaf("guard", "주변 경호", () => ShowQuantity("경호 시간 · 초", () => 3600, n => Send("guard", amount: n), 30)) };
                     entries.Insert(0, new() { Id = "equipment", Label = "장비", Children = gear }); return entries;

@@ -55,11 +55,11 @@ internal sealed partial class MainWindow
         {
             string item = target.Inventory.Keys.FirstOrDefault(i => target.Inventory[i] > 0 && Game.InputSlot(target, i)?.Id == slot.Id) ?? Game.Content.Items.Keys.FirstOrDefault(i => Game.InputSlot(target, i)?.Id == slot.Id) ?? "";
             var entry = Leaf("slot." + slot.Id, slot.Name, () => ShowSlotTransfer(target, slot, "give"));
-            entry.ItemId = item; entry.Badge = target.Inventory.Where(k => Game.InputSlot(target, k.Key)?.Id == slot.Id).Sum(k => k.Value).ToString();
+            entry.ItemId = item; entry.Badge = target.Inventory.Where(k => Game.InputSlot(target, k.Key)?.Id == slot.Id).Sum(k => k.Value).ToString() + "/" + slot.Capacity;
             entry.Display = new() { Details = false }; return entry;
         }).ToList();
         string output = target.OutputInventory.Keys.FirstOrDefault(i => target.OutputInventory[i] > 0) ?? Game.Content.Recipes.Values.FirstOrDefault(r => r.Facility == target.DefinitionId)?.Output ?? "";
-        var tray = Leaf("slot.output", "완성품", () => ShowOutputTransfer(target)); tray.ItemId = output; tray.Badge = target.OutputInventory.Values.Sum().ToString(); tray.Display = new() { Details = false }; entries.Add(tray);
+        var tray = Leaf("slot.output", "완성품", () => ShowOutputTransfer(target)); tray.ItemId = output; tray.Badge = target.OutputInventory.Values.Sum().ToString() + (definition.OutputCapacity > 0 ? "/" + definition.OutputCapacity : ""); tray.Display = new() { Details = false }; entries.Add(tray);
         return entries;
     }
     private void ShowOutputTransfer(WorldObject target)
@@ -76,7 +76,7 @@ internal sealed partial class MainWindow
     {
         if (!session.Started || modalType.Length > 0 || bubbleHistory.Count > 0 || dragItem.Length > 0 || Game.State.Dialogues.Count > 0)
         { facilityHoverLayer.Children.Clear(); hoverFacilitySignature = hoverFacility = ""; return; }
-        var target = world.IsMouseOver ? world.Target(world.Hover) : facilityHoverLayer.IsMouseOver ? Game.Find(hoverFacility) : null;
+        var target = world.IsMouseOver ? world.TargetAt(Mouse.GetPosition(world)) : facilityHoverLayer.IsMouseOver ? Game.Find(hoverFacility) : null;
         if ((target is null || Game.Definition(target)?.InputSlots.Count is not > 0) && world.IsMouseOver && Game.Find(hoverFacility) is { } previous)
         {
             var center = world.TranslatePoint(world.Screen(previous.WorldX + (Game.Definition(previous)?.Width ?? 1) / 2.0, previous.WorldY + (Game.Definition(previous)?.Height ?? 1) / 2.0), root);

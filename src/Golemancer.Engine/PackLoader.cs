@@ -192,7 +192,7 @@ public static partial class PackLoader
             if (!c.Sprites.TryGetValue(id, out var sprite)) c.Sprites[id] = sprite = new() { Id = id };
             foreach (var a in e.Elements("Animation"))
             {
-                var clip = new AnimationDef { State = S(a, "state", "idle"), ImagePath = SafePath(packDirectory, S(a, "image")), FrameWidth = (int)N(a, "frameWidth"), FrameHeight = (int)N(a, "frameHeight"), Frames = (int)N(a, "frames", 1), Columns = (int)N(a, "columns", 1), X = (int)N(a, "x"), Y = (int)N(a, "y"), FrameSeconds = N(a, "frameSeconds", .12), Loop = B(a, "loop", true), OffsetX = N(a, "offsetX"), OffsetY = N(a, "offsetY"), DrawWidth = N(a, "drawWidth", 1.2), DrawHeight = N(a, "drawHeight", 1.2), PivotX = N(a, "pivotX", .5), PivotY = N(a, "pivotY", .875) };
+                var clip = new AnimationDef { CompositeOver = S(a, "compositeOver"), OverlayX = N(a, "overlayX"), OverlayY = N(a, "overlayY"), State = S(a, "state", "idle"), ImagePath = SafePath(packDirectory, S(a, "image")), FrameWidth = (int)N(a, "frameWidth"), FrameHeight = (int)N(a, "frameHeight"), Frames = (int)N(a, "frames", 1), Columns = (int)N(a, "columns", 1), X = (int)N(a, "x"), Y = (int)N(a, "y"), FrameSeconds = N(a, "frameSeconds", .12), Loop = B(a, "loop", true), OffsetX = N(a, "offsetX"), OffsetY = N(a, "offsetY"), DrawWidth = N(a, "drawWidth", 1.2), DrawHeight = N(a, "drawHeight", 1.2), PivotX = N(a, "pivotX", .5), PivotY = N(a, "pivotY", .875) };
                 if (clip.DrawWidth <= 0 || clip.DrawHeight <= 0 || S(a, "image").Length == 0 || clip.Frames < 1 || clip.Columns < 1 || clip.FrameSeconds <= 0 || clip.X < 0 || clip.Y < 0 || clip.FrameWidth < 0 || clip.FrameHeight < 0 || (clip.FrameWidth == 0) != (clip.FrameHeight == 0) || (clip.Frames > 1 && clip.FrameWidth == 0)) throw new InvalidDataException("Invalid sprite animation: " + id);
                 foreach (var f in a.Elements("Frame"))
                 {
@@ -226,13 +226,15 @@ public static partial class PackLoader
         foreach (var e in root.Element("Texts")?.Elements("Text") ?? []) c.Texts[S(e, "id")] = e.Value;
         foreach (var e in root.Element("ItemCategories")?.Elements("Category") ?? []) c.ItemCategories[S(e, "id")] = S(e, "name", S(e, "id"));
         foreach (var e in root.Element("Items")?.Elements("Item") ?? [])
-            c.Items[S(e, "id")] = new() { Id = S(e, "id"), Name = S(e, "name"), Description = S(e, "description"), Price = (int)N(e, "price"), Stack = Math.Max(1, (int)N(e, "stack", 50)), Color = S(e, "color", "#b3bb78"), Category = S(e, "category", "material"), Tags = new(S(e, "tags").Split(',').Select(s => s.Trim()).Where(s => s.Length > 0)) };
+            c.Items[S(e, "id")] = new() { Id = S(e, "id"), Name = S(e, "name"), Description = S(e, "description"), Price = (int)N(e, "price"), Stack = Math.Max(1, (int)N(e, "stack", 50)), Color = S(e, "color", "#b3bb78"), Category = S(e, "category", "material"), EquipmentSlot = S(e, "equipmentSlot"), Tags = new(S(e, "tags").Split(',').Select(s => s.Trim()).Where(s => s.Length > 0)) };
         foreach (var e in root.Element("Objects")?.Elements("Object") ?? [])
         {
-            var def = new ObjectDef { Id = S(e, "id"), Name = S(e, "name"), Kind = S(e, "kind"), Sprite = S(e, "sprite", S(e, "id")), Width = (int)N(e, "width", 1), Height = (int)N(e, "height", 1), Solid = B(e, "solid"), Slots = (int)N(e, "slots", 8), Cost = Quantities(e.Element("Cost")), Actions = S(e, "actions").Split(',').Select(s => s.Trim()).Where(s => s.Length > 0).ToList(), Placement = e.Element("Placement")?.Elements().Select(Condition).FirstOrDefault() };
+            var def = new ObjectDef { Id = S(e, "id"), Name = S(e, "name"), Kind = S(e, "kind"), Sprite = S(e, "sprite", S(e, "id")), Width = (int)N(e, "width", 1), Height = (int)N(e, "height", 1), Solid = B(e, "solid"), Slots = (int)N(e, "slots", 8), Capacity = (int)N(e, "capacity"), Cost = Quantities(e.Element("Cost")), Actions = S(e, "actions").Split(',').Select(s => s.Trim()).Where(s => s.Length > 0).ToList(), Placement = e.Element("Placement")?.Elements().Select(Condition).FirstOrDefault() };
             foreach (var v in e.Elements("Value")) def.Values[S(v, "key")] = N(v, "value");
             foreach (var v in e.Elements("Data")) def.Data[S(v, "key")] = S(v, "value");
             def.OutputSlots = (int)N(e.Element("InputSlots") ?? e, "outputSlots", 1);
+            def.OutputCapacity = (int)N(e.Element("InputSlots") ?? e, "outputCapacity");
+            if (def.Capacity < 0 || def.OutputCapacity < 0) throw new InvalidDataException("Invalid unit capacity: " + def.Id);
             foreach (var v in e.Element("InputSlots")?.Elements("Slot") ?? [])
             {
                 var slot = new InputSlotDef { Id = S(v, "id"), Name = S(v, "name"), Capacity = (int)N(v, "capacity", 50), Items = new(S(v, "items").Split(',').Select(s => s.Trim()).Where(s => s.Length > 0)), Tags = new(S(v, "tags").Split(',').Select(s => s.Trim()).Where(s => s.Length > 0)) };

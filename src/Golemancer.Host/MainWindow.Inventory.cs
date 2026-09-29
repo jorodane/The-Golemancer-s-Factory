@@ -42,7 +42,7 @@ internal sealed partial class MainWindow
         for (var node = hit; node is not null; node = VisualTreeHelper.GetParent(node))
         {
             if (node is FrameworkElement { Tag: string id } && Game.Find(id) is { } tagged) return tagged;
-            if (node == world) { ground = true; return world.Target(tile); }
+            if (node == world) { ground = true; return world.TargetAt(local); }
         }
         return null;
     }
@@ -58,11 +58,13 @@ internal sealed partial class MainWindow
         if (!dragging && (point - dragStart).Length < 5) return;
         dragging = true; e.Handled = true; dragLayer.Children.Clear();
         var actor = Game.Find(dragActor); var target = DragTarget(point, out var tile, out bool ground);
-        bool valid = actor is not null && (target is not null ? CanDragTo(actor, target, dragItem) : ground && Game.Walkable(tile.X, tile.Y, actor.Id));
+        bool equipment = actor is not null && EquipDragged(point, actor, dragItem, false);
+        bool hotkey = DragUiTag<HotbarSlot>(point) is not null && (dragItem is "healing_jelly" or "mana_jelly" or "sweetfruit" || (Game.Content.Items.GetValueOrDefault(dragItem)?.EquipmentSlot.Length ?? 0) > 0);
+        bool valid = equipment || hotkey || actor is not null && (target is not null ? CanDragTo(actor, target, dragItem) : ground && Game.Walkable(tile.X, tile.Y, actor.Id));
         world.Highlighted = target?.Id ?? ""; world.DragValid = valid;
         var icon = new HudIcon { Width = 44, Height = 44, Icon = assets.Sprite("item." + dragItem), Count = dragStack.ToString(), Opacity = valid ? 1 : .5 };
         Canvas.SetLeft(icon, Math.Max(0, Math.Min(root.ActualWidth - 44, point.X + 12))); Canvas.SetTop(icon, Math.Max(0, Math.Min(root.ActualHeight - 44, point.Y + 14))); dragLayer.Children.Add(icon);
-        var label = HudLabel(valid ? target is null ? "바닥에 내려놓기" : target.Name + "에게 전달" : "여기에는 놓을 수 없어", 13);
+        var label = HudLabel(equipment ? "장착칸에 장착" : hotkey ? "사용 액션을 단축키에 등록" : valid ? target is null ? "바닥에 내려놓기" : target.Name + "에게 전달" : "여기에는 놓을 수 없어", 13);
         Canvas.SetLeft(label, Math.Max(8, Math.Min(root.ActualWidth - 240, point.X + 15))); Canvas.SetTop(label, Math.Max(8, Math.Min(root.ActualHeight - 40, point.Y + 61))); dragLayer.Children.Add(label);
     }
     private void EndInventoryDrag(object sender, MouseButtonEventArgs e)
@@ -72,6 +74,14 @@ internal sealed partial class MainWindow
         var target = DragTarget(point, out var tile, out bool ground); CancelInventoryDrag(); e.Handled = true;
         if (actor is null || actor != session.Actor) return;
         if (!moved) { OpenItemBubble(item); return; }
+        if (EquipDragged(point, actor, item, true)) return;
+        if (DragUiTag<HotbarSlot>(point) is { } shortcut)
+        {
+            string action = item is "healing_jelly" or "mana_jelly" or "sweetfruit" ? "consume" : (Game.Content.Items.GetValueOrDefault(item)?.EquipmentSlot.Length ?? 0) > 0 ? "equip" : "";
+            if (action.Length > 0) BindHotbar(shortcut.Index, Shortcut(new() { Action = action, Item = item }, Game.ItemName(item), "item." + item));
+            else Notify("이 아이템에는 사용 액션이 없어.");
+            return;
+        }
         queueBubbles = Held("queue"); bubbleAnchor = point;
         if (target is not null)
         {

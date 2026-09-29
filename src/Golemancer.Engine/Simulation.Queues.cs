@@ -23,7 +23,7 @@ public sealed partial class Simulation
     }
     private void CleanReservations()
     {
-        var active = new HashSet<string>(State.Objects.Values.Where(o => o.Alive()).SelectMany(o => new[] { o.Pending?.ReservationId ?? "", o.Work?.Request.ReservationId ?? "" }).Where(id => id.Length > 0));
+        var active = new HashSet<string>(State.Objects.Values.Where(o => o.Alive()).SelectMany(o => new[] { o.Pending?.ReservationId ?? "", o.Work?.Request.ReservationId ?? "", o.Ongoing?.ReservationId ?? "" }).Where(id => id.Length > 0));
         foreach (var source in State.Objects.Values) source.Reservations.RemoveAll(r => !source.Alive() || !active.Contains(r.Id));
     }
     private void TickQueue(WorldObject actor)

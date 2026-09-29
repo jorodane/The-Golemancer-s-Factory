@@ -54,6 +54,7 @@ internal sealed partial class MainWindow
         border.SetValue(Border.BackgroundProperty, new TemplateBindingExtension(Control.BackgroundProperty)); border.SetValue(Border.BorderBrushProperty, Ink); border.SetValue(Border.BorderThicknessProperty, new Thickness(1.5));
         var content = new FrameworkElementFactory(typeof(ContentPresenter)); content.SetValue(FrameworkElement.HorizontalAlignmentProperty, HorizontalAlignment.Center); content.SetValue(FrameworkElement.VerticalAlignmentProperty, VerticalAlignment.Center); border.AppendChild(content);
         button.Template = new ControlTemplate(typeof(Button)) { VisualTree = border };
+        AttachShortcutDrag(button, entry);
         var visual = new BubbleVisual(button, entry); bubbleVisuals.Add(visual);
         var transforms = new TransformGroup(); transforms.Children.Add(visual.Arrival); transforms.Children.Add(visual.Hover); transforms.Children.Add(visual.Travel); button.RenderTransform = transforms;
         var icon = new Grid { Width = diameter - 10, Height = diameter - 10, IsHitTestVisible = false };
@@ -135,12 +136,14 @@ internal sealed partial class MainWindow
         string signature = preview.Title + preview.Description + preview.Note + preview.Locked + preview.Spotlight + string.Join("|", preview.Materials);
         if (signature == hoverSignature) return;
         bool first = hoverSignature.Length == 0; hoverSignature = signature; bubbleHoverLayer.Children.Clear();
-        var center = visual.Button.TranslatePoint(new Point(visual.Button.Width / 2, visual.Button.Height / 2), root);
+        var center = visual.Button.TranslatePoint(new Point(visual.Button.ActualWidth / 2, visual.Button.ActualHeight / 2), root);
         if (preview.Spotlight)
         {
-            double radius = visual.Button.Width * BubbleLayout.HoverScale / 2 + 2;
-            var nameOrigin = visual.Name.TranslatePoint(new Point(), root);
-            var focus = new CombinedGeometry(GeometryCombineMode.Union, new EllipseGeometry(center, radius, radius), new RectangleGeometry(new Rect(nameOrigin, visual.Name.RenderSize)));
+            double radius = visual.Button.ActualWidth * BubbleLayout.HoverScale / 2 + 2;
+            Geometry focus = visual.Button.Clip is EllipseGeometry ? new EllipseGeometry(center, radius, radius)
+                : new RectangleGeometry(new Rect(visual.Button.TranslatePoint(new Point(), root), visual.Button.RenderSize), 8, 8);
+            if (visual.Name.IsDescendantOf(root))
+                focus = new CombinedGeometry(GeometryCombineMode.Union, focus, new RectangleGeometry(new Rect(visual.Name.TranslatePoint(new Point(), root), visual.Name.RenderSize)));
             var outside = new CombinedGeometry(GeometryCombineMode.Exclude, new RectangleGeometry(new Rect(0, 0, root.ActualWidth, root.ActualHeight)), focus);
             var shade = new System.Windows.Shapes.Path { Data = outside, Fill = Brushes.Black, Opacity = .34, IsHitTestVisible = false }; bubbleHoverLayer.Children.Add(shade);
             if (first) shade.BeginAnimation(OpacityProperty, new DoubleAnimation(0, .34, TimeSpan.FromSeconds(.1)));

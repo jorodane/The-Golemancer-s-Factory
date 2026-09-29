@@ -25,6 +25,7 @@ public sealed class GameState
     public List<GameMessage> Messages { get; set; } = [];
     public List<VisualEffect> Effects { get; set; } = [];
     public List<Dialogue> Dialogues { get; set; } = [];
+    public Dictionary<int, HotbarAction> Hotbar { get; set; } = [];
     public HashSet<string> CompletedQuests { get; set; } = [];
     public List<OrderState> Orders { get; set; } = [];
     public Dictionary<string, Recording> Recordings { get; set; } = [];
@@ -82,12 +83,14 @@ public sealed class WorldObject
     public Dictionary<string, double> Values { get; set; } = [];
     public Dictionary<string, string> Data { get; set; } = [];
     public Dictionary<string, int> Inventory { get; set; } = [];
+    public Dictionary<string, string> Equipment { get; set; } = [];
     // Machine outputs never silently become inputs for another recipe.
     public Dictionary<string, int> OutputInventory { get; set; } = [];
     public List<InventoryReservation> Reservations { get; set; } = [];
     public List<QueuedAction> ActionQueue { get; set; } = [];
     public List<Tile> Path { get; set; } = [];
     public ActionRequest? Pending { get; set; }
+    public ActionRequest? Ongoing { get; set; }
     public ActiveWork? Work { get; set; }
     public Playback? Playback { get; set; }
     public Recording? Recording { get; set; }
@@ -190,7 +193,12 @@ public sealed class OrderState
 }
 public sealed record GameMessage(double Time, string Text, string Kind = "info");
 public sealed record VisualEffect(string Kind, int X, int Y, double Until, string Text = "");
-public sealed record Dialogue(string Id, string Speaker, string Text, string Mood, string Chalk);
+public sealed record Dialogue(string Id, string Speaker, string Text, string Mood, string Chalk)
+{
+    public string Portrait { get; init; } = "dialogue.enrin";
+    public string Side { get; init; } = "left";
+    public string ListenerPortrait { get; init; } = "";
+}
 
 public sealed class ItemDef
 {
@@ -201,6 +209,7 @@ public sealed class ItemDef
     public int Stack { get; set; } = 50;
     public string Color { get; set; } = "#aabb88";
     public string Category { get; set; } = "material";
+    public string EquipmentSlot { get; set; } = "";
     public HashSet<string> Tags { get; set; } = [];
 }
 public sealed class InputSlotDef
@@ -222,8 +231,11 @@ public sealed class ObjectDef
     public int Height { get; set; } = 1;
     public bool Solid { get; set; }
     public int Slots { get; set; } = 8;
+    // Zero uses the normal stack/slot limit. Positive values also cap individual units.
+    public int Capacity { get; set; }
     public List<InputSlotDef> InputSlots { get; set; } = [];
     public int OutputSlots { get; set; } = 1;
+    public int OutputCapacity { get; set; }
     public Dictionary<string, double> Values { get; set; } = [];
     public Dictionary<string, string> Data { get; set; } = [];
     public Dictionary<string, int> Cost { get; set; } = [];
@@ -342,6 +354,10 @@ public sealed class SpriteDef
 }
 public sealed class AnimationDef
 {
+    // Optional local-pixel overlay (e.g. a speaking mouth) over a stable base animation.
+    public string CompositeOver { get; set; } = "";
+    public double OverlayX { get; set; }
+    public double OverlayY { get; set; }
     public List<SpriteFrameDef> FrameRects { get; set; } = [];
     // Display offsets use tile units, independent of atlas coordinates and zoom.
     public double OffsetX { get; set; }

@@ -61,10 +61,22 @@ public static partial class Rules
     { o.Data["visualState"] = state; o.Set("visualStarted", c.State.Time); o.Set("visualUntil", c.State.Time + seconds); }
     public static WorldObject Drop(this IGameContext c, int x, int y, IReadOnlyDictionary<string, int> items, string owner = "")
     {
-        var drop = c.Spawn("dropped_items", x, y);
-        foreach (var pair in items.Where(p => p.Value > 0)) drop.Inventory[pair.Key] = pair.Value;
-        drop.Data["pickupOwner"] = owner; drop.Set("autoPickupAt", c.State.Time + .35);
-        return drop;
+        WorldObject? first = null;
+        int pileIndex = c.OfKind("drop").Count(d => d.X == x && d.Y == y);
+        foreach (var pair in items.Where(p => p.Value > 0))
+        {
+            int stack = Math.Max(1, c.Content.Items.GetValueOrDefault(pair.Key)?.Stack ?? 50);
+            for (int remaining = pair.Value; remaining > 0; remaining -= Math.Min(stack, remaining))
+            {
+                var drop = c.Spawn("dropped_items", x, y); first ??= drop;
+                if (pileIndex > 0) drop.SetPosition(x + ((pileIndex - 1) % 3 - 1) * .18, y + ((pileIndex - 1) / 3 % 3 - 1) * .14);
+                pileIndex++;
+                drop.Inventory[pair.Key] = Math.Min(stack, remaining);
+                drop.Data["pickupOwner"] = owner; drop.Set("autoPickupAt", c.State.Time + .35);
+            }
+        }
+        if (first is not null) return first;
+        var empty = c.Spawn("dropped_items", x, y); empty.Set("dead", 1); return empty;
     }
     public static CheckResult Placement(this IGameContext c, WorldObject actor, ObjectDef definition, int x, int y)
     {
@@ -95,7 +107,9 @@ public static partial class Rules
         }
         int stack = c.Content.Items.GetValueOrDefault(item)?.Stack ?? 50;
         int used = c.UsedSlots(o), partial = o.Count(item) % stack;
-        return Math.Max(0, c.Slots(o) - used) * stack + (partial > 0 ? stack - partial : 0);
+        int room = Math.Max(0, c.Slots(o) - used) * stack + (partial > 0 ? stack - partial : 0);
+        int capacity = c.Definition(o)?.Capacity ?? 0;
+        return capacity > 0 ? Math.Min(room, Math.Max(0, capacity - o.Inventory.Values.Sum())) : room;
     }
     public static int Give(this IGameContext c, WorldObject o, string item, int amount)
     {
@@ -111,7 +125,8 @@ public static partial class Rules
         int stack = c.Content.Items.GetValueOrDefault(item)?.Stack ?? 50;
         int used = o.OutputInventory.Where(k => k.Value > 0).Sum(k => (int)Math.Ceiling(k.Value / (double)(c.Content.Items.GetValueOrDefault(k.Key)?.Stack ?? 50)));
         int partial = o.OutputInventory.GetValueOrDefault(item) % stack;
-        return Math.Max(0, def.OutputSlots - used) * stack + (partial > 0 ? stack - partial : 0);
+        int room = Math.Max(0, def.OutputSlots - used) * stack + (partial > 0 ? stack - partial : 0);
+        return def.OutputCapacity > 0 ? Math.Min(room, Math.Max(0, def.OutputCapacity - o.OutputInventory.Values.Sum())) : room;
     }
     public static int GiveOutput(this IGameContext c, WorldObject o, string item, int amount)
     {

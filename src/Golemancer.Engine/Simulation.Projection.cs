@@ -10,13 +10,13 @@ public sealed partial class Simulation
     // Other actors' leases remain protected; this actor's leases are paid by its forecast instead.
     public Simulation ProjectCommands(WorldObject actor, bool queued)
     {
-        if (projected || !queued && actor.Pending is null && actor.Work is null && actor.ActionQueue.Count == 0) return this;
+        if (projected || !queued && actor.Pending is null && actor.Work is null && actor.Ongoing is null && actor.ActionQueue.Count == 0) return this;
         string key = actor.Id + (queued ? ":queue" : ":replace");
         if (projections.TryGetValue(key, out var cached) && cached.Revision == State.Revision) return cached.View;
         var state = JsonSerializer.Deserialize<GameState>(JsonSerializer.Serialize(State, Json), Json)!;
         var view = new Simulation(cooked, state) { projected = true };
         var copy = view.Find(actor.Id)!;
-        var pending = copy.Work?.Request ?? copy.Pending;
+        var pending = copy.Work?.Request ?? copy.Pending ?? copy.Ongoing;
         var requests = new List<ActionRequest>();
         if (pending is not null) requests.Add(pending);
         requests.AddRange(copy.ActionQueue.Select(q => q.Request));

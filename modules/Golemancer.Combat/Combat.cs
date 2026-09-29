@@ -15,8 +15,7 @@ public static class Battle
     public static void Hit(IGameContext c, WorldObject a, WorldObject t, string option = "")
     {
         c.Animate(a, "attack"); c.Animate(t, "hit");
-        string weapon = a.GetText("weapon");
-        if (a.Count(weapon) == 0) weapon = "";
+        string weapon = a.Equipment.GetValueOrDefault("weapon", "");
         string type = option == "crush" || weapon == "wooden_club" || weapon == "" ? "crush" : "slash";
         double damage = weapon == "wooden_sword" ? 14 : weapon == "wooden_club" ? 12 : 5;
         damage += a.Get("damageBonus"); damage *= t.Get(type == "slash" ? "weakSlash" : "weakCrush", 1);
@@ -29,7 +28,7 @@ public static class Battle
     {
         c.Animate(source, "attack");
         if (actor.Get("invulnerableUntil") > c.State.Time) { c.Effect("dodge", actor.X, actor.Y, "회피"); return; }
-        if (actor.GetText("shield") == "wooden_shield" && actor.Count("wooden_shield") > 0) amount *= .7;
+        if (actor.Equipment.GetValueOrDefault("shield") == "wooden_shield") amount *= .7;
         amount = Math.Max(1, amount - actor.Get("armor")); actor.Set("health", actor.Get("health") - amount); actor.Set("lastDamage", c.State.Time); actor.Data["attacker"] = source.Id; c.Animate(actor, "hit");
         actor.Set("defendX", actor.X); actor.Set("defendY", actor.Y);
         c.Effect("damage", actor.X, actor.Y, $"−{amount:0}");
@@ -58,11 +57,26 @@ public static class Battle
             if (Math.Pow((x - 47) / 6.3, 2) + Math.Pow((y - 11) / 5.2, 2) < 1 && c.State.Map.At(x, y) == "shore") c.State.Map.Set(x, y, "water");
     }
 }
-public sealed class Attack : IActionHandler, IActionProjection
+public sealed class Attack : IActionHandler, IActionProjection, IContinuousAction
 {
+    public bool IsContinuous(IGameContext c, WorldObject a, ActionRequest r) => r.Mode == "until_down";
+    public ActionResult Continue(IGameContext c, WorldObject a, ActionRequest r)
+    {
+        var target = c.Target(r);
+        if (target is null || !target.Alive() || target.Get("health") <= 0) return ActionResult.Success();
+        var check = Check(c, a, r); if (!check.Allowed) return ActionResult.Fail(check.Message, check.Reason);
+        if (a.Get("nextAttack") <= c.State.Time) Battle.Hit(c, a, target, r.Option);
+        return target.Get("health") <= 0 ? ActionResult.Success() : ActionResult.Started();
+    }
     public ActionResult Project(IGameContext c, WorldObject a, ActionRequest r)
     {
-        var result = Execute(c, a, r); var target = c.Target(r)!;
+        var target = c.Target(r);
+        if (IsContinuous(c, a, r) && (target is null || !target.Alive() || target.Get("health") <= 0)) return ActionResult.Success();
+        if (target is null) return ActionResult.Fail("대상이 없어.");
+        var result = Execute(c, a, r);
+        if (IsContinuous(c, a, r))
+            for (int i = 0; i < 10000 && target.Get("health") > 0; i++) Execute(c, a, r);
+        if (IsContinuous(c, a, r) && target.Get("health") > 0) return ActionResult.Fail("아직 처치할 수 없어.", "projection_limit");
         if (c.Is(target, "monster") && target.Get("health") <= 0) Encounters.DropLoot(c, target);
         return result;
     }
@@ -70,9 +84,10 @@ public sealed class Attack : IActionHandler, IActionProjection
     {
         if (!c.Capability(a, "combat")) return CheckResult.No("이 골렘은 공격할 수 없어.", "capability");
         var t = c.Target(r);
+        if (IsContinuous(c, a, r) && r.TargetId.Length > 0 && (t is null || !t.Alive() || t.Get("health") <= 0)) return CheckResult.Yes;
         if (t is null || !t.Alive() || !Battle.Enemy(c, t)) return CheckResult.No("공격 대상을 찾지 못했어.", "target_missing");
         if (c.Kind(t) is "boss" or "boss_part" && !c.State.Flags.Contains("boss_engaged")) return CheckResult.No("호수의 표식에서 도전을 시작해줘.", "locked");
-        if (a.Get("nextAttack") > c.State.Time) return CheckResult.No("다음 공격을 준비하고 있어.", "cooldown");
+        if (!IsContinuous(c, a, r) && a.Get("nextAttack") > c.State.Time) return CheckResult.No("다음 공격을 준비하고 있어.", "cooldown");
         return CheckResult.Yes;
     }
     public ActionResult Execute(IGameContext c, WorldObject a, ActionRequest r) { Battle.Hit(c, a, c.Target(r)!, r.Option); return ActionResult.Success(); }
@@ -136,9 +151,9 @@ public sealed class Encounters : IRuntimeSystem
         if (!monster.Values.ContainsKey("homeY")) monster.Set("homeY", monster.Y);
         monster.Set("dead", 1); monster.Set("respawnAt", c.State.Time + 45);
         monster.Path.Clear(); monster.Set("attackDue", 0); monster.Set("chargeRemaining", 0);
-        var bag = c.Spawn("dropped_items", monster.X, monster.Y);
-        string loot = c.Setting(monster, "loot", "springwater_drop"); bag.Inventory[loot] = (int)monster.Get("lootAmount", 8);
-        if (loot == "springwater_drop") bag.Inventory["newflesh_herb"] = 2;
+        string loot = c.Setting(monster, "loot", "springwater_drop"); var items = new Dictionary<string, int> { [loot] = (int)monster.Get("lootAmount", 8) };
+        if (loot == "springwater_drop") items["newflesh_herb"] = 2;
+        c.Drop(monster.X, monster.Y, items);
         c.State.Add("monstersDefeated"); c.Effect("splash", monster.X, monster.Y, c.ItemName(loot), 1.5);
     }
     public void Tick(IGameContext c, double dt)
@@ -189,7 +204,7 @@ public sealed class Encounters : IRuntimeSystem
         if (boss is not null && boss.Alive() && boss.Get("active") > 0) BossTick(c, boss);
         foreach (var a in c.OfKind("golem").Where(o => c.Capability(o, "combat")))
         {
-            if (a.Get("nextAttack") > c.State.Time || a.Work is not null) continue;
+            if (a.Get("nextAttack") > c.State.Time || a.Work is not null || a.Ongoing is not null) continue;
             bool guarding = a.Get("guardUntil") > c.State.Time;
             bool combatIdle = a.DefinitionId == "combat_golem" && c.State.ControlledId != a.Id && a.Playback is null;
             var attacker = c.Find(a.GetText("attacker"));
@@ -219,7 +234,7 @@ public sealed class Encounters : IRuntimeSystem
             boss.Set("dead", 1); boss.Set("active", 0); c.State.Flags.Add("boss_defeated"); c.State.Flags.Remove("boss_engaged"); c.State.Add("bossDefeated");
             foreach (var h in c.OfKind("boss_part")) h.Set("dead", 1);
             Battle.DrainLake(c, boss, true); c.State.Treasury["mining_core"] = c.State.Treasury.GetValueOrDefault("mining_core") + 1;
-            var loot = c.Spawn("dropped_items", 46, 16); loot.Inventory["springwater_drop"] = 25; loot.Inventory["king_token"] = 1;
+            c.Drop(46, 16, new Dictionary<string, int> { ["springwater_drop"] = 25, ["king_token"] = 1 });
             foreach (var p in new[] { new Tile(44, 10), new Tile(48, 10), new Tile(45, 13), new Tile(50, 13) }) c.Spawn("mana_deposit", p.X, p.Y);
             c.Notice("샘물의 왕을 쓰러뜨렸어! 채광 골렘 핵을 회수했고 호수 아래 수정이 드러났어.", "quest");
             return;

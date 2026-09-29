@@ -82,8 +82,8 @@ public sealed partial class Simulation
                     var destination = actor.Path[actor.Path.Count-1];
                     if (!Navigate(actor, destination))
                     {
-                        var failed = actor.Pending ?? new ActionRequest { Action = "move" };
-                        actor.Path.Clear(); actor.Pending = null;
+                        var failed = actor.Pending ?? actor.Ongoing ?? new ActionRequest { Action = "move" };
+                        actor.Path.Clear(); actor.Pending = null; actor.Ongoing = null;
                         FinishFailure(actor, failed, ActionResult.Fail("길이 막혀 이동을 멈췄어.", "no_path"), actor.Playback is not null);
                     }
                 }
@@ -91,7 +91,7 @@ public sealed partial class Simulation
             }
             if (!pushed && !rolling && !manual && actor.Path.Count > 0 && actor.Tile == actor.Path[0]) actor.Path.RemoveAt(0);
         }
-        if (!pushed && !rolling && !manual && actor.Path.Count == 0 && actor.Pending is null && actor.Playback?.Waiting == true && actor.Work is null)
+        if (!pushed && !rolling && !manual && actor.Path.Count == 0 && actor.Pending is null && actor.Ongoing is null && actor.Playback?.Waiting == true && actor.Work is null)
             CompletePlaybackStep(actor,ActionResult.Success(),new() { Action="move" });
     }
 }

@@ -12,6 +12,7 @@ internal sealed class BubbleEntry
     public string IconId { get; set; } = "";
     public string Glyph { get; set; } = "";
     public string Badge { get; set; } = "";
+    public ActionRequest? Shortcut { get; set; }
     public BubbleDisplayDef Display { get; set; } = new();
     public Func<string, string?>? DisplayValue { get; set; }
     public Func<BubblePreview>? Preview { get; set; }

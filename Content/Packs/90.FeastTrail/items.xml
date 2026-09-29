@@ -24,9 +24,9 @@
     <Item id="healing_jelly" tags="jelly" name="생명력 회복 젤리" price="20" color="#dc8d95" category="product" description="사용하면 생명력 60 회복." stack="50" />
     <Item id="mana_jelly" tags="jelly" name="마나 회복 젤리" price="24" color="#8ea7d9" category="product" description="사용하면 마력 35 회복." stack="50" />
     <Item id="mana_crystal" name="무색 마나 수정" price="0" color="#b4e6dc" category="material" description="수정탑의 연료. 채광 골렘으로 얻는다." stack="50" />
-    <Item id="wooden_sword" name="목제 검" price="0" color="#cba173" category="equipment" description="베기 14. 물 계열 적에게 효과적." stack="1" />
-    <Item id="wooden_club" name="목제 망치" price="0" color="#b99466" category="equipment" description="타격 12. 얼음·돌 계열 적에게 효과적." stack="1" />
-    <Item id="wooden_shield" name="목제 방패" price="0" color="#b9a37b" category="equipment" description="장착하면 받는 피해 30% 감소." stack="1" />
+    <Item id="wooden_sword" equipmentSlot="weapon" name="목제 검" price="0" color="#cba173" category="equipment" description="베기 14. 물 계열 적에게 효과적." stack="1" />
+    <Item id="wooden_club" equipmentSlot="weapon" name="목제 망치" price="0" color="#b99466" category="equipment" description="타격 12. 얼음·돌 계열 적에게 효과적." stack="1" />
+    <Item id="wooden_shield" equipmentSlot="shield" name="목제 방패" price="0" color="#b9a37b" category="equipment" description="장착하면 받는 피해 30% 감소." stack="1" />
     <Item id="harvest_core" name="수확 골렘 핵" price="0" color="#80b894" category="core" description="행상인 구매. 파괴되면 즉시 회수." stack="1" />
     <Item id="craft_core" name="제작 골렘 핵" price="0" color="#dda276" category="core" description="행상인 구매. 건설과 제작을 담당." stack="1" />
     <Item id="combat_core" name="전투 골렘 핵" price="0" color="#be8381" category="core" description="행상인 구매. Idle 상태에서 동료를 보호." stack="1" />

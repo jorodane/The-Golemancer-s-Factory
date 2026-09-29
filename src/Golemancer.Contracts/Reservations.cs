@@ -18,8 +18,8 @@ public static partial class Rules
     public static void CancelActions(this IGameContext c, WorldObject actor, bool stopPlayback = true)
     {
         foreach (var source in c.State.Objects.Values) source.Reservations.RemoveAll(r => r.ActorId == actor.Id);
-        actor.Path.Clear(); actor.Pending = null; actor.Work = null; actor.ActionQueue.Clear(); actor.Set("waitUntil", 0);
+        actor.Path.Clear(); actor.Pending = null; actor.Work = null; actor.Ongoing = null; actor.ActionQueue.Clear(); actor.Set("waitUntil", 0);
         if (stopPlayback) actor.Playback = null;
     }
-    public static bool CommandBusy(this IGameContext c, WorldObject actor) => actor.Work is not null || actor.Pending is not null || actor.Path.Count > 0 || actor.Get("waitUntil") > c.State.Time || actor.Get("rollRemaining") > 0 || actor.Get("pushRemaining") > 0;
+    public static bool CommandBusy(this IGameContext c, WorldObject actor) => actor.Ongoing is not null || actor.Work is not null || actor.Pending is not null || actor.Path.Count > 0 || actor.Get("waitUntil") > c.State.Time || actor.Get("rollRemaining") > 0 || actor.Get("pushRemaining") > 0;
 }

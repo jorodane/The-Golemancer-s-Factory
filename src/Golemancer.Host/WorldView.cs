@@ -7,7 +7,7 @@ using Golemancer.Contracts;
 using Golemancer.Engine;
 namespace Golemancer.Desktop;
 
-internal sealed class WorldView : FrameworkElement
+internal sealed partial class WorldView : FrameworkElement
 {
     private readonly DesktopSession session;
     private readonly AssetStore assets;
@@ -31,6 +31,19 @@ internal sealed class WorldView : FrameworkElement
     public double Zoom { get; set; } = 52;
     public Tile Hover { get; private set; }
     public event Action<Tile, bool>? TileClicked;
+    public event Action<Tile, WorldObject?, bool>? ObjectClicked;
+    private readonly List<(WorldObject Object, ImageSource Image, Rect Bounds, Transform? Rotation)> hitRegions = [];
+    public WorldObject? TargetAt(Point point)
+    {
+        for (int i = hitRegions.Count - 1; i >= 0; i--)
+        {
+            var hit = hitRegions[i];
+            if (!hit.Object.Alive() || hit.Object.Get("depleted") > 0 || session.Game.Kind(hit.Object) == "customer") continue;
+            var p = hit.Rotation?.Inverse?.Transform(point) ?? point;
+            if (hit.Bounds.Contains(p) && assets.OpaqueAt(hit.Image, (p.X - hit.Bounds.X) / hit.Bounds.Width, (p.Y - hit.Bounds.Y) / hit.Bounds.Height)) return hit.Object;
+        }
+        return null;
+    }
     private sealed class Pose { public double X, Y, Since, LastMove; public string State = "idle"; public bool Dead; }
     public WorldView(DesktopSession session, AssetStore assets)
     {
@@ -50,7 +63,8 @@ internal sealed class WorldView : FrameworkElement
             if (e.ChangedButton == MouseButton.Middle)
             { if (session.Actor?.GetText("mode") != "combat") { panning = true; panPoint = e.GetPosition(this); CaptureMouse(); } e.Handled = true; return; }
             if (e.ChangedButton is not (MouseButton.Left or MouseButton.Right)) return;
-            var p = World(e.GetPosition(this)); Hover = new((int)Math.Floor(p.X), (int)Math.Floor(p.Y)); TileClicked?.Invoke(Hover, e.ChangedButton == MouseButton.Right); e.Handled = true;
+            var point = e.GetPosition(this); var p = World(point); Hover = new((int)Math.Floor(p.X), (int)Math.Floor(p.Y));
+            ObjectClicked?.Invoke(Hover, TargetAt(point), e.ChangedButton == MouseButton.Right); TileClicked?.Invoke(Hover, e.ChangedButton == MouseButton.Right); e.Handled = true;
         };
         MouseUp += (_, e) => { if (e.ChangedButton == MouseButton.Middle && panning) { panning = false; ReleaseMouseCapture(); e.Handled = true; } };
         LostMouseCapture += (_, _) => panning = false;
@@ -94,7 +108,8 @@ internal sealed class WorldView : FrameworkElement
             dc.DrawImage(region.Image, new Rect(Screen(region.X - gutter, region.Y - gutter), new Size((region.Width + gutter * 2) * Zoom, (region.Height + gutter * 2) * Zoom)));
             TerrainDrawCount++;
         }
-        string hoveredId = IsMouseOver ? Target(Hover)?.Id ?? "" : "";
+        string hoveredId = IsMouseOver ? TargetAt(Mouse.GetPosition(this))?.Id ?? "" : "";
+        hitRegions.Clear();
         foreach (var o in s.Objects.Values.OrderBy(o => o.WorldY + (g.Definition(o)?.Height ?? 1)).ThenBy(o=>o.WorldX))
         {
             var d = g.Definition(o); if (d is null || o.Get("depleted") > 0) continue;
@@ -118,7 +133,7 @@ internal sealed class WorldView : FrameworkElement
                 {
                     var icon=assets.Sprite("item."+item.Key);if(icon is null)continue;
                     double x=p.X+Zoom*.2+(index%2)*Zoom*.35,y=p.Y+Zoom*.25+(index/2)*Zoom*.3;
-                    dc.DrawImage(icon,new Rect(x,y,Zoom*.55,Zoom*.55));Text(dc,item.Value.ToString(),new Point(x+Zoom*.3,y+Zoom*.3),10);index++;
+                    var dropRect = new Rect(x,y,Zoom*.55,Zoom*.55); dc.DrawImage(icon,dropRect); hitRegions.Add((o, icon, dropRect, null)); Text(dc,item.Value.ToString(),new Point(x+Zoom*.3,y+Zoom*.3),10);index++;
                 }
                 if(o.Tile==Hover)Text(dc,"E · 줍기",new Point(p.X,p.Y-8),11);
                 continue;
@@ -131,26 +146,29 @@ internal sealed class WorldView : FrameworkElement
                 // Sheet origin/pixel crop and display pivot/offset are independent.
                 var foot=Screen(pose.X+d.Width*.5+(clip?.OffsetX??0),pose.Y+d.Height*.86+(clip?.OffsetY??0));
                 bool rolling=o.Get("rollUntil")>s.Time&&clip?.State!="roll";
-                if(rolling)dc.PushTransform(new RotateTransform((s.Time-o.Get("rollStarted"))/.28*360*(o.Get("rollX")<0?-1:1),foot.X,foot.Y-dh*.5));
-                dc.DrawImage(im,new Rect(foot.X-dw*(frame?.PivotX??clip?.PivotX??.5),foot.Y-dh*(frame?.PivotY??clip?.PivotY??.875),dw,dh));
+                var rotation = rolling ? new RotateTransform((s.Time-o.Get("rollStarted"))/.28*360*(o.Get("rollX")<0?-1:1),foot.X,foot.Y-dh*.5) : null;
+                if(rolling)dc.PushTransform(rotation);
+                var bounds = new Rect(foot.X-dw*(frame?.PivotX??clip?.PivotX??.5),foot.Y-dh*(frame?.PivotY??clip?.PivotY??.875),dw,dh);
+                dc.DrawImage(im,bounds); hitRegions.Add((o, im, bounds, rotation));
                 if(rolling)dc.Pop();
             }
             else Text(dc,o.Name,p,12);
-            if (o.Id == Highlighted || IsMouseOver && o.Tile == Hover && g.IsGolem(o))
+            if (o.Id == Highlighted || IsMouseOver && o.Id == hoveredId && g.IsGolem(o))
             { HudIcon.DrawText(dc, o.Name, new Point(p.X + w / 2, p.Y - 26), 12, centered: true); }
             if(o.Recording is not null) Text(dc,"●",new Point(p.X+w,p.Y-8),14,"#d26756");
             if(o.Playback is not null) Text(dc,"↻",new Point(p.X+w,p.Y-8));
             if(o.Work is { } work) Bar(dc,p.X,p.Y-9,w,work.Total>0?work.Done/work.Total:0,"#dbc688");
+            DrawFacilityContents(dc, o, d, p);
             if(o.Get("maxHealth")>0&&o.Get("health")<o.Get("maxHealth")) Bar(dc,p.X,p.Y-4,w,Math.Max(0,o.Get("health")/o.Get("maxHealth")),"#bd7667");
         }
         foreach(var id in poses.Keys.Where(id=>!s.Objects.ContainsKey(id)).ToArray()) poses.Remove(id);
-        foreach (var actor in g.OfKind("golem").Where(o => o.Path.Count > 0 || o.ActionQueue.Count > 0 || o.Pending is not null))
+        foreach (var actor in g.OfKind("golem").Where(o => o.Path.Count > 0 || o.ActionQueue.Count > 0 || o.Pending is not null || o.Ongoing is not null))
         {
             Point previous = Screen(actor.WorldX + .5, actor.WorldY + .5);
             string color = actor.Id == s.ControlledId ? "#ffe9aacc" : "#a8dbd588";
             var pen = new Pen(SvgImage.Brush(color), actor.Id == s.ControlledId ? 2 : 1.3) { DashStyle = DashStyles.Dash };
             foreach (var tile in actor.Path) { var p = Screen(tile.X + .5, tile.Y + .5); dc.DrawLine(pen, previous, p); previous = p; }
-            var current = actor.Pending ?? actor.Work?.Request;
+            var current = actor.Pending ?? actor.Work?.Request ?? actor.Ongoing;
             void Destination(ActionRequest request, int number)
             {
                 var target = g.Find(request.TargetId);

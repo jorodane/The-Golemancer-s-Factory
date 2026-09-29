@@ -22,7 +22,7 @@ internal static class InteractionChoices
         else if(def.Kind == "resource")
             foreach(var id in def.Actions.Where(id => id is "harvest" or "fell" or "mine"))
                 result.Add(new(id,game.Content.Actions[id].Name,Action:id));
-        else if(def.Kind is "monster" or "boss" or "boss_part") result.Add(new("attack","공격",Action:"attack"));
+        else if(def.Kind is "monster" or "boss" or "boss_part") result.Add(new("attack",actor.GetText("mode") == "combat" ? "공격" : "쓰러질 때까지 공격",Action:"attack"));
         else if(def.Kind == "drop") result.Add(new("pickup","줍기 · E",Action:"pickup"));
         else if(target.DefinitionId == "merchant") result.Add(new("shop","상품 보기","shop"));
         else if(target.DefinitionId == "enrin")
@@ -55,7 +55,7 @@ internal static class InteractionChoices
 
         if (definition.Condition is not null && !game.Evaluate(definition.Condition, actor, target)) return CheckResult.No("실행 조건을 충족하지 못했어.");
         // Check is read-only. Never dispatch a command to probe availability or cancel work here.
-        try { return handler.Check(game, actor, new() { ActorId = actor.Id, TargetId = target.Id, Action = action }); }
+        try { return handler.Check(game, actor, new() { ActorId = actor.Id, TargetId = target.Id, Action = action, Mode = action == "attack" && actor.GetText("mode") != "combat" ? "until_down" : "exact" }); }
         catch (Exception) { return CheckResult.No("행동 조건을 확인하지 못했어."); }
     }
     public static List<MenuEntry> Additional(Simulation game, WorldObject actor, WorldObject target)

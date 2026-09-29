@@ -91,16 +91,16 @@ internal static class BubbleTests
 
         var f = s.Spawn("herb_fumigator", actor.X + 1, actor.Y + 1); s.State.Flags.Add("jelly_book");
         Check(s.Definition(f)!.InputSlots.Select(i => i.Id).SequenceEqual(new[] { "fuel", "herb", "liquid" }), "XML defines three physical input compartments");
-        Check(s.Give(f, "wooden_sword", 1) == 0 && s.Give(f, "wood", 52) == 50 && s.Give(f, "common_herb", 2) == 2 && s.Give(f, "newflesh_herb", 1) == 0, "wrong items, overflow and mixed herbs cannot enter a compartment");
+        Check(s.Give(f, "wooden_sword", 1) == 0 && s.Give(f, "wood", 52) == 10 && s.Give(f, "common_herb", 2) == 2 && s.Give(f, "newflesh_herb", 1) == 0, "wrong items, overflow and mixed herbs cannot enter a compartment");
         var invalid = s.Dispatch(new() { ActorId = actor.Id, Action = "transfer", TargetId = f.Id, Item = "newflesh_herb", Mode = "all" });
         Check(!invalid.Ok && invalid.Reason == "input_slot" && actor.Count("newflesh_herb") == 2, "all-mode transfer also rejects an occupied incompatible compartment atomically");
-        Advance(s, 2); Check(f.Production.Count == 0 && f.Count("wood") == 50, "missing liquid consumes neither herbs nor fuel");
+        Advance(s, 2); Check(f.Production.Count == 0 && f.Count("wood") == 10, "missing liquid consumes neither herbs nor fuel");
         s.Give(f, "springwater_drop", 2); Advance(s, .1);
-        Check(f.Production.Count == 1 && f.Count("common_herb") == 1 && f.Count("springwater_drop") == 1 && f.Count("wood") == 49, "matching inputs start automatic production with no craft command");
+        Check(f.Production.Count == 1 && f.Count("common_herb") == 1 && f.Count("springwater_drop") == 1 && f.Count("wood") == 9, "matching inputs start automatic production with no craft command");
         s.State.FavoriteItems.Add("springwater_jelly"); s.State.TransferCategories[f.Id] = ["jelly", "herb"];
         string save = Path.Combine(root, "TestResults", "bubble-compartments.json"); s.Save(save);
         s = new(cooked, Simulation.ReadSave(save)); f = s.Find(f.Id)!; actor = s.Find(actor.Id)!; Advance(s, 7);
-        Check(f.OutputInventory.GetValueOrDefault("springwater_jelly") == 2 && f.Inventory.GetValueOrDefault("springwater_jelly") == 0 && f.Count("wood") == 49 && Math.Abs(f.Get("heat") - 70) < .0001, "save/resume consumes exact inputs and fuel; finished jelly stays outside liquid input");
+        Check(f.OutputInventory.GetValueOrDefault("springwater_jelly") == 2 && f.Inventory.GetValueOrDefault("springwater_jelly") == 0 && f.Count("wood") == 9 && Math.Abs(f.Get("heat") - 70) < .0001, "save/resume consumes exact inputs and fuel; finished jelly stays outside liquid input");
         Check(s.State.FavoriteItems.Contains("springwater_jelly") && BubbleMenu.Preferred(s, f).SequenceEqual(new[] { "jelly", "herb" }), "favorites and per-facility category choices survive save/load");
         Check(Items(BubbleMenu.Transfer(s, actor, f, "take", Item)).Contains("springwater_jelly"), "taking bubbles include finished products from separate output storage");
         f.Inventory["wooden_sword"] = 1; f.Inventory["missing.mod.item"] = 9000;
@@ -111,11 +111,11 @@ internal static class BubbleTests
         Check(taken.Ok && f.Count("springwater_jelly") == 0 && actor.Count("springwater_jelly") == 2 && s.State.ControlledId == controlled, "taking debits finished stock exactly once without changing control");
         s.Give(f, "newflesh_herb", 1); s.Give(f, "springwater_jelly", 1); Advance(s, 4.5);
         Check(f.OutputInventory.GetValueOrDefault("healing_jelly") == 1 && f.Inventory.GetValueOrDefault("springwater_jelly") == 0, "herb/liquid combination automatically selects the intermediate jelly recipe");
-        f.OutputInventory = new() { ["springwater_jelly"] = 50, ["healing_jelly"] = 50, ["mana_jelly"] = 50 };
+        f.OutputInventory = new() { ["springwater_jelly"] = 2, ["healing_jelly"] = 2, ["mana_jelly"] = 1 };
         s.Give(f, "spark_herb", 1); s.Give(f, "springwater_jelly", 1); double heat = f.Get("heat"); Advance(s, 1);
         Check(f.Production.Count == 0 && f.Count("spark_herb") == 1 && f.Inventory["springwater_jelly"] == 1 && f.Get("heat") == heat, "full output pauses without consuming new ingredients or heat");
         f.Take("mana_jelly", 1); Advance(s, 4.5);
-        Check(f.OutputInventory["mana_jelly"] == 50 && f.Inventory["missing.mod.item"] == 9000 && f.Inventory["wooden_sword"] == 1, "freeing output restarts automation and preserves all legacy/unknown inventory");
+        Check(f.OutputInventory["mana_jelly"] == 1 && f.Inventory["missing.mod.item"] == 9000 && f.Inventory["wooden_sword"] == 1, "freeing output restarts automation and preserves all legacy/unknown inventory");
 
         var noFuel = s.Spawn("herb_fumigator", 20, 25); noFuel.Data.Remove("autoProduce"); noFuel.Data.Remove("preferredCategories"); s.Give(noFuel, "common_herb", 1); s.Give(noFuel, "springwater_drop", 1); Advance(s, 1);
         Check(noFuel.Production.Count == 0 && noFuel.Count("common_herb") == 1, "unfuelled machine waits without reserving ingredients");

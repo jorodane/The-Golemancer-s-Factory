@@ -15,7 +15,7 @@ internal static class Campaign
     {
         var result = s.Dispatch(new() { ActorId = actor.Id, Action = action, TargetId = target, Item = item, Quantity = quantity, Mode = mode, Option = option, X = x, Y = y });
         if (!result.Ok) throw new Exception($"{action}({item},{quantity},{target}) by {actor.Name}@{actor.X},{actor.Y}: {result.Message} [{result.Reason}]");
-        for (int i = 0; actor.Path.Count > 0 || actor.Work is not null || actor.Pending is not null; i++)
+        for (int i = 0; actor.Path.Count > 0 || actor.Work is not null || actor.Pending is not null || actor.Ongoing is not null; i++)
         {
             if (i > 2400) throw new Exception($"Timed out: {action} {target}; {actor.X},{actor.Y} {actor.Path.Count} path steps");
             s.Tick(.1);
@@ -32,8 +32,7 @@ internal static class Campaign
         s = new(cooked);
         var h = s.Find("golem-1")!;
         for (int i = 0; i < 12; i++) Do(h, "harvest", "herb-" + i);
-        Do(h, "transfer", "shelf-1", "common_herb", 12);
-        Advance(110);
+        for (int batch = 0; batch < 3; batch++) { Do(h, "transfer", "shelf-1", "common_herb", 4); Advance(45); }
         Check(s.State.CompletedQuests.Contains("q01"), "chapter: harvest and ordinary sales");
         Do(h, "buy", "merchant", "craft_core"); Do(h, "assemble", item: "craft_golem"); Advance(7);
         var crafter = Assembled("craft_golem");
@@ -54,28 +53,31 @@ internal static class Campaign
             for (int tries = 0; monster.Alive() && monster.Get("health") > 0 && tries < 12; tries++)
             { Advance(1.4); if (monster.Alive() && monster.Get("health") > 0) Do(h, "attack", monster.Id); }
             Advance(.2);
-            var bag = s.State.Objects.Values.Last(o => o.DefinitionId == "dropped_items" && o.X == monster.X && o.Y == monster.Y && o.Alive());
-            Do(h, "pickup", bag.Id);
+            foreach (var bag in s.OfKind("drop").Where(o => o.X == monster.X && o.Y == monster.Y).ToArray()) Do(h, "pickup", bag.Id);
         }
         Check(h.Count("springwater_drop") >= 24, "chapter: deterministic monsters and material drops");
-        Give(h, furnace, "common_herb", 20); Give(h, furnace, "springwater_drop", 20); Give(h, furnace, "wood", 4);
-        Give(crafter, furnace, "wood", 1); Advance(66);
-        // Each batch selects its recipe through the herb/liquid combination, without a craft command.
-        Take(crafter, furnace, "springwater_jelly", 9);
-        Give(h, furnace, "newflesh_herb", 6); Give(crafter, furnace, "springwater_jelly", 6); Advance(26);
-        Give(h, furnace, "spark_herb", 3); Give(crafter, furnace, "springwater_jelly", 3); Advance(14);
+        Give(h, furnace, "wood", 4); Give(crafter, furnace, "wood", 1);
+        // Refill three-unit inputs and collect the five-unit output tray between batches.
+        for (int remaining = 20; remaining > 0; remaining -= Math.Min(3, remaining))
+        {
+            int batch = Math.Min(3, remaining);
+            Give(h, furnace, "common_herb", batch); Give(h, furnace, "springwater_drop", batch); Advance(12);
+            Take(crafter, furnace, "springwater_jelly", batch);
+        }
+        for (int batch = 0; batch < 2; batch++)
+        { Give(h, furnace, "newflesh_herb", 3); Give(crafter, furnace, "springwater_jelly", 3); Advance(15); Take(crafter, furnace, "healing_jelly", 3); }
+        Give(h, furnace, "spark_herb", 3); Give(crafter, furnace, "springwater_jelly", 3); Advance(15); Take(crafter, furnace, "mana_jelly", 3);
         Check(s.State.CompletedQuests.Contains("q04"), "chapter: passive production and intermediate jelly recipes");
-        Take(crafter, furnace, "springwater_jelly", 3); Do(crafter, "transfer", "shelf-1", "springwater_jelly", 3);
+        Do(crafter, "transfer", "shelf-1", "springwater_jelly", 3);
         Do(crafter, "expand_shop"); Advance(55);
         Check(s.State.CompletedQuests.Contains("q05"), "chapter: shop expansion and processed sales");
-        foreach (var (item, count) in new Dictionary<string, int> { ["springwater_jelly"] = 4, ["healing_jelly"] = 2, ["mana_jelly"] = 1 }) Take(crafter, furnace, item, count);
         Do(crafter, "order", "board", "order-1", option: "accept"); Do(crafter, "order", "board", "order-1", option: "deliver");
         Check(s.State.CompletedQuests.Contains("q06"), "chapter: first complex order delivered");
         s.Save(Path.Combine(root, "TestResults", "first-order-complete.json"));
         Do(crafter, "buy", "merchant", "combat_core"); Do(crafter, "assemble", item: "combat_golem"); Advance(7);
         var fighter = Assembled("combat_golem");
-        Give(crafter, fighter, "wooden_club", 1); Give(crafter, fighter, "wooden_shield", 1); Give(h, fighter, "wooden_sword", 1);
-        Take(crafter, furnace, "healing_jelly", 4); Give(crafter, fighter, "healing_jelly", 4);
+        Give(crafter, fighter, "wooden_club", 1); Give(crafter, fighter, "wooden_shield", 1); Do(h, "equip", mode: "unequip", option: "weapon"); Give(h, fighter, "wooden_sword", 1);
+        Give(crafter, fighter, "healing_jelly", 4);
         Do(fighter, "equip", item: "wooden_club"); Do(fighter, "equip", item: "wooden_shield");
         Do(fighter, "challenge", "shrine");
         Fight(fighter, "left-fist"); Fight(fighter, "right-fist");

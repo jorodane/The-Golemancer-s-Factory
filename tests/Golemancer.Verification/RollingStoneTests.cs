@@ -52,9 +52,9 @@ internal static class RollingStoneTests
         Check(m.Tile == new Tile(20, 20) && m.GetText("attacker") == "" && m.Path.Count == 0, "escaping the pursuit boundary returns Deguldol to its own home");
 
         g = Fixture(cooked, 21, 20); m = g.Find("stone")!; a = g.Find("a")!; a.Set("combat", 1);
-        a.Inventory["wooden_sword"] = 1; a.Data["weapon"] = "wooden_sword";
+        a.Inventory["wooden_sword"] = 1; g.Dispatch(new() { Action = "equip", Item = "wooden_sword" });
         g.Dispatch(new() { Action = "attack", TargetId = m.Id }); double slash = 35 - m.Get("health");
-        m.Set("health", 35); a.Set("nextAttack", 0); a.Inventory["wooden_club"] = 1; a.Data["weapon"] = "wooden_club";
+        m.Set("health", 35); a.Set("nextAttack", 0); a.Inventory["wooden_club"] = 1; g.Dispatch(new() { Action = "equip", Item = "wooden_club" });
         g.Dispatch(new() { Action = "attack", TargetId = m.Id });
         Check(slash == 14 && 35 - m.Get("health") == 18, "Deguldol has the planned blunt weakness without invented slash resistance");
         a.Set("combat", 0); a.SetPosition(10, 10); m.Set("health", 0); Advance(g, .1);

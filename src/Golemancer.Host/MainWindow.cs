@@ -45,8 +45,8 @@ internal sealed partial class MainWindow : Window
         overlay.Background=SvgImage.Brush("#14281fd9");overlay.Visibility=Visibility.Collapsed;overlay.Padding=new Thickness(28);root.Children.Add(overlay);
         var card=new Border{Background=Paper,CornerRadius=new CornerRadius(12),Padding=new Thickness(24),MaxWidth=700,MaxHeight=740,HorizontalAlignment=HorizontalAlignment.Center,VerticalAlignment=VerticalAlignment.Center};overlay.Child=card;
         card.Child=new ScrollViewer{Content=modal,VerticalScrollBarVisibility=ScrollBarVisibility.Auto};
-        dialogue.Background=SvgImage.Brush("#f2ebd8");dialogue.BorderBrush=Ink;dialogue.BorderThickness=new Thickness(2);dialogue.CornerRadius=new CornerRadius(10);dialogue.Padding=new Thickness(18);dialogue.Margin=new Thickness(330,30,25,35);dialogue.VerticalAlignment=VerticalAlignment.Bottom;dialogue.Visibility=Visibility.Collapsed;dialogue.Child=dialogueContent;root.Children.Add(dialogue);
-        world.TileClicked+=ClickTile;PreviewKeyDown+=OnGameKey;
+        BuildDialogue();
+        world.ObjectClicked+=ClickTarget;PreviewKeyDown+=OnGameKey;
         Activated+=(_,_)=>{session.Inactive=false;};Deactivated+=(_,_)=>{session.Inactive=true;session.ClearInput();CancelInventoryDrag();};
         timer.Tick+=Tick;Loaded+=(_,_)=>{lastTick=clock.Elapsed.TotalSeconds;timer.Start();};Closed+=(_,_)=>timer.Stop();
         Closing+=(_,e)=>{if(!session.Started)return;try{session.Save("autosave");}catch(Exception ex){e.Cancel=MessageBox.Show("자동 저장에 실패했어. 저장하지 않고 종료할까?\n"+ex.Message,Title,MessageBoxButton.YesNo,MessageBoxImage.Warning)!=MessageBoxResult.Yes;}};
@@ -68,24 +68,27 @@ internal sealed partial class MainWindow : Window
         catch(Exception ex){session.MenuPaused=true;Notify("게임 처리를 멈췄어: "+ex.Message);}
         if(now-lastHud>=.2){RefreshHud();refreshQuantity?.Invoke();RefreshBubbleHover();lastHud=now;}
         if(now>toastUntil)toast.Visibility=Visibility.Collapsed;
-        RefreshFacilityFocus();RefreshFacilityHover();world.InvalidateVisual();
+        RefreshDialogue();RefreshFacilityFocus();RefreshFacilityHover();world.InvalidateVisual();
     }
     private void Notify(string text){if(text.Length==0)return;toast.Text=text;toast.Visibility=Visibility.Visible;toastUntil=clock.Elapsed.TotalSeconds+5;}
     private ActionResult Send(string action,string target="",string item="",int amount=1,string mode="exact",string option="",int x=-1,int y=-1,string slotId="")
     {
-        var result=session.Command(new(){Action=action,TargetId=target,Item=item,Quantity=amount,Mode=mode,Option=option,X=x,Y=y,SlotId=slotId,Enqueue=queueBubbles||Held("queue")});
+        if (action == "attack" && mode == "exact") mode = session.Actor?.GetText("mode") == "combat" ? "once" : "until_down";
+        var request = new ActionRequest { Action=action,TargetId=target,Item=item,Quantity=amount,Mode=mode,Option=option,X=x,Y=y,SlotId=slotId,Enqueue=queueBubbles||Held("queue") };
+        var result=session.Command(request); if (result.Ok) lastIssuedAction = Shortcut(request);
         if (action == "toggle_mode" || action == "roll" || action == "select") world.Follow = session.Actor?.GetText("mode") == "combat";
         if(result.Message.Length>0)Notify(result.Message);RefreshHud();return result;
     }
     private void Begin(bool load=false,string slot="manual")
     {if(load)session.Load(slot);else session.NewGame();world.Reset();shownDay=-1;actionHistory.Clear();selected="";lastDialogue="";inventoryKey=crewKey=questKey="";CloseOverlay();RefreshHud();world.Focus();}
     private void Select(string id){selected=id;world.Selected=id;}
-    private void ClickTile(Tile tile,bool right)
+    private void ClickTile(Tile tile,bool right) => ClickTarget(tile,world.Target(tile),right);
+    private void ClickTarget(Tile tile,WorldObject? target,bool right)
     {
         if(!session.Started||modalType!=""||Game.State.Dialogues.Count>0)return;
         if(bubbleVisuals.Any(v=>!v.Ready))return; // Do not send clicks through circles while they spread out.
         if(world.Building.Length>0){if(right){world.Building="";Notify("건설 선택을 취소했어.");return;}if(Send("build",item:world.Building,x:tile.X,y:tile.Y).Ok)world.Building="";return;}
-        CloseBubbles();var target=world.Target(tile);bubbleAnchor=NativePointer.Position(root);
+        CloseBubbles();bubbleAnchor=NativePointer.Position(root);
         if (world.CommandAction.Length > 0)
         {
             string action = world.CommandAction; world.CommandAction = "";
@@ -120,14 +123,12 @@ internal sealed partial class MainWindow : Window
         var s=Game.State;var a=session.Actor;if(a is null)return;
         if(bubbleActor.Length>0&&bubbleActor!=a.Id)CloseBubbles();
         RefreshGameHud();
-        var d=s.Dialogues.FirstOrDefault();dialogue.Visibility=session.Started&&d is not null?Visibility.Visible:Visibility.Collapsed;
-        if(d is not null && d.Id!=lastDialogue){lastDialogue=d.Id;dialogueContent.Children.Clear();var row=new DockPanel();var image=new Image{Source=assets.Portrait(d.Mood,d.Chalk),Width=145,Height=190,Stretch=Stretch.Uniform};DockPanel.SetDock(image,Dock.Left);row.Children.Add(image);var text=new StackPanel{Margin=new Thickness(18,0,0,0)};text.Children.Add(Label(d.Speaker,22));text.Children.Add(Label(d.Text,17));text.Children.Add(Button("계속 · Enter",AdvanceDialogue,"dialogueNext"));row.Children.Add(text);dialogueContent.Children.Add(row);}
-        if(d is null)lastDialogue="";
+        var d=s.Dialogues.FirstOrDefault(); RefreshDialogue();
         var message=s.Messages.LastOrDefault();if(message is not null&&message.Time+message.Text!=lastNotice){lastNotice=message.Time+message.Text;Notify(message.Text);}
         if(d is not null)CloseBubbles();
     }
-    private void AdvanceDialogue(){if(Game.State.Dialogues.Count>0)Game.State.Dialogues.RemoveAt(0);RefreshHud();}
-    private void UseItem(string id){if(id is "healing_jelly" or "mana_jelly" or "sweetfruit")Send("consume",item:id);else if(id.StartsWith("wooden_",StringComparison.Ordinal))Send("equip",item:id);else Notify(Game.Content.Items.GetValueOrDefault(id)?.Description??id);}
+
+    private void UseItem(string id){if(id is "healing_jelly" or "mana_jelly" or "sweetfruit")Send("consume",item:id);else if((Game.Content.Items.GetValueOrDefault(id)?.EquipmentSlot.Length ?? 0) > 0)Send("equip",item:id);else Notify(Game.Content.Items.GetValueOrDefault(id)?.Description??id);}
     private bool IsKey(Key key,string action) => Game.Content.Inputs.GetValueOrDefault(action,"").Split(',').Any(k=>Enum.TryParse<Key>(k,true,out var parsed)&&parsed==key);
     private bool Held(string action) => Game.Content.Inputs.GetValueOrDefault(action,"").Split(',').Any(k=>Enum.TryParse<Key>(k,true,out var parsed)&&Keyboard.IsKeyDown(parsed));
     private void UpdateInput(double dt)
@@ -145,11 +146,12 @@ internal sealed partial class MainWindow : Window
         if(e.Key==Key.F11){bool full=WindowStyle==WindowStyle.None;WindowStyle=full?WindowStyle.SingleBorderWindow:WindowStyle.None;WindowState=full?WindowState.Normal:WindowState.Maximized;e.Handled=true;return;}
         if(Keyboard.FocusedElement is TextBox or ComboBox or Slider)return;
         if(!session.Started)return;
-        if(e.Key==Key.Escape){if(dragItem.Length>0){CancelInventoryDrag();e.Handled=true;return;}if(world.CommandAction.Length>0){world.CommandAction="";e.Handled=true;return;}if(Game.State.Dialogues.Count>0)return;if(world.Building!="")world.Building="";else if(modalType!="")CloseOverlay();else if(bubbleLayer.Children.Count>0)BackBubble();else Open("menu");e.Handled=true;return;}
+        if(e.Key==Key.Escape){if(dragItem.Length>0){CancelInventoryDrag();e.Handled=true;return;}if(world.CommandAction.Length>0){world.CommandAction="";e.Handled=true;return;}if(Game.State.Dialogues.Count>0)return;if(world.Building!="")world.Building="";else if(equipmentWindow.Visibility==Visibility.Visible)equipmentWindow.Visibility=Visibility.Collapsed;else if(memoryWindow.Visibility==Visibility.Visible)memoryWindow.Visibility=Visibility.Collapsed;else if(modalType!="")CloseOverlay();else if(bubbleLayer.Children.Count>0)BackBubble();else Open("menu");e.Handled=true;return;}
         if(Game.State.Dialogues.Count>0){if(e.Key is Key.Enter or Key.Space){AdvanceDialogue();e.Handled=true;}return;}
         if(modalType!="")return;var a=session.Actor;if(a is null)return;
         if(new[]{"move.up","move.down","move.left","move.right","pickup"}.Any(id=>IsKey(e.Key,id))){e.Handled=true;return;}
         if(e.IsRepeat){e.Handled=true;return;}
+        if (HandleHotbarKey(e)) return;
         if(IsKey(e.Key,"roll"))
         {
             int dx=(Held("move.right")?1:0)-(Held("move.left")?1:0),dy=(Held("move.down")?1:0)-(Held("move.up")?1:0);
@@ -158,7 +160,7 @@ internal sealed partial class MainWindow : Window
         }
         else if(IsKey(e.Key,"toggle_mode")){CloseBubbles();Send("toggle_mode");}
         else if(IsKey(e.Key,"record"))Send("record");else if(IsKey(e.Key,"play"))Send("play");
-        else if(IsKey(e.Key,"build"))Open("build");else if(IsKey(e.Key,"equipment"))Open("equipment");
+        else if(IsKey(e.Key,"build"))Open("build");else if(IsKey(e.Key,"equipment"))OpenEquipment();
         else if(IsKey(e.Key,"follow"))world.CenterOnActor();else if(IsKey(e.Key,"cancel"))Send("cancel");
         else if(IsKey(e.Key,"heal"))Send("consume",item:"healing_jelly");else if(IsKey(e.Key,"mana"))Send("consume",item:"mana_jelly");else return;
         e.Handled=true;

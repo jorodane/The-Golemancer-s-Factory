@@ -30,7 +30,7 @@ internal sealed partial class MainWindow
         button.Width = button.Height = size; button.Margin = new Thickness(0); button.Padding = new Thickness(0); button.BorderThickness = new Thickness(0); button.Background = Brushes.Transparent;
         var presenter = new FrameworkElementFactory(typeof(ContentPresenter)); button.Template = new ControlTemplate(typeof(Button)) { VisualTree = presenter };
         var icon = new HudIcon { Width = size, Height = size, Icon = assets.Sprite(IconIdFor(entry)), Glyph = GlyphFor(entry), Count = entry.Badge };
-        button.Content = icon; button.IsEnabled = entry.Available; button.Opacity = entry.Available ? 1 : .45;
+        button.Content = icon; AttachShortcutDrag(button, entry); button.IsEnabled = entry.Available; button.Opacity = entry.Available ? 1 : .45;
         button.RenderTransformOrigin = new Point(.5, .5); var scale = new ScaleTransform(1, 1); button.RenderTransform = scale;
         button.MouseEnter += (_, _) => { scale.ScaleX = scale.ScaleY = 1.10; }; button.MouseLeave += (_, _) => { scale.ScaleX = scale.ScaleY = 1; };
         button.Cursor = Cursors.Hand; panel.Children.Add(button);
@@ -80,9 +80,9 @@ internal sealed partial class MainWindow
         Outline(actorTitle, 16); actorInfo.Children.Add(actorTitle); Outline(status, 11); status.TextWrapping = TextWrapping.Wrap; status.Margin = new Thickness(2, 4, 2, 6); actorInfo.Children.Add(status);
         actionDock.Children.Add(actionGrid); lower.Children.Add(actionDock); hud.Children.Add(lower);
         var tools = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(0, 0, 18, 18) };
-        foreach (var entry in new[] { Leaf("build", "건설 · B", () => Open("build")), Leaf("routines", "행동 기록", () => Open("routines")), Group("orders", "공방 주문", () => GameEntries("orders")), Leaf("journal", "전체 일지", () => Open("journal")) })
+        foreach (var entry in new[] { Leaf("build", "건설 · B", () => Open("build")), Leaf("routines", "메모리", () => Open("routines")), Group("orders", "공방 주문", () => GameEntries("orders")), Leaf("journal", "전체 일지", () => Open("journal")) })
             tools.Children.Add(HudBubble(entry, 48, entry.Id == "orders" ? "open.orders" : "hud." + entry.Id));
-        hud.Children.Add(tools);
+        hud.Children.Add(tools); BuildHotbar(); BuildEquipmentWindow();
         dayChange.HorizontalAlignment = HorizontalAlignment.Center; dayChange.VerticalAlignment = VerticalAlignment.Top; dayChange.Margin = new Thickness(0, 120, 0, 0); dayChange.IsHitTestVisible = false; Outline(dayChange, 30); hud.Children.Add(dayChange);
     }
     private void ToggleCrew()
@@ -100,12 +100,12 @@ internal sealed partial class MainWindow
         actorTitle.Text = a.Name + (a.GetText("mode") == "combat" ? " · 전투" : " · 일상");
         selectedIcon.Icon = assets.Sprite(Game.Definition(a)?.Sprite ?? ""); selectedIcon.Health = a.Get("health") / Math.Max(1, a.Get("maxHealth")); selectedIcon.Mana = a.Get("mana") / Math.Max(1, a.Get("maxMana", 100)); selectedIcon.InvalidateVisual();
         selectedIcon.ToolTip = $"내구도 {a.Get("health"):0}/{a.Get("maxHealth"):0} · 마력 {a.Get("mana"):0}/{a.Get("maxMana", 100):0}";
-        status.Text = a.Recording is not null ? $"● 녹화 {a.Recording.Steps.Count} · 예약 {a.ActionQueue.Count}" : a.Playback?.Status ?? (a.Work is not null ? "작업 중" : a.Pending is not null || a.Path.Count > 0 ? "이동 중" : "대기");
+        status.Text = a.Recording is not null ? $"● 녹화 {a.Recording.Steps.Count} · 예약 {a.ActionQueue.Count}" : a.Playback?.Status ?? (a.Ongoing is not null ? "처치까지 공격 중" : a.Work is not null ? "작업 중" : a.Pending is not null || a.Path.Count > 0 ? "이동 중" : "대기");
         if (a.ActionQueue.Count > 0 && a.Recording is null) status.Text += $" · 예약 {a.ActionQueue.Count}";
         var q = Game.Content.Quests.Values.FirstOrDefault(q => !s.CompletedQuests.Contains(q.Id) && (q.Requires.Length == 0 || s.CompletedQuests.Contains(q.Requires)));
         string qkey = (q?.Id ?? "") + string.Join(",", q?.Goals.Select(g => s.Get(g.Key).ToString("0.0")) ?? []);
         if (qkey != questKey) { questKey = qkey; journal.Children.Clear(); journal.Children.Add(HudLabel(q?.Name ?? "다음 이야기의 문턱", 15)); if (q is not null) foreach (var goal in q.Goals) journal.Children.Add(HudLabel($"{(s.Get(goal.Key) >= goal.Amount ? "✓" : "◇")} {goal.Label}  {Math.Min(goal.Amount, s.Get(goal.Key)):0}/{goal.Amount}", 12)); }
-        string ckey = s.ControlledId + string.Join("|", Game.OfKind("golem").Select(o => o.Id + o.Get("mana").ToString("0") + o.Get("health").ToString("0") + o.Playback?.Status));
+        string ckey = s.ControlledId + string.Join("|", Game.OfKind("golem").Select(o => o.Id + o.Get("mana").ToString("0") + o.Get("health").ToString("0") + o.Playback?.Status + string.Join(",", o.Equipment)));
         if (crewWindow.Visibility == Visibility.Visible && ckey != crewKey)
         {
             crewKey = ckey; crew.Children.Clear(); var add = Leaf("assembly", "골렘 조립", () => Open("assembly")); add.Glyph = "+"; crew.Children.Add(HudBubble(add, 48, "hud.assembly"));
@@ -114,31 +114,31 @@ internal sealed partial class MainWindow
                 crew.Children.Add(HudLabel(Game.Content.Objects[group.Key].Name, 12)); var row = new WrapPanel(); crew.Children.Add(row);
                 foreach (var golem in group)
                 {
-                    var entry = Leaf("crew." + golem.Id, golem.Name, () => { CloseBubbles(); Send("select", golem.Id); world.CenterOnActor(); }); entry.IconId = Game.Definition(golem)!.Sprite;
+                    var entry = Leaf("crew." + golem.Id, golem.Name, () => { CloseBubbles(); Send("select", golem.Id); world.CenterOnActor(); }); entry.IconId = Game.Definition(golem)!.Sprite; entry.Shortcut = new() { Action = "select", TargetId = golem.Id };
                     var cell = (StackPanel)HudBubble(entry, 56); var button = (Button)cell.Children[0]; var icon = (HudIcon)button.Content; button.Tag = golem.Id;
                     icon.Health = golem.Get("health") / Math.Max(1, golem.Get("maxHealth")); icon.Mana = golem.Get("mana") / Math.Max(1, golem.Get("maxMana", 100)); icon.Selected = golem.Id == a.Id;
+                    button.PreviewMouseRightButtonDown += (_, e) => { e.Handled = true; OpenEquipment(golem.Id); };
+                    AddCrewEquipment(cell, golem);
                     button.ToolTip = $"{golem.Name}\n내구도 {golem.Get("health"):0}/{golem.Get("maxHealth"):0} · 마력 {golem.Get("mana"):0}/{golem.Get("maxMana", 100):0}";
                     button.MouseEnter += (_, _) => world.Highlighted = golem.Id; button.MouseLeave += (_, _) => world.Highlighted = ""; button.Unloaded += (_, _) => { if (world.Highlighted == golem.Id) world.Highlighted = ""; }; row.Children.Add(cell);
                 }
             }
         }
-        RefreshBag(a); RefreshActionGrid();
+        RefreshBag(a); RefreshActionGrid(); RefreshHotbar(); RefreshEquipmentWindow();
     }
     private List<BubbleEntry> ActorActions()
     {
         var a = session.Actor!; var list = new List<BubbleEntry>();
         if (!Game.IsGolem(a)) return [Group("assembly", "골렘 조립", () => GameEntries("assembly"))];
-        void TargetAction(string id) { var entry = Leaf(id, Game.Content.Actions[id].Name, () => { CloseBubbles(); world.CommandAction = id; Notify(Game.Content.Actions[id].Name + " · 대상을 클릭해줘."); }); list.Add(entry); }
+        void TargetAction(string id) { var entry = Leaf(id, Game.Content.Actions[id].Name, () => { CloseBubbles(); world.CommandAction = id; Notify(Game.Content.Actions[id].Name + " · 대상을 클릭해줘."); }); entry.Shortcut = new() { Action = id }; list.Add(entry); }
         if (Game.Capability(a, "harvest")) { TargetAction("harvest"); TargetAction("fell"); }
         if (Game.Capability(a, "mining")) TargetAction("mine");
         if (Game.Capability(a, "craft")) { list.Add(Group("build", "시설 건설", () => GameEntries("build"))); list.Add(Group("recipes", "제작", () => Game.OfKind("facility").Where(f => Game.Setting(f, "autoProduce") != "true" && Game.Content.Recipes.Values.Any(r => r.Facility == f.DefinitionId)).Select(f => Group("facility." + f.Id, f.Name, () => RecipeEntries(f))).ToList())); }
         if (Game.Capability(a, "combat")) TargetAction("attack");
-        list.Add(Group("equipment", "장비·강화", () => GameEntries("equipment")));
-        list.Add(Leaf("record", a.Recording is null ? "녹화 · R" : "녹화 종료", () => Send("record")));
-        list.Add(Leaf("play", a.Playback is null ? "반복 · T" : "반복 정지", () => Send("play")));
+        list.Add(Leaf("equipment", "장비·강화", () => OpenEquipment()));
         list.Add(Leaf("mode", a.GetText("mode") == "combat" ? "일상 · Tab" : "전투 · Tab", () => Send("toggle_mode")));
         list.Add(Leaf("cancel", "작업 중단", () => Send("cancel")));
-        list.AddRange(ActionEntries(InteractionChoices.Additional(Game, a, a), a).Where(e => e.Id != "action.select"));
+        list.AddRange(ActionEntries(InteractionChoices.Additional(Game, a, a), a).Where(e => e.Id is not ("action.select" or "action.record" or "action.play")));
         return list;
     }
     private void RefreshActionGrid(bool force = false)

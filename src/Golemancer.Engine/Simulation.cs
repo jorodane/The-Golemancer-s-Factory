@@ -25,6 +25,14 @@ public sealed partial class Simulation : IGameContext
         {
             if (double.IsNaN(obj.SubX) || double.IsInfinity(obj.SubX) || obj.SubX < -.5 || obj.SubX >= .5) obj.SubX = 0;
             if (double.IsNaN(obj.SubY) || double.IsInfinity(obj.SubY) || obj.SubY < -.5 || obj.SubY >= .5) obj.SubY = 0;
+            // Old builds kept equipped items in the bag. Transfer ownership once, retaining unknown mod data.
+            foreach (string slot in new[] { "weapon", "shield" })
+                if (!obj.Equipment.ContainsKey(slot) && obj.GetText(slot) is { Length: > 0 } item && Content.Items.GetValueOrDefault(item)?.EquipmentSlot == slot)
+                {
+                    if (obj.Inventory.GetValueOrDefault(item) > 0)
+                    { obj.Inventory[item]--; if (obj.Inventory[item] == 0) obj.Inventory.Remove(item); obj.Equipment[slot] = item; }
+                    obj.Data.Remove(slot);
+                }
         }
         foreach (var p in Content.Packs) State.PackVersions[p.Id] = p.Version;
         CleanReservations();
@@ -128,10 +136,11 @@ public sealed partial class Simulation : IGameContext
         // A fresh manual order replaces the running command and its tail. Queued/replayed
         // successors and non-recordable UI commands never cancel that tail.
         if ((def.Interrupts || def.Recordable && !playback && !emergencyRecovery) && !continuation && queued is null) this.CancelActions(actor, stopPlayback: false);
-        if ((def.Recordable || def.Range >= 0) && !emergencyRecovery && !continuation && (actor.Work is not null || actor.Pending is not null)) return ActionResult.Fail("작업 중이야. Shift로 다음 행동을 예약하거나 X로 취소해줘.", "busy");
+        if ((def.Recordable || def.Range >= 0) && !emergencyRecovery && !continuation && (actor.Work is not null || actor.Pending is not null || actor.Ongoing is not null)) return ActionResult.Fail("작업 중이야. Shift로 다음 행동을 예약하거나 X로 취소해줘.", "busy");
         if (playback && actor.Get("mana") <= 0 && request.Action != "charge") return ActionResult.Fail("마력이 부족해. 충전 후 이어갈 수 있어.", "no_mana");
         WorldObject? target = Find(request.TargetId);
-        if (request.TargetId.Length > 0 && (target is null || !target.Alive())) return FinishFailure(actor, request, ActionResult.Fail("대상을 사용할 수 없어.", "target_missing"), playback);
+        bool continuous = handler is IContinuousAction continuing && continuing.IsContinuous(this, actor, request);
+        if (request.TargetId.Length > 0 && (target is null || !target.Alive()) && !continuous) return FinishFailure(actor, request, ActionResult.Fail("대상을 사용할 수 없어.", "target_missing"), playback);
         if (def.Condition is not null && !Evaluate(def.Condition, actor, target)) return FinishFailure(actor, request, ActionResult.Fail("실행 조건을 충족하지 못했어.", "condition"), playback);
         CheckResult check;
         try { check = handler.Check(this, actor, request); }
@@ -158,7 +167,7 @@ public sealed partial class Simulation : IGameContext
             rec.Steps.Add(new RecordedStep { Request = intent with { ReservationId = "", Enqueue = false }, Offset = State.Time - rec.StartedAt, ActorTile = actor.Tile });
             if (queued is not null) queued.RecordedIn = rec.Id;
         }
-        if (target is not null && def.Range >= 0 && this.Distance(actor, target) > def.Range)
+        if (target is not null && target.Alive() && def.Range >= 0 && this.Distance(actor, target) > def.Range)
         {
             if (!NavigateTarget(actor, target, def.Range)) return FinishFailure(actor, request, ActionResult.Fail("대상에게 갈 수 있는 길이 없어.", "no_path"), playback);
             actor.Pending = request;
@@ -181,8 +190,13 @@ public sealed partial class Simulation : IGameContext
     private ActionResult Execute(IActionHandler handler, WorldObject actor, ActionRequest request, bool playback)
     {
         ActionResult result;
-        try { result = handler.Execute(this, actor, request); }
-        catch (Exception ex) { result = ActionResult.Fail($"객체 실행 오류: {ex.Message}", "module_error"); }
+        try
+        {
+            if (handler is IContinuousAction ongoing && ongoing.IsContinuous(this, actor, request))
+            { result = ongoing.Continue(this, actor, request); actor.Ongoing = result.Status == ActionStatus.Started ? request : null; }
+            else result = handler.Execute(this, actor, request);
+        }
+        catch (Exception ex) { actor.Ongoing = null; result = ActionResult.Fail($"객체 실행 오류: {ex.Message}", "module_error"); }
         if (result.Status != ActionStatus.Started) this.ReleaseReservation(request.ReservationId);
         if (!result.Ok) return FinishFailure(actor, request, result, playback);
         if (request.Action is "transfer" or "pickup" or "buy" or "consume" or "charge") this.Animate(actor, "work");
@@ -236,6 +250,7 @@ public sealed partial class Simulation : IGameContext
         foreach (var actor in State.Objects.Values.Where(o => o.Alive() && (this.IsGolem(o) || o.Path.Count > 0)).ToArray())
         {
             TickMovement(actor, dt);
+            if (actor.Ongoing is { } running) TickOngoing(actor, running);
             if (actor.Path.Count == 0 && actor.Pending is { } pending)
             {
                 actor.Pending = null;

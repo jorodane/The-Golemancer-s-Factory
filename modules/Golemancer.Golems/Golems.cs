@@ -44,18 +44,30 @@ public sealed class Select : IActionHandler
 public sealed class Equip : IActionHandler, IActionProjection
 {
     public ActionResult Project(IGameContext c, WorldObject a, ActionRequest r) => Execute(c, a, r);
-    private static readonly HashSet<string> Equipment = ["wooden_sword", "wooden_club", "wooden_shield"];
     public CheckResult Check(IGameContext c, WorldObject a, ActionRequest r)
     {
         if (!c.Capability(a, "combat")) return CheckResult.No("이 골렘은 장비를 사용할 수 없어.", "capability");
-        if (!Equipment.Contains(r.Item) || c.Available(a, r.Item) < 1) return CheckResult.No("장비가 보관함에 있어야 해.", "item_missing");
+        if (r.Mode == "unequip")
+        {
+            if (!a.Equipment.TryGetValue(r.Option, out var current)) return CheckResult.No("빈 장착칸이야.", "item_missing");
+            return c.Room(a, current) > 0 ? CheckResult.Yes : CheckResult.No("가방에 빈 칸이 필요해.", "inventory_full");
+        }
+        string slot = c.Content.Items.GetValueOrDefault(r.Item)?.EquipmentSlot ?? "";
+        if (slot.Length == 0 || c.Available(a, r.Item) < 1) return CheckResult.No("장비가 가방에 있어야 해.", "item_missing");
+        if (r.Option.Length > 0 && r.Option != slot) return CheckResult.No("이 장착칸에 맞지 않는 장비야.", "equipment_slot");
+        var preview = new WorldObject { DefinitionId = a.DefinitionId, Values = new(a.Values), Inventory = new(a.Inventory) };
+        preview.Take(r.Item, 1);
+        if (a.Equipment.TryGetValue(slot, out var old) && c.Room(preview, old) < 1) return CheckResult.No("교체할 장비를 둘 가방 공간이 필요해.", "inventory_full");
         return CheckResult.Yes;
     }
     public ActionResult Execute(IGameContext c, WorldObject a, ActionRequest r)
     {
-        string slot = r.Item == "wooden_shield" ? "shield" : "weapon";
-        // Equipment remains in inventory; it is never duplicated on equip/unequip or save.
-        a.Data[slot] = r.Item;
+        if (r.Mode == "unequip")
+        { string old = a.Equipment[r.Option]; c.Give(a, old, 1); a.Equipment.Remove(r.Option); return ActionResult.Success(c.ItemName(old) + " 해제"); }
+        string slot = c.Content.Items[r.Item].EquipmentSlot;
+        c.Take(a, r.Item, 1);
+        if (a.Equipment.TryGetValue(slot, out var previous)) c.Give(a, previous, 1);
+        a.Equipment[slot] = r.Item;
         return ActionResult.Success(c.ItemName(r.Item) + " 장착");
     }
 }
@@ -149,7 +161,10 @@ public sealed class Lifecycle : IRuntimeSystem
             string core = a.GetText("core");
             if (core != "") c.State.Treasury[core] = c.State.Treasury.GetValueOrDefault(core) + 1;
             if (a.Recording is not null) { c.State.Recordings[a.Recording.Id] = a.Recording; a.Recording = null; }
-            if (a.Inventory.Count > 0) { var drop = c.Spawn("dropped_items", a.X, a.Y); drop.Inventory = new(a.Inventory); a.Inventory.Clear(); }
+            var lost = new Dictionary<string, int>(a.Inventory);
+            foreach (var item in a.Equipment.Values) lost[item] = lost.GetValueOrDefault(item) + 1;
+            if (lost.Count > 0) c.Drop(a.X, a.Y, lost);
+            a.Inventory.Clear(); a.Equipment.Clear();
             c.State.Add("golemsDestroyed"); c.Notice(a.Name + "이 쓰러졌어. 핵은 공방으로 즉시 회수했어.", "warning");
             if (c.State.ControlledId == a.Id) { c.State.ControlledId = c.OfKind("golem").FirstOrDefault()?.Id ?? "enrin"; c.State.MapId = c.Find(c.State.ControlledId)?.GetText("area", "feast_trail") ?? "feast_trail"; }
         }

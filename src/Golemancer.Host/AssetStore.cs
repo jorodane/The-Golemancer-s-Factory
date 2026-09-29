@@ -11,6 +11,19 @@ internal sealed class AssetStore
     private readonly Dictionary<string, ImageSource> images = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, ImageSource> frames = [];
     private readonly Dictionary<(TileDef, bool), TerrainTexture> terrainTextures = [];
+    private readonly Dictionary<ImageSource, byte[]> hitMasks = [];
+    public bool OpaqueAt(ImageSource source, double x, double y)
+    {
+        if (x < 0 || y < 0 || x >= 1 || y >= 1) return false;
+        const int size = 96;
+        if (!hitMasks.TryGetValue(source, out var pixels))
+        {
+            var visual = new DrawingVisual(); using (var dc = visual.RenderOpen()) dc.DrawImage(source, new Rect(0, 0, size, size));
+            var raster = new RenderTargetBitmap(size, size, 96, 96, PixelFormats.Pbgra32); raster.Render(visual);
+            pixels = new byte[size * size * 4]; raster.CopyPixels(pixels, size * 4, 0); hitMasks[source] = pixels;
+        }
+        return pixels[((int)(y * size) * size + (int)(x * size)) * 4 + 3] > 28;
+    }
     public int LoadedImages => images.Count;
     public AssetStore(string root, ContentCatalog content)
     {
@@ -93,6 +106,17 @@ internal sealed class AssetStore
     {
         var clip = Clip(id, state);
         if (clip is null) return Path.IsPathRooted(id) ? Load(id) : null;
+        if (clip.CompositeOver.Length > 0 && Clip(id, clip.CompositeOver) is { } basis && basis != clip)
+        {
+            int index = FrameIndex(clip, elapsed); string key = "composite:" + id + ":" + state + ":" + index;
+            if (!frames.TryGetValue(key, out var composed))
+            {
+                var group = new DrawingGroup(); var baseImage = Frame(basis, 0); var patch = Frame(clip, index);
+                using (var dc = group.Open()) { dc.DrawImage(baseImage, new Rect(0, 0, baseImage.Width, baseImage.Height)); dc.DrawImage(patch, new Rect(clip.OverlayX, clip.OverlayY, patch.Width, patch.Height)); }
+                group.Freeze(); composed = new DrawingImage(group); composed.Freeze(); frames[key] = composed;
+            }
+            return composed;
+        }
         return Frame(clip, FrameIndex(clip, elapsed));
     }
     public ImageSource? Portrait(string mood, string chalk)

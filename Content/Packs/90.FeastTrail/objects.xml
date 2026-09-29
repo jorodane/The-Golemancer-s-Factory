@@ -86,7 +86,7 @@
         </And>
       </Placement>
     </Object>
-    <Object id="display_shelf" name="작은 진열대" kind="facility" width="2" solid="true" slots="8" actions="transfer,dismantle">
+    <Object id="display_shelf" capacity="4" name="작은 진열대" kind="facility" width="2" solid="true" slots="8" actions="transfer,dismantle">
       <Data key="buildable" value="true" />
       <Cost>
         <Item id="wood" amount="8" />
@@ -99,7 +99,7 @@
       </Placement>
       <Data key="shopOnly" value="true" />
     </Object>
-    <Object id="fine_shelf" name="아름다운 진열대" kind="facility" width="2" solid="true" slots="12" actions="transfer,dismantle">
+    <Object id="fine_shelf" capacity="4" name="아름다운 진열대" kind="facility" width="2" solid="true" slots="12" actions="transfer,dismantle">
       <Data key="buildable" value="true" />
       <Data key="unlock" value="first_order" />
       <Cost>
@@ -129,10 +129,10 @@
       </Placement>
       <Data key="autoProduce" value="true" />
       <Data key="preferredCategories" value="fuel,herb,liquid,jelly" />
-      <InputSlots outputSlots="3">
-        <Slot id="fuel" name="연료" items="wood" capacity="50" />
-        <Slot id="herb" name="약초" tags="herb" capacity="50" />
-        <Slot id="liquid" name="액체" tags="liquid" capacity="50" />
+      <InputSlots outputSlots="3" outputCapacity="5">
+        <Slot id="fuel" name="연료" items="wood" capacity="10" />
+        <Slot id="herb" name="약초" tags="herb" capacity="3" />
+        <Slot id="liquid" name="액체" tags="liquid" capacity="3" />
       </InputSlots>
     </Object>
     <Object id="mana_tower" name="마나 수정탑" kind="facility" width="2" height="2" solid="true" slots="8" actions="fuel_tower,charge">
