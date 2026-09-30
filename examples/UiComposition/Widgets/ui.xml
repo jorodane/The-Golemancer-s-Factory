@@ -1,0 +1,38 @@
+<Ui version="1" id="sample.ui.widgets">
+  <Widget id="sample.panel" description="자식 UI를 배치하는 컨테이너">
+    <Property name="direction" type="text" default="vertical" description="자식 슬롯의 배치 방향">
+      <Option value="vertical" /><Option value="horizontal" />
+    </Property>
+    <Property name="gap" type="number" default="8" min="0" description="자식 간 논리 단위 간격" />
+    <Slot name="items" />
+    <Renderer platform="windows" key="wpf.stack" />
+    <Renderer platform="android" key="skia.stack" />
+  </Widget>
+  <Widget id="sample.range" description="현재값과 최대값을 받아 표시하는 막대">
+    <Property name="value" type="number" required="true" min="0" />
+    <Property name="maximum" type="number" required="true" min="0" />
+    <Property name="fill" type="color" default="#52B889" description="막대 채움 색" />
+    <Slot name="overlay" max="1" />
+    <Renderer platform="windows" key="wpf.range" />
+    <Renderer platform="android" key="skia.range" />
+  </Widget>
+  <Widget id="sample.text" description="문자열 표시">
+    <Property name="text" type="text" default="" />
+    <Property name="color" type="color" default="#FFFFFF" />
+    <Renderer platform="windows" key="wpf.text" />
+    <Renderer platform="android" key="skia.text" />
+  </Widget>
+  <Widget id="sample.button" description="클릭 명령을 내보내는 버튼">
+    <Property name="text" type="text" required="true" />
+    <Property name="enabled" type="boolean" default="true" />
+    <Event name="activate" payload="none" description="활성 버튼을 누르고 같은 버튼에서 놓으면 한 번 발생" />
+    <Renderer platform="windows" key="wpf.button" />
+    <Renderer platform="android" key="skia.button" />
+  </Widget>
+  <Widget id="sample.toggle" description="변경 요청을 내보내며 모델의 확정값을 표시하는 토글">
+    <Property name="value" type="boolean" default="false" />
+    <Event name="change" payload="boolean" />
+    <Renderer platform="windows" key="wpf.toggle" />
+    <Renderer platform="android" key="skia.toggle" />
+  </Widget>
+</Ui>

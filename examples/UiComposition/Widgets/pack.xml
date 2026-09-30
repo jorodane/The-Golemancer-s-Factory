@@ -1,0 +1,3 @@
+<ObjectPack id="sample.ui.widgets" version="1.0.0" contracts="1">
+  <Ui path="ui.xml" />
+</ObjectPack>

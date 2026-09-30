@@ -13,6 +13,8 @@
   <Assembly path="Bin/{framework}/MyPack.dll" />
   <Data path="objects.xml" />
   <Data path="localization_ko-KR.xml" />
+  <!-- 선택 사항: UI 제공/요청 명세. 파일 루트는 Ui이며 GameContent와 별개다. -->
+  <Ui path="ui.xml" />
 </ObjectPack>
 ```
 
@@ -21,6 +23,8 @@
 이미지는 같은 팩의 `Images/tea.svg` 등에 넣는다. Object의 `sprite="Images/tea.svg"`는 해당 팩 내부 경로로 해석된다. 기본 벡터 스프라이트를 재사용하려면 `sprite="storage"`처럼 ID를 지정한다. 등록된 이미지가 없으면 시작 시 실제 누락 경로를 표시한다. 정의는 있지만 sprite ID를 알 수 없는 객체는 이름으로 표시한다. 그림을 코드로 대체 생성하지 않는다. 타일셋과 애니메이션은 독립 이미지 객체팩으로 등록한다. 자세한 XML은 [ART_PACKS.md](ART_PACKS.md)를 참고한다.
 
 ## 구현 경계
+
+UI를 제공하거나 요청하는 팩은 [UI_CONTRACTS.md](UI_CONTRACTS.md)의 선택적 `IUiRegistry`와 `<Ui path="…" />`를 사용한다. UI 속성·값·이벤트·공개 슬롯 계약은 게임 객체 정의와 분리되어 있다.
 
 | 계약 | 역할 | 구현 규칙 |
 |---|---|---|

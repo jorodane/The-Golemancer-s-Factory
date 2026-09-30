@@ -1,0 +1,4 @@
+<ObjectPack id="sample.ui.project" version="1.0.0" contracts="1">
+  <Depends id="sample.ui.widgets" minVersion="1.0.0" />
+  <Ui path="ui.xml" />
+</ObjectPack>

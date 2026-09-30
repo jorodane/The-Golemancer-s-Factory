@@ -8,11 +8,17 @@ using System.Text;
 using System.Xml;
 using System.Xml.Linq;
 using Golemancer.Contracts;
+using Golemancer.Contracts.UI;
+using Golemancer.Engine.UI;
 
 namespace Golemancer.Engine;
 
-public sealed class ModuleRegistry : IModuleRegistry, ITerrainRegistry, IInputRegistry
+public sealed class ModuleRegistry : IModuleRegistry, ITerrainRegistry, IInputRegistry, IUiRegistry
 {
+    private readonly List<UiDocument> uiDocuments = [];
+    public UiCatalog Ui { get; private set; } = new(Array.Empty<UiDocument>());
+    public void RegisterUi(UiDocument document) => uiDocuments.Add(document);
+    internal void CompileUi() => Ui = new(uiDocuments);
     public Dictionary<string, InputActionDef> Inputs { get; } = [];
     public void Input(InputActionDef action) => Inputs.Add(action.Id, action);
     public Dictionary<string, IActionHandler> Actions { get; } = [];
@@ -127,12 +133,21 @@ public static partial class PackLoader
                     fingerprint.Append(File.ReadAllText(file));
                     ReadContent(Read(file).Root!, catalog, folder);
                 }
+                foreach (var ui in m.Xml.Elements("Ui"))
+                {
+                    string file = SafePath(folder, S(ui, "path"));
+                    string text = File.ReadAllText(file);
+                    fingerprint.Append(text);
+                    using var input = new StringReader(text);
+                    registry.RegisterUi(UiXml.Read(input));
+                }
                 catalog.Packs.Add(new PackInfo(id, version.ToString(), folder, m.Xml.Elements("Depends").Select(d => S(d, "id")).ToArray(), files.Select(Path.GetFileName).Select(f => f!).ToArray()));
                 loaded[id] = version;
                 pending.Remove(id);
             }
         }
         foreach (var input in registry.Inputs) if (!catalog.InputActions.ContainsKey(input.Key)) catalog.InputActions.Add(input.Key, input.Value);
+        registry.CompileUi();
         registry.Systems.Sort((a, b) => a.Order.CompareTo(b.Order));
         string Localize(string value) => value.StartsWith("@", StringComparison.Ordinal) ? catalog.Text(value.Substring(1)) : value;
         foreach (var item in catalog.Items.Values) { item.Name = Localize(item.Name); item.Description = Localize(item.Description); }

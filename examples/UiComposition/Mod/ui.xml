@@ -1,0 +1,8 @@
+<Ui version="1" id="sample.ui.mod">
+  <Contribute view="sample.status" parent="sample.root" slot="items">
+    <Node id="extension.details" widget="sample.button" order="50">
+      <Set property="text" value="추가 정보" />
+      <On event="activate" command="extension.details" />
+    </Node>
+  </Contribute>
+</Ui>

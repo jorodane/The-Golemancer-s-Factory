@@ -1,0 +1,28 @@
+<Ui version="1" id="sample.ui.project">
+  <View id="sample.status">
+    <Node id="sample.root" widget="sample.panel">
+      <Layout anchorMin="1,0" anchorMax="1,0" pivot="1,0" offset="-16,16" size="240,200" safeArea="true" />
+      <Set property="gap" value="12" />
+      <Slot name="items" export="true">
+        <Node id="sample.gauge" widget="sample.range" order="10">
+          <Bind property="value" source="status.current" />
+          <Bind property="maximum" source="status.maximum" />
+          <Set property="fill" value="#4B9AE8" />
+          <Slot name="overlay">
+            <Node id="sample.caption" widget="sample.text">
+              <Bind property="text" source="status.caption" />
+            </Node>
+          </Slot>
+        </Node>
+        <Node id="sample.enabled" widget="sample.toggle" order="20">
+          <Bind property="value" source="settings.enabled" />
+          <On event="change" command="settings.requestEnabled" />
+        </Node>
+        <Node id="sample.close" widget="sample.button" order="100">
+          <Set property="text" value="닫기" />
+          <On event="activate" command="screen.close" />
+        </Node>
+      </Slot>
+    </Node>
+  </View>
+</Ui>

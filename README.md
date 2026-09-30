@@ -135,6 +135,8 @@ R로 녹화를 마칠 때에는 진행 중인 행동과 **아직 실행하지 �
 
 공유 계약은 [docs/CONTRACTS.md](docs/CONTRACTS.md), XML 명세와 모드 제작은 [docs/OBJECT_PACKS.md](docs/OBJECT_PACKS.md)를 참고해. `python tools/context.py Crafting`은 해당 모듈의 소스·XML·공유 계약 목록만 보여줘. 구체 모듈 간 프로젝트 참조는 없어.
 
+UI 요소의 속성·이벤트·자식 슬롯을 공개하고 XML 또는 C#으로 요청하는 [UI 명세 v1](docs/UI_CONTRACTS.md)도 추가했어. [독립 UI 예제](examples/UiComposition/README.md)는 값 연결과 모드 버튼 추가를 게임 내용 없이 검증해. 공통 조립 경로까지 구현했으며 실제 WPF/Android 화면과의 연결은 후속 단계야.
+
 ## 검증
 
 Windows의 `Verify.bat`은 저장소에 포함된 net48 검증 프로그램으로 캠페인·회귀 검증과 WPF `--smoke` 검증을 실행해. SDK 없이 현재 빌드를 확인할 수 있어. 창 검증은 로컬 `Content`의 기존 이미지를 사용하고, 별도 테스트 세이브와 `TestResults/windows` 결과·화면을 남겨. 소스를 수정했다면 `Build.bat`으로 빌드를 갱신한 뒤 실행해.
