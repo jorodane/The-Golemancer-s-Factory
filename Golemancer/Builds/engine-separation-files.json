@@ -1,0 +1,129 @@
+{
+  "destination": "https://github.com/jorodane/The-Golemancer-s-Factory",
+  "branch": "main",
+  "sourceCommit": "73fd4b4cc59e609a1ba222fed7faff28f1fefe4f",
+  "files": [
+    {
+      "path": "Golemancer/Builds/Windows/Golemancer.Client.dll",
+      "bytes": 15360,
+      "sha256": "93fe9ae8ee430d170395c2f77534a47ccd60a205b290fd2e0bcdbc11841da735"
+    },
+    {
+      "path": "Golemancer/Builds/Windows/Golemancer.Contracts.dll",
+      "bytes": 104960,
+      "sha256": "0c391dc940ec86aedae4360d8451e581e039d1d384fd98df191ac47ceac9f1c6"
+    },
+    {
+      "path": "Golemancer/Builds/Windows/Golemancer.Runtime.dll",
+      "bytes": 99328,
+      "sha256": "d2176043588d62005eed622b44dbd096dbc40271cef43ac00a302fdaccd1b4ee"
+    },
+    {
+      "path": "Golemancer/Builds/Windows/Golemancer.Verification.exe",
+      "bytes": 237056,
+      "sha256": "a6729f40fef09e8f22c74fb54795ce80bf98671f7fa6ba4fe283dde02876d72e"
+    },
+    {
+      "path": "Golemancer/Builds/Windows/Golemancer.exe",
+      "bytes": 289792,
+      "sha256": "07ce9cf8895400679d3b416881578c1365417d1a7c6762d454698a8a25060fb3"
+    },
+    {
+      "path": "Golemancer/Builds/Windows/PackEngine.Contracts.dll",
+      "bytes": 23552,
+      "sha256": "9658ea921d4eba6b73e64df2bac239588c578b9fb5809900a35847a882a9b1fa"
+    },
+    {
+      "path": "Golemancer/Builds/Windows/PackEngine.Runtime.dll",
+      "bytes": 51712,
+      "sha256": "e21e55120a9d2c2bd3620790923a511e54bc49c8968279ef2b89a58edabb6726"
+    },
+    {
+      "path": "Golemancer/Content/Packs/00.Foundation/Bin/net48/Golemancer.Conditions.dll",
+      "bytes": 8192,
+      "sha256": "e254f01365233d2ec1404c35d78293a72cd62bceb06e7266d0a3b71ba04dac8f"
+    },
+    {
+      "path": "Golemancer/Content/Packs/00.Foundation/Bin/net48/Golemancer.Failures.dll",
+      "bytes": 6144,
+      "sha256": "d3d49aa178f8389468b3ef12bb859641319e47c9c893ad77df25c2345894dacd"
+    },
+    {
+      "path": "Golemancer/Content/Packs/00.Foundation/Bin/net48/Golemancer.Logistics.dll",
+      "bytes": 26112,
+      "sha256": "d9bf519e8b991631e1b3c84738f014fa062bbc57d94c5a239b32faa41bdd7665"
+    },
+    {
+      "path": "Golemancer/Content/Packs/04.TerrainRules/Bin/net48/Golemancer.Terrain.dll",
+      "bytes": 7680,
+      "sha256": "d3eb5107bc61e98766a83ad1b168501c52b5597ced1d8fb7cb039057c6f735c5"
+    },
+    {
+      "path": "Golemancer/Content/Packs/10.Harvesting/Bin/net48/Golemancer.Harvesting.dll",
+      "bytes": 8704,
+      "sha256": "ad5a7edabe76730543591aae9b07c49ce41bb44c0e86bae57a2e244ee7914b71"
+    },
+    {
+      "path": "Golemancer/Content/Packs/20.Crafting/Bin/net48/Golemancer.Crafting.dll",
+      "bytes": 15872,
+      "sha256": "26ba2cb08082cf9893ef811910fac423ce6cb1df02f79758c9f4ce17876d1d91"
+    },
+    {
+      "path": "Golemancer/Content/Packs/30.Construction/Bin/net48/Golemancer.Construction.dll",
+      "bytes": 10752,
+      "sha256": "6a38ba72b00afad517712a1c19ccd612ac7b64614c94bf91ce10db0b0d37e7b8"
+    },
+    {
+      "path": "Golemancer/Content/Packs/40.Commerce/Bin/net48/Golemancer.Commerce.dll",
+      "bytes": 15872,
+      "sha256": "178d6db01cb864290a4f3b83a922e0b51b034ef7b84055506f37a392720c4956"
+    },
+    {
+      "path": "Golemancer/Content/Packs/50.Golems/Bin/net48/Golemancer.Golems.dll",
+      "bytes": 26624,
+      "sha256": "c30ab5b177b85bef56ee06697f0364c5546be0826e774b1e4a93a6bddc0ed681"
+    },
+    {
+      "path": "Golemancer/Content/Packs/60.Automation/Bin/net48/Golemancer.Automation.dll",
+      "bytes": 14336,
+      "sha256": "8c50a1e4cc9f25c2055502d353ff867db91984482174a20aeeabcc3905ea0e7b"
+    },
+    {
+      "path": "Golemancer/Content/Packs/70.Combat/Bin/net48/Golemancer.Combat.dll",
+      "bytes": 31744,
+      "sha256": "3bc1bb8d53d8066d8a106adfc565306f252f1198052943219f7691e74cf05507"
+    },
+    {
+      "path": "Golemancer/Content/Packs/80.Story/Bin/net48/Golemancer.Story.dll",
+      "bytes": 9728,
+      "sha256": "fc387915b9775d3ef757ae0abfeff4d66349d89e329cdb086a24e9ee27f6af8f"
+    },
+    {
+      "path": "Golemancer/Content/Packs/90.FeastTrail/Bin/net48/Golemancer.FeastTrail.dll",
+      "bytes": 11264,
+      "sha256": "2b283d54a00687a69f382aaf537e2d4f07039c639f38c1259df1d1572519be14"
+    },
+    {
+      "path": "Golemancer/SDK/net10.0/PackEngine.Contracts.dll",
+      "bytes": 22016,
+      "sha256": "83f1b878695574e1c97548d1c50950e410e1a8ea38b809a32a99c389d5d103ba"
+    },
+    {
+      "path": "Golemancer/SDK/net10.0/PackEngine.Runtime.dll",
+      "bytes": 52736,
+      "sha256": "c579f6b8d0900f42bd03fae43133ce490e34c7a47d588595ef3a5f3fa7c8a027"
+    },
+    {
+      "path": "Golemancer/SDK/net48/PackEngine.Contracts.dll",
+      "bytes": 23552,
+      "sha256": "9658ea921d4eba6b73e64df2bac239588c578b9fb5809900a35847a882a9b1fa"
+    },
+    {
+      "path": "Golemancer/SDK/net48/PackEngine.Runtime.dll",
+      "bytes": 51712,
+      "sha256": "e21e55120a9d2c2bd3620790923a511e54bc49c8968279ef2b89a58edabb6726"
+    }
+  ],
+  "imagesIncluded": false,
+  "apkIncluded": false
+}
