@@ -35,7 +35,7 @@
 - Never add a project reference outside this folder. SDK/engine-lock.json pins only the independent PackEngine libraries. Do not alter the SDK or its lock to make a game-only extension pass.
 - The domain DLL ABI is version 2 (pack.xml contracts="2"); rebuild old game DLLs against the new contracts. Existing JSON saves retain schema version 1.
 - BuildPacks.bat builds content DLLs and the game contracts. TestIsolation.bat copies this folder without engine source and runs the existing game and full campaign while comparing engine/host hashes. Optional TeaBreak checks require --with-tea-break and are not part of the current separation verification.
-- Generic UI WPF/Android backends are not implemented. The game uses its existing native screens; engine separation does not add renderer capabilities.
+- Ordinary shared-presentation buttons use the independent engine.ui.button DLL through the SDK canvas/input contract (SDK/UI_PACKS.md). WPF and custom radial UI retain their existing rendering. Do not introduce a direct reference to the button module or claim a general native widget backend.
 - Native hosts bind frame work through the SDK timing scheduler; see docs/TIMING.md. Keep simulation at priority 0 and camera preparation at render-update -10 before native submission 0. The engine must never learn game or native host types.
 - All native hosts use Client.GameCamera, a compatibility adapter over the SDK rendering camera. Keep interpolation/projection in the engine, game tracking/bounds in the consumer, and picking on the last-drawn view. Wheel/buttons set zoom targets; zoom alone must not rebuild terrain caches. See SDK/CAMERA.md.
 

@@ -63,5 +63,26 @@
         <member name="T:PackEngine.Contracts.UI.IUiElement">
             <summary>Set must not emit user events. Dispose releases only this element, not its children.</summary>
         </member>
+        <member name="T:PackEngine.Contracts.UI.IUiRendererRegistry">
+            <summary>Optional pack registration surface. Renderer keys have no built-in implementations.</summary>
+        </member>
+        <member name="T:PackEngine.Contracts.UI.UiBounds">
+            <summary>Logical coordinates supplied by the host. Native types never cross this boundary.</summary>
+        </member>
+        <member name="M:PackEngine.Contracts.UI.UiBounds.#ctor(System.Double,System.Double,System.Double,System.Double)">
+            <summary>Logical coordinates supplied by the host. Native types never cross this boundary.</summary>
+        </member>
+        <member name="T:PackEngine.Contracts.UI.IUiCanvas">
+            <summary>Drawing primitives only; the provider decides which primitives make a widget.</summary>
+        </member>
+        <member name="T:PackEngine.Contracts.UI.UiInput">
+            <summary>Pointer identity and inside state are supplied by the native host's capture routing.</summary>
+        </member>
+        <member name="M:PackEngine.Contracts.UI.UiInput.#ctor(PackEngine.Contracts.UI.UiInputKind,System.Int32,System.Boolean,System.String,System.Boolean)">
+            <summary>Pointer identity and inside state are supplied by the native host's capture routing.</summary>
+        </member>
+        <member name="T:PackEngine.Contracts.UI.IUiCanvasElement">
+            <summary>Optional canvas/input capability. Input and drawing are serialized on the host UI thread.</summary>
+        </member>
     </members>
 </doc>

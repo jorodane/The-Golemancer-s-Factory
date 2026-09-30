@@ -104,6 +104,21 @@ interface PackEngine.Contracts.UI.IUiBackend
   bool Supports(string renderer, PackEngine.Contracts.UI.UiWidgetDefinition contract);
 }
 
+// Drawing primitives only; the provider decides which primitives make a widget.
+interface PackEngine.Contracts.UI.IUiCanvas
+{
+  void Fill(PackEngine.Contracts.UI.UiBounds bounds, double cornerRadius, PackEngine.Contracts.UI.UiValue color);
+  void Text(string text, PackEngine.Contracts.UI.UiBounds bounds, double fontSize, PackEngine.Contracts.UI.UiValue color);
+}
+
+// Optional canvas/input capability. Input and drawing are serialized on the host UI thread.
+interface PackEngine.Contracts.UI.IUiCanvasElement
+  inherits: PackEngine.Contracts.UI.IUiElement, System.IDisposable
+{
+  void Draw(PackEngine.Contracts.UI.IUiCanvas canvas, PackEngine.Contracts.UI.UiBounds bounds);
+  void Input(PackEngine.Contracts.UI.UiInput input);
+}
+
 interface PackEngine.Contracts.UI.IUiCommand
 {
   PackEngine.Contracts.UI.UiValueKind Payload { get; }
@@ -126,10 +141,22 @@ interface PackEngine.Contracts.UI.IUiElement
   void Set(string property, PackEngine.Contracts.UI.UiValue value);
 }
 
+interface PackEngine.Contracts.UI.IUiElementFactory
+{
+  PackEngine.Contracts.UI.IUiElement Create(string nodeId, PackEngine.Contracts.UI.UiLayout layout);
+  bool Supports(PackEngine.Contracts.UI.UiWidgetDefinition contract);
+}
+
 // Optional pack registry extension; independent DLLs and compiled modules use the same contract.
 interface PackEngine.Contracts.UI.IUiRegistry
 {
   void RegisterUi(PackEngine.Contracts.UI.UiDocument document);
+}
+
+// Optional pack registration surface. Renderer keys have no built-in implementations.
+interface PackEngine.Contracts.UI.IUiRendererRegistry
+{
+  void RegisterRenderer(string key, PackEngine.Contracts.UI.IUiElementFactory factory);
 }
 
 // All operations, including notifications, run on the host UI thread. Each subscription is independent.
@@ -138,6 +165,18 @@ interface PackEngine.Contracts.UI.IUiValueSource
   PackEngine.Contracts.UI.UiValueKind Type { get; }
   PackEngine.Contracts.UI.UiValue Read();
   System.IDisposable Subscribe(System.Action<PackEngine.Contracts.UI.UiValue> changed);
+}
+
+// Logical coordinates supplied by the host. Native types never cross this boundary.
+struct PackEngine.Contracts.UI.UiBounds
+  inherits: System.IEquatable<PackEngine.Contracts.UI.UiBounds>
+{
+  UiBounds(double X, double Y, double Width, double Height);
+  double Height { get; set/init; }
+  double Width { get; set/init; }
+  double X { get; set/init; }
+  double Y { get; set/init; }
+  bool Contains(double x, double y);
 }
 
 class PackEngine.Contracts.UI.UiContribution
@@ -165,6 +204,31 @@ class PackEngine.Contracts.UI.UiEventDefinition
   string Description { get; set/init; }
   string Name { get; set/init; }
   PackEngine.Contracts.UI.UiValueKind Payload { get; set/init; }
+}
+
+// Pointer identity and inside state are supplied by the native host's capture routing.
+struct PackEngine.Contracts.UI.UiInput
+  inherits: System.IEquatable<PackEngine.Contracts.UI.UiInput>
+{
+  UiInput(PackEngine.Contracts.UI.UiInputKind Kind, int Pointer = 0, bool Inside = True, string Key = "", bool Repeat = False);
+  bool Inside { get; set/init; }
+  string Key { get; set/init; }
+  PackEngine.Contracts.UI.UiInputKind Kind { get; set/init; }
+  int Pointer { get; set/init; }
+  bool Repeat { get; set/init; }
+}
+
+enum PackEngine.Contracts.UI.UiInputKind
+  inherits: System.IComparable, System.ISpanFormattable, System.IFormattable, System.IConvertible
+{
+  PointerDown = 0;
+  PointerMove = 1;
+  PointerUp = 2;
+  PointerCancel = 3;
+  KeyDown = 4;
+  KeyUp = 5;
+  FocusLost = 6;
+  Activate = 7;
 }
 
 // Top-left origin, logical UI units. Size is added to the anchor span; Offset moves the pivot.

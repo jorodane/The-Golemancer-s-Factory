@@ -2,7 +2,7 @@
 
 UI 팩은 **무엇을 받을 수 있고 무엇을 내보내는지** 공개한다. 게임·객체·다른 팩은 그 명세를 보고 UI 요소를 요청하고, 표시할 값과 실행할 명령을 연결한다. 엔진은 UI 구성과 연결을 검증한다. 값이 체력인지 마나인지, 명령이 상점을 여는지 저장을 하는지는 해석하지 않는다.
 
-WCW의 `GenericWidgetClaim`, `Contain…`, `InfoConnectable`에서 참고한 책임 분리를 XML과 C#의 공통 계약으로 옮겼다. v1은 등록·검증·조립·값 갱신·이벤트·해제 경로를 구현한 기반이다. 현재 Golemancer의 WPF/Android 화면을 이 API로 이식하거나 네이티브 위젯 어댑터를 구현한 상태는 아니다. 예제의 `wpf.*`, `skia.*`는 어댑터가 제공해야 할 식별자이며, 검증용 백엔드는 호출과 값을 기록한다.
+WCW의 `GenericWidgetClaim`, `Contain…`, `InfoConnectable`에서 참고한 책임 분리를 XML과 C#의 공통 계약으로 옮겼다. v1은 등록·검증·조립·값 갱신·이벤트·해제 경로를 구현한 기반이다. 이제 공통 Android/Linux/iOS 화면의 일반 버튼은 실제 외부 `engine.ui.button` DLL을 이 API로 조립한다. WPF 화면과 원형 메뉴의 특수 요소는 기존 구현을 유지한다. 아래 예제의 `wpf.*`, `skia.*`는 여전히 검증용 식별자이며 범용 네이티브 위젯 백엔드가 구현되었다는 뜻은 아니다. 실제 버튼 팩 경계와 입력 계약은 [SDK/UI_PACKS.md](../SDK/UI_PACKS.md)를 참조한다.
 
 ## 1. 제공하는 것과 받는 것
 
@@ -158,6 +158,9 @@ v1은 **추가** 계약이다. 기존 노드 삭제·속성 patch·위젯 타입
 | API | 책임 |
 |---|---|
 | `IUiRegistry.RegisterUi(UiDocument)` | 모듈이 제공자 정의·요청 트리·기여를 등록 |
+| `IUiRendererRegistry.RegisterRenderer(key, factory)` | 독립 DLL이 실제 요소 생성기를 등록 |
+| `UiModuleRegistry.Backend(platform)` | 등록된 생성기들로 플랫폼 백엔드를 구성 |
+| `IUiCanvasElement.Draw/ Input` | 플랫폼 중립 그리기와 포인터·키·포커스 입력 |
 | `UiXml.Read(path)` / `Read(TextReader)` | XML을 공통 요청 DTO로 읽음 |
 | `new UiCatalog(documents)` | DTO를 복사하고 교차 참조·설정·트리를 검증 |
 | `UiCatalog.Describe(widgetId)` | 외부 설정 도구를 위한 제공자 명세 사본 |

@@ -56,6 +56,14 @@ public sealed partial class GameScreen
                     case PointerPhase.Cancel: CancelPointers(); break;
                 }
             }
+            var zoomButton = hit.Single(h => h.Id == "zoom+");
+            Check(PackLoader.IsExternalModule(packButtons.Element("zoom+").GetType().Assembly), "shared native screen paints ordinary buttons through the external engine UI DLL");
+            double targetBeforeButton = camera.TargetZoom;
+            Touch(PointerPhase.Down, 91, zoomButton.Bounds.MidX, zoomButton.Bounds.MidY);
+            using (var surface = SKSurface.Create(new SKImageInfo(960, 540))) Render(surface.Canvas, 960, 540);
+            Touch(PointerPhase.Up, 91, zoomButton.Bounds.MidX, zoomButton.Bounds.MidY);
+            Check(camera.TargetZoom == targetBeforeButton + 6, "native pointer release reaches the pack button and its bound zoom command across a redraw");
+            camera.Zoom = startZoom;
             Touch(PointerPhase.Down, 11, 88, 454);
             Touch(PointerPhase.Move, 11, 140, 454);
             Touch(PointerPhase.Down, 42, 832, 491);

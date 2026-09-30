@@ -17,6 +17,7 @@ public sealed record CookedPacks(IReadOnlyList<PackInfo> Packs, string Fingerpri
 /// <summary>Loads ordered DLL/XML packs; all domain XML and registration semantics belong to the caller.</summary>
 public static class PackCompiler
 {
+    public const string EngineContractVersion = "1";
 #if NETFRAMEWORK
     public const string RuntimeFolder = "net48";
 #else
@@ -91,7 +92,14 @@ public static class PackCompiler
             {
                 var manifest = pending[id];
                 string folder = Path.GetDirectoryName(manifest.Path)!;
-                if (S(manifest.Xml, "contracts") != contractVersion) throw new InvalidDataException("Unsupported contract version in " + id);
+                bool enginePack = manifest.Xml.Attribute("engineContracts") is not null;
+                if (enginePack)
+                {
+                    if (S(manifest.Xml, "engineContracts") != EngineContractVersion || manifest.Xml.Attribute("contracts") is not null)
+                        throw new InvalidDataException("Unsupported or ambiguous engine contract version in " + id);
+                    if (manifest.Xml.Elements("Data").Any()) throw new InvalidDataException("Engine packs cannot declare domain Data: " + id);
+                }
+                else if (S(manifest.Xml, "contracts") != contractVersion) throw new InvalidDataException("Unsupported contract version in " + id);
                 Version version = Version.Parse(S(manifest.Xml, "version", "1.0.0"));
                 foreach (var dependency in manifest.Xml.Elements("Depends"))
                     if (loaded[S(dependency, "id")] < Version.Parse(S(dependency, "minVersion", "1.0.0")))
@@ -103,6 +111,9 @@ public static class PackCompiler
                     var assembly = LoadModule(file, shared);
                     var entries = assembly.GetTypes().Where(t => !t.IsAbstract && typeof(IPackModule<TRegistry>).IsAssignableFrom(t)).ToArray();
                     if (entries.Length == 0) throw new InvalidDataException("No compatible module entry point in " + file);
+                    if (enginePack && entries.SelectMany(t => t.GetInterfaces()).Where(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IPackModule<>))
+                        .Any(i => i.GetGenericArguments()[0].Assembly != typeof(IPackModule<>).Assembly))
+                        throw new InvalidDataException("Engine pack entry points must use engine-owned registry contracts: " + id);
                     foreach (var type in entries) ((IPackModule<TRegistry>)Activator.CreateInstance(type)!).Register(registry);
                     fingerprint.Append(Hash(File.ReadAllBytes(file)));
                 }

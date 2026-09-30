@@ -1,0 +1,19 @@
+<Ui version="1" id="engine.ui.button">
+  <Widget id="engine.button" description="표준 단발 버튼. 안에서 눌렀다가 안에서 놓으면 활성화. 취소·포커스 상실·비활성화는 실행하지 않음.">
+    <Property name="text" type="text" default="" />
+    <Property name="enabled" type="boolean" default="true" />
+    <Property name="selected" type="boolean" default="false" />
+    <Property name="background" type="color" default="#354352" />
+    <Property name="foreground" type="color" default="#FFFFFF" />
+    <Property name="hoverBackground" type="color" default="#485B70" />
+    <Property name="pressedBackground" type="color" default="#233040" />
+    <Property name="selectedBackground" type="color" default="#A9C6EA" />
+    <Property name="selectedForeground" type="color" default="#172536" />
+    <Property name="disabledBackground" type="color" default="#45484C" />
+    <Property name="disabledForeground" type="color" default="#989DA4" />
+    <Property name="fontSize" type="number" default="14" min="1" max="256" />
+    <Property name="cornerRadius" type="number" default="8" min="0" max="256" />
+    <Event name="activate" payload="none" />
+    <Renderer platform="*" key="engine.button.canvas" />
+  </Widget>
+</Ui>

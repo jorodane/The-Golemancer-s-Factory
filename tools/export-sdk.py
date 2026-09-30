@@ -25,7 +25,7 @@ def main():
     files = {}
     for framework in ("net48", "net10.0"):
         subprocess.run([args.dotnet, "build", "Engine.slnx", "-c", "Release", f"-p:EngineTargetFramework={framework}",
-                        "-m:1", "--disable-build-servers", "--nologo", "-v:minimal"], cwd=ROOT, check=True)
+                        "-p:UseSharedCompilation=false", "-m:1", "--disable-build-servers", "--nologo", "-v:minimal"], cwd=ROOT, check=True)
         target = workspace / "SDK" / framework
         target.mkdir(parents=True, exist_ok=True)
         for assembly in ("PackEngine.Contracts", "PackEngine.Runtime"):
@@ -43,6 +43,17 @@ def main():
                         published.parent.mkdir(parents=True, exist_ok=True)
                         shutil.copy2(source, published)
                         files[published.relative_to(workspace).as_posix()] = digest(published)
+        # Optional engine packs are distributed alongside the core, but remain replaceable.
+        # They are deliberately outside FrozenEngine.targets and the consumer project graph.
+        subprocess.run([args.dotnet, "build", "packs/Ui.Button/PackEngine.Ui.Button.csproj", "-c", "Release",
+                        f"-p:EngineTargetFramework={framework}", "-p:UseSharedCompilation=false", "-m:1",
+                        "--disable-build-servers", "--nologo", "-v:minimal"], cwd=ROOT, check=True)
+        pack = workspace / "Content/Packs/01.EngineButton"
+        binary = pack / "Bin" / framework
+        binary.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(ROOT / "packs/Ui.Button/Bin" / framework / "PackEngine.Ui.Button.dll", binary)
+        for name in ("pack.xml", "ui.xml"):
+            shutil.copy2(ROOT / "packs/Ui.Button" / name, pack / name)
     lock = {"schema": 2, "baselineCommit": "source-sha256:" + source_id, "engineSourceFiles": sources, "files": files}
     (workspace / "SDK/engine-lock.json").write_text(json.dumps(lock, indent=2) + "\n", encoding="utf-8")
     entries = "\n".join(f'    <FrozenEngineFile Include="$(MSBuildThisFileDirectory)../{name}"><ExpectedHash>{sha.upper()}</ExpectedHash></FrozenEngineFile>'
@@ -60,6 +71,7 @@ def main():
 ''', encoding="utf-8")
     shutil.copy2(ROOT / "docs/TIMING.md", workspace / "SDK/TIMING.md")
     shutil.copy2(ROOT / "docs/CAMERA.md", workspace / "SDK/CAMERA.md")
+    shutil.copy2(ROOT / "docs/UI_PACKS.md", workspace / "SDK/UI_PACKS.md")
     print("Exported engine source baseline:", source_id)
 
 

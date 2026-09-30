@@ -1,0 +1,19 @@
+<Ui version="1" id="golemancer.controls">
+  <View id="golemancer.button">
+    <Node id="golemancer.button.root" widget="engine.button">
+      <Bind property="text" source="control.text" />
+      <Bind property="enabled" source="control.enabled" />
+      <Bind property="selected" source="control.selected" />
+      <Set property="background" value="#244637DD" />
+      <Set property="foreground" value="#FFF0D5" />
+      <Set property="hoverBackground" value="#355E49" />
+      <Set property="pressedBackground" value="#163626" />
+      <Set property="selectedBackground" value="#DBB765" />
+      <Set property="selectedForeground" value="#20352C" />
+      <Set property="disabledBackground" value="#304238" />
+      <Set property="disabledForeground" value="#98A69D" />
+      <Set property="cornerRadius" value="12" />
+      <On event="activate" command="control.activate" />
+    </Node>
+  </View>
+</Ui>

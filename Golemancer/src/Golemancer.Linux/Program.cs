@@ -112,6 +112,18 @@ internal static class Program
                 var keyUp = new Sdl.Event { Type = 0x301, Key = 9 }; Sdl.SDL_PushEvent(ref keyUp);
                 while (Sdl.SDL_PollEvent(out var e) != 0) Route(e);
                 Console.WriteLine("PASS: native SDL event queue delivers mapped keyboard input");
+                var camera = (PackEngine.Contracts.Rendering.ICamera2D)session.Camera!;
+                camera.Zoom = 48; Paint();
+                Sdl.SDL_GetWindowSize(window, out int buttonWindowWidth, out int buttonWindowHeight);
+                float buttonScale = Math.Min(buttonWindowWidth / 960f, buttonWindowHeight / 540f);
+                var mouseDown = new Sdl.Event { Type = 0x401, Button = 1, X = (int)(75 * buttonScale), Y = (int)(169 * buttonScale) };
+                Sdl.SDL_PushEvent(ref mouseDown);
+                while (Sdl.SDL_PollEvent(out var e) != 0) Route(e);
+                Paint();
+                var mouseUp = mouseDown; mouseUp.Type = 0x402; Sdl.SDL_PushEvent(ref mouseUp);
+                while (Sdl.SDL_PollEvent(out var e) != 0) Route(e);
+                if (camera.TargetZoom != 54) throw new Exception("SDL mouse bridge did not activate the external button pack");
+                Console.WriteLine("PASS: native SDL mouse queue activates the external button DLL across a rendered frame");
             }
             int limit = int.TryParse(Option(args, "--frames"), out var count) ? count : smoke ? 90 : 0;
             int frames = 0; var timer = Stopwatch.StartNew();

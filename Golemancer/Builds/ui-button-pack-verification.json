@@ -1,0 +1,15 @@
+{
+  "sourceCommit": "3998f2873a4c628b099bbb0442fe97905ec173ff",
+  "engineIndependentChecks": 67,
+  "gameAndCampaignChecks": 535,
+  "standaloneGamePassed": true,
+  "frozenSdkGuardPassed": true,
+  "linuxPresentationChecks": 29,
+  "linuxNativeFrames": 30,
+  "linuxVideoDriver": "offscreen",
+  "windowsBuild": "net48: succeeded",
+  "windowsGuiTested": false,
+  "androidPackageRebuilt": false,
+  "iosNativeBuildTested": false,
+  "migratedUi": "Shared Android/Linux/iOS presentation ordinary buttons; Windows WPF and custom radial widgets retain existing rendering."
+}

@@ -14,6 +14,7 @@ class PackEngine.Runtime.CookedPacks
 
 class PackEngine.Runtime.PackCompiler
 {
+  static string EngineContractVersion;
   static string RuntimeFolder;
   static PackEngine.Runtime.CookedPacks Cook<TRegistry>(string directory, TRegistry registry, System.Action<System.Xml.Linq.XElement, string> readData, System.Action<PackEngine.Contracts.UI.UiDocument> readUi, string contractVersion, System.Collections.Generic.IEnumerable<System.Reflection.Assembly> sharedAssemblies = null);
   static bool IsExternalModule(System.Reflection.Assembly assembly, System.Reflection.Assembly[] sharedAssemblies);
@@ -84,6 +85,17 @@ class PackEngine.Runtime.UI.UiContext
 class PackEngine.Runtime.UI.UiLayoutMath
 {
   static PackEngine.Runtime.UI.UiRect Resolve(PackEngine.Contracts.UI.UiLayout layout, PackEngine.Runtime.UI.UiRect parent);
+}
+
+class PackEngine.Runtime.UI.UiModuleRegistry
+  inherits: PackEngine.Contracts.UI.IUiRegistry, PackEngine.Contracts.UI.IUiRendererRegistry
+{
+  UiModuleRegistry();
+  System.Collections.Generic.IReadOnlyList<string> RendererIds { get; }
+  PackEngine.Contracts.UI.IUiBackend Backend(string platform);
+  PackEngine.Runtime.UI.UiCatalog Compile();
+  void RegisterRenderer(string key, PackEngine.Contracts.UI.IUiElementFactory factory);
+  void RegisterUi(PackEngine.Contracts.UI.UiDocument document);
 }
 
 class PackEngine.Runtime.UI.UiMountedView

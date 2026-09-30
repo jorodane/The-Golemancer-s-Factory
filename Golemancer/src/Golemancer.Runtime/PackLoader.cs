@@ -8,16 +8,17 @@ using PackEngine.Runtime.UI;
 
 namespace Golemancer.Runtime;
 
-public sealed class ModuleRegistry : IModuleRegistry, ITerrainRegistry, IInputRegistry, IUiRegistry, PackEngine.Contracts.ITimingModuleRegistry<IGameTimingContext>
+public sealed class ModuleRegistry : IModuleRegistry, ITerrainRegistry, IInputRegistry, IUiRegistry, IUiRendererRegistry, PackEngine.Contracts.ITimingModuleRegistry<IGameTimingContext>
 {
     private readonly List<Action<PackEngine.Contracts.ITimingRegistry<IGameTimingContext>>> timingModules = [];
     public IReadOnlyList<Action<PackEngine.Contracts.ITimingRegistry<IGameTimingContext>>> TimingModules => timingModules;
     public void Timings(Action<PackEngine.Contracts.ITimingRegistry<IGameTimingContext>> configure)
     { if (configure is null) throw new ArgumentNullException(nameof(configure)); timingModules.Add(configure); }
-    private readonly List<UiDocument> uiDocuments = [];
+    public UiModuleRegistry UiModules { get; } = new();
     public UiCatalog Ui { get; private set; } = new(Array.Empty<UiDocument>());
-    public void RegisterUi(UiDocument document) => uiDocuments.Add(document);
-    internal void CompileUi() => Ui = new(uiDocuments);
+    public void RegisterUi(UiDocument document) => UiModules.RegisterUi(document);
+    public void RegisterRenderer(string key, IUiElementFactory factory) => UiModules.RegisterRenderer(key, factory);
+    internal void CompileUi() => Ui = UiModules.Compile();
     public Dictionary<string, InputActionDef> Inputs { get; } = [];
     public void Input(InputActionDef action) => Inputs.Add(action.Id, action);
     public Dictionary<string, IActionHandler> Actions { get; } = [];
@@ -48,8 +49,9 @@ public static partial class PackLoader
     {
         var catalog = new ContentCatalog();
         var registry = new ModuleRegistry();
-        var packs = PackCompiler.Cook<IModuleRegistry>(directory, registry,
-            (xml, folder) => ReadContent(xml, catalog, folder), registry.RegisterUi, contractVersion: "2");
+        var packs = PackCompiler.Cook<ModuleRegistry>(directory, registry,
+            (xml, folder) => ReadContent(xml, catalog, folder), registry.RegisterUi, contractVersion: "2",
+            sharedAssemblies: new[] { typeof(IModuleRegistry).Assembly });
         catalog.Packs.AddRange(packs.Packs.Select(p => new PackInfo(p.Id, p.Version, p.Directory, p.Dependencies.ToArray(), p.Assemblies.ToArray())));
         foreach (var input in registry.Inputs) if (!catalog.InputActions.ContainsKey(input.Key)) catalog.InputActions.Add(input.Key, input.Value);
         registry.CompileUi();

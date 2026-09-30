@@ -16,6 +16,8 @@ public sealed partial class GameScreen : IDisposable
     private float zoom => (float)ViewCamera.Zoom;
     private readonly GameSession session;
     private readonly Art art;
+    private readonly PackButtons packButtons;
+    private readonly PackCanvas packCanvas = new();
     private readonly InputState input = new();
     private readonly TouchCapture touch;
     private readonly Stopwatch clock = Stopwatch.StartNew();
@@ -40,6 +42,7 @@ public sealed partial class GameScreen : IDisposable
     public GameScreen(GameSession session, string platform, bool touchControls = true)
     {
         this.session = session; this.platform = platform; this.touchControls = touchControls; touch = new(input, session.Game.Content, platform); art = new(Game.Content);
+        packButtons = new(Game.Registry.Ui, Game.Registry.UiModules.Backend(platform));
         terrain = new(new TerrainRenderer(Game.Content, Game.Registry, art.Texture), raster =>
         {
             var image = new SKBitmap(new SKImageInfo(raster.Width, raster.Height, SKColorType.Bgra8888, SKAlphaType.Premul));
@@ -61,10 +64,10 @@ public sealed partial class GameScreen : IDisposable
         if (stopped) return;
         try { try { Suspend(); } finally { session.Dispose(); } }
         catch (Exception ex) { Failed?.Invoke(ex); }
-        finally { stopped = true; terrain.Dispose(); art.Dispose(); korean.Dispose(); }
+        finally { stopped = true; packButtons.Dispose(); terrain.Dispose(); art.Dispose(); korean.Dispose(); }
     }
     public void Dispose() => Stop();
-    public void ClearControls() { contextPointers.Clear(); sliderPointers.Clear(); touch.Cancel(); input.Clear(); taps.Clear(); session.ClearInput(); }
+    public void ClearControls() { packButtons.CancelAll(); contextPointers.Clear(); sliderPointers.Clear(); touch.Cancel(); input.Clear(); taps.Clear(); session.ClearInput(); }
     public void ReleaseGamepad(int id) { input.ReleaseDevice("gamepad:" + id + ":"); session.ClearInput(); }
     public void Tick()
     {
@@ -212,6 +215,7 @@ public sealed partial class GameScreen : IDisposable
     { if (!externalModal) camera.ZoomTo(Math.Clamp(camera.TargetZoom + amount, 24, 96)); }
     public void Hover(float x, float y)
     {
+        packButtons.Hover(x / scale, y / scale);
         if (externalModal || menus.Count == 0) return;
         var p = new SKPoint(x / scale, y / scale);
         var target = hit.LastOrDefault(h => h.Bounds.Contains(p));
@@ -229,6 +233,7 @@ public sealed partial class GameScreen : IDisposable
         if (button.Id is not null)
         {
             if (button.Id.StartsWith("input:", StringComparison.Ordinal)) touch.Down(id, button.Id.Substring(6));
+            else if (packButtons.Down(button.Id, id)) return;
             else taps[id] = (p, p, clock.Elapsed.TotalSeconds, false, button.Run, button.Bounds);
         }
         else if (externalModal) return;
@@ -239,6 +244,7 @@ public sealed partial class GameScreen : IDisposable
     public void PointerMove(int pointer, float x, float y)
     {
         var at = new SKPoint(x / scale, y / scale);
+        if (packButtons.Move(pointer, at.X, at.Y)) return;
         if (sliderPointers.Contains(pointer)) { SetSlider(at.X); return; }
         if (touch.Contains(pointer)) touch.Stick(pointer, (at.X - StickCenter.X) / 54, (at.Y - StickCenter.Y) / 54);
         if (taps.TryGetValue(pointer, out var tap))
@@ -252,11 +258,12 @@ public sealed partial class GameScreen : IDisposable
     {
         var p = new SKPoint(x / scale, y / scale); touch.Up(id); sliderPointers.Remove(id);
         bool context = contextPointers.Remove(id);
+        if (packButtons.Up(id, p.X, p.Y)) return;
         if (!taps.Remove(id, out var tap) || tap.Drag) return;
         if (tap.Click is not null) { if (tap.Bounds.Contains(p)) tap.Click(); }
         else if (!externalModal) WorldTap(p, context || clock.Elapsed.TotalSeconds - tap.Time > .45);
     }
-    public void CancelPointers() { touch.Cancel(); taps.Clear(); contextPointers.Clear(); sliderPointers.Clear(); }
+    public void CancelPointers() { packButtons.CancelAll(); touch.Cancel(); taps.Clear(); contextPointers.Clear(); sliderPointers.Clear(); }
     public void PointerCancel(int id)
-    { touch.Cancel(id); taps.Remove(id); contextPointers.Remove(id); sliderPointers.Remove(id); }
+    { packButtons.Cancel(id); touch.Cancel(id); taps.Remove(id); contextPointers.Remove(id); sliderPointers.Remove(id); }
 }

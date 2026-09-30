@@ -25,14 +25,18 @@ public sealed partial class GameScreen
         }
         Text(c, line, x, y, size);
     }
-    private void Button(SKCanvas c, string id, string label, SKRect rect, Action run, bool active = false)
-    { Box(c, rect, active ? "#DBB765" : "#DD244637"); Text(c, label, rect.MidX, rect.MidY + 5, 14, active ? "#20352C" : "#FFF0D5", true); hit.Add((rect, id, run)); }
+    private void Button(SKCanvas c, string id, string label, SKRect rect, Action run, bool active = false, bool enabled = true)
+    {
+        packButtons.Draw(packCanvas, id, label, new(rect.Left, rect.Top, rect.Width, rect.Height), run, active, enabled);
+        hit.Add((rect, id, run));
+    }
     public void Render(SKCanvas c, int width, int height)
     {
         if (width <= 0 || height <= 0) return;
         scale = Math.Min(width / 960f, height / 540f); viewWidth = width / scale; viewHeight = height / scale;
         drawnCamera = camera.Capture(viewWidth, viewHeight);
         c.Clear(Color("#172A22")); c.Save(); c.Scale(scale); hit.Clear();
+        packCanvas.Canvas = c; packCanvas.Typeface = korean;
         RenderWorld(c);
         if (!session.Started)
         {
@@ -40,7 +44,7 @@ public sealed partial class GameScreen
             Text(c, "The Golemancer’s Factory", viewWidth / 2, viewHeight / 2 - 70, 32, centered: true);
             Text(c, "엔린의 작은 골렘 공방", viewWidth / 2, viewHeight / 2 - 36, 18, centered: true);
             Button(c, "start", "새 공방", SKRect.Create(viewWidth / 2 - 160, viewHeight / 2, 150, 48), () => { session.NewGame(); Center(); ClearControls(); });
-            Button(c, "continue", session.HasSave("autosave") ? "이어하기" : "저장 없음", SKRect.Create(viewWidth / 2 + 10, viewHeight / 2, 150, 48), () => { if (session.HasSave("autosave")) { session.Load("autosave"); Center(); ClearControls(); } });
+            Button(c, "continue", session.HasSave("autosave") ? "이어하기" : "저장 없음", SKRect.Create(viewWidth / 2 + 10, viewHeight / 2, 150, 48), () => { if (session.HasSave("autosave")) { session.Load("autosave"); Center(); ClearControls(); } }, enabled: session.HasSave("autosave"));
         }
         else
         {
@@ -51,6 +55,7 @@ public sealed partial class GameScreen
         if (clock.Elapsed.TotalSeconds < toastUntil)
         { Box(c, SKRect.Create(viewWidth / 2 - 270, 74, 540, 42), "#EC203A2F"); Wrap(c, notice, viewWidth / 2 - 258, 99, 516, 14, 1); }
         if (modal is not null) RenderModal(c);
+        packButtons.EndFrame(hit.Select(h => h.Id));
         c.Restore();
     }
     private void RenderWorld(SKCanvas c)

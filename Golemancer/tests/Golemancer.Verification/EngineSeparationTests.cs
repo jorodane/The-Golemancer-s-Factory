@@ -16,9 +16,13 @@ internal static class EngineSeparationTests
                 assembly.GetName().Name + " has no game assembly/type dependency");
         }
         var state = Simulation.ReadSave(Path.Combine(root, "tests/Golemancer.Verification/Fixtures/pre-separation-save.json"));
-        var original = JsonSerializer.Serialize(state, Simulation.Json);
+        // Loading intentionally refreshes the installed-pack manifest; new UI-only packs add metadata.
+        // Compare every other serialized field exactly, without rewriting the historical fixture.
+        var expected = Simulation.ReadSave(Path.Combine(root, "tests/Golemancer.Verification/Fixtures/pre-separation-save.json"));
+        foreach (var pack in cooked.Content.Packs) expected.PackVersions[pack.Id] = pack.Version;
+        var original = JsonSerializer.Serialize(expected, Simulation.Json);
         var sim = new Simulation(cooked, state);
-        Check(JsonSerializer.Serialize(sim.State, Simulation.Json) == original, "pre-separation save loads without changing stored game state");
+        Check(JsonSerializer.Serialize(sim.State, Simulation.Json) == original, "pre-separation save preserves all game state while refreshing installed-pack version metadata");
         var actor = sim.Find(sim.State.ControlledId)!;
         Check(actor.SubX == .25 && actor.SubY == -.125 && actor.Get("mana") == 17.5 && actor.Inventory["wood"] == 1234,
             "legacy sub-tile position, mana and over-capacity inventory survive the assembly split");
