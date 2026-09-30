@@ -120,9 +120,9 @@ using (var restarted = available ? new EditorPipeServer(session.Project.Manifest
     Check((await peer.Tool("packengine_read", new { requestId = nextId, path = file })).Error, "bridge restart does not restore old request permissions");
     restarted?.Dispose(); if (restarted is not null) await restarted.Completion.WaitAsync(TimeSpan.FromSeconds(10));
 }
-string mode = Path.Combine(args[1], "mode.txt"); EditorStartMode.Save(true, mode);
-Check(EditorStartMode.IsChatGpt(mode), "ChatGPT mode persists for launcher dependency bypass"); EditorStartMode.Save(false, mode);
-Check(!EditorStartMode.IsChatGpt(mode), "Codex launcher mode can be restored");
+var mode = ProjectConversation.Load(session.Project.Manifest); mode.Mode = "chatgpt"; mode.Url = "https://chatgpt.com/c/user-chosen"; mode.Save();
+Check(ProjectConversation.Load(session.Project.Manifest).Mode == "chatgpt", "project ChatGPT mode persists for launcher dependency bypass"); mode.Mode = "local"; mode.Save();
+Check(ProjectConversation.Load(session.Project.Manifest).Mode == "local", "the same project can return to local Codex without deleting its saved link");
 var preferences = new AssistantSettings(); var registered = preferences.Register(session.Project); registered.ChatGpt = access; access.Url = "https://chatgpt.com/c/user-chosen";
 string settingsPath = Path.Combine(args[1], "mcp-settings.json"); preferences.Save(settingsPath); var restored = AssistantSettings.Load(settingsPath).Projects.Single().ChatGpt;
 Check(restored.Enabled && restored.WritablePacks.Single() == "golemancer.controls" && restored.ValidatedUrl() == access.Url, "project link and MCP permissions survive settings reload");

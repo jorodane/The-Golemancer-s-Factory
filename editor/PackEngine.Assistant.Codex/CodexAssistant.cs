@@ -27,13 +27,18 @@ public sealed partial class CodexAssistant : IResidentAssistant
     private void Emit(string kind, string text, string subject = "") => Progress?.Invoke(new() { Kind = kind, Text = text, Subject = subject });
     private static string Text(JsonElement element, string name) => element.ValueKind == JsonValueKind.Object && element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString()! : "";
     private string BindingPath => Path.Combine(connection!.StateDirectory, "codex-thread.json");
-    private void SaveBinding() => EditorSession.AtomicWrite(BindingPath, Encoding.UTF8.GetBytes(EditorSession.Serialize(new { connection!.ProjectIdentity, ThreadId, Model, Protocol = 1 })));
+    private void SaveBinding()
+    {
+        EditorSession.AtomicWrite(BindingPath, Encoding.UTF8.GetBytes(EditorSession.Serialize(new { connection!.ProjectIdentity, ThreadId, Model, Protocol = 1 })));
+        if (archive is not null) archive.ActiveThread = ThreadId;
+    }
     public async Task<AssistantAccount> ConnectAsync(AssistantConnection options, CancellationToken cancellation)
     {
         if (completion is not null) throw new InvalidOperationException("Finish or cancel the current turn first.");
         if (!options.AccessEnabled) throw new InvalidOperationException("이 프로젝트의 Codex 접근이 설정에서 차단되어 있어.");
-        rpc?.Dispose(); rpc = null; loaded = false; connected = false;
+        rpc?.Dispose(); rpc = null; archive?.Dispose(); archive = null; nativeThreads.Clear(); loaded = false; connected = false;
         connection = new() { Executable = options.Executable, StateDirectory = Path.GetFullPath(options.StateDirectory), ProjectIdentity = options.ProjectIdentity,
+            ConversationDirectory = options.ConversationDirectory, ConversationProject = options.ConversationProject,
             AccessEnabled = options.AccessEnabled, HistoryEnabled = options.HistoryEnabled, BlockedThreads = options.BlockedThreads.ToArray() }; ThreadId = "";
         Directory.CreateDirectory(options.StateDirectory);
         // The Codex working directory contains no game source, assets, or editor state.
@@ -44,6 +49,16 @@ public sealed partial class CodexAssistant : IResidentAssistant
             if (Text(stored.RootElement, "ProjectIdentity") != options.ProjectIdentity) throw new InvalidDataException("The saved conversation belongs to a different project.");
             ThreadId = Text(stored.RootElement, "ThreadId"); if (Model.Length == 0) Model = Text(stored.RootElement, "Model");
             if (!connection.HistoryEnabled || connection.BlockedThreads.Contains(ThreadId, StringComparer.Ordinal)) ThreadId = "";
+        }
+        if (options.ConversationDirectory.Length > 0)
+        {
+            archive = new(options.ConversationDirectory, options.ConversationProject);
+            string active = archive.ActiveThread;
+            // An explicit empty portable selection means “new conversation”, including on another PC.
+            if (File.Exists(Path.Combine(options.ConversationDirectory, "active.txt"))) ThreadId = active;
+            if (!connection.HistoryEnabled || connection.BlockedThreads.Contains(ThreadId, StringComparer.Ordinal)) ThreadId = "";
+            // Restore on history access/send, so a conflicted last thread does not prevent choosing another conversation.
+            if (ThreadId.Length > 0 && Model.Length == 0) Model = archive.Read(ThreadId)?.Model ?? "";
         }
         var client = new CodexRpc(ResolveExecutable(options.Executable), directory); rpc = client;
         client.Notification += (method, data) => { if (ReferenceEquals(rpc, client)) OnNotification(method, data); };
@@ -61,7 +76,7 @@ public sealed partial class CodexAssistant : IResidentAssistant
             connected = true;
             return await AccountAsync(cancellation).ConfigureAwait(false);
         }
-        catch { client.Dispose(); rpc = null; connected = false; throw; }
+        catch { client.Dispose(); rpc = null; archive?.Dispose(); archive = null; connected = false; throw; }
     }
     public async Task<AssistantAccount> AccountAsync(CancellationToken cancellation)
     {
@@ -108,6 +123,7 @@ public sealed partial class CodexAssistant : IResidentAssistant
     };
     private async Task EnsureThread(IAgentWorkspace tools, CancellationToken cancellation)
     {
+        if (ThreadId.Length > 0) archive?.RequireUnchanged(ThreadId);
         if (loaded) return;
         var options = ThreadOptions(); if (Model.Length > 0) options["model"] = Model;
         // Disable independently configured MCP servers in this thread, without changing user configuration.
@@ -135,7 +151,8 @@ public sealed partial class CodexAssistant : IResidentAssistant
             response = await Client.Call("thread/resume", options, cancellation).ConfigureAwait(false);
             if (Text(response.GetProperty("thread"), "id") != ThreadId) throw new InvalidDataException("Codex resumed a different thread.");
         }
-        loaded = true; Emit("conversation", "대화 연결됨", ThreadId);
+        nativeThreads[ThreadId] = response.GetProperty("thread").Clone();
+        archive?.Observe(ThreadId); loaded = true; Emit("conversation", "대화 연결됨", ThreadId);
     }
     public async Task<string> ReplyAsync(ContextRequest request, IAssistantWorkspace access, CancellationToken cancellation)
     {
@@ -147,6 +164,7 @@ public sealed partial class CodexAssistant : IResidentAssistant
             var account = await AccountAsync(cancellation).ConfigureAwait(false);
             if (account.Type != "chatgpt") throw new InvalidOperationException("ChatGPT 계정으로 로그인해줘. 이 연결은 API 키로 자동 전환하지 않아.");
             if (!connection!.HistoryEnabled) { ThreadId = ""; loaded = false; }
+            promptTitle = request.Prompt;
             await EnsureThread(tools, cancellation).ConfigureAwait(false);
             request.ThreadId = ThreadId;
             var done = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -160,7 +178,9 @@ public sealed partial class CodexAssistant : IResidentAssistant
             lock (sync) turnId = Text(response.GetProperty("turn"), "id");
             using var cancel = cancellation.Register(() => done.TrySetCanceled());
             SaveBinding();
-            return await done.Task.ConfigureAwait(false);
+            string result = await done.Task.ConfigureAwait(false);
+            await SaveArchive(ThreadId, cancellation).ConfigureAwait(false);
+            return result;
         }
         catch (OperationCanceledException)
         {
@@ -170,9 +190,11 @@ public sealed partial class CodexAssistant : IResidentAssistant
                 try { await rpc.Call("turn/interrupt", new { threadId = ThreadId, turnId = id }, CancellationToken.None, 8).ConfigureAwait(false); }
                 catch { /* Closing the transport also stops notifications from this interrupted turn. */ }
             }
+            await PreserveInterruptedArchive().ConfigureAwait(false);
             if (completion is not null) { var old = rpc; rpc = null; loaded = false; connected = false; old?.Dispose(); }
             Emit("cancelled", "요청을 취소했어. 이미 적용된 변경은 변경 기록에 남아 있어."); throw;
         }
+        catch { await PreserveInterruptedArchive().ConfigureAwait(false); throw; }
         finally
         {
             Task[] outstanding;
@@ -258,6 +280,6 @@ public sealed partial class CodexAssistant : IResidentAssistant
     public static string ResolveExecutable(string configured) => PackEngine.Installation.CodexInstallation.ResolveExecutable(configured);
     public void Dispose()
     {
-        lock (sync) completion?.TrySetCanceled(); rpc?.Dispose(); rpc = null; connected = false;
+        lock (sync) completion?.TrySetCanceled(); rpc?.Dispose(); rpc = null; connected = false; archive?.Dispose(); archive = null;
     }
 }

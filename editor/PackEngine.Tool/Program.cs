@@ -1,4 +1,5 @@
 using PackEngine.Workspace;
+using PackEngine.Installation;
 
 try
 {
@@ -8,7 +9,7 @@ try
     Console.CancelKeyPress += (_, e) => { e.Cancel = true; cancellation.Cancel(); };
     if (args.Length == 0 || args.Contains("--help"))
     {
-        Console.WriteLine("PackEngine.Tool <inspect|graph|context|read|assist|codex-status|codex-chat|codex-threads|codex-history|preview|apply|undo|build-pack|build-project|verify|smoke|run> --project file.packproject [--state directory] [--target id] [--dotnet executable]\ninspect --node key; context --prompt text [--point key;key | --range-file path --start-line n --end-line n] [--open path;path] [--budget characters]; read --request id --file path; assist --provider DLL --prompt text; codex-status/codex-chat/codex-threads/codex-history --provider DLL [--thread id] [--cursor token] [--no-history] [--deny-thread id;id] [--deny-access] [--codex native-executable] [--model id] [--new-thread] [--write-pack id;id] [--allow-project-commands]; preview --file path --text-file utf8-file --intent text; apply/undo --change id; build-pack --pack id");
+        Console.WriteLine("PackEngine.Tool <inspect|graph|context|read|assist|codex-status|codex-chat|codex-threads|codex-history|preview|apply|undo|build-pack|build-project|verify|smoke|run> --project file.packproject [--state directory] [--target id] [--dotnet executable]\ninspect --node key; context --prompt text [--point key;key | --range-file path --start-line n --end-line n] [--open path;path] [--budget characters]; read --request id --file path; assist --provider DLL --prompt text; codex-status/codex-chat/codex-threads/codex-history --provider DLL [--project-conversations] [--thread id] [--cursor token] [--no-history] [--deny-thread id;id] [--deny-access] [--codex native-executable] [--model id] [--new-thread] [--write-pack id;id] [--allow-project-commands]; preview --file path --text-file utf8-file --intent text; apply/undo --change id; build-pack --pack id");
         return 0;
     }
     var session = new EditorSession(Need("--project"), Option("--state"));
@@ -46,7 +47,11 @@ try
                 if (assistant is IResidentAssistant resident)
                 {
                     resident.Progress += update => { if (update.Kind == "delta") Console.Error.Write(update.Text); else Console.Error.WriteLine(update.Kind + " · " + update.Text); };
+                    ProjectConversation? profile = null;
+                    if (args.Contains("--project-conversations"))
+                    { profile = ProjectConversation.Load(session.Project.Manifest); if (!profile.Configured) { profile.Mode = "local"; profile.Save(); } }
                     var account = await resident.ConnectAsync(new() { Executable = Option("--codex") ?? "", ProjectIdentity = session.Project.Identity, StateDirectory = session.StateDirectory,
+                        ConversationDirectory = profile?.ConversationsPath ?? "", ConversationProject = profile?.Id ?? "",
                         AccessEnabled = !args.Contains("--deny-access"), HistoryEnabled = !args.Contains("--no-history"), BlockedThreads = (Option("--deny-thread") ?? "").Split(';') }, cancellation.Token);
                     if (args[0] == "codex-status") { Console.WriteLine(EditorSession.Serialize(new { account.Type, account.Plan, account.Display, resident.ThreadId })); break; }
                     if (args[0] == "codex-threads") { Console.WriteLine(EditorSession.Serialize(await resident.ThreadsAsync(Option("--cursor") ?? "", cancellation.Token))); break; }

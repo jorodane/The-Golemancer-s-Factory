@@ -3,5 +3,7 @@
   <ItemGroup>
     <Compile Include="../../editor/PackEngine.Launcher/Bootstrap.cs" Link="Bootstrap.cs" />
     <Compile Include="../../editor/Shared/CodexInstallation.cs" Link="CodexInstallation.cs" />
+    <Compile Include="../../editor/Shared/CodexBootstrap.cs" Link="CodexBootstrap.cs" />
+    <Compile Include="../../editor/Shared/ProjectConversation.cs" Link="ProjectConversation.cs" />
   </ItemGroup>
 </Project>

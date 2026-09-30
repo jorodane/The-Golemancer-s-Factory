@@ -74,3 +74,12 @@ dotnet tests/PackEngine.Launcher.Verification/bin/Release/net10.0/PackEngine.Lau
 ```
 
 `editor/Builds/Windows/SHA256SUMS`에는 루트 시작 프로그램과 설정 파일의 해시도 포함한다. `BuildEditor.bat`은 에디터와 시작 프로그램을 함께 빌드·복사한다.
+
+
+## 게임팩별 대화 선택·이동
+
+`tools/verify-conversations.py`로 새 게임팩 생성, 대화 방식·기존 ChatGPT 링크 유지, 프로젝트 내부 원본 보관, 다른 절대 경로에서 기록 목록·본문 복원, 같은 대화 재개, 기기별 접근 권한 분리, 손상·동기화 충돌, 취소·연결 끊김을 확인했다. 원래 PC의 Codex 저장소와 프로젝트를 삭제한 뒤 공식 Codex 0.159.2의 원본을 실제 제공자로 복원하고, 공식 `thread/resume` 및 기록 추가가 기존 내용을 보존하는 것도 모델 호출 없이 확인했다.
+
+동일 소스에서 저장소 검사 22개, 이식·제공자 통합 검사 31개, 시작 준비 검사 22개를 통과했다. 기존 resident 52개 + workspace 33개, MCP 37개 + 실행 파일 프로토콜 4개, 에디터 워크플로 20개, 전체 캠페인 540개와 Linux 30개 및 30프레임 smoke도 통과했다. 동기화 충돌로 마지막 대화를 열지 못해도 새 대화로 넘어갈 수 있음을 검사했다.
+
+Windows WPF/net48 빌드는 오류·경고 없이 통과했다. 실제 Windows UI, 물리적 두 PC 사이의 이동, 클라우드 동기화 서비스, 로그인 후 모델의 이어지는 답변은 미검증이다. 스크립트는 `TestResults/conversations/report.json`에 실제 공식 CLI 검사 여부를 별도 기록한다. 런타임·새 UI는 [대화 사용법](PROJECT_CONVERSATIONS.md)을 따른다.

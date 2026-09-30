@@ -53,9 +53,10 @@ public sealed partial class EditorWindow
         header.Children.Add(Label("목록에는 직접 연 프로젝트만 등록돼. 다른 프로젝트는 위의 ‘프로젝트 열기’로 추가해줘. 접근 설정은 이 PC의 에디터에 적용돼.", 11, MutedInk));
         DockPanel.SetDock(header, Dock.Top); page.Children.Add(header);
         var columns = new Grid(); columns.ColumnDefinitions.Add(new()); columns.ColumnDefinitions.Add(new() { Width = new GridLength(16) }); columns.ColumnDefinitions.Add(new());
-        var local = new DockPanel(); var localHead = new StackPanel(); localHead.Children.Add(Label("이 PC의 에디터 대화", 15, AccentInk));
-        localHead.Children.Add(Label("클릭하면 기록을 열고 같은 대화로 이어가. 로그인 계정의 웹 채팅 목록과는 별도야.", 11, MutedInk));
+        var local = new DockPanel(); var localHead = new StackPanel(); localHead.Children.Add(Label("게임팩의 로컬 대화", 15, AccentInk));
+        localHead.Children.Add(Label("클릭하면 기록을 열고 같은 대화로 이어가. ‘이 PC’ 표시는 이전 저장 방식의 대화이며, 열면 게임팩에도 보관돼.", 11, MutedInk));
         var actions = new WrapPanel(); actions.Children.Add(Action("목록 새로고침", () => HistoryWork(t => RefreshThreadList(t)))); actions.Children.Add(Action("더 보기", () => HistoryWork(t => RefreshThreadList(t, true)))); actions.Children.Add(Action("새 대화", NewCodexConversation));
+        actions.Children.Add(Action("대화 저장 폴더", OpenConversationFolder));
         localHead.Children.Add(actions); localHead.Children.Add(threadAccess); localHead.Children.Add(historyStatus); DockPanel.SetDock(localHead, Dock.Top); local.Children.Add(localHead); local.Children.Add(historyThreads); columns.Children.Add(local);
         var web = new StackPanel(); web.Children.Add(Label("수동 참고 메모 · 선택 사항", 15, AccentInk));
         web.Children.Add(Label("ChatGPT에서 직접 작업하려면 ‘ChatGPT 연결’ 탭을 사용해줘. 아래는 별도 에디터 Codex에 텍스트를 제공하는 이전 방식이야. 링크만으로 대화 내용이 전달되지는 않아.", 12, MutedInk));
@@ -100,7 +101,7 @@ public sealed partial class EditorWindow
     private void ScheduleAutoConnect()
     {
         var opened = session;
-        Dispatcher.BeginInvoke(new Action(() => { if (ReferenceEquals(session, opened) && !busy && CurrentAccess is { } access && !access.ChatGpt.Enabled && assistantSettings.ShouldConnect(access) && provider is null) ConnectCodex(); }));
+        Dispatcher.BeginInvoke(new Action(() => { if (ReferenceEquals(session, opened) && !busy && conversation?.Mode == "local" && CurrentAccess is { } access && assistantSettings.ShouldConnect(access) && provider is null) ConnectCodex(); }));
     }
     private void RefreshAccessControls()
     {

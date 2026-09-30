@@ -65,7 +65,7 @@ internal sealed class LauncherWindow : Window
         try
         {
             layout = LauncherLayout.Load(AppDomain.CurrentDomain.BaseDirectory, arguments);
-            if (EditorStartMode.IsChatGpt()) { detail.Text = "ChatGPT 작업 모드로 에디터를 열게."; Launch(null); return; }
+            if (ProjectConversation.Load(layout.Project).Mode != "local") { detail.Text = "게임팩의 대화 설정으로 에디터를 열게."; Launch(null); return; }
             var prepared = await bootstrap.Prepare(operation.Token);
             if (prepared.NeedsNode)
             {

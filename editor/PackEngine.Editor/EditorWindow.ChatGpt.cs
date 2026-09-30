@@ -21,6 +21,7 @@ public sealed partial class EditorWindow
     {
         var page = new StackPanel { Margin = new Thickness(18) };
         page.Children.Add(Label("ChatGPT에서 함께 작업", 21));
+        page.Children.Add(Action("게임팩 대화 방식 선택", ChooseConversationMode));
         page.Children.Add(Label("대화는 ChatGPT에 두고, 이 에디터의 객체팩·XML 도구를 연결해. 연결한 뒤에는 대화 내용을 복사할 필요가 없어.", 13, MutedInk));
         page.Children.Add(chatGptStatus); page.Children.Add(chatGptAccess);
         var actions = new WrapPanel(); actions.Children.Add(Action("ChatGPT 열기", OpenChatGpt));
@@ -30,11 +31,12 @@ public sealed partial class EditorWindow
         page.Children.Add(Label("이 게임의 ChatGPT 프로젝트·대화", 15)); chatGptUrl.MaxLength = 4096; page.Children.Add(chatGptUrl);
         page.Children.Add(Action("연결 주소 저장", () => Guard(() =>
         {
-            if (busy || CurrentAccess is not { } access) return;
-            string url = chatGptUrl.Text.Trim(); if (url.Length > 0) url = SharedChatReference.ValidateUrl(url);
-            access.ChatGpt.Url = url; SaveSettings(); chatGptUrl.Text = url; SetStatus("이 게임에서 다시 열 주소를 저장했어.");
+            if (busy || CurrentAccess is not { } access || conversation is null) return;
+            string url = ProjectConversation.ValidateLink(chatGptUrl.Text);
+            var updated = ProjectConversation.Load(session!.Project.Manifest); updated.Url = url; updated.Save(); conversation = updated;
+            access.ChatGpt.Url = url; SaveSettings(); chatGptUrl.Text = url; SetStatus("게임팩 내부에 기존 ChatGPT 주소를 저장했어.");
         })));
-        page.Children.Add(Label("프로젝트나 대화는 ChatGPT에서 만들고 주소를 한 번 저장해줘. 이 주소는 다시 여는 용도야. 도구 연결은 아래 MCP 설정으로 확인해.", 12, MutedInk));
+        page.Children.Add(Label("기존 채팅이나 프로젝트 주소를 한 번 저장해줘. 이 주소는 다시 여는 용도야. 도구 연결은 아래 MCP 설정으로 확인해.", 12, MutedInk));
         page.Children.Add(Label("ChatGPT가 수정·빌드할 수 있는 팩", 15));
         page.Children.Add(Label("아무것도 선택하지 않으면 읽기만 가능해. 새 작업마다 이 범위를 고정하고, 설정을 바꾸면 이전 작업 권한을 철회해.", 12, MutedInk));
         page.Children.Add(new ScrollViewer { Content = chatGptPacks, MaxHeight = 210, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }); page.Children.Add(chatGptCommands);
@@ -56,16 +58,20 @@ public sealed partial class EditorWindow
         AddTab("ChatGPT 연결", new ScrollViewer { Content = page, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
         chatGptAccess.Click += (_, _) => Guard(() =>
         {
-            if (busy || updatingChatGpt || CurrentAccess is not { } access) return;
+            if (busy || updatingChatGpt || conversation?.Mode != "chatgpt" || CurrentAccess is not { } access) return;
             access.ChatGpt.Enabled = chatGptAccess.IsChecked == true; SaveSettings();
-            if (access.ChatGpt.Enabled) { EditorStartMode.Save(true); ResetResidentConnection(); }
+            if (access.ChatGpt.Enabled) ResetResidentConnection();
             StartChatGptBridge();
         });
         chatGptCommands.Click += (_, _) => SaveChatGptScope();
     }
     private string McpExecutable => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "PackEngine.Mcp.exe");
     private void OpenUrl(string url) => Guard(() => Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }));
-    private void OpenChatGpt() => Guard(() => OpenUrl(CurrentAccess?.ChatGpt.ValidatedUrl() ?? "https://chatgpt.com/"));
+    private void OpenChatGpt() => Guard(() =>
+    {
+        if (conversation?.Mode != "chatgpt") { ChooseConversationMode(); return; }
+        OpenUrl(ProjectConversation.ValidateLink(conversation.Url));
+    });
     private void CopyChatGptSetup() => Guard(() =>
     {
         if (session is null) return;
@@ -80,13 +86,13 @@ public sealed partial class EditorWindow
     private void RefreshChatGptProject()
     {
         updatingChatGpt = true; chatGptPacks.Children.Clear(); var access = CurrentAccess?.ChatGpt;
-        chatGptAccess.IsChecked = access?.Enabled == true; chatGptCommands.IsChecked = access?.AllowProjectCommands == true; chatGptUrl.Text = access?.Url ?? "";
+        chatGptAccess.IsChecked = access?.Enabled == true; chatGptCommands.IsChecked = access?.AllowProjectCommands == true; chatGptUrl.Text = conversation?.Url ?? "";
         chatGptCommand.Text = McpExecutable; chatGptArguments.Text = session is null ? "" : JsonSerializer.Serialize(new[] { "--project", session.Project.Manifest });
         if (session is not null && access is not null)
             foreach (var pack in session.Index.Packs.Where(p => !session.Project.Sources.TryGetValue(p.Id, out var source) || source.Editable))
             { var box = Setting(pack.Id); box.Tag = pack.Id; box.IsChecked = access.WritablePacks.Contains(pack.Id); box.Click += (_, _) => SaveChatGptScope(); chatGptPacks.Children.Add(box); }
         updatingChatGpt = false; StartChatGptBridge();
-        if (access?.Enabled == true) tabs.SelectedIndex = 6;
+        if (conversation?.Mode == "chatgpt") tabs.SelectedIndex = 6;
     }
     private void SaveChatGptScope() => Guard(() =>
     {
@@ -102,7 +108,7 @@ public sealed partial class EditorWindow
     private void StartChatGptBridge()
     {
         StopChatGptBridge();
-        if (session is null || runner is null || CurrentAccess?.ChatGpt.Enabled != true) { chatGptStatus.Text = "접근 꺼짐 · ChatGPT 도구가 이 프로젝트를 읽거나 수정할 수 없어."; return; }
+        if (session is null || runner is null || conversation?.Mode != "chatgpt" || CurrentAccess?.ChatGpt.Enabled != true) { chatGptStatus.Text = "접근 꺼짐 · 기존 ChatGPT 방식을 고르고 이 PC에서 접근을 허용해줘."; return; }
         var currentSession = session; var permission = CurrentAccess.ChatGpt;
         var host = new EditorMcpWorkspace(session, runner, action => Dispatcher.Invoke(action), () => permission, () => Target,
             request => { lastRequest = request; pointingMode.SelectedIndex = 0; RefreshPointing(); RefreshContext(); }, AgentProgress);
@@ -138,7 +144,7 @@ public sealed partial class EditorWindow
     }
     private void SetChatGptBusy(bool value)
     {
-        chatGptAccess.IsEnabled = chatGptCommands.IsEnabled = chatGptPacks.IsEnabled = chatGptUrl.IsEnabled = !value && session is not null;
+        chatGptAccess.IsEnabled = chatGptCommands.IsEnabled = chatGptPacks.IsEnabled = chatGptUrl.IsEnabled = !value && session is not null && conversation?.Mode == "chatgpt";
     }
     private async void CheckChatGptBridge()
     {

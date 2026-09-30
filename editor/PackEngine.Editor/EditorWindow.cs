@@ -39,7 +39,7 @@ public sealed partial class EditorWindow : Window
         var top = new DockPanel { Margin = new Thickness(18, 14, 18, 10) };
         var brand = new StackPanel(); brand.Children.Add(projectLabel); brand.Children.Add(Label("OBJECT PACKS  /  CONTEXT  /  BUILD", 10, MutedInk)); DockPanel.SetDock(brand, Dock.Left); top.Children.Add(brand);
         var actions = new WrapPanel { HorizontalAlignment = HorizontalAlignment.Right };
-        actions.Children.Add(Action("프로젝트 열기", ChooseProject)); actions.Children.Add(targets);
+        actions.Children.Add(Action("새 게임팩", CreateGameProject)); actions.Children.Add(Action("프로젝트 열기", ChooseProject)); actions.Children.Add(targets);
         actions.Children.Add(Action("팩 빌드", () => Work(() => runner!.BuildPack(SelectedPack(), Target, operation!.Token)), true));
         actions.Children.Add(Action("프로젝트 빌드", () => Work(() => runner!.BuildProject(Target, operation!.Token)), true));
         actions.Children.Add(Action("실행", () => Guard(() => runner!.Launch(Target)), true));
@@ -145,14 +145,16 @@ public sealed partial class EditorWindow : Window
         if (busy) return;
         if (runner?.GameRunning == true) throw new InvalidOperationException("현재 프로젝트의 게임 창을 닫은 뒤 다른 프로젝트를 열어줘.");
         session?.Persist();
-        var next = new EditorSession(path); StopChatGptBridge(); runner?.Dispose(); provider?.Dispose(); provider = null; providerLabel.Text = "AI 제공자 미연결"; session = next;
+        var next = new EditorSession(path); var nextConversation = PackEngine.Installation.ProjectConversation.Load(next.Project.Manifest);
+        StopChatGptBridge(); runner?.Dispose(); provider?.Dispose(); provider = null; providerLabel.Text = "AI 제공자 미연결"; session = next; conversation = nextConversation;
         runner = new(session, Environment.GetEnvironmentVariable("PACKENGINE_DOTNET") ?? "dotnet"); runner.Output += AppendLog;
         activeDocument = null; pending = null; lastRequest = null;
         Title = "PackEngine — " + session.Project.Name; projectLabel.Text = session.Project.Name;
         targets.ItemsSource = session.Project.Targets.Select(t => t.Id).ToArray(); targets.SelectedItem = runner.PreferredTarget;
         transcript.Children.Clear(); Message("프로젝트", session.Project.Name + "을 열었어. 팩과 문서를 골라서 작업을 시작해.");
         pointingMode.SelectedIndex = 0; allowPackWrites.IsChecked = false; allowProjectCommands.IsChecked = false; models.ItemsSource = null; submit.Content = "문맥 요청 만들기"; RefreshProject(); RebuildDocuments(); SetBusy(false); RefreshPointing();
-        RegisterProject(); RefreshChatGptProject();
+        RegisterProject(); ApplyConversationMode();
+        if (!conversation.Configured) ChooseConversationMode();
     });
     private void RefreshProject()
     {
@@ -232,6 +234,8 @@ public sealed partial class EditorWindow : Window
     private async void Submit()
     {
         if (session is null || busy) return; string text = prompt.Text.Trim(); if (text.Length == 0) return;
+        if (conversation?.Configured != true) { ChooseConversationMode(); return; }
+        if (conversation.Mode == "chatgpt") { tabs.SelectedIndex = 6; SetStatus("이 게임팩은 기존 ChatGPT 대화를 사용해. ‘ChatGPT 열기’에서 질문을 보내줘."); return; }
         try
         {
             if (CurrentAccess is { } current && (!assistantSettings.ConnectionEnabled || !current.Enabled) && provider is not null)

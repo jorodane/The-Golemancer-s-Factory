@@ -3,6 +3,8 @@
   <ItemGroup>
     <ProjectReference Include="../PackEngine.Workspace/PackEngine.Workspace.csproj" />
     <Compile Include="../Shared/EditorStartMode.cs" Link="EditorStartMode.cs" />
+    <Compile Include="../Shared/CodexInstallation.cs" Link="CodexInstallation.cs" />
+    <Compile Include="../Shared/CodexBootstrap.cs" Link="CodexBootstrap.cs" />
     <Reference Include="WindowsBase" /><Reference Include="PresentationCore" /><Reference Include="PresentationFramework" /><Reference Include="System.Xaml" />
   </ItemGroup>
 </Project>
