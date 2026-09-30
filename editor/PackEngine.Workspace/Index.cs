@@ -15,6 +15,7 @@ public sealed class WorkspaceNode
     public string Pack { get; set; } = "";
     public string File { get; set; } = "";
     public int Line { get; set; }
+    public string Locator { get; set; } = "";
     public string Status { get; set; } = "resolved";
 }
 public sealed class WorkspaceLink
@@ -134,8 +135,17 @@ public sealed class WorkspaceIndex
     private void Definition(string kind, XElement element, string file, string pack, string id, string title)
     {
         string key = kind + ":" + id;
-        Add(new() { Key = key, Kind = kind, Id = id, Title = title, File = file, Pack = pack, Line = (element as System.Xml.IXmlLineInfo)?.LineNumber ?? 0 });
+        Add(new() { Key = key, Kind = kind, Id = id, Title = title, File = file, Pack = pack, Line = (element as System.Xml.IXmlLineInfo)?.LineNumber ?? 0, Locator = XmlLocator(element) });
         Link("file:" + file, key, "declares");
+    }
+    private static string XmlLocator(XElement element)
+    {
+        string Literal(string value) => !value.Contains("'") ? "'" + value + "'" : !value.Contains("\"") ? "\"" + value + "\"" : "concat('" + value.Replace("'", "',\"'\",'") + "')";
+        return "/" + string.Join("/", element.AncestorsAndSelf().Reverse().Select(e =>
+        {
+            var id = e.Attribute("id");
+            return e.Name.LocalName + (id is null ? "[" + (e.ElementsBeforeSelf(e.Name).Count() + 1) + "]" : "[@id=" + Literal(id.Value) + "]");
+        }));
     }
     private void IndexUi(XDocument xml, string path, string pack)
     {

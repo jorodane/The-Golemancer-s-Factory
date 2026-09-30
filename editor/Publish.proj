@@ -14,6 +14,7 @@
     <Copy SourceFiles="@(Runtime)" DestinationFolder="$(EditorPublishDir)" SkipUnchangedFiles="true" />
     <MakeDir Directories="$(EditorPublishDir)Providers" />
     <Copy SourceFiles="$(MSBuildThisFileDirectory)PackEngine.Assistant.Command/bin/Release/net48/PackEngine.Assistant.Command.dll" DestinationFolder="$(EditorPublishDir)Providers" />
+    <Copy SourceFiles="$(MSBuildThisFileDirectory)PackEngine.Assistant.Codex/bin/Release/net48/PackEngine.Assistant.Codex.dll" DestinationFolder="$(EditorPublishDir)Providers" />
     <ItemGroup>
       <Published Include="$(EditorPublishDir)*.exe;$(EditorPublishDir)*.dll;$(EditorPublishDir)*.config;$(EditorPublishDir)Providers/*.dll" />
       <Published Update="@(Published)">

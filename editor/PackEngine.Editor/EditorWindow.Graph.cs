@@ -9,7 +9,7 @@ public sealed partial class EditorWindow
 {
     private void DrawGraph(string key)
     {
-        graph.Children.Clear(); trail.Children.Clear(); if (session is null) return;
+        graph.Children.Clear(); graphObjects.Clear(); trail.Children.Clear(); if (session is null) return;
         foreach (string previous in session.State.Trail.TakeLastCompat(8)) trail.Children.Add(Action(previous, () => Guard(() => SelectNode(previous))));
         var all = session.Index.Links.Where(l => l.From == key || l.To == key).ToArray();
         var neighbors = all.Select(l => l.From == key ? l.To : l.From).Distinct(StringComparer.Ordinal).Take(12).ToArray();
@@ -33,10 +33,11 @@ public sealed partial class EditorWindow
         foreach (var pair in positions)
         {
             if (!session.Index.Nodes.TryGetValue(pair.Key, out var node)) continue;
-            var button = Action(node.Kind + "\n" + node.Id + (node.Status == "resolved" ? "" : "\n" + node.Status), () => Guard(() => SelectNode(node.Key)));
+            var button = Action(node.Kind + "\n" + node.Id + (node.Status == "resolved" ? "" : "\n" + node.Status), () => Guard(() => { SelectNode(node.Key); PointObject(node.Key, "graph"); }));
             button.Width = 166; button.Height = 62; button.ToolTip = node.Key + "\n" + node.File;
             button.Background = node.Key == key ? Brush("#245548") : node.Status == "resolved" ? PanelInk : Brush("#594326");
             button.Content = new TextBlock { Text = (string)button.Content, TextWrapping = TextWrapping.Wrap, TextTrimming = TextTrimming.CharacterEllipsis, Foreground = TextInk, TextAlignment = TextAlignment.Center };
+            graphObjects[node.Key] = new Rect(pair.Value.X - 83, pair.Value.Y - 31, 166, 62);
             Canvas.SetLeft(button, pair.Value.X - 83); Canvas.SetTop(button, pair.Value.Y - 31); graph.Children.Add(button);
         }
     }

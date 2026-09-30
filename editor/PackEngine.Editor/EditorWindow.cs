@@ -54,9 +54,10 @@ public sealed partial class EditorWindow : Window
         var contextView = new DockPanel { Background = PanelInk }; var contextHead = new StackPanel { Margin = new Thickness(12) };
         contextHead.Children.Add(Label("함께 보는 문맥", 16)); contextHead.Children.Add(providerLabel);
         contextHead.Children.Add(Action("AI 제공자 연결…", ConnectProvider)); DockPanel.SetDock(contextHead, Dock.Top); contextView.Children.Add(contextHead);
+        AddResidentControls(contextHead);
         contextView.Children.Add(new ScrollViewer { Content = contexts, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }); Grid.SetColumn(contextView, 4); body.Children.Add(contextView);
         var chat = new DockPanel { Margin = new Thickness(16) };
-        var composer = new StackPanel(); composer.Children.Add(Label("선택한 객체와 열린 문서를 바탕으로 요청해.", 12, MutedInk)); prompt.Height = 90; composer.Children.Add(prompt);
+        var composer = new StackPanel(); AddPointingControls(composer); prompt.Height = 90; composer.Children.Add(prompt);
         var sendRow = new WrapPanel(); submit = Action("문맥 요청 만들기", Submit); sendRow.Children.Add(submit);
         sendRow.Children.Add(Action("요청 복사", () => Guard(() => { if (lastRequest is null) throw new InvalidOperationException("먼저 요청을 만들어줘."); session!.ExportContext(lastRequest); Clipboard.SetText(EditorSession.Serialize(lastRequest)); SetStatus("프롬프트와 실제 포함 문맥을 복사했어."); RefreshContext(); })));
         composer.Children.Add(sendRow); DockPanel.SetDock(composer, Dock.Bottom); chat.Children.Add(composer);
@@ -65,7 +66,7 @@ public sealed partial class EditorWindow : Window
         relationship.Children.Add(new ScrollViewer { Content = graph, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }); AddTab("관계", relationship);
         var document = new DockPanel { Margin = new Thickness(12) };
         var documentHead = new StackPanel(); documentHead.Children.Add(openDocs);
-        var docButtons = new WrapPanel(); docButtons.Children.Add(Action("문서 닫기", () => Guard(() => { if (activeDocument is null) return; session!.Close(activeDocument.Path); activeDocument = null; RebuildDocuments(); RefreshContext(); })));
+        var docButtons = new WrapPanel(); docButtons.Children.Add(Action("문서 닫기", () => Guard(() => { if (busy || activeDocument is null) return; session!.Close(activeDocument.Path); activeDocument = null; RebuildDocuments(); RefreshContext(); })));
         docButtons.Children.Add(Action("디스크에서 다시 읽기", ReloadDocument)); documentHead.Children.Add(docButtons);
         documentHead.Children.Add(Label("변경 이유", 12, MutedInk)); documentHead.Children.Add(intent);
         documentHead.Children.Add(Action("변경·영향 미리보기", PreviewDocument)); DockPanel.SetDock(documentHead, Dock.Top); document.Children.Add(documentHead);
@@ -78,15 +79,17 @@ public sealed partial class EditorWindow : Window
         DockPanel.SetDock(changeHead, Dock.Top); changes.Children.Add(changeHead); var affected = new ScrollViewer { Content = impact, Height = 130, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }; DockPanel.SetDock(affected, Dock.Bottom); changes.Children.Add(affected); changes.Children.Add(diff); AddTab("변경", changes);
         var output = new DockPanel { Margin = new Thickness(14, 0, 14, 0) }; var outputHeader = new DockPanel(); outputHeader.Children.Add(Label("실행 · 빌드 기록", 12, MutedInk)); var cancel = Action("작업 취소", () => operation?.Cancel()); cancel.HorizontalAlignment = HorizontalAlignment.Right; outputHeader.Children.Add(cancel); DockPanel.SetDock(outputHeader, Dock.Top); output.Children.Add(outputHeader); output.Children.Add(log); Grid.SetRow(output, 2); root.Children.Add(output);
         status.Margin = new Thickness(18, 8, 18, 8); Grid.SetRow(status, 3); root.Children.Add(status);
-        tree.SelectedItemChanged += (_, e) => { if (e.NewValue is TreeViewItem { Tag: string key }) Guard(() => SelectNode(key)); };
+        tree.SelectedItemChanged += (_, e) => { if (e.NewValue is TreeViewItem { Tag: string key }) Guard(() => { SelectNode(key); if (!busy && !loading) PointObject(key, "tree"); }); };
         search.TextChanged += (_, _) => RebuildTree();
         openDocs.SelectionChanged += (_, _) => { if (!loading && openDocs.SelectedItem is string path) ShowDocument(path); };
         editor.TextChanged += (_, _) => { if (!loading && activeDocument is not null) { activeDocument.Text = editor.Text; draftTimer.Stop(); draftTimer.Start(); SetStatus(activeDocument.Dirty ? "미적용 초안 · 변경 미리보기에서 검토한 뒤 적용해." : "문서가 디스크와 같아."); } };
+        editor.SelectionChanged += (_, _) => PointXmlRange();
+        SetupRangePointing();
         draftTimer.Tick += (_, _) => { draftTimer.Stop(); Guard(() => { session?.Persist(); RefreshContext(); }); };
         prompt.PreviewKeyDown += (_, e) => { if (e.Key == Key.Enter && Keyboard.Modifiers.HasFlag(ModifierKeys.Control)) { e.Handled = true; Submit(); } };
         Closing += (_, e) => { if (busy) { SetStatus("현재 작업을 마치거나 취소한 뒤 닫아줘."); e.Cancel = true; return; } Guard(() => session?.Persist()); };
         Closed += (_, _) => { draftTimer.Stop(); runner?.Dispose(); provider?.Dispose(); };
-        Message("시작", "프로젝트를 열고 객체를 선택해. 선언과 구현을 오가며 필요한 문맥만 모아서 작업할 수 있어.\n\nAI 제공자를 연결하기 전에는 요청과 문맥을 준비해 Chat에 복사할 수 있어. 제공자를 연결하면 같은 문맥으로 대화를 이어갈 수 있어."); SetBusy(false);
+        Message("시작", "일반 대화에는 포인팅을 첨부하지 않아. 대상을 가리키려면 ‘이거’ 모드를 켜고 탐색기·관계도·XML에서 지정해줘. 전송할 때 대상과 문서 버전을 고정해.\n\nAI 제공자를 연결하기 전에는 요청과 문맥을 준비해 Chat에 복사할 수 있어. 제공자를 연결하면 같은 문맥으로 대화를 이어갈 수 있어."); SetBusy(false);
     }
     private static Brush Brush(string color) => (Brush)new BrushConverter().ConvertFromString(color)!;
     private static TextBlock Label(string text, double size = 13, Brush? ink = null) => new() { Text = text, FontSize = size, Foreground = ink ?? TextInk, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(4) };
@@ -116,7 +119,7 @@ public sealed partial class EditorWindow : Window
     {
         busy = value; foreach (var button in actionButtons) button.IsEnabled = !busy && session is not null;
         submit.IsEnabled = !busy && session is not null; editor.IsReadOnly = busy || activeDocument is null || session?.CanEdit(activeDocument.Path) != true;
-        targets.IsEnabled = !busy; tree.IsEnabled = !busy; openDocs.IsEnabled = !busy;
+        targets.IsEnabled = !busy; tree.IsEnabled = !busy; openDocs.IsEnabled = !busy; models.IsEnabled = !busy;
     }
     private async void Work(Func<Task> action)
     {
@@ -139,14 +142,14 @@ public sealed partial class EditorWindow : Window
         if (busy) return;
         if (runner?.GameRunning == true) throw new InvalidOperationException("현재 프로젝트의 게임 창을 닫은 뒤 다른 프로젝트를 열어줘.");
         session?.Persist();
-        var next = new EditorSession(path); runner?.Dispose(); session = next;
+        var next = new EditorSession(path); runner?.Dispose(); provider?.Dispose(); provider = null; providerLabel.Text = "AI 제공자 미연결"; session = next;
         runner = new(session, Environment.GetEnvironmentVariable("PACKENGINE_DOTNET") ?? "dotnet"); runner.Output += AppendLog;
         activeDocument = null; pending = null; lastRequest = session.State.Requests.LastOrDefault();
         Title = "PackEngine — " + session.Project.Name; projectLabel.Text = session.Project.Name;
         targets.ItemsSource = session.Project.Targets.Select(t => t.Id).ToArray(); targets.SelectedItem = runner.PreferredTarget;
         transcript.Children.Clear(); Message("프로젝트", session.Project.Name + "을 열었어. 팩과 문서를 골라서 작업을 시작해.");
         foreach (var request in session.State.Requests.TakeLastCompat(8)) { Message("나", request.Prompt); if (request.Reply.Length > 0) Message("제공자", request.Reply); }
-        RefreshProject(); RebuildDocuments(); SetBusy(false);
+        pointingMode.SelectedIndex = 0; allowPackWrites.IsChecked = false; allowProjectCommands.IsChecked = false; models.ItemsSource = null; submit.Content = "문맥 요청 만들기"; RefreshProject(); RebuildDocuments(); SetBusy(false); RefreshPointing();
     });
     private void RefreshProject()
     {
@@ -228,14 +231,16 @@ public sealed partial class EditorWindow : Window
         if (session is null || busy) return; string text = prompt.Text.Trim(); if (text.Length == 0) return;
         try
         {
-            lastRequest = session.PrepareContext(text); Message("나", text); prompt.Clear(); RefreshContext();
+            lastRequest = session.PrepareContext(text); CaptureAgentScope(lastRequest); Message("나", text); prompt.Clear(); RefreshContext();
             if (provider is null)
             {
-                session.ExportContext(lastRequest); Message("문맥 준비", lastRequest.Context.Count + "개 문서·계약을 요청에 담았어. ‘요청 복사’로 Chat에 전달할 수 있어. AI 제공자가 연결되면 이 자리에서 응답을 받게 돼."); RefreshContext(); return;
+                session.ExportContext(lastRequest); Message("문맥 준비", lastRequest.Context.Count + "개 지정 구간을 요청에 담았어. 열린 문서 목록은 내용과 구분돼. ‘요청 복사’로 Chat에 전달하거나 Codex를 연결해줘."); RefreshContext(); return;
             }
             SetBusy(true); operation = new();
             var bridge = new AssistantBridge(session, action => Dispatcher.Invoke(() => { action(); RefreshContext(); }));
-            string answer = await bridge.Send(provider, lastRequest, operation.Token); Message(provider.Name, answer); RefreshContext();
+            using var agentTools = provider is IResidentAssistant ? new AgentWorkspace(session, lastRequest, runner!, action => Dispatcher.Invoke(() => { action(); RefreshContext(); }), AgentProgress) : null;
+            string answer = await bridge.Send(provider, lastRequest, operation.Token, agentTools);
+            if (provider is not IResidentAssistant || streamMessages.Count == 0) Message(provider.Name, answer); RefreshContext();
         }
         catch (Exception e) { SetStatus(e.Message); AppendLog(e.Message); }
         finally { operation?.Dispose(); operation = null; SetBusy(false); }
@@ -244,10 +249,13 @@ public sealed partial class EditorWindow : Window
     {
         contexts.Children.Clear(); if (session is null) return;
         contexts.Children.Add(Label("사용자가 연 문서", 13, AccentInk));
+        contexts.Children.Add(Label("목록은 내용을 읽었다는 뜻이 아니야. 지정 구간만 기본 첨부돼.", 11, MutedInk));
         foreach (var doc in session.Documents) contexts.Children.Add(Action((doc.Dirty ? "● " : "") + Path.GetFileName(doc.Path), () => { ShowDocument(doc.Path); tabs.SelectedIndex = 2; }));
         if (lastRequest is not null)
         {
             contexts.Children.Add(Label("최근 요청 · " + lastRequest.Delivery, 13, AccentInk));
+            contexts.Children.Add(Label("전송 시점: " + lastRequest.Input.CapturedUtc + "\n포인팅: " + lastRequest.Input.Mode + " · " + lastRequest.Input.Targets.Count + "개", 11, MutedInk));
+            foreach (var target in lastRequest.Input.Targets) contexts.Children.Add(Label(target.Key + (target.StartLine > 0 ? " · " + target.StartLine + "–" + target.EndLine + "행" : ""), 11));
             contexts.Children.Add(Label(lastRequest.Context.Sum(c => c.Content.Length).ToString("N0") + " / " + lastRequest.CharacterBudget.ToString("N0") + "자", 11, MutedInk));
             foreach (var item in lastRequest.Context) contexts.Children.Add(Label(item.Path + (item.Partial ? " (일부)" : "") + (item.Draft ? " (미적용 초안)" : "") + (item.DiskChanged ? " (디스크에 외부 변경 있음)" : "") + "\n" + item.Why, 11));
             if (lastRequest.Omitted.Count > 0) contexts.Children.Add(Label("포함하지 못한 문맥: " + string.Join(", ", lastRequest.Omitted), 11, MutedInk));
@@ -256,6 +264,8 @@ public sealed partial class EditorWindow : Window
         var reads = session.State.Reads.TakeLastCompat(12).Reverse().ToArray();
         if (reads.Length == 0) contexts.Children.Add(Label("제공자의 추가 문서·계약 요청이 여기에 표시돼.", 11, MutedInk));
         foreach (var read in reads) contexts.Children.Add(Label(read.Path + "\n" + read.Characters.ToString("N0") + "자 · " + read.Hash.Substring(0, 8) + (read.Partial ? " · 일부" : ""), 11));
+        contexts.Children.Add(Label("객체팩 작업 기록", 13, AccentInk));
+        foreach (var action in session.State.Operations.TakeLastCompat(8).Reverse()) contexts.Children.Add(Label(action.Tool + " · " + action.Status + "\n" + action.Subject, 11));
     }
 }
 

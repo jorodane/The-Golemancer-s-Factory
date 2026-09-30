@@ -1,6 +1,8 @@
-# 에디터의 AI 제공자 연결
+# 에디터의 외부 프로세스 제공자 연결
 
-`IEditorAssistant`는 `PackEngine.Workspace.dll`의 공개 계약이다. 에디터/CLI가 사용자가 선택한 제공자 DLL을 로드한다. `ReplyAsync(ContextRequest, IAssistantWorkspace, CancellationToken)`가 문자열 응답을 반환한다. 모델 선택·인증·전송·비용 처리는 제공자의 책임이다. 기본 제공자는 특정 모델 API에 연결하지 않는다.
+이 문서는 기존 읽기 전용 `Command` 제공자의 규약이다. ChatGPT 구독으로 연결하는 공식 Codex app-server 제공자와 실제 편집 도구는 [RESIDENT_AGENT.md](RESIDENT_AGENT.md)를 따른다.
+
+`IEditorAssistant`는 `PackEngine.Workspace.dll`의 공개 계약이다. 에디터/CLI가 사용자가 선택한 제공자 DLL을 로드한다. `ReplyAsync(ContextRequest, IAssistantWorkspace, CancellationToken)`가 문자열 응답을 반환한다. 모델 선택·인증·전송·비용 처리는 제공자의 책임이다. Command 제공자는 특정 모델 API를 직접 구현하지 않는다.
 
 외부 AI 클라이언트 프로세스를 사용할 때는 다음 로컬 JSON 파일 경로를 `PACKENGINE_ASSISTANT_CONFIG` 환경변수로 설정하고 에디터를 시작한다. 계정 설정과 개인 경로는 저장소에 올리지 않는다.
 
@@ -20,7 +22,7 @@
 {"type":"request","protocol":1,"request":{"Id":"...","Project":"golemancer","Prompt":"...","Selection":"view:golemancer.purchase","Context":[],"OpenFiles":[]}}
 ```
 
-실제 Context 배열에는 경로, 이유, UTF-8 전체 내용 SHA256, 전달한 Content, Partial/Draft/DiskChanged 값이 포함된다. 해시는 일부만 전달했어도 전체 버퍼에 대한 해시이며 원본 파일의 바이트 해시와는 구별한다. 이미 전달된 내용은 외부 클라이언트가 모델 입력으로 선택해 사용한다.
+실제 Context 배열에는 포인팅한 정의·구간의 경로, 이유, Content, Partial/Draft/DiskChanged 값이 포함된다. 일반 대화에서는 비어 있다. 정의·범위의 `Hash`는 잘라내기 전 조각의 UTF-8 SHA256이고 `DocumentHash`는 전체 버퍼의 UTF-8 해시다. 기존 read 규약의 Hash는 전체 버퍼 해시다. 둘 모두 원본 파일의 바이트 해시와 구별한다. 요청의 `Input`은 전송 순간의 대상 집합, `Documents`는 내용이 포함되지 않은 열린 문서의 버전 목록이다. 이미 전달된 내용은 외부 클라이언트가 모델 입력으로 선택해 사용한다.
 
 프로세스가 추가 읽기를 요청할 수 있다.
 
@@ -44,6 +46,6 @@
 
 도구 요청 실패는 `{"type":"error","message":"..."}`로 돌려준다. 제공자는 응답할 때까지 계속할 수 있지만 최대 128회 메시지, 한 메시지 2 MB, 설정된 실행 시간 제한을 따른다. 요청 취소나 종료 시 이 요청의 외부 프로세스를 끝낸다. 상태를 오래 유지하는 공유 서버를 직접 실행 파일로 사용하지 말고 요청별 클라이언트를 연결한다.
 
-수정이나 명령 실행 메시지는 이 읽기 규약에 없다. 모델의 수정 제안은 문서 편집·미리보기·적용 흐름으로 검토한다. API 키 입력 UI, 특정 서비스의 로그인, 스트리밍 응답, 에디터 내부 자동 코드 적용은 이번 초안에 포함하지 않는다.
+수정이나 명령 실행 메시지는 이 읽기 규약에 없다. 모델의 수정 제안은 문서 편집·미리보기·적용 흐름으로 검토한다. API 키 입력 UI, 특정 서비스의 로그인, 스트리밍 응답, 에디터 내부 자동 코드 적용은 Command 제공자에는 포함하지 않는다.
 
 `tools/verify-editor.py`의 프로세스는 이 전송 경계를 확인하는 테스트용 클라이언트다. 실제 모델 응답을 생성하는 제품 기능으로 배포하지 않는다.

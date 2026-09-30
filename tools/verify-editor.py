@@ -67,8 +67,10 @@ def main():
             check(any(n['Key'] == 'implementation:commerce.buy' and n['Status'] == 'runtime-unknown' for n in graph['Nodes']), 'unexecuted DLL implementations remain explicitly unknown')
             ui = 'Content/Packs/02.Controls/ui.xml'
             commerce = 'Content/Packs/40.Commerce/actions.xml'
-            context = json.loads(call('context', '--select', 'view:golemancer.purchase', '--open', ui, '--prompt', '구매 버튼의 글자 크기를 바꿔줘.', '--budget', '24000').stdout)['Request']
-            check(any(c['Path'] == ui for c in context['Context']) and any(c['Path'].startswith('contract:') for c in context['Context']) and any('01.EngineButton' in c['Path'] for c in context['Context']), 'shared context contains open documents, selected final contracts and parent definitions with inclusion reasons')
+            context = json.loads(call('context', '--point', 'view:golemancer.purchase', '--open', ui, '--prompt', '구매 버튼의 글자 크기를 바꿔줘.', '--budget', '24000').stdout)['Request']
+            check(len(context['Context']) == 1 and context['Context'][0]['Path'] == ui and '<View id="golemancer.purchase"' in context['Context'][0]['Content'] and len(context['Documents']) == 1 and context['Input']['Mode'] == 'single', 'pointing exports only the chosen XML definition and open-document metadata; parents and other documents remain demand-read')
+            ordinary = json.loads(call('context', '--select', 'widget:golemancer.button', '--prompt', '그냥 대화 중이야').stdout)['Request']
+            check(not ordinary['Context'] and not ordinary['Input']['Targets'] and ordinary['Input']['Mode'] == 'none', 'ordinary chat and navigation never attach a stale object or its contents')
             current = json.loads((state / 'session.json').read_text())
             check(not current['Reads'] and sum(len(c['Content']) for c in context['Context']) <= 24000, 'context export respects its character budget and never pretends that AI has read it')
             read = json.loads(call('read', '--request', context['Id'], '--file', commerce).stdout)
@@ -84,11 +86,11 @@ def main():
             current['Drafts'] = [{'Path': ui, 'Baseline': digest(game / ui), 'Original': buffer_text,
                                   'Text': buffer_text.replace('property="fontSize" value="13"', 'property="fontSize" value="15"')}]
             (state / 'session.json').write_text(json.dumps(current))
-            restored = json.loads(call('context', '--prompt', '저장한 초안을 이어서 확인해줘').stdout)['Request']
+            restored = json.loads(call('context', '--point', 'widget:golemancer.costButton', '--prompt', '저장한 초안을 이어서 확인해줘').stdout)['Request']
             check(any(c['Path'] == ui and c['Draft'] and 'value="15"' in c['Content'] for c in restored['Context']) and (game / ui).read_bytes() == buffer_bytes,
                   'reopening restores unsaved editor buffers without applying them to project files')
             (game / ui).write_bytes(buffer_bytes + b'\n')
-            changed = json.loads(call('context', '--prompt', '외부 변경 여부 확인').stdout)['Request']
+            changed = json.loads(call('context', '--point', 'widget:golemancer.costButton', '--prompt', '외부 변경 여부 확인').stdout)['Request']
             check(any(c['Path'] == ui and c['DiskChanged'] for c in changed['Context']), 'shared context marks a newer disk version separately from the visible editor draft')
             (game / ui).write_bytes(buffer_bytes)
             current = json.loads((state / 'session.json').read_text()); current['Drafts'] = []

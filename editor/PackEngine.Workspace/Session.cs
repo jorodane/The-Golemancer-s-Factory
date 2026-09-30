@@ -22,6 +22,10 @@ public sealed class ContextItem
     public bool Partial { get; set; }
     public bool Draft { get; set; }
     public bool DiskChanged { get; set; }
+    public string DocumentHash { get; set; } = "";
+    public string Selector { get; set; } = "";
+    public int StartLine { get; set; } = 1;
+    public int TotalLines { get; set; }
 }
 public sealed class ContextRequest
 {
@@ -36,6 +40,11 @@ public sealed class ContextRequest
     public List<ContextItem> Context { get; set; } = [];
     public List<string> Omitted { get; set; } = [];
     public string Reply { get; set; } = "";
+    public SemanticInput Input { get; set; } = new();
+    public List<DocumentVersion> Documents { get; set; } = [];
+    public List<string> WritablePacks { get; set; } = [];
+    public bool AllowProjectCommands { get; set; }
+    public string Target { get; set; } = "";
 }
 public sealed class ReadReceipt
 {
@@ -55,6 +64,7 @@ public sealed class EditorState
     public List<string> Trail { get; set; } = [];
     public List<ContextRequest> Requests { get; set; } = [];
     public List<ReadReceipt> Reads { get; set; } = [];
+    public List<AgentOperation> Operations { get; set; } = [];
 }
 public sealed class SemanticChange
 {
@@ -77,7 +87,7 @@ public sealed class ChangeDraft
     public List<SemanticChange> Changes { get; set; } = [];
     public List<string> Impact { get; set; } = [];
 }
-public sealed class EditorSession
+public sealed partial class EditorSession
 {
     public static readonly JsonSerializerOptions Json = new() { WriteIndented = true, Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping, Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() } };
     public WorkspaceProject Project { get; }
@@ -213,46 +223,7 @@ public sealed class EditorSession
         return left.Keys.Concat(right.Keys).Distinct(StringComparer.Ordinal).OrderBy(k => k, StringComparer.Ordinal).Select(k => new SemanticChange {
             Member = k, Before = left.TryGetValue(k, out var b) ? b : null, After = right.TryGetValue(k, out var a) ? a : null }).Where(c => c.Before != c.After).ToList();
     }
-    public ContextRequest PrepareContext(string prompt, int budget = 32000)
-    {
-        if (string.IsNullOrWhiteSpace(prompt)) throw new ArgumentException("Write a request first.");
-        if (budget < 1000 || budget > 200000) throw new ArgumentOutOfRangeException(nameof(budget));
-        Refresh();
-        var request = new ContextRequest { Id = Guid.NewGuid().ToString("N"), Project = Project.Id, Prompt = prompt, Selection = State.Selection,
-            CreatedUtc = DateTime.UtcNow.ToString("O"), CharacterBudget = budget, OpenFiles = Documents.Select(d => d.Path).ToList() };
-        int remaining = budget;
-        void Add(string path, string why, string content, bool draft = false, bool diskChanged = false)
-        {
-            if (request.Context.Any(c => c.Path == path)) return;
-            if (remaining <= 0) { request.Omitted.Add(path); return; }
-            int take = Math.Min(remaining, Math.Min(content.Length, Math.Min(16000, Math.Max(1000, budget / 2))));
-            request.Context.Add(new() { Path = path, Hash = WorkspaceProject.HashText(content), Why = why, Content = content.Substring(0, take), Partial = take < content.Length, Draft = draft, DiskChanged = diskChanged }); remaining -= take;
-        }
-        void FileContext(string path, string why)
-        {
-            if (!Index.TextFiles.ContainsKey(path) || !File.Exists(Project.Resolve(path))) { request.Omitted.Add(path + " (unresolved)"); return; }
-            var doc = Documents.SingleOrDefault(d => d.Path == path);
-            byte[] disk = ReadBytes(path);
-            Add(path, why, doc?.Text ?? Decode(disk), doc?.Dirty ?? false, doc is not null && WorkspaceProject.Hash(disk) != doc.Baseline);
-        }
-        if (Index.Nodes.TryGetValue(State.Selection, out var selection))
-        {
-            Add("contract:" + selection.Key, "저장된 정의의 최종 계약과 관계", Serialize(Index.Inspect(selection.Key)));
-            if (selection.File.Length > 0) FileContext(selection.File, "현재 선택한 객체의 선언");
-        }
-        foreach (var doc in Documents) FileContext(doc.Path, "사용자가 열어 둔 문서");
-        if (selection is not null)
-        {
-            var seen = new HashSet<string>(StringComparer.Ordinal); var queue = new Queue<string>(); queue.Enqueue(selection.Key);
-            while (queue.Count > 0 && seen.Count < 32)
-            {
-                string key = queue.Dequeue(); if (!seen.Add(key)) continue;
-                foreach (var link in Index.Links.Where(l => l.From == key && l.Kind == "inherits"))
-                    if (Index.Nodes.TryGetValue(link.To, out var parent)) { if (parent.File.Length > 0) FileContext(parent.File, "선택한 객체의 부모: " + key); queue.Enqueue(parent.Key); }
-            }
-        }
-        State.Requests.Add(request); if (State.Requests.Count > 30) State.Requests.RemoveAt(0); Persist(); return request;
-    }
+    public ContextRequest PrepareContext(string prompt, int budget = 8000) => PrepareSemanticContext(prompt, budget);
     public string ExportContext(ContextRequest request)
     {
         string path = Path.Combine(StateDirectory, "request-" + request.Id + ".json"); request.Delivery = "exported";
