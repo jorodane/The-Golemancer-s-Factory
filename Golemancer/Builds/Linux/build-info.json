@@ -1,0 +1,12 @@
+{
+  "sourceCommit": "5fd305b87dcd701311a441f702d8f765cbd8a9b0",
+  "rid": "linux-x64",
+  "selfContained": true,
+  "renderer": "SDL2 + shared Skia presentation",
+  "requires": [
+    "SDL2",
+    "fontconfig",
+    "Korean fonts"
+  ],
+  "physicalDisplayTested": false
+}

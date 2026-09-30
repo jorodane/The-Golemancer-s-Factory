@@ -1,1 +1,9 @@
-﻿{ "sourceCommit": "f1e7d6b0dba5f2404b29e6fe44c7caea07ce9fb6", "target": "net48", "ui": "WPF", "contentRoot": "../../Content", "windowsGuiTested": false }
+{
+  "sourceCommit": "5fd305b87dcd701311a441f702d8f765cbd8a9b0",
+  "target": "net48",
+  "ui": "WPF",
+  "contentRoot": "../../Content",
+  "windowsGuiTested": false,
+  "packBinarySourceCommit": "5911ef2038bd9fd218cc5ba885ed53dbb97d2d72",
+  "packSourcesUnchanged": true
+}
