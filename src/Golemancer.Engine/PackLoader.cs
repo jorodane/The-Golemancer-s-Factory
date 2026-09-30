@@ -11,8 +11,10 @@ using Golemancer.Contracts;
 
 namespace Golemancer.Engine;
 
-public sealed class ModuleRegistry : IModuleRegistry, ITerrainRegistry
+public sealed class ModuleRegistry : IModuleRegistry, ITerrainRegistry, IInputRegistry
 {
+    public Dictionary<string, InputActionDef> Inputs { get; } = [];
+    public void Input(InputActionDef action) => Inputs.Add(action.Id, action);
     public Dictionary<string, IActionHandler> Actions { get; } = [];
     public Dictionary<string, IConditionHandler> Conditions { get; } = [];
     public Dictionary<string, IFailureHandler> Failures { get; } = [];
@@ -30,16 +32,20 @@ public sealed class ModuleRegistry : IModuleRegistry, ITerrainRegistry
 #if !NETFRAMEWORK
 public sealed class PackLoadContext(string file) : AssemblyLoadContext(Path.GetFileNameWithoutExtension(file), isCollectible: false)
 {
-    private readonly AssemblyDependencyResolver resolver = new(file);
+    private readonly AssemblyDependencyResolver? resolver = Resolver(file);
+    private static AssemblyDependencyResolver? Resolver(string file)
+    { try { return new(file); } catch (PlatformNotSupportedException) { return null; } }
     protected override Assembly? Load(AssemblyName name)
     {
         if (name.Name == typeof(IGameModule).Assembly.GetName().Name) return typeof(IGameModule).Assembly;
-        string? path = resolver.ResolveAssemblyToPath(name);
+        string? path = resolver?.ResolveAssemblyToPath(name);
+        if (path is null && name.Name is { } simple && simple == Path.GetFileName(simple))
+        { var sibling = Path.Combine(Path.GetDirectoryName(file)!, simple + ".dll"); if (File.Exists(sibling)) path = sibling; }
         return path is null ? null : LoadFromAssemblyPath(path);
     }
     protected override nint LoadUnmanagedDll(string name)
     {
-        string? path = resolver.ResolveUnmanagedDllToPath(name);
+        string? path = resolver?.ResolveUnmanagedDllToPath(name);
         return path is null ? 0 : LoadUnmanagedDllFromPath(path);
     }
 }
@@ -126,6 +132,7 @@ public static partial class PackLoader
                 pending.Remove(id);
             }
         }
+        foreach (var input in registry.Inputs) if (!catalog.InputActions.ContainsKey(input.Key)) catalog.InputActions.Add(input.Key, input.Value);
         registry.Systems.Sort((a, b) => a.Order.CompareTo(b.Order));
         string Localize(string value) => value.StartsWith("@", StringComparison.Ordinal) ? catalog.Text(value.Substring(1)) : value;
         foreach (var item in catalog.Items.Values) { item.Name = Localize(item.Name); item.Description = Localize(item.Description); }
@@ -185,7 +192,7 @@ public static partial class PackLoader
     private static Dictionary<string, int> Quantities(XElement? root) => root?.Elements("Item").ToDictionary(e => S(e, "id"), e => (int)N(e, "amount", 1)) ?? [];
     private static void ReadContent(XElement root, ContentCatalog c, string packDirectory)
     {
-        foreach (var e in root.Element("Inputs")?.Elements("Bind") ?? []) c.Inputs[S(e, "action")] = S(e, "keys");
+        ReadInputs(root.Element("Inputs"), c);
         foreach (var e in root.Element("Sprites")?.Elements("Sprite") ?? [])
         {
             string id = S(e, "id");

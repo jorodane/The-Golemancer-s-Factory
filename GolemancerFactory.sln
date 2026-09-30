@@ -43,6 +43,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Golemancer.Host", "src\Gole
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Golemancer.Terrain", "modules\Golemancer.Terrain\Golemancer.Terrain.csproj", "{09171B74-C873-4175-A6AE-6FA334115BB0}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Golemancer.Client", "src\Golemancer.Client\Golemancer.Client.csproj", "{E2489C8C-EE9E-4694-BE0B-C682A65FA6AA}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -257,6 +259,18 @@ Global
 		{09171B74-C873-4175-A6AE-6FA334115BB0}.Release|x64.Build.0 = Release|Any CPU
 		{09171B74-C873-4175-A6AE-6FA334115BB0}.Release|x86.ActiveCfg = Release|Any CPU
 		{09171B74-C873-4175-A6AE-6FA334115BB0}.Release|x86.Build.0 = Release|Any CPU
+		{E2489C8C-EE9E-4694-BE0B-C682A65FA6AA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E2489C8C-EE9E-4694-BE0B-C682A65FA6AA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E2489C8C-EE9E-4694-BE0B-C682A65FA6AA}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{E2489C8C-EE9E-4694-BE0B-C682A65FA6AA}.Debug|x64.Build.0 = Debug|Any CPU
+		{E2489C8C-EE9E-4694-BE0B-C682A65FA6AA}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{E2489C8C-EE9E-4694-BE0B-C682A65FA6AA}.Debug|x86.Build.0 = Debug|Any CPU
+		{E2489C8C-EE9E-4694-BE0B-C682A65FA6AA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E2489C8C-EE9E-4694-BE0B-C682A65FA6AA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E2489C8C-EE9E-4694-BE0B-C682A65FA6AA}.Release|x64.ActiveCfg = Release|Any CPU
+		{E2489C8C-EE9E-4694-BE0B-C682A65FA6AA}.Release|x64.Build.0 = Release|Any CPU
+		{E2489C8C-EE9E-4694-BE0B-C682A65FA6AA}.Release|x86.ActiveCfg = Release|Any CPU
+		{E2489C8C-EE9E-4694-BE0B-C682A65FA6AA}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -279,5 +293,6 @@ Global
 		{020BFCD2-C4D6-46A7-89EB-DAB294F03C3E} = {CA253913-39DE-BFD0-C9A3-4B7EC6FBDF17}
 		{1C539A8B-01C7-4711-86E8-C86F67A7AEFD} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{09171B74-C873-4175-A6AE-6FA334115BB0} = {CA253913-39DE-BFD0-C9A3-4B7EC6FBDF17}
+		{E2489C8C-EE9E-4694-BE0B-C682A65FA6AA} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 	EndGlobalSection
 EndGlobal

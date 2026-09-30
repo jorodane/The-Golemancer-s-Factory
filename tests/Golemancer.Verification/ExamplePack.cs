@@ -16,6 +16,8 @@ internal static class ExamplePack
         var presentation = new BubbleEntry { Label = game.Content.Actions["tea.rest"].Name, Display = game.Content.Actions["tea.rest"].Bubble };
         if (presentation.DisplayName != "차 마시기" || presentation.DisplayBadge != "휴식" || presentation.HasDetails) throw new Exception("Independent action bubble metadata/localization failed");
         Console.WriteLine("PASS: independent pack supplies localized bubble name, additional badge and hover policy through shared contracts");
+        if (game.Content.InputActions.GetValueOrDefault("tea.rest")?.Command != "tea.rest" || !InputBindings.For(game.Content, "android", "gamepad", "tea.rest").Contains("ButtonR3")) throw new Exception("Module input declaration or platform bindings failed");
+        Console.WriteLine("PASS: independent DLL declares its logical action and pack XML binds keyboard/gamepad without modifying the host");
         var s = new Simulation(game); var crafter = s.Spawn("craft_golem", 7, 25); crafter.Inventory["wood"] = 4;
         s.Dispatch(new() { Action = "select", TargetId = crafter.Id });
         var build = s.Dispatch(new() { Action = "build", ActorId = crafter.Id, Item = "tea.table", X = 8, Y = 25 });

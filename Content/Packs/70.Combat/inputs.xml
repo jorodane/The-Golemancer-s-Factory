@@ -1,0 +1,16 @@
+<GameContent>
+  <Inputs>
+    <Bind action="toggle_mode" keys="Tab" />
+    <Bind action="roll" keys="Space" />
+    <Bind action="heal" keys="D1" />
+    <Bind action="heal" platforms="android" controls="Num1" />
+    <Action id="toggle_mode" name="전투 / 일상" command="toggle_mode" item="" group="mode" order="0" virtual="button" />
+    <Action id="roll" name="구르기" command="roll" item="" group="combat" order="1" virtual="button" />
+    <Action id="heal" name="회복" command="consume" item="healing_jelly" group="combat" order="12" virtual="button" />
+    <Bind action="roll" device="gamepad" controls="ButtonR1" />
+    <Bind action="toggle_mode" device="gamepad" controls="ButtonY" />
+    <Bind action="toggle_mode" device="touch" platforms="android,ios" controls="toggle_mode" />
+    <Bind action="roll" device="touch" platforms="android,ios" controls="roll" />
+    <Bind action="heal" device="touch" platforms="android,ios" controls="heal" />
+  </Inputs>
+</GameContent>

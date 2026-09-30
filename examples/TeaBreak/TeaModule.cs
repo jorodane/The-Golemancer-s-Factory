@@ -3,7 +3,11 @@ namespace TeaBreak;
 
 public sealed class TeaModule : IGameModule
 {
-    public void Register(IModuleRegistry registry) => registry.Action("tea.rest", new Rest());
+    public void Register(IModuleRegistry registry)
+    {
+        registry.Action("tea.rest", new Rest());
+        if (registry is IInputRegistry inputs) inputs.Input(new() { Id = "tea.rest", Name = "차 한 잔", Command = "tea.rest", Target = "point", Group = "actions", Order = 100 });
+    }
 }
 public sealed class Rest : IActionHandler
 {

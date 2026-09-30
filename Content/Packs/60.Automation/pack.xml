@@ -4,4 +4,5 @@
   <Depends id="golems" minVersion="1.0.0" />
   <Assembly path="Bin/{framework}/Golemancer.Automation.dll" />
   <Data path="actions.xml" />
+  <Data path="inputs.xml" />
 </ObjectPack>

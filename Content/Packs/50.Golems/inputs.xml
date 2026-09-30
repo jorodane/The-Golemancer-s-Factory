@@ -1,0 +1,14 @@
+<GameContent>
+  <Inputs>
+    <Bind action="equipment" keys="I" />
+    <Bind action="mana" keys="D2" />
+    <Bind action="mana" platforms="android" controls="Num2" />
+    <Action id="equipment" name="장비" command="" item="" group="actions" order="9" virtual="button" />
+    <Action id="mana" name="마나" command="consume" item="mana_jelly" group="combat" order="13" virtual="button" />
+    <Action id="crew" name="골렘" command="" item="" group="actions" order="18" virtual="button" />
+    <Bind action="crew" keys="C" />
+    <Bind action="equipment" device="touch" platforms="android,ios" controls="equipment" />
+    <Bind action="mana" device="touch" platforms="android,ios" controls="mana" />
+    <Bind action="crew" device="touch" platforms="android,ios" controls="crew" />
+  </Inputs>
+</GameContent>

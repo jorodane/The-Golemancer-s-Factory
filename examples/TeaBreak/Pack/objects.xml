@@ -1,4 +1,9 @@
 <GameContent>
+  <Inputs>
+    <Bind action="tea.rest" keys="K" />
+    <Bind action="tea.rest" device="gamepad" controls="ButtonR3" />
+    <Bind action="tea.rest" device="touch" platforms="android,ios" controls="tea.rest" />
+  </Inputs>
   <Actions>
     <Action id="tea.rest" name="@tea.name" handler="tea.rest" path="휴식/차" range="1" failure="stop">
       <Bubble name="@tea.bubble" badge="@tea.badge" details="false" />

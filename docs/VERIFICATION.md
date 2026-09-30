@@ -1,4 +1,16 @@
-# 검증 기록 — 가까운 버블·전체 창 배치·뒤쪽 입력 차단
+# 검증 기록
+
+## Android 플랫폼·입력 모듈 검증 (2026-09-30)
+
+공유 엔진 전체 검증 **449 PASS**, 첫 챕터 12개 퀘스트 및 동굴 입구 개방, 독립 TeaBreak DLL 확장 검증을 통과했다. net48 전체 솔루션과 독립 예제, net10.0 공유 엔진과 독립 예제, net10.0-android Release APK는 모두 경고 0·오류 0으로 빌드했다.
+
+- Android API 29 x86_64 에뮬레이터에 Release APK를 설치하고 **ANDROID_SMOKE_PASS**를 확인했다. 앱 안에서 외부 DLL 로딩, 호스트의 콘텐츠 모듈 참조 부재, 앱 전용 저장·복원, 모든 스프라이트 소스 디코딩을 검사했다.
+- 실제 Android MotionEvent를 통해 가상 스틱과 두 번째 손가락 버튼의 동시 입력, 두 번째 손가락 해제 후 스틱 유지, 터치 취소 시 눌림·대기 이벤트 제거를 확인했다. 버블이 열린 동안 뒤쪽 HUD 히트 영역이 제거됨을 확인했다.
+- 입력 계약 회귀 검사는 Windows/Android 키 이름 차이, 타깃별 덮어쓰기와 명시적 해제, touch 바인딩 변경, 키보드·터치 공존, 게임패드 연결 해제, 대각선 정규화·데드존을 포함한다. TeaBreak DLL이 키보드·게임패드 바인딩을 별도로 선언하고 기존 호스트 참조 변경 없이 실행됨을 확인했다.
+- APK에는 `arm64-v8a`와 `x86_64` 런타임 및 별도 asset 형태의 콘텐츠 DLL 13개를 포함했다. 런타임 assembly store/압축을 복구하여 `compressed_assembly_count` 누락을 해결했고, `AndroidEnableMarshalMethods=false`로 Release JNI 시작 메서드 등록 누락을 해결했다.
+- 이전 테스트 AVD의 임시 디스크가 쌓여 저장공간을 소진한 상태도 확인했다. 사용하지 않는 테스트 디스크만 정리한 뒤 같은 프로젝트를 정상 빌드했다.
+
+검증 환경은 .NET SDK 10.0.401, Android workload 36.1.2, SDK API/build-tools 36, JDK 21이다. 실제 ARM64 휴대폰·물리 게임패드·Android 8 및 최신 Android에서의 실행, 실기기 성능과 장시간 플레이는 아직 검증하지 않았다. Windows WPF 실제 창 실행도 이번 Linux 환경에서는 수행하지 않았다. 재현 명령은 [Android 안내](ANDROID.md)에 있다.
 
 ## 선택 보존·구조·메모리 편집 검증
 

@@ -4,19 +4,48 @@
     <Bind action="move.down" keys="S,Down" />
     <Bind action="move.left" keys="A,Left" />
     <Bind action="move.right" keys="D,Right" />
-    <Bind action="toggle_mode" keys="Tab" />
-    <Bind action="roll" keys="Space" />
     <Bind action="pickup" keys="E" />
     <Bind action="queue" keys="LeftShift,RightShift" />
     <Bind action="quantity.one" keys="LeftCtrl,RightCtrl" />
     <Bind action="quantity.all" keys="LeftAlt,RightAlt" />
-    <Bind action="record" keys="R" />
-    <Bind action="play" keys="T" />
-    <Bind action="build" keys="B" />
-    <Bind action="equipment" keys="I" />
     <Bind action="follow" keys="F" />
     <Bind action="cancel" keys="X" />
-    <Bind action="heal" keys="D1" />
-    <Bind action="mana" keys="D2" />
+    <Action id="pickup" name="줍기" command="" item="" group="combat" order="2" virtual="button" />
+    <Action id="queue" name="예약" command="" item="" group="modifier" order="3" virtual="button" />
+    <Action id="quantity.one" name="1개" command="" item="" group="modifier" order="4" virtual="button" />
+    <Action id="quantity.all" name="전부" command="" item="" group="modifier" order="5" virtual="button" />
+    <Action id="follow" name="골렘 보기" command="" item="" group="actions" order="10" virtual="button" />
+    <Action id="cancel" name="작업 중단" command="cancel" item="" group="actions" order="11" virtual="button" />
+    <Action id="primary" name="사용 / 공격" command="" item="" group="combat" order="14" virtual="button" />
+    <Action id="context" name="행동 메뉴" command="" item="" group="combat" order="15" virtual="button" />
+    <Action id="menu" name="메뉴" command="" item="" group="system" order="16" virtual="button" />
+    <Action id="inventory" name="가방" command="" item="" group="actions" order="17" virtual="button" />
+    <Action id="move.up" name="이동" virtual="none" />
+    <Action id="move.down" name="이동" virtual="none" />
+    <Action id="move.left" name="이동" virtual="none" />
+    <Action id="move.right" name="이동" virtual="none" />
+    <Bind action="primary" keys="Enter" />
+    <Bind action="context" keys="Menu" />
+    <Bind action="menu" keys="Escape" />
+    <Bind action="inventory" keys="G" />
+    <Bind action="move.up" device="gamepad" controls="DpadUp,LeftY-" />
+    <Bind action="move.down" device="gamepad" controls="DpadDown,LeftY+" />
+    <Bind action="move.left" device="gamepad" controls="DpadLeft,LeftX-" />
+    <Bind action="move.right" device="gamepad" controls="DpadRight,LeftX+" />
+    <Bind action="primary" device="gamepad" controls="ButtonA" />
+    <Bind action="context" device="gamepad" controls="ButtonX" />
+    <Bind action="menu" device="gamepad" controls="ButtonStart,ButtonB" />
+    <Bind action="pickup" device="gamepad" controls="ButtonL1" />
+    <Bind action="queue" device="gamepad" controls="ButtonL2" />
+    <Bind action="pickup" device="touch" platforms="android,ios" controls="pickup" />
+    <Bind action="queue" device="touch" platforms="android,ios" controls="queue" />
+    <Bind action="quantity.one" device="touch" platforms="android,ios" controls="quantity.one" />
+    <Bind action="quantity.all" device="touch" platforms="android,ios" controls="quantity.all" />
+    <Bind action="follow" device="touch" platforms="android,ios" controls="follow" />
+    <Bind action="cancel" device="touch" platforms="android,ios" controls="cancel" />
+    <Bind action="primary" device="touch" platforms="android,ios" controls="primary" />
+    <Bind action="context" device="touch" platforms="android,ios" controls="context" />
+    <Bind action="menu" device="touch" platforms="android,ios" controls="menu" />
+    <Bind action="inventory" device="touch" platforms="android,ios" controls="inventory" />
   </Inputs>
 </GameContent>

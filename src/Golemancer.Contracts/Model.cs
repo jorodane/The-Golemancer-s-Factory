@@ -341,6 +341,8 @@ public sealed record QuestGoal(string Key, double Amount, string Label);
 public sealed class ContentCatalog
 {
     public Dictionary<string, string> Inputs { get; } = [];
+    public Dictionary<string, InputActionDef> InputActions { get; } = [];
+    public List<InputBindingDef> InputBindings { get; } = [];
     public Dictionary<string, SpriteDef> Sprites { get; } = [];
     public Dictionary<string, TilesetDef> Tilesets { get; } = [];
     public Dictionary<string, ItemDef> Items { get; } = [];

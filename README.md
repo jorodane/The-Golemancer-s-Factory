@@ -6,7 +6,9 @@
 
 ## 실행
 
-Windows용 **WPF / .NET Framework 4.8** 앱이야.
+Windows용 **WPF / .NET Framework 4.8** 앱과 Android용 **네이티브 .NET 10** 앱이야.
+
+Android에서는 `Builds/Android/Golemancer.apk`를 설치해. Android 8.0 이상, ARM64 휴대폰과 x86_64 에뮬레이터용 개발 빌드야. 터치·게임패드 조작과 빌드 방법은 [Android 플랫폼 안내](docs/ANDROID.md)에 있어.
 
 저장소를 받거나 pull한 뒤 **루트의 `Start.bat`을 실행**하면 돼. 압축을 풀어둔 [Windows 실행 파일](Builds/README.md)과 모듈 DLL이 함께 들어 있고 .NET Framework 4.8 런타임만 필요해. SDK나 빌드 ZIP 압축 해제는 필요 없어.
 

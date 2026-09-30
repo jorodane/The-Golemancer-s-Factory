@@ -143,8 +143,8 @@ internal sealed partial class MainWindow : Window
     }
 
     private void UseItem(string id){if(id is "healing_jelly" or "mana_jelly" or "sweetfruit")Send("consume",item:id);else if((Game.Content.Items.GetValueOrDefault(id)?.EquipmentSlot.Length ?? 0) > 0)Send("equip",item:id);else Notify(Game.Content.Items.GetValueOrDefault(id)?.Description??id);}
-    private bool IsKey(Key key,string action) => Game.Content.Inputs.GetValueOrDefault(action,"").Split(',').Any(k=>Enum.TryParse<Key>(k,true,out var parsed)&&parsed==key);
-    private bool Held(string action) => Game.Content.Inputs.GetValueOrDefault(action,"").Split(',').Any(k=>Enum.TryParse<Key>(k,true,out var parsed)&&Keyboard.IsKeyDown(parsed));
+    private bool IsKey(Key key,string action) => Golemancer.Contracts.InputBindings.For(Game.Content,"windows","keyboard",action).Any(k=>Enum.TryParse<Key>(k,true,out var parsed)&&parsed==key);
+    private bool Held(string action) => Golemancer.Contracts.InputBindings.For(Game.Content,"windows","keyboard",action).Any(k=>Enum.TryParse<Key>(k,true,out var parsed)&&Keyboard.IsKeyDown(parsed));
     private void UpdateInput(double dt)
     {
         if(!session.Started||session.Inactive||modalType!=""||Game.State.Dialogues.Count>0||Keyboard.FocusedElement is TextBox or ComboBox or Slider)
@@ -179,7 +179,10 @@ internal sealed partial class MainWindow : Window
         else if(IsKey(e.Key,"record"))MemoryRecordShortcut();else if(IsKey(e.Key,"play"))Send("play");
         else if(IsKey(e.Key,"build"))Open("build");else if(IsKey(e.Key,"equipment"))OpenEquipment();
         else if(IsKey(e.Key,"follow"))world.CenterOnActor();else if(IsKey(e.Key,"cancel"))Send("cancel");
-        else if(IsKey(e.Key,"heal"))Send("consume",item:"healing_jelly");else if(IsKey(e.Key,"mana"))Send("consume",item:"mana_jelly");else return;
+        else if(IsKey(e.Key,"heal"))Send("consume",item:"healing_jelly");else if(IsKey(e.Key,"mana"))Send("consume",item:"mana_jelly");
+        else if(Game.Content.InputActions.Values.FirstOrDefault(i=>i.Command.Length>0 && IsKey(e.Key,i.Id)) is { } input)
+        { if(input.Target=="point")world.CommandAction=input.Command;else Send(input.Command,item:input.Item); }
+        else return;
         e.Handled=true;
     }
 }

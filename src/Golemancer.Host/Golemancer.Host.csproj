@@ -6,7 +6,7 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <StartupObject>Golemancer.Desktop.Program</StartupObject>
   </PropertyGroup>
-  <ItemGroup>
+  <ItemGroup><ProjectReference Include="../Golemancer.Client/Golemancer.Client.csproj" />
     <ProjectReference Include="../Golemancer.Engine/Golemancer.Engine.csproj" />
     <Reference Include="WindowsBase" /><Reference Include="PresentationCore" />
     <Reference Include="PresentationFramework" /><Reference Include="System.Xaml" />

@@ -1,0 +1,15 @@
+<GameContent>
+  <Inputs>
+    <Bind action="record" keys="R" />
+    <Bind action="play" keys="T" />
+    <Action id="record" name="녹화" command="record" item="" group="actions" order="6" virtual="button" />
+    <Action id="play" name="반복" command="play" item="" group="actions" order="7" virtual="button" />
+    <Action id="memory" name="메모리" command="" item="" group="actions" order="19" virtual="button" />
+    <Bind action="memory" keys="M" />
+    <Bind action="record" device="gamepad" controls="ButtonSelect" />
+    <Bind action="play" device="gamepad" controls="ButtonR2" />
+    <Bind action="record" device="touch" platforms="android,ios" controls="record" />
+    <Bind action="play" device="touch" platforms="android,ios" controls="play" />
+    <Bind action="memory" device="touch" platforms="android,ios" controls="memory" />
+  </Inputs>
+</GameContent>

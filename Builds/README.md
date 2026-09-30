@@ -1,4 +1,6 @@
-# 바로 실행하는 Windows 빌드
+# 바로 실행하는 빌드
+
+Android 개발 빌드는 **Android/Golemancer.apk**를 설치하면 돼. Android 8.0 이상 ARM64/x86_64용이며 런타임·모듈·현재 이미지가 포함돼. 개발용 서명을 사용하고, 실제 휴대폰 확인은 별도로 필요해. [Android 안내](../docs/ANDROID.md)에 빌드와 조작을 정리했어.
 
 저장소를 받은 뒤 루트의 **Start.bat**을 실행하면 돼. .NET Framework 4.8만 필요하고 SDK 설치나 빌드 ZIP 압축 해제는 필요 없어.
 

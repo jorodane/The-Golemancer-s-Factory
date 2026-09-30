@@ -17,9 +17,10 @@ else if (args.Contains("--terrain")) TerrainTests.Run(cooked, root);
 else if (args.Contains("--playtest")) PlaytestRevisionTests.Run(cooked);
 else if (args.Contains("--usability")) UsabilityTests.Run(cooked);
 else if (args.Contains("--collection-power")) CollectionPowerTests.Run(cooked);
+else if (args.Contains("--platform-input")) PlatformInputTests.Run(cooked);
 else if (args.Contains("--memory-rescue")) MemoryRescueTests.Run(cooked);
 else if (args.Contains("--approach")) ApproachTests.Run(cooked, root);
-else if (!args.Contains("--foundation")) { MemoryRescueTests.Run(cooked); CollectionPowerTests.Run(cooked); UsabilityTests.Run(cooked); ApproachTests.Run(cooked, root); PlaytestRevisionTests.Run(cooked); InteractionTests.Run(cooked, root); BubbleTests.Run(cooked, root); QueueTests.Run(cooked, root); PlayFeelTests.Run(cooked); RollingStoneTests.Run(cooked); TerrainTests.Run(cooked, root); Campaign.Run(cooked, root); Regression.Run(cooked, root); DesktopTests.Run(cooked, root); }
+else if (!args.Contains("--foundation")) { PlatformInputTests.Run(cooked); MemoryRescueTests.Run(cooked); CollectionPowerTests.Run(cooked); UsabilityTests.Run(cooked); ApproachTests.Run(cooked, root); PlaytestRevisionTests.Run(cooked); InteractionTests.Run(cooked, root); BubbleTests.Run(cooked, root); QueueTests.Run(cooked, root); PlayFeelTests.Run(cooked); RollingStoneTests.Run(cooked); TerrainTests.Run(cooked, root); Campaign.Run(cooked, root); Regression.Run(cooked, root); DesktopTests.Run(cooked, root); }
 
 static void Assert(bool condition, string label)
 {
