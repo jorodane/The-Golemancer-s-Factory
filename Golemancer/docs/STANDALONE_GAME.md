@@ -27,6 +27,8 @@
 
 Windows 실행에는 .NET Framework 4.8만 필요하다. `Start.bat`은 SDK 없이 `Builds/Windows`의 기존 실행 파일을 연다. 이미지와 팩은 이 게임 폴더의 `Content`를 읽는다.
 
+이번 폴더 배포의 Windows EXE·의존 DLL·기본 게임 DLL 29개는 `c77bcdc`에 있던 파일과 바이트 단위로 같다. 실행부를 새로 교체하지 않고 경로만 이동했다. `Builds/Windows/build-info.json`은 이 기존 실행부의 빌드 기준을 유지한다. 새 독립 폴더 실험은 검증기 소스를 사본에서 빌드하므로 추가한 확장 부재·제거 검사도 실행한다.
+
 소스 빌드에는 .NET 10 SDK가 필요하며 최초 NuGet 복원에는 인터넷 연결이 필요할 수 있다.
 
 ```bat
