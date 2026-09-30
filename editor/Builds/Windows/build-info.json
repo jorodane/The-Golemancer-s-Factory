@@ -1,1 +1,1 @@
-﻿{ "sourceCommit": "765ce4b525ad70672d0679cf7dff28159fbaf9af", "target": "net48", "ui": "WPF editor shell", "windowsGuiTested": false }
+﻿{ "sourceCommit": "83e094ba6f704cbff69101ece2b29e099177d6c1", "target": "net48", "ui": "WPF editor shell", "launcher": "StartEditor.exe", "windowsGuiTested": false }
