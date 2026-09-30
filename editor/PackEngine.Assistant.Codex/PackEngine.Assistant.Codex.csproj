@@ -1,3 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup><ProjectReference Include="../PackEngine.Workspace/PackEngine.Workspace.csproj" /></ItemGroup>
+  <ItemGroup><Compile Include="../Shared/CodexInstallation.cs" Link="CodexInstallation.cs" /></ItemGroup>
 </Project>

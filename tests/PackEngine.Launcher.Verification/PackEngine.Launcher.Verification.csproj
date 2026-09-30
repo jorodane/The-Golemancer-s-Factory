@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../editor/PackEngine.Launcher/Bootstrap.cs" Link="Bootstrap.cs" />
+    <Compile Include="../../editor/Shared/CodexInstallation.cs" Link="CodexInstallation.cs" />
+  </ItemGroup>
+</Project>

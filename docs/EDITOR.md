@@ -4,11 +4,15 @@
 
 ## 실행
 
-Windows에서 저장소를 Pull한 뒤 루트 **`StartEditor.bat`**을 실행한다. 체크인된 `editor/Builds/Windows/PackEngine.Editor.exe`로 골레맨서를 연다. 실행에는 기존 게임과 같은 .NET Framework 4.8이 필요하며, 소스 빌드에는 .NET 10 SDK가 필요하다.
+Windows에서 저장소를 Pull한 뒤 루트 **`StartEditor.exe`**를 실행한다. 필요한 Codex 설치를 준비한 뒤 체크인된 `editor/Builds/Windows/PackEngine.Editor.exe`로 골레맨서를 연다. 실행에는 기존 게임과 같은 .NET Framework 4.8이 필요하며, 소스 빌드에는 .NET 10 SDK가 필요하다.
 
-다른 프로젝트는 에디터의 **프로젝트 열기**에서 `.packproject`를 선택하거나 `StartEditor.bat "다른 프로젝트 경로"`로 연다. 기존 `Start.bat`은 게임 직접 실행 진입점이다. 에디터 자체를 재빌드할 때는 `BuildEditor.bat`을 사용한다. 필요하면 `PACKENGINE_DOTNET` 환경변수로 SDK 실행 파일 경로를 지정한다.
+다른 프로젝트는 에디터의 **프로젝트 열기**에서 `.packproject`를 선택하거나 `StartEditor.exe "다른 프로젝트 경로"`로 연다. 기존 `Start.bat`은 게임 직접 실행 진입점이다. 에디터 자체를 재빌드할 때는 `BuildEditor.bat`을 사용한다. 필요하면 `PACKENGINE_DOTNET` 환경변수로 SDK 실행 파일 경로를 지정한다.
 
-Codex를 에디터 안에 연결해 대화·조회·수정·빌드를 이어가는 실험은 **[입주 환경과 ‘이거’ 모드](RESIDENT_AGENT.md)**를 따른다. `SetupCodex.bat` 설치 후 에디터의 **Codex 연결 → ChatGPT 로그인**으로 시작한다.
+Codex를 에디터 안에 연결해 대화·조회·수정·빌드를 이어가는 실험은 **[입주 환경과 ‘이거’ 모드](RESIDENT_AGENT.md)**를 따른다. 통합 시작 프로그램이 준비를 마치면 에디터의 **Codex 연결 → ChatGPT 로그인**으로 시작한다.
+
+Node.js/npm이 없으면 시작 창이 [공식 Node.js 설치 페이지](https://nodejs.org/ko/download/)를 열고 기다린다. LTS를 설치한 뒤 같은 창에서 **다시 확인**을 누른다. 사용자·시스템 PATH를 다시 읽으므로 보통 창이나 PC를 재시작할 필요가 없다. 이미 네이티브 Codex가 준비돼 있으면 Node.js 설치 확인과 다운로드를 건너뛴다.
+
+시작 프로그램은 별도 콘솔 없이 진행 상황과 펼칠 수 있는 실행 기록을 보여준다. 준비 실패·취소 후에는 다시 확인할 수 있고, **에디터만 열기**로 AI 준비 없이 문서 작업을 시작할 수도 있다. 기존 `StartEditor.bat`, `SetupCodex.bat`도 같은 실행 프로그램으로 연결된다. `StartEditor.exe`는 저장소의 에디터 파일들과 함께 사용하며, 단독 파일만 다른 폴더로 옮겨 실행하는 배포본은 아니다. 기본 에디터와 프로젝트 경로는 `editor/Launcher.xml`에 선언해 시작 프로그램이 게임 이름을 알 필요가 없게 했다.
 
 ## 실제 작업 순서
 
@@ -67,6 +71,7 @@ Codex를 에디터 안에 연결해 대화·조회·수정·빌드를 이어가�
 |---|---|
 | `src/PackEngine.*` | 기존 공통 런타임·계약·UI 상속. 게임을 참조하지 않음 |
 | `editor/PackEngine.Workspace` | 프로젝트 로딩, 의미 관계, 공유 문맥, 변경 기록, 개별 빌드·실행 |
+| `editor/PackEngine.Launcher` | Node.js 안내, Codex 자동 준비·재시도, 에디터 실행을 묶는 Windows 시작 프로그램 |
 | `editor/PackEngine.Editor` | Windows WPF 에디터 셸 |
 | `editor/PackEngine.Tool` | 같은 기능의 net48/net10.0 CLI; 외부 작업 도구 연결점 |
 | `editor/PackEngine.Assistant.Codex` | 공식 Codex app-server와 지속 대화·의미 입력·편집 도구 연결 |

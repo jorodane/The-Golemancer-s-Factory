@@ -93,7 +93,7 @@ public sealed partial class EditorWindow
     private void AddResidentControls(StackPanel panel)
     {
         panel.Children.Add(Label("Codex 작업 세션", 13, AccentInk));
-        codexPath.ToolTip = "선택 사항: 네이티브 codex.exe 경로. 비워 두면 SetupCodex 설치 위치나 PATH에서 찾아.";
+        codexPath.ToolTip = "선택 사항: 네이티브 codex.exe 경로. 비워 두면 StartEditor가 준비한 설치 위치나 PATH에서 찾아.";
         codexPath.MaxWidth = 250; panel.Children.Add(codexPath);
         string preferences = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PackEngine", "codex-path.txt");
         if (File.Exists(preferences)) codexPath.Text = File.ReadAllText(preferences).Trim();

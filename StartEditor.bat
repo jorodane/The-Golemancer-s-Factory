@@ -1,11 +1,13 @@
 @echo off
 setlocal
-set "editor_exe=%~dp0editor\Builds\Windows\PackEngine.Editor.exe"
-if not exist "%editor_exe%" (
-  echo The editor build is missing. Run BuildEditor.bat with the .NET 10 SDK installed.
+set "launcher_exe=%~dp0StartEditor.exe"
+if not exist "%launcher_exe%" (
+  echo The launcher is missing. Pull the latest build or run BuildEditor.bat with the .NET 10 SDK installed.
   pause
   exit /b 1
 )
-set "project_file=%~1"
-if "%project_file%"=="" set "project_file=%~dp0Golemancer\Golemancer.packproject"
-start "" /D "%~dp0" "%editor_exe%" "%project_file%"
+if "%~1"=="" (
+  start "" /D "%~dp0" "%launcher_exe%"
+) else (
+  start "" /D "%~dp0" "%launcher_exe%" "%~1"
+)

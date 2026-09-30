@@ -1,4 +1,6 @@
-# Project Studio 입주 환경 검증 — 2026-09-30
+# Project Studio 입주 환경·통합 시작 검증 — 2026-10-01
+
+사용자가 기존 Windows 에디터에서 Codex 연결과 정상 채팅을 확인했다(2026-10-01). 아래는 자동 검사에서 확인한 범위이며, 새 시작 창의 실제 Windows 조작은 별도로 남아 있다.
 
 `tools/verify-editor.py`를 통해 실제 골레맨서 프로젝트의 임시 복사본으로 작업 흐름을 확인했다. 결과는 20개 작업 흐름 확인 통과, 기존 전체 캠페인 540개 확인 통과, Linux 실행 검사 30개 통과와 SDL offscreen 30프레임 실행이다.
 
@@ -29,7 +31,7 @@
 
 수정과 대화 전송 검사는 명시적인 통신 테스트 프로세스를 사용했다. **실제 ChatGPT 로그인 후 모델 추론·자율 편집은 실행하지 않았다.** 공식 CLI 확인에서도 모델 turn을 시작하거나 API 사용량을 발생시키지 않았다. 테스트 응답기는 Windows 배포본에 포함하지 않는다.
 
-Windows WPF 에디터와 CLI, 두 제공자 DLL은 .NET Framework 4.8 대상으로 교차 빌드했으며 경고·오류가 없었다. 이 환경에서는 Windows GUI를 실행하거나 화면을 조작하지 못했으므로 네이티브 UI 확인은 남아 있다. ChatGPT 로그인과 실제 모델의 작업, Windows 마우스 포인팅 조작, Android/iOS 네이티브 실행, 실행 중 DLL 교체는 추가 확인이 필요하다.
+Windows WPF 에디터와 CLI, 두 제공자 DLL은 .NET Framework 4.8 대상으로 교차 빌드했으며 경고·오류가 없었다. 이 환경에서는 Windows GUI를 실행하거나 화면을 조작하지 못했으므로 네이티브 UI 확인은 남아 있다. 새 통합 시작 창, 모델의 자율 편집, Windows 마우스 포인팅 조작, Android/iOS 네이티브 실행, 실행 중 DLL 교체는 추가 확인이 필요하다.
 
 재현 명령:
 
@@ -40,3 +42,17 @@ dotnet build editor/Editor.slnx -c Release -p:EngineTargetFramework=net48 -p:Use
 ```
 
 검증 스크립트의 상세 결과는 실행한 작업 영역의 `TestResults/editor/report.json`, `TestResults/resident/report.json`과 해당 폴더의 명령 로그에 기록된다. 배포된 에디터 실행 파일의 원본 소스 커밋과 해시는 `editor/Builds/Windows/build-info.json`, `SHA256SUMS`에 기록한다.
+
+## 통합 시작 프로그램
+
+`tests/PackEngine.Launcher.Verification`에서 23개 검사를 통과했다. Node/npm 누락, 같은 창의 재탐색, 이미 설치된 Codex 재사용, 설치 실패·취소 시 보존, 실패를 성공으로 오인하지 않는 처리, 동시 설치 배제, 한글·공백·특수문자 인자 보존을 포함한다. 별도로 실제 npm을 실행해 임시 사용자 경로에 공식 Codex 0.159.2를 설치하고 네이티브 실행 파일의 버전을 확인했다. 계정 로그인이나 모델 추론은 하지 않았다.
+
+Windows 시작 프로그램은 WPF/net48로 빌드하고 루트 `StartEditor.exe`로 배포한다. 시작 프로그램과 기존 에디터·제공자는 같은 네이티브 Codex 탐색 코드를 사용한다. Node 설치 후 재시도할 때 환경 경로를 다시 읽는 흐름은 자동 검사로 확인했으며, 실제 Windows Node 설치 프로그램과 브라우저 전환은 이 Linux 환경에서 직접 조작하지 않았다.
+
+```sh
+dotnet build tests/PackEngine.Launcher.Verification/PackEngine.Launcher.Verification.csproj -c Release -p:EngineTargetFramework=net10.0
+dotnet tests/PackEngine.Launcher.Verification/bin/Release/net10.0/PackEngine.Launcher.Verification.dll
+# 실제 npm 설치도 검사하려면 위 실행 명령 뒤에 node 실행 파일과 npm-cli.js의 절대 경로를 순서대로 지정한다.
+```
+
+`editor/Builds/Windows/SHA256SUMS`에는 루트 시작 프로그램과 설정 파일의 해시도 포함한다. `BuildEditor.bat`은 에디터와 시작 프로그램을 함께 빌드·복사한다.

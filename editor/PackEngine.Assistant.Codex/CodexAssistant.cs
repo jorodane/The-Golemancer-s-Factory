@@ -245,26 +245,7 @@ public sealed class CodexAssistant : IResidentAssistant
         }
         catch (Exception e) { if (ReferenceEquals(rpc, source)) { lock (sync) completion?.TrySetException(e); } }
     }
-    public static string ResolveExecutable(string configured)
-    {
-        string requested = configured.Length > 0 ? configured : Environment.GetEnvironmentVariable("PACKENGINE_CODEX") ?? "";
-        if (requested.Length > 0)
-        {
-            string file = Path.GetFullPath(requested);
-            if (!File.Exists(file) || Path.GetExtension(file) is ".cmd" or ".bat") throw new FileNotFoundException("Choose the native codex.exe, not the npm command shim.", file);
-            return file;
-        }
-        string name = Environment.OSVersion.Platform == PlatformID.Win32NT ? "codex.exe" : "codex";
-        foreach (string directory in (Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator))
-        { string path = Path.Combine(directory, name); if (File.Exists(path)) return path; }
-        foreach (string root in new[] { Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PackEngine", "Codex", "node_modules", "@openai"),
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "npm", "node_modules", "@openai") })
-            if (Directory.Exists(root))
-            {
-                string? found = Directory.GetFiles(root, name, SearchOption.AllDirectories).FirstOrDefault(); if (found is not null) return found;
-            }
-        throw new FileNotFoundException("Codex CLI가 없어. 저장소의 SetupCodex.bat을 실행하거나 codex.exe 경로를 지정해줘.");
-    }
+    public static string ResolveExecutable(string configured) => PackEngine.Installation.CodexInstallation.ResolveExecutable(configured);
     public void Dispose()
     {
         lock (sync) completion?.TrySetCanceled(); rpc?.Dispose(); rpc = null;
