@@ -1,12 +1,1 @@
-{
-  "sourceCommit": "3998f2873a4c628b099bbb0442fe97905ec173ff",
-  "target": "net48",
-  "ui": "WPF",
-  "contentRoot": "../../Content",
-  "windowsGuiTested": false,
-  "gameplayPackBinarySourceCommit": "5911ef2038bd9fd218cc5ba885ed53dbb97d2d72",
-  "gameplayPackSourcesUnchanged": true,
-  "engineUiPack": "engine.ui.button",
-  "engineUiPackSourceCommit": "3998f2873a4c628b099bbb0442fe97905ec173ff",
-  "wpfUsesEngineButtonRenderer": false
-}
+﻿{ "sourceCommit": "35435ffe546e4f9f7551f762e5b5379ae45b574d", "target": "net48", "ui": "WPF", "contentRoot": "../../Content", "windowsGuiTested": false }
