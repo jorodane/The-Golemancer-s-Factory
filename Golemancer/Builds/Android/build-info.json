@@ -1,1 +1,1 @@
-﻿{ "sourceCommit": "acf46cd0b1647da0989599c21f12ab5ada23a0df", "framework": "net10.0-android", "abis": ["arm64-v8a", "x86_64"], "minimumApi": 26, "developmentSigning": true, "emulatorTested": true, "emulatorApi": 29, "physicalDeviceTested": false }
+﻿{ "sourceCommit": "f1e7d6b0dba5f2404b29e6fe44c7caea07ce9fb6", "framework": "net10.0-android", "abis": ["arm64-v8a", "x86_64"], "minimumApi": 26, "developmentSigning": true, "emulatorTested": false, "emulatorApi": 0, "physicalDeviceTested": false }
