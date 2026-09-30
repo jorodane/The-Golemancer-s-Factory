@@ -55,6 +55,27 @@ try:
         elif method == 'account/read':
             account = {'type': 'apiKey'} if mode == 'api-key' else {'type': 'chatgpt', 'email': 'fixture@example.invalid', 'planType': 'plus'}
             send({'id': message['id'], 'result': {'account': account, 'requiresOpenaiAuth': True}})
+        elif method == 'model/list':
+            send({'id': message['id'], 'result': {'data': [{'model': 'fixture-model', 'displayName': 'Fixture', 'isDefault': True}], 'nextCursor': None}})
+        elif method == 'thread/list':
+            assert params['cwd'] == os.getcwd() and 'appServer' in params['sourceKinds']
+            assert params['limit'] == 30 and params['sortKey'] == 'updated_at'
+            entries = [{'id': 'fixture-older', 'cwd': os.getcwd(), 'originator': 'packengine_editor', 'preview': 'Earlier chat', 'updatedAt': 1}] if params.get('cursor') else [
+                {'id': thread, 'cwd': os.getcwd(), 'originator': 'packengine_editor', 'preview': 'Saved question\n\n[Editor context captured when this request was sent]\n{}', 'updatedAt': 2},
+                {'id': 'foreign', 'cwd': '/another/project', 'originator': 'packengine_editor', 'preview': 'DO NOT LIST'},
+                {'id': 'other-client', 'cwd': os.getcwd(), 'originator': 'other-client', 'preview': 'DO NOT LIST'}]
+            send({'id': message['id'], 'result': {'data': entries, 'nextCursor': None if params.get('cursor') else 'older-threads'}})
+        elif method == 'thread/read':
+            assert params['includeTurns'] is False
+            id = params['threadId']
+            send({'id': message['id'], 'result': {'thread': {'id': id, 'cwd': '/another/project' if id == 'foreign' else os.getcwd(),
+                'originator': 'other-client' if id == 'other-client' else 'packengine_editor', 'status': {'type': 'active' if id == 'active' else 'notLoaded'}}}})
+        elif method == 'thread/turns/list':
+            assert params['limit'] == 10 and params['itemsView'] == 'full' and params['sortDirection'] == 'desc'
+            send({'id': message['id'], 'result': {'data': [
+                {'id': 'recent', 'status': 'completed', 'items': [{'type': 'userMessage', 'content': [{'type': 'text', 'text': 'Recent question\n\n[Editor context captured when this request was sent]\n{}'}]}, {'type': 'agentMessage', 'text': 'RECENT_FIXTURE'}, {'type': 'reasoning', 'text': 'NOT CHAT'}]},
+                {'id': 'old', 'status': 'completed', 'items': [{'type': 'userMessage', 'content': [{'type': 'text', 'text': 'Older question'}]}, {'type': 'agentMessage', 'text': 'OLDER_FIXTURE'}]}],
+                'nextCursor': None if params.get('cursor') else 'older-messages'}})
         elif method == 'config/read':
             send({'id': message['id'], 'result': {'config': {'mcp_servers': {'fixture_external': {'enabled': True}}}}})
         elif method in ('thread/start', 'thread/resume'):
@@ -70,7 +91,8 @@ try:
                 assert len(names) == 7 and 'packengine_patch' in names
                 assert all(tool['type'] == 'function' for tool in params['dynamicTools'])
             else:
-                assert params['threadId'] == thread and params['excludeTurns']
+                assert params['threadId'] in (thread, 'fixture-older') and params['excludeTurns']
+                thread = params['threadId']
             send({'id': message['id'], 'result': {'thread': {'id': thread}}})
         elif method == 'turn/start':
             assert params['threadId'] == thread and params['environments'] == []

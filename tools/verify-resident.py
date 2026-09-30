@@ -109,6 +109,40 @@ def main():
                     process.kill()
                     process.wait()
             call('resume')
+            def history(command_name, *options, fail=False):
+                cmd, env, log = command('history')
+                cmd[2] = command_name
+                cmd.extend(map(str, options))
+                result = subprocess.run(cmd, env=env, capture_output=True, text=True, timeout=25)
+                messages = [json.loads(line) for line in log.read_text().splitlines()] if log.exists() else []
+                check(bool(result.returncode) == fail, command_name + ' ' + ' '.join(options) + ' has the expected access result')
+                if command_name != 'codex-chat':
+                    check(not any(m.get('method') in ('turn/start', 'thread/resume', 'thread/start') for m in messages), 'browsing stored conversations never starts inference or resumes a thread')
+                return result, messages
+            listed, _ = history('codex-threads')
+            page = json.loads(listed.stdout)
+            check(len(page['Threads']) == 1 and page['Threads'][0]['Title'] == 'Saved question' and page['Cursor'] == 'older-threads', 'thread listing excludes other projects/clients and hides internal context from titles')
+            listed, _ = history('codex-threads', '--cursor', page['Cursor'], '--deny-thread', 'fixture-older')
+            check(json.loads(listed.stdout)['Threads'][0]['Allowed'] is False, 'pagination retains per-conversation access choices')
+            history_result, _ = history('codex-history', '--thread', 'fixture-thread')
+            messages = json.loads(history_result.stdout)['Messages']
+            check([m['Text'] for m in messages] == ['Older question', 'OLDER_FIXTURE', 'Recent question', 'RECENT_FIXTURE'], 'history renders chronological user/assistant messages without editor envelopes or reasoning')
+            older, _ = history('codex-history', '--thread', 'fixture-thread', '--cursor', 'older-messages')
+            check(json.loads(older.stdout)['Cursor'] == '', 'history paging terminates at the final cursor')
+            for denied in ['foreign', 'other-client', 'active']:
+                _, records = history('codex-history', '--thread', denied, fail=True)
+                check(not any(m.get('method') == 'thread/turns/list' for m in records), 'foreign or active conversations are rejected before reading message contents')
+            _, records = history('codex-history', '--thread', 'fixture-thread', '--deny-thread', 'fixture-thread', fail=True)
+            check(not any(m.get('method') == 'thread/read' for m in records), 'blocked conversation access is enforced before RPC')
+            _, records = history('codex-threads', '--no-history', fail=True)
+            check(not any(m.get('method') == 'thread/list' for m in records), 'history-disabled settings prevent listing')
+            _, records = history('codex-status', '--deny-access', fail=True)
+            check(not records, 'connection-disabled settings do not start the Codex process')
+            _, records = history('codex-chat', '--no-history')
+            check(any(m.get('method') == 'thread/start' for m in records) and not any(m.get('method') in ('thread/read', 'thread/resume') for m in records), 'history-disabled chat starts fresh without reading or resuming old context')
+            _, records = history('codex-chat', '--thread', 'fixture-older')
+            check(any(m.get('method') == 'thread/resume' and m['params']['threadId'] == 'fixture-older' for m in records)
+                  and json.loads((state / 'codex-thread.json').read_text())['ThreadId'] == 'fixture-older', 'selecting an older chat resumes that exact thread and persists the selection')
             if args.codex:
                 result = subprocess.run([dotnet, str(tool), 'codex-status', '--project', str(project), '--state', str(folder / 'real-state'),
                                          '--provider', str(provider), '--codex', args.codex], capture_output=True, text=True, timeout=60)
@@ -117,12 +151,14 @@ def main():
                 report['officialCliVersion'] = subprocess.check_output([args.codex, '--version'], text=True).strip()
                 # Exercise the exact tool/config payload against the official server without invoking a model.
                 cwd = folder / 'real-state/codex-workspace'
+                (folder / 'isolated-codex-history').mkdir()
                 peer = subprocess.Popen([args.codex, 'app-server'], cwd=cwd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                        stderr=subprocess.DEVNULL, text=True)
+                                        stderr=subprocess.DEVNULL, text=True, env=dict(os.environ, CODEX_HOME=str(folder / 'isolated-codex-history')))
                 incoming = queue.Queue()
                 def collect():
                     for line in peer.stdout:
                         incoming.put(json.loads(line))
+                    incoming.put(None)
                 threading.Thread(target=collect, daemon=True).start()
                 number = 0
                 def rpc(method, params):
@@ -132,12 +168,14 @@ def main():
                     peer.stdin.flush()
                     while True:
                         value = incoming.get(timeout=30)
+                        if value is None:
+                            raise RuntimeError('Official Codex exited before replying to ' + method)
                         if value.get('id') == number:
                             if 'error' in value:
                                 raise RuntimeError('Official CLI rejected ' + method + ': ' + str(value['error'].get('message')))
                             return value['result']
                 try:
-                    rpc('initialize', {'clientInfo': {'name': 'packengine_protocol_check', 'version': '0.2.0'}, 'capabilities': {'experimentalApi': True}})
+                    rpc('initialize', {'clientInfo': {'name': 'packengine_editor', 'version': '0.3.0'}, 'capabilities': {'experimentalApi': True}})
                     peer.stdin.write(json.dumps({'method': 'initialized', 'params': {}}) + '\n'); peer.stdin.flush()
                     config = rpc('config/read', {'includeLayers': False, 'cwd': str(cwd)})
                     start_options['cwd'] = str(cwd); start_options['ephemeral'] = True
@@ -146,6 +184,18 @@ def main():
                     check(bool(accepted.get('thread', {}).get('id')) and accepted['sandbox']['type'] == 'readOnly',
                           'official Codex accepts the exact semantic dynamic tools and restricted thread configuration without inference')
                     report['officialThreadStartAccepted'] = True
+                    start_options['ephemeral'] = False
+                    stored = rpc('thread/start', start_options)['thread']
+                    # Materialize an isolated test history without asking a model to generate anything.
+                    rpc('thread/inject_items', {'threadId': stored['id'], 'items': [{'type': 'message', 'role': 'user',
+                        'content': [{'type': 'input_text', 'text': 'EXPLICIT PROTOCOL FIXTURE; NO MODEL RESPONSE'}]}]})
+                    metadata = rpc('thread/read', {'threadId': stored['id'], 'includeTurns': False})['thread']
+                    listed = rpc('thread/list', {'cwd': str(cwd), 'sourceKinds': ['appServer', 'cli', 'vscode', 'unknown'], 'modelProviders': ['openai'],
+                        'sortKey': 'updated_at', 'sortDirection': 'desc', 'limit': 30, 'archived': False})
+                    turns = rpc('thread/turns/list', {'threadId': stored['id'], 'limit': 10, 'sortDirection': 'desc', 'itemsView': 'full'})
+                    check(metadata['cwd'] == str(cwd) and metadata['originator'] == 'packengine_editor' and isinstance(listed['data'], list)
+                          and isinstance(turns['data'], list), 'official Codex accepts project-scoped thread listing, ownership metadata and paged history without inference')
+                    report['officialHistoryMethodsAccepted'] = True
                 finally:
                     peer.kill(); peer.wait(timeout=10)
             check(ui.read_bytes() == original, 'all verification edits remain in a temporary game copy')

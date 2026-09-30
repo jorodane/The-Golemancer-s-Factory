@@ -8,12 +8,16 @@ public sealed class AssistantConnection
     public string Executable { get; set; } = "";
     public string ProjectIdentity { get; set; } = "";
     public string StateDirectory { get; set; } = "";
+    public bool AccessEnabled { get; set; } = true;
+    public bool HistoryEnabled { get; set; } = true;
+    public string[] BlockedThreads { get; set; } = [];
 }
 public sealed class AssistantAccount
 {
     public string Type { get; set; } = "";
     public string Plan { get; set; } = "";
     public string Display { get; set; } = "";
+    public string Email { get; set; } = "";
 }
 public sealed class AssistantModel
 {
@@ -33,10 +37,14 @@ public interface IResidentAssistant : IEditorAssistant
     event Action<AssistantEvent>? Progress;
     string Model { get; set; }
     string ThreadId { get; }
+    bool IsConnected { get; }
     Task<AssistantAccount> ConnectAsync(AssistantConnection connection, CancellationToken cancellation);
     Task<string> LoginAsync(CancellationToken cancellation);
     Task<AssistantAccount> AccountAsync(CancellationToken cancellation);
     Task<IReadOnlyList<AssistantModel>> ModelsAsync(CancellationToken cancellation);
+    Task<AssistantThreadPage> ThreadsAsync(string cursor, CancellationToken cancellation);
+    Task<AssistantHistoryPage> HistoryAsync(string threadId, string cursor, CancellationToken cancellation);
+    Task SelectConversationAsync(string threadId, CancellationToken cancellation);
     void NewConversation();
 }
 public interface IAgentWorkspace : IAssistantWorkspace
@@ -59,10 +67,12 @@ public sealed class AgentWorkspace : IAgentWorkspace, IDisposable
     private readonly HashSet<string> writable;
     private readonly bool commands;
     private readonly string target;
+    private readonly Dictionary<string, SharedChatReference> sharedChats;
     public AgentWorkspace(EditorSession session, ContextRequest request, ProjectRunner runner, Action<Action> dispatch, Action<AssistantEvent>? progress = null)
     {
         this.session = session; this.request = request; this.runner = runner; this.dispatch = dispatch; this.progress = progress;
         writable = new(request.WritablePacks, StringComparer.Ordinal); commands = request.AllowProjectCommands; target = request.Target.Length > 0 ? request.Target : runner.PreferredTarget;
+        sharedChats = request.SharedChats.Where(c => c.Shared).Select(c => c.Snapshot()).ToDictionary(c => c.Path, StringComparer.Ordinal);
         foreach (var item in request.Context.Where(c => c.DocumentHash.Length > 0)) readVersions[item.Path] = item.DocumentHash;
     }
     private T OnUi<T>(Func<T> action) { T value = default!; dispatch(() => value = action()); return value; }
@@ -71,7 +81,19 @@ public sealed class AgentWorkspace : IAgentWorkspace, IDisposable
         dispatch(() => session.RecordOperation(request.Id, tool, subject, status, detail));
         progress?.Invoke(new() { Kind = status, Subject = subject, Text = tool + " · " + subject + (detail.Length > 0 ? " · " + detail : "") });
     }
-    public ContextItem Read(string projectPath, int maximumCharacters) => OnUi(() => session.ReadForAssistant(request.Id, projectPath, maximumCharacters));
+    public ContextItem Read(string projectPath, int maximumCharacters) => OnUi(() => projectPath.StartsWith("chat:", StringComparison.Ordinal)
+        ? ReadSharedChat(projectPath, 1, 160, Math.Max(1, Math.Min(12000, maximumCharacters))) : session.ReadForAssistant(request.Id, projectPath, maximumCharacters));
+    private ContextItem ReadSharedChat(string path, int start, int count, int maximum = 12000)
+    {
+        if (!sharedChats.TryGetValue(path, out var chat)) throw new InvalidOperationException("This web context was not shared with this request.");
+        if (start < 1 || count < 1 || count > 160) throw new ArgumentOutOfRangeException(nameof(start));
+        string[] lines = chat.Content.Replace("\r\n", "\n").Split('\n');
+        string text = string.Join("\n", lines.Skip(start - 1).Take(count));
+        bool partial = start > 1 || start - 1 + count < lines.Length || text.Length > maximum;
+        text = text.Substring(0, Math.Min(text.Length, maximum)); string hash = WorkspaceProject.HashText(chat.Content);
+        session.RecordRead(request.Id, path, text, hash, partial);
+        return new() { Path = path, Content = text, Hash = hash, Partial = partial, Why = "사용자가 등록한 웹 문맥 · 원본과 자동 동기화되지 않음" };
+    }
     public string Inspect(string nodeKey) => OnUi(() => session.InspectForAssistant(request.Id, nodeKey));
     private static string Str(JsonElement a, string key, string fallback = "") => a.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString()! : fallback;
     private static int Num(JsonElement a, string key, int fallback) => a.TryGetProperty(key, out var v) && v.TryGetInt32(out int n) ? n : fallback;
@@ -81,7 +103,7 @@ public sealed class AgentWorkspace : IAgentWorkspace, IDisposable
     {
         Spec("packengine_find", "Find declared object IDs or source files by text, optionally within one pack. Returns at most 30 metadata entries, no file contents.", "{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"string\"},\"pack\":{\"type\":\"string\"}},\"required\":[\"query\"],\"additionalProperties\":false}"),
         Spec("packengine_inspect", "Inspect one object: definition is the current XML fragment; relations are one-hop references; contract is the resolved SAVED definition with provenance. Drafts are not runtime state. Implementation IDs can remain runtime-unknown.", "{\"type\":\"object\",\"properties\":{\"key\":{\"type\":\"string\"},\"section\":{\"type\":\"string\",\"enum\":[\"definition\",\"relations\",\"contract\"]}},\"required\":[\"key\",\"section\"],\"additionalProperties\":false}"),
-        Spec("packengine_read", "Read a bounded source/document slice only when needed. Returns full document hash for conflict-safe edits. Paths must have been declared by the project. Does not open a user tab.", "{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\"},\"startLine\":{\"type\":\"integer\",\"minimum\":1},\"lineCount\":{\"type\":\"integer\",\"minimum\":1,\"maximum\":160}},\"required\":[\"path\"],\"additionalProperties\":false}"),
+        Spec("packengine_read", "Read a bounded source/document slice only when needed. Returns full document hash for conflict-safe edits. Paths must be declared project files or explicitly shared chat: context paths. Shared context is read-only and is not synchronized web history. Does not open a user tab.", "{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\"},\"startLine\":{\"type\":\"integer\",\"minimum\":1},\"lineCount\":{\"type\":\"integer\",\"minimum\":1,\"maximum\":160}},\"required\":[\"path\"],\"additionalProperties\":false}"),
         Spec("packengine_patch", "Prepare a visible change preview in a request-authorized pack. Replace exactly one matching oldText after reading the current document hash. Does not apply. Rejects stale versions and unsaved user buffers.", "{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\"},\"expectedHash\":{\"type\":\"string\"},\"oldText\":{\"type\":\"string\"},\"newText\":{\"type\":\"string\"},\"intent\":{\"type\":\"string\"}},\"required\":[\"path\",\"expectedHash\",\"oldText\",\"newText\",\"intent\"],\"additionalProperties\":false}"),
         Spec("packengine_apply", "Apply a preview created during THIS request in its authorized pack. Validates disk and editor buffer versions again. The editor records undo data.", "{\"type\":\"object\",\"properties\":{\"changeId\":{\"type\":\"string\"}},\"required\":[\"changeId\"],\"additionalProperties\":false}"),
         Spec("packengine_build", "Build only the named request-authorized pack for the request's selected platform. Failed builds retain its previous DLL. XML packs are validated without a compiler.", "{\"type\":\"object\",\"properties\":{\"pack\":{\"type\":\"string\"}},\"required\":[\"pack\"],\"additionalProperties\":false}"),
@@ -131,7 +153,8 @@ public sealed class AgentWorkspace : IAgentWorkspace, IDisposable
                     return new { Key = key, Section = section, SavedDefinitions = section == "contract", Content = fragment, Partial = partial, Hint = partial ? "Use definition and relations to inspect individual parts." : "" };
                 }); break;
                 case "packengine_read": result = OnUi(() =>
-                { var item = session.ReadSlice(request.Id, Str(arguments, "path"), Num(arguments, "startLine", 1), Num(arguments, "lineCount", 80)); readVersions[item.Path] = item.DocumentHash; return item; }); break;
+                { string path = Str(arguments, "path"); if (path.StartsWith("chat:", StringComparison.Ordinal)) return ReadSharedChat(path, Num(arguments, "startLine", 1), Num(arguments, "lineCount", 80));
+                    var item = session.ReadSlice(request.Id, path, Num(arguments, "startLine", 1), Num(arguments, "lineCount", 80)); readVersions[item.Path] = item.DocumentHash; return item; }); break;
                 case "packengine_patch": result = OnUi(() =>
                 {
                     string path = session.Project.Relative(session.Project.Resolve(Str(arguments, "path"))); RequireFile(path);

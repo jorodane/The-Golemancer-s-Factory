@@ -40,6 +40,8 @@ public sealed class ContextRequest
     public List<ContextItem> Context { get; set; } = [];
     public List<string> Omitted { get; set; } = [];
     public string Reply { get; set; } = "";
+    public string ThreadId { get; set; } = "";
+    public List<SharedChatReference> SharedChats { get; set; } = [];
     public SemanticInput Input { get; set; } = new();
     public List<DocumentVersion> Documents { get; set; } = [];
     public List<string> WritablePacks { get; set; } = [];

@@ -8,7 +8,7 @@ try
     Console.CancelKeyPress += (_, e) => { e.Cancel = true; cancellation.Cancel(); };
     if (args.Length == 0 || args.Contains("--help"))
     {
-        Console.WriteLine("PackEngine.Tool <inspect|graph|context|read|assist|codex-status|codex-chat|preview|apply|undo|build-pack|build-project|verify|smoke|run> --project file.packproject [--state directory] [--target id] [--dotnet executable]\ninspect --node key; context --prompt text [--point key;key | --range-file path --start-line n --end-line n] [--open path;path] [--budget characters]; read --request id --file path; assist --provider DLL --prompt text; codex-status/codex-chat --provider DLL [--codex native-executable] [--model id] [--new-thread] [--write-pack id;id] [--allow-project-commands]; preview --file path --text-file utf8-file --intent text; apply/undo --change id; build-pack --pack id");
+        Console.WriteLine("PackEngine.Tool <inspect|graph|context|read|assist|codex-status|codex-chat|codex-threads|codex-history|preview|apply|undo|build-pack|build-project|verify|smoke|run> --project file.packproject [--state directory] [--target id] [--dotnet executable]\ninspect --node key; context --prompt text [--point key;key | --range-file path --start-line n --end-line n] [--open path;path] [--budget characters]; read --request id --file path; assist --provider DLL --prompt text; codex-status/codex-chat/codex-threads/codex-history --provider DLL [--thread id] [--cursor token] [--no-history] [--deny-thread id;id] [--deny-access] [--codex native-executable] [--model id] [--new-thread] [--write-pack id;id] [--allow-project-commands]; preview --file path --text-file utf8-file --intent text; apply/undo --change id; build-pack --pack id");
         return 0;
     }
     var session = new EditorSession(Need("--project"), Option("--state"));
@@ -40,16 +40,20 @@ try
             var request = Capture();
             string saved = session.ExportContext(request); Console.WriteLine(EditorSession.Serialize(new { File = saved, Request = request })); break;
         case "read": Console.WriteLine(EditorSession.Serialize(session.ReadForAssistant(Need("--request"), Need("--file")))); break;
-        case "assist": case "codex-status": case "codex-chat":
+        case "assist": case "codex-status": case "codex-chat": case "codex-threads": case "codex-history":
             using (var assistant = AssistantBridge.Load(Option("--provider") ?? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Providers", "PackEngine.Assistant.Codex.dll")))
             {
                 if (assistant is IResidentAssistant resident)
                 {
                     resident.Progress += update => { if (update.Kind == "delta") Console.Error.Write(update.Text); else Console.Error.WriteLine(update.Kind + " · " + update.Text); };
-                    var account = await resident.ConnectAsync(new() { Executable = Option("--codex") ?? "", ProjectIdentity = session.Project.Identity, StateDirectory = session.StateDirectory }, cancellation.Token);
+                    var account = await resident.ConnectAsync(new() { Executable = Option("--codex") ?? "", ProjectIdentity = session.Project.Identity, StateDirectory = session.StateDirectory,
+                        AccessEnabled = !args.Contains("--deny-access"), HistoryEnabled = !args.Contains("--no-history"), BlockedThreads = (Option("--deny-thread") ?? "").Split(';') }, cancellation.Token);
                     if (args[0] == "codex-status") { Console.WriteLine(EditorSession.Serialize(new { account.Type, account.Plan, account.Display, resident.ThreadId })); break; }
+                    if (args[0] == "codex-threads") { Console.WriteLine(EditorSession.Serialize(await resident.ThreadsAsync(Option("--cursor") ?? "", cancellation.Token))); break; }
+                    if (args[0] == "codex-history") { Console.WriteLine(EditorSession.Serialize(await resident.HistoryAsync(Need("--thread"), Option("--cursor") ?? "", cancellation.Token))); break; }
                     if (Option("--model") is { } model) resident.Model = model;
                     if (args.Contains("--new-thread")) resident.NewConversation();
+                    if (Option("--thread") is { } thread) await resident.SelectConversationAsync(thread, cancellation.Token);
                 }
                 else if (args[0].StartsWith("codex-", StringComparison.Ordinal)) throw new InvalidOperationException("Choose a resident Codex provider.");
                 var assistantRequest = Capture();

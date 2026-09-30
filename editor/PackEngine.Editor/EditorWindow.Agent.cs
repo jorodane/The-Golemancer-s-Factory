@@ -86,6 +86,7 @@ public sealed partial class EditorWindow
     {
         if (session is null) return;
         request.Target = Target; request.AllowProjectCommands = allowProjectCommands.IsChecked == true;
+        request.SharedChats = assistantSettings.ConnectionEnabled ? CurrentAccess?.CaptureSharedChats() ?? [] : [];
         request.WritablePacks = allowPackWrites.IsChecked == true ? request.Input.Targets.Select(t => t.Pack).Where(p => p.Length > 0)
             .Where(p => !session.Project.Sources.TryGetValue(p, out var source) || source.Editable).Distinct(StringComparer.Ordinal).ToList() : [];
         session.Persist(); streamMessages.Clear();
@@ -94,33 +95,47 @@ public sealed partial class EditorWindow
     {
         panel.Children.Add(Label("Codex 작업 세션", 13, AccentInk));
         codexPath.ToolTip = "선택 사항: 네이티브 codex.exe 경로. 비워 두면 StartEditor가 준비한 설치 위치나 PATH에서 찾아.";
-        codexPath.MaxWidth = 250; panel.Children.Add(codexPath);
+        codexPath.MaxWidth = 250;
+        var advanced = new StackPanel(); advanced.Children.Add(Label("Codex 실행 경로 · 비워 두면 자동 탐색", 11, MutedInk)); advanced.Children.Add(codexPath);
+        advanced.Children.Add(Action("다른 AI 제공자 연결…", ConnectProvider));
+        panel.Children.Add(new Expander { Header = "고급 연결 설정", Foreground = TextInk, Margin = new Thickness(4), Content = advanced });
         string preferences = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PackEngine", "codex-path.txt");
         if (File.Exists(preferences)) codexPath.Text = File.ReadAllText(preferences).Trim();
         var row = new WrapPanel(); row.Children.Add(Action("Codex 연결", ConnectCodex)); row.Children.Add(Action("ChatGPT 로그인", LoginCodex)); panel.Children.Add(row);
-        var second = new WrapPanel(); second.Children.Add(Action("연결 확인", RefreshCodex)); second.Children.Add(Action("새 대화", () => Guard(() => { if (busy) return; (provider as IResidentAssistant)?.NewConversation(); streamMessages.Clear(); Message("대화", "다음 요청은 새 Codex 대화에서 시작해. 이전 변경 기록은 유지돼."); })));
+        var second = new WrapPanel(); second.Children.Add(Action("연결 확인", RefreshCodex)); second.Children.Add(Action("새 대화", NewCodexConversation));
         panel.Children.Add(second); panel.Children.Add(models);
+        panel.Children.Add(Action("대화 목록·접근 설정", () => tabs.SelectedIndex = 5));
         models.SelectionChanged += (_, _) => { if (provider is IResidentAssistant agent && models.SelectedItem is AssistantModel model) agent.Model = model.Id; };
-        panel.Children.Add(Label("ChatGPT 구독 로그인 · 실제 사용량 적용\n현재 웹 Work 대화를 자동으로 가져오지는 않아.", 11, MutedInk));
+        panel.Children.Add(Label("기본: 시작할 때 자동 연결\n웹 문맥은 대화·접근 탭에서 등록해줘.", 11, MutedInk));
     }
-    private async void ConnectCodex()
+    private async void ConnectCodex() => await ConnectCodexAsync();
+    private async Task<bool> ConnectCodexAsync()
     {
-        if (session is null || busy) return;
+        if (session is null || busy) return false;
+        if (CurrentAccess is not { } access || !assistantSettings.ConnectionEnabled || !access.Enabled) { SetStatus("대화·접근 설정에서 이 프로젝트의 Codex 사용을 허용해줘."); return false; }
         SetBusy(true); operation = new();
         try
         {
             string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Providers", "PackEngine.Assistant.Codex.dll");
             var loadedProvider = AssistantBridge.Load(path);
             if (loadedProvider is not IResidentAssistant next) { loadedProvider.Dispose(); throw new InvalidDataException("The Codex provider does not implement resident sessions."); }
-            provider?.Dispose(); provider = next; next.Progress += AgentProgress;
-            var account = await next.ConnectAsync(new() { Executable = codexPath.Text.Trim(), ProjectIdentity = session.Project.Identity, StateDirectory = session.StateDirectory }, operation.Token);
-            providerLabel.Text = account.Display; submit.Content = "보내기";
+            provider?.Dispose(); provider = next; models.ItemsSource = null; next.Progress += update => Dispatcher.BeginInvoke(new Action(() => { if (ReferenceEquals(provider, next)) AgentProgress(update); }));
+            var account = await next.ConnectAsync(assistantSettings.Connection(access, codexPath.Text.Trim(), session.StateDirectory), operation.Token);
+            ShowAccount(account); submit.Content = "보내기";
+            if (!access.HistoryEnabled) conversationTitle.Text = "기록 접근 꺼짐 · 매 요청 새 대화";
             string preferences = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PackEngine", "codex-path.txt");
             Directory.CreateDirectory(Path.GetDirectoryName(preferences)!); File.WriteAllText(preferences, codexPath.Text.Trim());
             if (account.Type == "chatgpt") await LoadModels(next, operation.Token);
             SetStatus("Codex 연결됨. " + account.Display);
+            try
+            {
+                await RefreshThreadList(operation.Token);
+                if (next.ThreadId.Length > 0 && access.HistoryEnabled) await OpenConversation(next.ThreadId, operation.Token);
+            }
+            catch (Exception e) { historyStatus.Text = e.Message; AppendLog("대화 기록: " + e.Message); }
+            return true;
         }
-        catch (Exception e) { providerLabel.Text = "연결 실패"; SetStatus(e.Message); AppendLog(e.Message); }
+        catch (Exception e) { provider?.Dispose(); provider = null; providerLabel.Text = "연결 실패 · 다시 시도 가능"; accountDetails.Text = e.Message; SetStatus(e.Message); AppendLog(e.Message); return false; }
         finally { operation?.Dispose(); operation = null; SetBusy(false); }
     }
     private async Task LoadModels(IResidentAssistant agent, CancellationToken cancellation)
@@ -144,7 +159,7 @@ public sealed partial class EditorWindow
     {
         if (busy || provider is not IResidentAssistant agent) return;
         SetBusy(true); operation = new();
-        try { var account = await agent.AccountAsync(operation.Token); providerLabel.Text = account.Display; if (account.Type == "chatgpt") await LoadModels(agent, operation.Token); }
+        try { var account = await agent.AccountAsync(operation.Token); ShowAccount(account); if (account.Type == "chatgpt") await LoadModels(agent, operation.Token); await RefreshThreadList(operation.Token); }
         catch (Exception e) { SetStatus(e.Message); AppendLog(e.Message); }
         finally { operation?.Dispose(); operation = null; SetBusy(false); }
     }
@@ -160,7 +175,8 @@ public sealed partial class EditorWindow
             }
             block.Text = update.Kind == "delta" ? block.Text + update.Text : update.Text; return;
         }
-        if (update.Kind == "login-completed") { SetStatus("ChatGPT 로그인 완료."); RefreshCodex(); return; }
+        if (update.Kind == "login-completed") { SetStatus("ChatGPT 로그인 완료."); if (busy) pendingAccountRefresh = true; else RefreshCodex(); return; }
+        if (update.Kind == "disconnected") { providerLabel.Text = "Codex 연결 끊김"; accountDetails.Text = "다음 전송에서 자동 연결을 다시 시도해. 자동 연결이 꺼져 있다면 ‘Codex 연결’을 눌러줘."; }
         if (update.Kind == "login-failed") { SetStatus("로그인 실패: " + update.Text); return; }
         if (update.Kind is "preview" or "applied") Guard(() =>
         {
