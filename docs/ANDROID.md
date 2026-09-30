@@ -1,6 +1,8 @@
 # Android 플랫폼
 
-`Builds/Android/Golemancer.apk`는 Android 8.0(API 26) 이상 ARM64 및 x86_64용 개발 빌드다. .NET 런타임, 공유 엔진, 독립 객체팩 DLL, XML, 저장소에 있는 아트를 포함한다. 개발용 서명이며 스토어 배포 빌드는 아니다. 기존 앱의 서명과 다른 키로 만든 APK는 덮어쓸 수 없으므로 배포 시 동일한 서명 키를 유지해야 한다.
+별도 다운로드로 제공하는 `Golemancer.apk`는 Android 8.0(API 26) 이상 ARM64 및 x86_64용 개발 빌드다. APK 파일은 Git에 커밋하지 않는다. 저장소의 `Builds/Android/build-info.json`과 `Builds/Android/SHA256SUMS`에서 빌드 정보와 해시를 확인할 수 있다. .NET 런타임, 공유 엔진, 독립 객체팩 DLL, XML, 저장소에 있는 아트를 포함한다. 개발용 서명이며 스토어 배포 빌드는 아니다. 기존 앱의 서명과 다른 키로 만든 APK는 덮어쓸 수 없으므로 배포 시 동일한 서명 키를 유지해야 한다.
+
+현재 빌드는 API 29 x86_64 에뮬레이터에서 실행·터치·저장·DLL 로딩·앱 복귀를 검증했다. 실제 ARM64 휴대폰과 물리 게임패드는 아직 검증하지 않았다. 상세 결과는 [검증 기록](VERIFICATION.md)에 있다.
 
 ## 실행과 조작
 
@@ -34,7 +36,7 @@ Windows에서는 `BuildAndroid.bat`, Linux/macOS에서는 `bash build-android.sh
 bash build-android.sh -p:AndroidSdkDirectory=/path/to/android-sdk -p:JavaSdkDirectory=/path/to/jdk-21
 ```
 
-공유 엔진·객체팩을 net10.0으로 빌드하고 전체 캠페인 검증을 실행한 뒤 APK를 만들며, `tools/PublishAndroid.proj`가 APK·SHA256·빌드 기준 커밋을 `Builds/Android`에 기록한다. Android 프로젝트는 Windows 솔루션 빌드 대상에 포함하지 않으므로 `Build.bat`에는 Android SDK가 필요하지 않다.
+공유 엔진·객체팩을 net10.0으로 빌드하고 전체 캠페인 검증을 실행한 뒤 APK를 만들며, `tools/PublishAndroid.proj`가 APK·SHA256·빌드 기준 커밋을 로컬 `Builds/Android`에 기록한다. 생성된 APK는 다운로드 파일로 전달하고 Git에는 빌드 정보와 해시만 올린다. Android 프로젝트는 Windows 솔루션 빌드 대상에 포함하지 않으므로 `Build.bat`에는 Android SDK가 필요하지 않다.
 
 ## 실제 DLL 로딩
 
@@ -67,7 +69,7 @@ Linux 네이티브 창과 iOS 호스트는 아직 구현하지 않았다. iOS용
 
 ## Android 스모크 검증 실행
 
-에뮬레이터 또는 테스트 기기를 연결하고 APK를 설치한 뒤 실행한다. `smoke` 시작 옵션은 실제 플레이 저장과 분리된 디렉터리를 사용한다.
+에뮬레이터 또는 테스트 기기를 연결하고 APK를 설치한 뒤 실행한다. 아래 명령은 로컬 빌드 출력 경로를 사용하므로, 별도로 받은 APK를 검사할 때는 설치 경로를 해당 다운로드 파일로 바꾼다. `smoke` 시작 옵션은 실제 플레이 저장과 분리된 디렉터리를 사용한다.
 
 ```sh
 adb install --no-incremental -r Builds/Android/Golemancer.apk
