@@ -1,13 +1,20 @@
 using Golemancer.Contracts;
 using Golemancer.Runtime;
+using EngineTiming = PackEngine.Contracts.EngineTiming;
+using PackEngine.Runtime;
 namespace Golemancer.Client;
 // The native host event loop owns simulation access on every platform.
-public class GameSession
+public class GameSession : IGameTimingContext, IDisposable
 {
     private readonly CookedGame cooked;
     private double lastSave, pickupTime;
     private double moveX, moveY;
     private bool pickupHeld, pickupWasHeld, pickupSwept;
+    private bool timingsStarted, disposed;
+    public TimingScheduler<IGameTimingContext> Timings { get; } = new();
+    public IGameCamera? Camera { get; set; }
+    IGameContext IGameTimingContext.Game => Game;
+    public bool Paused => !Started || MenuPaused || Inactive || Game.State.Dialogues.Count > 0;
     public string Root { get; }
     public string SaveDirectory { get; }
     public Simulation Game { get; private set; }
@@ -21,6 +28,27 @@ public class GameSession
         Root = root; cooked = content; Game = new(content);
         SaveDirectory = saveDirectory ?? Environment.GetEnvironmentVariable("GOLEMANCER_SAVES") ?? Path.Combine(root, "Saves");
         Game.State.Paused = true;
+        Timings.Register(EngineTiming.FixedUpdate, "golemancer.simulation", 0, (_, step) => AdvanceCore(step.DeltaSeconds));
+    }
+    public void StartTimings()
+    {
+        if (disposed) throw new ObjectDisposedException(nameof(GameSession));
+        if (timingsStarted) return;
+        timingsStarted = true;
+        try
+        {
+            foreach (var configure in cooked.Registry.TimingModules) configure(Timings);
+            Timings.Run(EngineTiming.Initialize, this, 0, 0);
+        }
+        catch { disposed = true; Timings.Dispose(); Camera = null; ClearInput(); throw; }
+    }
+    public void RunTiming(string timing, double deltaSeconds, double elapsedSeconds)
+    { StartTimings(); Timings.Run(timing, this, deltaSeconds, elapsedSeconds); }
+    public void Dispose()
+    {
+        if (disposed) return; disposed = true;
+        try { if (timingsStarted) Timings.Run(EngineTiming.Shutdown, this, 0, Game.State.Time); }
+        finally { Timings.Dispose(); Camera = null; ClearInput(); }
     }
     public void SetInput(double x, double y, bool pickup)
     { moveX=x; moveY=y; pickupHeld=pickup; }
@@ -39,7 +67,14 @@ public class GameSession
     }
     public void Advance(double dt)
     {
-        Game.State.Paused = !Started || MenuPaused || Inactive || Game.State.Dialogues.Count > 0;
+        StartTimings();
+        Game.State.Paused = Paused;
+        if (Game.State.Paused) { ClearInput(); return; }
+        Timings.Run(EngineTiming.FixedUpdate, this, dt, Game.State.Time);
+    }
+    private void AdvanceCore(double dt)
+    {
+        Game.State.Paused = Paused;
         if (Game.State.Paused) { ClearInput(); return; }
         if (pickupHeld)
         {

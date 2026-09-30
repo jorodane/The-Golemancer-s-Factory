@@ -4,10 +4,33 @@ Assembly version: 1.0.0.0
 Generated from the net10.0 DLL; implementation and nullable annotations are omitted.
 See the accompanying contract documentation for semantics.
 
+// Conventional host-driven timing points. Any nonblank custom name is also supported.
+class PackEngine.Contracts.EngineTiming
+{
+  static string FixedUpdate;
+  static string Initialize;
+  static string Input;
+  static string RenderUpdate;
+  static string Shutdown;
+  static string Update;
+}
+
 // A DLL registers through a caller-owned contract. The engine does not interpret that contract.
 interface PackEngine.Contracts.IPackModule<TRegistry>
 {
   void Register(TRegistry registry);
+}
+
+// Optional pack-registry capability. Configure is called once per host session, never once per rendered frame.
+interface PackEngine.Contracts.ITimingModuleRegistry<TContext>
+{
+  void Timings(System.Action<PackEngine.Contracts.ITimingRegistry<TContext>> configure);
+}
+
+// Register synchronous callbacks. Lower priorities run first; ties retain registration order. Dispose to unregister.
+interface PackEngine.Contracts.ITimingRegistry<TContext>
+{
+  System.IDisposable Register(string timing, string id, int priority, System.Action<TContext, PackEngine.Contracts.TimingStep> callback);
 }
 
 // Loaded manifest metadata. Domain content is owned by the caller's content reader.
@@ -20,6 +43,15 @@ class PackEngine.Contracts.PackInfo
   string Directory { get; set/init; }
   string Id { get; set/init; }
   string Version { get; set/init; }
+}
+
+// Immutable time values supplied by the host. ElapsedSeconds uses the host's clock for this timing point.
+struct PackEngine.Contracts.TimingStep
+{
+  TimingStep(string timing, double deltaSeconds, double elapsedSeconds);
+  double DeltaSeconds { get; }
+  double ElapsedSeconds { get; }
+  string Timing { get; }
 }
 
 interface PackEngine.Contracts.UI.IUiBackend

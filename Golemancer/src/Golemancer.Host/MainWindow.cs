@@ -3,9 +3,9 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Threading;
 using Golemancer.Contracts;
 using Golemancer.Runtime;
+using EngineTiming = PackEngine.Contracts.EngineTiming;
 namespace Golemancer.Desktop;
 
 internal sealed partial class MainWindow : Window
@@ -18,9 +18,11 @@ internal sealed partial class MainWindow : Window
     private readonly TextBlock status = new(), toast = new();
     private readonly Border overlay = new(), dialogue = new();
     private readonly StackPanel modal = new(), dialogueContent = new();
-    private readonly DispatcherTimer timer = new() { Interval=TimeSpan.FromMilliseconds(16) };
+    private readonly FrameTiming frameTiming = new();
     private readonly Stopwatch clock = Stopwatch.StartNew();
-    private double lastInput, lastTick, accumulator, lastHud, toastUntil;
+    private double lastHud, toastUntil;
+    private int cameraInputX, cameraInputY;
+    private bool timingFaulted;
     private string selected="", modalType="", lastDialogue="", lastNotice="", inventoryKey="", crewKey="", questKey="";
     private readonly Dictionary<string, Button> buttons=[];
     private static Brush Ink => SvgImage.Brush("#29473b")!;
@@ -33,6 +35,16 @@ internal sealed partial class MainWindow : Window
         FontFamily=new FontFamily("Malgun Gothic");FontSize=13;Foreground=Ink;Background=Paper;WindowStartupLocation=WindowStartupLocation.CenterScreen;
         UseLayoutRounding=true;SnapsToDevicePixels=true;
         world=new(session,assets);Content=root;root.Children.Add(layout);
+        session.Camera=world;
+        session.Timings.Register(EngineTiming.Input,"windows.input",0,(_,_)=>UpdateInput());
+        session.Timings.Register(EngineTiming.Update,"windows.hud",0,(_,step)=>RefreshFrame(step.ElapsedSeconds));
+        session.Timings.Register(EngineTiming.RenderUpdate,"windows.camera",-10,(_,step)=>
+        {
+            double dt=Math.Min(.1,step.DeltaSeconds);
+            if(cameraInputX!=0||cameraInputY!=0)world.Pan(cameraInputX*dt*12,cameraInputY*dt*12);
+            world.AdvanceCamera(dt);
+        });
+        session.Timings.Register(EngineTiming.RenderUpdate,"windows.render",0,(_,_)=>world.InvalidateVisual());
         BuildHud();
         bubbleLayer.SizeChanged+=(_,_)=>{if(bubbleHistory.Count>0)RenderBubbles();};
         bubbleShield.PreviewMouseDown+=(_,e)=>{e.Handled=true;CloseBubbles();};
@@ -48,8 +60,12 @@ internal sealed partial class MainWindow : Window
         card.Child=new ScrollViewer{Content=modal,VerticalScrollBarVisibility=ScrollBarVisibility.Auto};
         BuildDialogue();
         world.ObjectClicked+=ClickTarget;PreviewKeyDown+=OnGameKey;
-        Activated+=(_,_)=>{session.Inactive=false;};Deactivated+=(_,_)=>{session.Inactive=true;session.ClearInput();CancelInventoryDrag();};
-        timer.Tick+=Tick;Loaded+=(_,_)=>{lastTick=clock.Elapsed.TotalSeconds;timer.Start();};Closed+=(_,_)=>timer.Stop();
+        Activated+=(_,_)=>{session.Inactive=false;frameTiming.Reset();};
+        Deactivated+=(_,_)=>{session.Inactive=true;session.ClearInput();CancelInventoryDrag();frameTiming.Reset();};
+        StateChanged+=(_,_)=>{frameTiming.Reset();if(WindowState==WindowState.Minimized)session.ClearInput();};
+        Loaded+=(_,_)=>{frameTiming.Reset();CompositionTarget.Rendering-=RenderFrame;CompositionTarget.Rendering+=RenderFrame;};
+        Unloaded+=(_,_)=>CompositionTarget.Rendering-=RenderFrame;
+        Closed+=(_,_)=>{CompositionTarget.Rendering-=RenderFrame;try{session.Dispose();}catch(Exception ex){LogTimingError(ex);}};
         Closing+=(_,e)=>{if(!session.Started)return;try{session.Save("autosave");}catch(Exception ex){e.Cancel=MessageBox.Show("자동 저장에 실패했어. 저장하지 않고 종료할까?\n"+ex.Message,Title,MessageBoxButton.YesNo,MessageBoxImage.Warning)!=MessageBoxResult.Yes;}};
         Open("title");RefreshHud();
     }
@@ -68,16 +84,37 @@ internal sealed partial class MainWindow : Window
         button.LostMouseCapture += (_, _) => Dispatcher.BeginInvoke(new Action(() => pressed = null));
         if(id!="")buttons[id]=button;return button;
     }
-    private void Tick(object? sender,EventArgs e)
+    private void RenderFrame(object? sender,EventArgs e)
     {
-        double now=clock.Elapsed.TotalSeconds;accumulator+=Math.Min(.25,now-lastTick);lastTick=now;
-        UpdateInput(Math.Min(.1, now - lastInput)); lastInput = now;
-        const double step=1.0/60;
-        try{while(accumulator>=step){session.Advance(step);accumulator-=step;}}
-        catch(Exception ex){session.MenuPaused=true;Notify("게임 처리를 멈췄어: "+ex.Message);}
+        if(timingFaulted)return;
+        if(WindowState==WindowState.Minimized){frameTiming.Reset();return;}
+        if(e is not RenderingEventArgs rendering||!frameTiming.Advance(rendering.RenderingTime,out double elapsed,out int steps))return;
+        double now=clock.Elapsed.TotalSeconds;
+        try
+        {
+            session.RunTiming(EngineTiming.Input,elapsed,now);
+            for(int i=0;i<steps;i++)session.Advance(FrameTiming.SimulationStep);
+            session.RunTiming(EngineTiming.Update,elapsed,now);
+            session.RunTiming(EngineTiming.RenderUpdate,elapsed,now);
+        }
+        catch(Exception ex){timingFaulted=true;session.MenuPaused=true;session.ClearInput();Notify("게임 처리를 멈췄어: "+ex.Message);LogTimingError(ex);}
+    }
+    private static void LogTimingError(Exception error)
+    {
+        Debug.WriteLine(error);
+        try
+        {
+            string path=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"GolemancerFactory","timing-error.txt");
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);File.WriteAllText(path,error.ToString());
+        }
+        catch(IOException) { }
+        catch(UnauthorizedAccessException) { }
+    }
+    private void RefreshFrame(double now)
+    {
         if(now-lastHud>=.2){RefreshHud();refreshQuantity?.Invoke();RefreshBubbleHover();lastHud=now;}
         if(now>toastUntil)toast.Visibility=Visibility.Collapsed;
-        RefreshDialogue();RefreshFacilityFocus();RefreshFacilityHover();world.InvalidateVisual();
+        RefreshDialogue();RefreshFacilityFocus();RefreshFacilityHover();
     }
     private void Notify(string text){if(text.Length==0)return;toast.Text=text;toast.Visibility=Visibility.Visible;toastUntil=clock.Elapsed.TotalSeconds+5;}
     private (bool One, bool All)? activatingQuantity;
@@ -92,7 +129,7 @@ internal sealed partial class MainWindow : Window
         if(result.Message.Length>0)Notify(result.Message);RefreshHud();return result;
     }
     private void Begin(bool load=false,string slot="manual")
-    {CloseMemory();if(load)session.Load(slot);else session.NewGame();world.Reset();shownDay=-1;actionHistory.Clear();selected="";lastDialogue="";inventoryKey=crewKey=questKey="";CloseOverlay();RefreshHud();world.Focus();}
+    {CloseMemory();if(load)session.Load(slot);else session.NewGame();timingFaulted=false;frameTiming.Reset();world.Reset();shownDay=-1;actionHistory.Clear();selected="";lastDialogue="";inventoryKey=crewKey=questKey="";CloseOverlay();RefreshHud();world.Focus();}
     private void Select(string id){selected=id;world.Selected=id;}
     private void ClickTile(Tile tile,bool right) => ClickTarget(tile,world.Target(tile),right);
     private void ClickTarget(Tile tile,WorldObject? target,bool right)
@@ -145,14 +182,15 @@ internal sealed partial class MainWindow : Window
     private void UseItem(string id){if(id is "healing_jelly" or "mana_jelly" or "sweetfruit")Send("consume",item:id);else if((Game.Content.Items.GetValueOrDefault(id)?.EquipmentSlot.Length ?? 0) > 0)Send("equip",item:id);else Notify(Game.Content.Items.GetValueOrDefault(id)?.Description??id);}
     private bool IsKey(Key key,string action) => Golemancer.Contracts.InputBindings.For(Game.Content,"windows","keyboard",action).Any(k=>Enum.TryParse<Key>(k,true,out var parsed)&&parsed==key);
     private bool Held(string action) => Golemancer.Contracts.InputBindings.For(Game.Content,"windows","keyboard",action).Any(k=>Enum.TryParse<Key>(k,true,out var parsed)&&Keyboard.IsKeyDown(parsed));
-    private void UpdateInput(double dt)
+    private void UpdateInput()
     {
+        cameraInputX=cameraInputY=0;
         if(!session.Started||session.Inactive||modalType!=""||Game.State.Dialogues.Count>0||Keyboard.FocusedElement is TextBox or ComboBox or Slider)
         {session.SetInput(0,0,false);return;}
         int dx=(Held("move.right")?1:0)-(Held("move.left")?1:0),dy=(Held("move.down")?1:0)-(Held("move.up")?1:0);
         bool combat = session.Actor?.GetText("mode") == "combat";
         world.Follow = combat;
-        if (dx != 0 || dy != 0) { CloseBubbles(); if (!combat) world.Pan(dx * dt * 12, dy * dt * 12); }
+        if (dx != 0 || dy != 0) { CloseBubbles(); if (!combat) {cameraInputX=dx;cameraInputY=dy;} }
         session.SetInput(combat ? dx : 0, combat ? dy : 0, Held("pickup"));
     }
     private void OnGameKey(object sender,KeyEventArgs e)

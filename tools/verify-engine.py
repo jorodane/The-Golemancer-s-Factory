@@ -21,6 +21,7 @@ def main():
         with tempfile.TemporaryDirectory(prefix="pack-engine-only-") as folder:
             isolated = Path(folder)
             shutil.copytree(ROOT / "src", isolated / "src", ignore=shutil.ignore_patterns("bin", "obj"))
+            shutil.copytree(ROOT / "tests/PackEngine.Verification", isolated / "tests/PackEngine.Verification", ignore=shutil.ignore_patterns("bin", "obj"))
             for name in ("Engine.slnx", "Directory.Build.props", "global.json", "NuGet.Config"):
                 shutil.copy2(ROOT / name, isolated / name)
             for project in (isolated / "src").rglob("*.csproj"):
@@ -36,8 +37,20 @@ def main():
                 if result.returncode:
                     raise RuntimeError(result.stdout)
                 report["frameworks"].append(framework)
+            result = subprocess.run([args.dotnet, "build", "tests/PackEngine.Verification/PackEngine.Verification.csproj", "-c", "Release",
+                "-p:EngineTargetFramework=net10.0", "-m:1", "--disable-build-servers", "--nologo"], cwd=isolated,
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, encoding="utf-8", errors="replace")
+            (output / "timing-build.log").write_text(result.stdout, encoding="utf-8")
+            if result.returncode:
+                raise RuntimeError(result.stdout)
+            result = subprocess.run([args.dotnet, "tests/PackEngine.Verification/bin/Release/net10.0/PackEngine.Verification.dll"],
+                cwd=isolated, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, encoding="utf-8", errors="replace")
+            (output / "timing-tests.log").write_text(result.stdout, encoding="utf-8")
+            if result.returncode:
+                raise RuntimeError(result.stdout)
+            report["timingPassCount"] = result.stdout.count("PASS:")
             report["passed"] = True
-            print("PASS: engine builds on net48 and net10.0 without consumer sources or SDK copies.")
+            print("PASS: engine builds on net48 and net10.0 and passes timing verification without consumer sources or SDK copies.")
     finally:
         (output / "report.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
 

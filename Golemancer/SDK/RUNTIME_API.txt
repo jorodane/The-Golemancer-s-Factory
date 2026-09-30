@@ -27,6 +27,24 @@ class PackEngine.Runtime.PackLoadContext
   PackLoadContext(string file, System.Collections.Generic.IEnumerable<System.Reflection.Assembly> sharedAssemblies);
 }
 
+class PackEngine.Runtime.TimingCallbackException
+  inherits: System.Exception, System.Runtime.Serialization.ISerializable
+{
+  TimingCallbackException(string timing, string callbackId, int priority, System.Exception inner);
+  string CallbackId { get; }
+  int Priority { get; }
+  string Timing { get; }
+}
+
+class PackEngine.Runtime.TimingScheduler<TContext>
+  inherits: PackEngine.Contracts.ITimingRegistry<TContext>, System.IDisposable
+{
+  TimingScheduler();
+  void Dispose();
+  System.IDisposable Register(string timing, string id, int priority, System.Action<TContext, PackEngine.Contracts.TimingStep> callback);
+  void Run(string timing, TContext context, double deltaSeconds, double elapsedSeconds);
+}
+
 class PackEngine.Runtime.UI.UiCatalog
 {
   UiCatalog(System.Collections.Generic.IEnumerable<PackEngine.Contracts.UI.UiDocument> documents);

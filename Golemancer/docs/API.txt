@@ -311,6 +311,14 @@ interface Golemancer.Contracts.IFailureHandler
   Golemancer.Contracts.FailureDecision Handle(Golemancer.Contracts.IGameContext context, Golemancer.Contracts.WorldObject actor, Golemancer.Contracts.FailureContext failure);
 }
 
+// Optional native view access. Coordinates are world tiles; zoom is pixels per tile. Headless sessions have no camera.
+interface Golemancer.Contracts.IGameCamera
+{
+  double X { get; set/init; }
+  double Y { get; set/init; }
+  double Zoom { get; set/init; }
+}
+
 // Simulation-thread context. All calls are serialized by the host. Never retain it across threads.
 interface Golemancer.Contracts.IGameContext
 {
@@ -335,6 +343,14 @@ interface Golemancer.Contracts.IGameContext
 interface Golemancer.Contracts.IGameModule
   inherits: PackEngine.Contracts.IPackModule<Golemancer.Contracts.IModuleRegistry>
 {
+}
+
+// Live session access for timing callbacks. Read Game on each call; a new game/load can replace it.
+interface Golemancer.Contracts.IGameTimingContext
+{
+  Golemancer.Contracts.IGameCamera Camera { get; }
+  Golemancer.Contracts.IGameContext Game { get; }
+  bool Paused { get; }
 }
 
 // Optional module extension. Logical actions never refer to a platform key enum.

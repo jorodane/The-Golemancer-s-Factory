@@ -7,7 +7,7 @@ using Golemancer.Contracts;
 using Golemancer.Runtime;
 namespace Golemancer.Desktop;
 
-internal sealed partial class WorldView : FrameworkElement
+internal sealed partial class WorldView : FrameworkElement, IGameCamera
 {
     private readonly DesktopSession session;
     private readonly AssetStore assets;
@@ -30,6 +30,8 @@ internal sealed partial class WorldView : FrameworkElement
     public bool Follow { get; set; }
     private double followOffsetX, followOffsetY;
     public double Zoom { get; set; } = 52;
+    double IGameCamera.X { get => CameraX; set => CameraX = value; }
+    double IGameCamera.Y { get => CameraY; set => CameraY = value; }
     public Tile Hover { get; private set; }
     public event Action<Tile, bool>? TileClicked;
     public event Action<Tile, WorldObject?, bool>? ObjectClicked;
@@ -92,6 +94,14 @@ internal sealed partial class WorldView : FrameworkElement
     }
     public void Pan(double x, double y)
     { if (session.Actor?.GetText("mode") == "combat") return; Follow = false; CameraX = Math.Max(0, Math.Min(session.Game.State.Map.Width, CameraX + x)); CameraY = Math.Max(0, Math.Min(session.Game.State.Map.Height, CameraY + y)); InvalidateVisual(); }
+    public void AdvanceCamera(double elapsed)
+    {
+        if (!Follow || session.Actor is not { } actor || actor.GetText("mode") != "combat") return;
+        if (!Visible(actor)) CenterOnActor();
+        double weight = FrameTiming.FollowWeight(elapsed);
+        CameraX += (actor.WorldX + .5 + followOffsetX - CameraX) * weight;
+        CameraY += (actor.WorldY + .5 + followOffsetY - CameraY) * weight;
+    }
     public Point Screen(double x, double y) => new((x - CameraX) * Zoom + ActualWidth / 2, (y - CameraY) * Zoom + ActualHeight / 2);
     public Point World(Point p) => new((p.X - ActualWidth / 2) / Zoom + CameraX, (p.Y - ActualHeight / 2) / Zoom + CameraY);
     public WorldObject? Target(Tile tile) => session.Game.State.Objects.Values.Where(o => o.Alive() && o.Get("depleted")==0 && session.Game.Kind(o) != "customer" && tile.X >= o.X && tile.Y >= o.Y && tile.X < o.X + (session.Game.Definition(o)?.Width ?? 1) && tile.Y < o.Y + (session.Game.Definition(o)?.Height ?? 1)).OrderBy(o => session.Game.IsGolem(o) ? 0 : 1).FirstOrDefault();
@@ -102,12 +112,7 @@ internal sealed partial class WorldView : FrameworkElement
     protected override void OnRender(DrawingContext dc)
     {
         base.OnRender(dc);
-        var g = session.Game; var s = g.State; var a = session.Actor;
-        if (Follow && a?.GetText("mode") == "combat")
-        {
-            if (!Visible(a)) CenterOnActor();
-            CameraX += (a.WorldX + .5 + followOffsetX - CameraX) * .16; CameraY += (a.WorldY + .5 + followOffsetY - CameraY) * .16;
-        }
+        var g = session.Game; var s = g.State;
         dc.DrawRectangle(Brushes.Black, null, new Rect(RenderSize));
         if (!g.Content.Tilesets.ContainsKey(s.Map.TilesetId)) { Text(dc, "저장된 타일셋 팩을 다시 설치해줘: " + s.Map.TilesetId, new Point(20,20)); return; }
         int left = Math.Max(0,(int)(CameraX - ActualWidth / Zoom / 2) - 1), top = Math.Max(0,(int)(CameraY - ActualHeight / Zoom / 2) - 1);

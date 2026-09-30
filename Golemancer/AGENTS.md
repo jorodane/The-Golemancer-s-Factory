@@ -36,3 +36,4 @@
 - The domain DLL ABI is version 2 (pack.xml contracts="2"); rebuild old game DLLs against the new contracts. Existing JSON saves retain schema version 1.
 - BuildPacks.bat builds content DLLs and the game contracts. TestIsolation.bat copies this folder without engine source and runs the existing game and full campaign while comparing engine/host hashes. Optional TeaBreak checks require --with-tea-break and are not part of the current separation verification.
 - Generic UI WPF/Android backends are not implemented. The game uses its existing native screens; engine separation does not add renderer capabilities.
+- Native hosts bind frame work through the SDK timing scheduler; see docs/TIMING.md. Keep simulation at priority 0 and camera preparation at render-update -10 before native submission 0. The engine must never learn game or native host types.

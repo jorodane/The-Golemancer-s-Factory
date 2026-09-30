@@ -8,8 +8,12 @@ using PackEngine.Runtime.UI;
 
 namespace Golemancer.Runtime;
 
-public sealed class ModuleRegistry : IModuleRegistry, ITerrainRegistry, IInputRegistry, IUiRegistry
+public sealed class ModuleRegistry : IModuleRegistry, ITerrainRegistry, IInputRegistry, IUiRegistry, PackEngine.Contracts.ITimingModuleRegistry<IGameTimingContext>
 {
+    private readonly List<Action<PackEngine.Contracts.ITimingRegistry<IGameTimingContext>>> timingModules = [];
+    public IReadOnlyList<Action<PackEngine.Contracts.ITimingRegistry<IGameTimingContext>>> TimingModules => timingModules;
+    public void Timings(Action<PackEngine.Contracts.ITimingRegistry<IGameTimingContext>> configure)
+    { if (configure is null) throw new ArgumentNullException(nameof(configure)); timingModules.Add(configure); }
     private readonly List<UiDocument> uiDocuments = [];
     public UiCatalog Ui { get; private set; } = new(Array.Empty<UiDocument>());
     public void RegisterUi(UiDocument document) => uiDocuments.Add(document);

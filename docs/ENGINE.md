@@ -4,8 +4,8 @@
 
 | Layer | Responsibility |
 |---|---|
-| PackEngine.Contracts | `IPackModule<TRegistry>`, manifest metadata, typed UI values, providers, requests and platform interfaces |
-| PackEngine.Runtime | Dependency/version ordering, safe manifest paths, XML loading, DLL load contexts, content fingerprints, UI validation/composition/binding/disposal/layout |
+| PackEngine.Contracts | `IPackModule<TRegistry>`, timing registration/steps, manifest metadata, typed UI values, providers, requests and platform interfaces |
+| PackEngine.Runtime | Priority timing dispatch, dependency/version ordering, safe manifest paths, XML loading, DLL load contexts, content fingerprints, UI validation/composition/binding/disposal/layout |
 | Consumer registry | Meaning and ownership of domain actions, systems, models and content |
 | Consumer runtime | Simulation, save formats, controls, rendering integration and game lifecycle |
 | Native UI backend | Concrete native widgets and their platform behavior |
@@ -13,6 +13,8 @@
 The consumer supplies its registry type, accepted domain contract version, XML content reader and UI document receiver to `PackCompiler.Cook<TRegistry>`. DLLs implement `IPackModule<TRegistry>`; the engine shares that registry's contract assembly without referencing it at compile time. Additional shared identities can be supplied explicitly. Modules are loaded dynamically, never linked as engine projects.
 
 XML `<Assembly path="Bin/{framework}/Feature.dll"/>`, `<Depends>`, `<Data>` and `<Ui>` retain their manifest roles. The engine does not recognize domain-specific world keys, inventory, energy, quests, actors or recording rules. Typed UI catalogs choose renderer IDs; applications still supply concrete platform backends.
+
+See [priority timing callbacks](TIMING.md) for host-driven lifecycle/frame points, stable priorities and per-session pack attachment.
 
 Build with .NET 10 SDK:
 

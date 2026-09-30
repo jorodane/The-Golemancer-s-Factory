@@ -13,7 +13,7 @@ internal sealed partial class MainWindow
         string directory=Path.Combine(session.Root,"TestResults","windows");Directory.CreateDirectory(directory);
         try
         {
-            timer.Stop();session.Inactive=false;
+            CompositionTarget.Rendering-=RenderFrame;frameTiming.Reset();session.Inactive=false;
             buttons["new"].RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
             while(Game.State.Dialogues.Count>0)AdvanceDialogue();
             void Advance(int frames){for(int i=0;i<frames;i++){Game.State.Dialogues.Clear();session.Advance(1.0/60);}}

@@ -6,4 +6,6 @@ engine-lock.json records each engine source file SHA256, their combined source b
 
 Read API.txt and RUNTIME_API.txt for engine signatures, ../docs/API.txt and ../docs/CONTRACTS.md for game contracts, and ../docs/UI_CONTRACTS.md for UI semantics. Nullable annotations and implementation details are omitted from generated signatures.
 
+[TIMING.md](TIMING.md) specifies priority callbacks and their lifetime. [The game binding](../docs/TIMING.md) shows DLL registration and Windows/Android frame stages. Both documents travel with this standalone folder.
+
 Do not replace the engine or edit its lock during a game-only experiment. An intentional engine upgrade is made from the parent repository with tools/export-sdk.py, followed by rebuilding and verifying the consumer. This split deliberately establishes a new baseline; it does not claim the previous c77bcdc engine is unchanged.

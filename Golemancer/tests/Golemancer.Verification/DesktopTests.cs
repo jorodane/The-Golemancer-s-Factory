@@ -6,6 +6,8 @@ internal static class DesktopTests
     private static void Check(bool value,string message){if(!value)throw new Exception("FAIL: "+message);Console.WriteLine("PASS: "+message);}
     public static void Run(CookedGame cooked,string root)
     {
+        FrameTimingTests.Run();
+        TimingIntegrationTests.Run(cooked,root);
         string saves=Path.Combine(root,"TestResults","desktop-session");string? previous=Environment.GetEnvironmentVariable("GOLEMANCER_SAVES");
         Environment.SetEnvironmentVariable("GOLEMANCER_SAVES",saves);
         try

@@ -58,6 +58,7 @@ def main():
   </Target>
 </Project>
 ''', encoding="utf-8")
+    shutil.copy2(ROOT / "docs/TIMING.md", workspace / "SDK/TIMING.md")
     print("Exported engine source baseline:", source_id)
 
 

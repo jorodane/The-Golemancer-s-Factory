@@ -4,12 +4,13 @@ using Golemancer.Client;
 using Golemancer.Contracts;
 using Golemancer.Desktop;
 using Golemancer.Runtime;
+using PackEngine.Contracts;
 using SkiaSharp;
 using SkiaSharp.Views.Android;
 using Stopwatch = System.Diagnostics.Stopwatch;
 namespace Golemancer.Android;
 
-internal sealed partial class GameView : SKCanvasView, Choreographer.IFrameCallback
+internal sealed partial class GameView : SKCanvasView, Choreographer.IFrameCallback, IGameCamera
 {
     private readonly GameSession session;
     private readonly Art art;
@@ -23,12 +24,16 @@ internal sealed partial class GameView : SKCanvasView, Choreographer.IFrameCallb
     private readonly Dictionary<string, (string State, double Since, double X, double Y, double LastMove)> poses = new();
     private bool running, stopped, externalModal, queued;
     private double lastFrame, accumulator, cameraX, cameraY, toastUntil;
+    private double cameraInputX, cameraInputY;
     private float scale = 1, viewWidth = 960, viewHeight = 540, zoom = 42;
     private string building = "", targetCommand = "", notice = "", lastMessage = "", activeActor = "", inputDialogue = "";
     private SKPoint aim;
     private bool padAim;
     private Simulation Game => session.Game;
     private SKPoint StickCenter => new(88, viewHeight - 86);
+    double IGameCamera.X { get => cameraX; set => cameraX = value; }
+    double IGameCamera.Y { get => cameraY; set => cameraY = value; }
+    double IGameCamera.Zoom { get => zoom; set => zoom = (float)value; }
     public GameView(Context context, GameSession session) : base(context)
     {
         this.session = session; touch = new(input, session.Game.Content); art = new(Game.Content);
@@ -39,18 +44,47 @@ internal sealed partial class GameView : SKCanvasView, Choreographer.IFrameCallb
         }, resolution: 32, capacity: 64, background: true);
         PaintSurface += (_, e) => Render(e.Surface.Canvas, e.Info.Width, e.Info.Height);
         Focusable = FocusableInTouchMode = true; RequestFocus(); Center();
+        session.Camera = this;
+        session.Timings.Register(EngineTiming.Input, "android.input", 0, (_, step) => UpdateInput(step.ElapsedSeconds));
+        session.Timings.Register(EngineTiming.Update, "android.notices", 0, (_, _) => UpdateNotices());
+        session.Timings.Register(EngineTiming.RenderUpdate, "android.camera", -10, (_, step) => UpdateCamera(step.DeltaSeconds));
+        session.Timings.Register(EngineTiming.RenderUpdate, "android.render", 0, (_, _) => Invalidate());
     }
     public void Resume()
     { if (stopped || running) return; running = true; session.Inactive = false; lastFrame = clock.Elapsed.TotalSeconds; Choreographer.Instance!.PostFrameCallback(this); }
     public void Suspend()
     { running = false; Choreographer.Instance!.RemoveFrameCallback(this); ClearControls(); session.Inactive = true; try { session.Save("autosave"); } catch (IOException ex) { Notify(ex.Message); } }
-    public void Stop() { Suspend(); stopped = true; terrain.Dispose(); art.Dispose(); }
+    public void Stop()
+    {
+        if (stopped) return;
+        try { try { Suspend(); } finally { session.Dispose(); } }
+        catch (Exception ex) { global::Android.Util.Log.Error("Golemancer", ex.ToString()); }
+        finally { stopped = true; terrain.Dispose(); art.Dispose(); }
+    }
     public void ClearControls() { touch.Cancel(); input.Clear(); taps.Clear(); session.ClearInput(); }
     public void ReleaseGamepad(int id) { input.ReleaseDevice("gamepad:" + id + ":"); session.ClearInput(); }
     public void DoFrame(long frameTimeNanos)
     {
         if (!running || stopped) return;
         double now = clock.Elapsed.TotalSeconds, dt = Math.Max(0, Math.Min(.15, now - lastFrame)); lastFrame = now;
+        try
+        {
+            session.RunTiming(EngineTiming.Input, dt, now);
+            accumulator += dt;
+            while (accumulator >= .05) { session.Advance(.05); accumulator -= .05; }
+            session.RunTiming(EngineTiming.Update, dt, now);
+            session.RunTiming(EngineTiming.RenderUpdate, dt, now);
+            Choreographer.Instance!.PostFrameCallback(this);
+        }
+        catch (Exception ex)
+        {
+            running = false; ClearControls(); session.MenuPaused = true;
+            Notify("게임 처리를 멈췄어: " + ex.Message); global::Android.Util.Log.Error("Golemancer", ex.ToString()); Invalidate();
+        }
+    }
+    private void UpdateInput(double now)
+    {
+        cameraInputX = cameraInputY = 0;
         if (Game.State.Dialogues.Count == 0) inputDialogue = "";
         if (Game.State.Dialogues.Count > 0)
         {
@@ -66,19 +100,23 @@ internal sealed partial class GameView : SKCanvasView, Choreographer.IFrameCallb
             var (x, y) = input.Movement(); bool combat = session.Actor?.GetText("mode") == "combat";
             if (menus.Count == 0 && !session.MenuPaused)
             {
-                if (!combat) { cameraX += x * dt * 12; cameraY += y * dt * 12; }
+                if (!combat) { cameraInputX = x; cameraInputY = y; }
                 session.SetInput(combat ? x : 0, combat ? y : 0, input.Held("pickup"));
             }
             else session.SetInput(0, 0, false);
         }
-        accumulator += dt;
-        while (accumulator >= .05) { session.Advance(.05); accumulator -= .05; }
+    }
+    private void UpdateCamera(double dt)
+    {
+        cameraX += cameraInputX * dt * 12; cameraY += cameraInputY * dt * 12;
         if (session.Actor is { } actor && (actor.Id != activeActor || actor.GetText("mode") == "combat"))
         { if (actor.Id != activeActor) { ClearControls(); if (memoryOwner.Length > 0 && memoryOwner != actor.Id) DiscardDraft(); } activeActor = actor.Id; cameraX = actor.WorldX + .5; cameraY = actor.WorldY + .5; }
         cameraX = Math.Max(0, Math.Min(Game.State.Map.Width, cameraX)); cameraY = Math.Max(0, Math.Min(Game.State.Map.Height, cameraY));
+    }
+    private void UpdateNotices()
+    {
         var message = Game.State.Messages.LastOrDefault();
         if (message is not null && message.Time + message.Text != lastMessage) { lastMessage = message.Time + message.Text; Notify(message.Text); }
-        Invalidate(); Choreographer.Instance!.PostFrameCallback(this);
     }
     private void Center() { if (session.Actor is { } a) { cameraX = a.WorldX + .5; cameraY = a.WorldY + .5; } }
     private SKPoint Screen(double x, double y) => new((float)((x - cameraX) * zoom + viewWidth / 2), (float)((y - cameraY) * zoom + viewHeight / 2));

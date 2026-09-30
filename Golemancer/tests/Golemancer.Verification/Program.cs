@@ -4,6 +4,7 @@ using Golemancer.Runtime;
 string root = Directory.GetCurrentDirectory();
 while (!Directory.Exists(Path.Combine(root, "Content", "Packs"))) root = Directory.GetParent(root)?.FullName ?? throw new DirectoryNotFoundException("Run from repository");
 if (args.Contains("--ui")) { UiCompositionTests.Run(root); return; }
+if (args.Contains("--frame-timing")) { FrameTimingTests.Run(); return; }
 string packRoot = args.Contains("--foundation") ? Path.Combine(root, "Content", "Packs", "00.Foundation") : Path.Combine(root, "Content", "Packs");
 var cooked = PackLoader.Cook(packRoot);
 Assert(cooked.Registry.Actions.Count >= 4, "runtime action registration");

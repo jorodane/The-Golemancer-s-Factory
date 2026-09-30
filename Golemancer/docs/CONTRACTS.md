@@ -6,6 +6,8 @@ Game projects compile local game contracts and reference only the frozen PackEng
 
 ## Lifecycle and ownership
 
+Optional `PackEngine.Contracts.ITimingModuleRegistry<IGameTimingContext>` adds per-session callback registration without modifying `IModuleRegistry`. Hosts run Input, zero or more FixedUpdate steps, Update and RenderUpdate; each point uses ascending priority and registration-order ties. Simulation is priority 0; camera preparation is -10 and native submission is 0. See [timing callbacks](TIMING.md) for lifecycle, pause, context, failure and disposal semantics.
+
 Terrain modules additionally opt into `ITerrainRegistry.TerrainBlend`. This is a separate interface; existing `IModuleRegistry` implementations and old pack entry points remain valid. `ITerrainBlendRule.Coverage` is a pure, deterministic, concurrent-safe mask operation on a value sample and read-only settings. It has no simulation context or I/O. Only this visual operation runs on terrain workers; gameplay handlers retain the simulation-thread contract below. External images supply all artwork. See [TERRAIN_PACKS.md](TERRAIN_PACKS.md).
 
 Registration -> XML definition load -> reference validation -> deterministic cook fingerprint -> world creation or save restoration -> fixed simulation steps. The host owns the single simulation thread and persistence. Modules operate only during calls through `IGameContext`. No module retains the context on background threads. The WPF dispatcher sends held input and actions directly to the authoritative simulation at fixed 1/60-second steps. Systems use the supplied dt; headless callers may use other steps up to 0.25 seconds. No HTTP transport is involved.

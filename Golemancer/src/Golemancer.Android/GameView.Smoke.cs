@@ -3,6 +3,7 @@ using Golemancer.Contracts;
 using Golemancer.Runtime;
 using Android.Views;
 using SkiaSharp;
+using PackEngine.Contracts;
 namespace Golemancer.Android;
 internal sealed partial class GameView
 {
@@ -15,7 +16,7 @@ internal sealed partial class GameView
             Check(cooked.Registry.Actions.Count >= 20, "pack registry populated");
             Check(cooked.Registry.Actions.Values.All(a => PackLoader.IsExternalModule(a.GetType().Assembly)), "real external DLL loading on Android");
             Check(!typeof(GameView).Assembly.GetReferencedAssemblies().Any(a => a.Name is not null && cooked.Content.Packs.Any(p => p.Assemblies.Contains(a.Name + ".dll"))), "host has no content-module references");
-            var test = new GameSession(session.Root, cooked, Path.Combine(session.Root, "SmokeSaves")); test.NewGame(); test.Game.State.Dialogues.Clear();
+            using var test = new GameSession(session.Root, cooked, Path.Combine(session.Root, "SmokeSaves")); test.NewGame(); test.Game.State.Dialogues.Clear();
             var state = new InputState(); var capture = new TouchCapture(state);
             capture.Down(1, "stick"); capture.Stick(1, 1, 0); capture.Down(2, "pickup"); capture.Up(2);
             Check(state.Held("move.right") && !state.Held("pickup"), "two pointers release independently"); capture.Up(1); Check(state.Movement() == (0, 0), "last pointer releases movement");
@@ -60,6 +61,15 @@ internal sealed partial class GameView
             Touch(MotionEventActions.Down, (7, 700, 430)); Frame();
             Touch(MotionEventActions.Up, (7, 700, 430));
             Check(Game.State.Dialogues.Count == lines - 1, "dialogue tap survives a rendered frame between native down and up events");
+            var timingOrder = new List<string>(); bool cameraPrepared = false;
+            using (session.Timings.Register(EngineTiming.Input, "smoke.input", 10, (_, _) => timingOrder.Add("input")))
+            using (session.Timings.Register(EngineTiming.Update, "smoke.update", 10, (_, _) => timingOrder.Add("update")))
+            using (session.Timings.Register(EngineTiming.RenderUpdate, "smoke.before-camera", -20, (c, _) => { c.Camera!.X = -20; timingOrder.Add("before-camera"); }))
+            using (session.Timings.Register(EngineTiming.RenderUpdate, "smoke.after-camera", -5, (c, _) => { cameraPrepared = c.Camera!.X >= 0; timingOrder.Add("after-camera"); }))
+            using (session.Timings.Register(EngineTiming.RenderUpdate, "smoke.after-render", 10, (_, _) => timingOrder.Add("after-render")))
+                Frame();
+            Check(string.Join(",", timingOrder) == "input,update,before-camera,after-camera,after-render", "native frame dispatches input/update/render timing callbacks in priority order");
+            Check(cameraPrepared, "native camera -10 runs between pack hooks -20 and -5 before render 0");
             report.Add("ANDROID_SMOKE_PASS");
             session.NewGame(); Center();
         }

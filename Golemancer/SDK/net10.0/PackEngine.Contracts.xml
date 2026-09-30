@@ -13,6 +13,18 @@
         <member name="M:PackEngine.Contracts.PackInfo.#ctor(System.String,System.String,System.String,System.Collections.Generic.IReadOnlyList{System.String},System.Collections.Generic.IReadOnlyList{System.String})">
             <summary>Loaded manifest metadata. Domain content is owned by the caller's content reader.</summary>
         </member>
+        <member name="T:PackEngine.Contracts.EngineTiming">
+            <summary>Conventional host-driven timing points. Any nonblank custom name is also supported.</summary>
+        </member>
+        <member name="T:PackEngine.Contracts.TimingStep">
+            <summary>Immutable time values supplied by the host. ElapsedSeconds uses the host's clock for this timing point.</summary>
+        </member>
+        <member name="T:PackEngine.Contracts.ITimingRegistry`1">
+            <summary>Register synchronous callbacks. Lower priorities run first; ties retain registration order. Dispose to unregister.</summary>
+        </member>
+        <member name="T:PackEngine.Contracts.ITimingModuleRegistry`1">
+            <summary>Optional pack-registry capability. Configure is called once per host session, never once per rendered frame.</summary>
+        </member>
         <member name="T:PackEngine.Contracts.UI.UiValue">
             <summary>Platform-neutral, validated value. Resource values are opaque asset IDs, never native objects.</summary>
         </member>
