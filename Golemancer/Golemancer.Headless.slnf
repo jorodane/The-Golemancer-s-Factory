@@ -1,0 +1,21 @@
+{
+  "solution": {
+    "path": "GolemancerFactory.sln",
+    "projects": [
+      "modules\\Golemancer.FeastTrail\\Golemancer.FeastTrail.csproj",
+      "modules\\Golemancer.Crafting\\Golemancer.Crafting.csproj",
+      "modules\\Golemancer.Golems\\Golemancer.Golems.csproj",
+      "modules\\Golemancer.Logistics\\Golemancer.Logistics.csproj",
+      "modules\\Golemancer.Conditions\\Golemancer.Conditions.csproj",
+      "modules\\Golemancer.Harvesting\\Golemancer.Harvesting.csproj",
+      "modules\\Golemancer.Combat\\Golemancer.Combat.csproj",
+      "modules\\Golemancer.Construction\\Golemancer.Construction.csproj",
+      "modules\\Golemancer.Commerce\\Golemancer.Commerce.csproj",
+      "modules\\Golemancer.Story\\Golemancer.Story.csproj",
+      "modules\\Golemancer.Automation\\Golemancer.Automation.csproj",
+      "modules\\Golemancer.Failures\\Golemancer.Failures.csproj",
+      "tests\\Golemancer.Verification\\Golemancer.Verification.csproj",
+      "modules\\Golemancer.Terrain\\Golemancer.Terrain.csproj"
+    ]
+  }
+}

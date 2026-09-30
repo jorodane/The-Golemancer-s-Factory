@@ -1,0 +1,18 @@
+<Project>
+  <PropertyGroup>
+    <FrozenSdkFramework>$(TargetFramework)</FrozenSdkFramework>
+    <FrozenSdkFramework Condition="'$(TargetFramework)' == 'net10.0-android'">net10.0</FrozenSdkFramework>
+    <FrozenSdkCopyLocal Condition="'$(FrozenSdkCopyLocal)' == ''">true</FrozenSdkCopyLocal>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Golemancer.Contracts">
+      <HintPath>$(GolemancerGameRoot)SDK/$(FrozenSdkFramework)/Golemancer.Contracts.dll</HintPath>
+      <Private>$(FrozenSdkCopyLocal)</Private>
+    </Reference>
+    <Reference Include="Golemancer.Engine" Condition="'$(UseFrozenEngine)' == 'true'">
+      <HintPath>$(GolemancerGameRoot)SDK/$(FrozenSdkFramework)/Golemancer.Engine.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+  </ItemGroup>
+  <Import Project="$(GolemancerGameRoot)SDK/FrozenEngine.targets" />
+</Project>

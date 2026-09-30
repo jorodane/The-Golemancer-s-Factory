@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <OutputType>WinExe</OutputType>
+    <AssemblyName>Golemancer</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <StartupObject>Golemancer.Desktop.Program</StartupObject>
+    <UseFrozenEngine>true</UseFrozenEngine>
+  </PropertyGroup>
+  <ItemGroup><ProjectReference Include="../Golemancer.Client/Golemancer.Client.csproj" />
+    <Reference Include="WindowsBase" /><Reference Include="PresentationCore" />
+    <Reference Include="PresentationFramework" /><Reference Include="System.Xaml" />
+  </ItemGroup>
+</Project>

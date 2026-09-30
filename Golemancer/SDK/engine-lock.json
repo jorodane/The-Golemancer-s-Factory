@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "baselineCommit": "c77bcdcb2e8a654a135d4c82f85da17ef4dba5ed",
+  "sourceCommit": "cc1d670ab55f88fab2af8097946b6bf927d2b9dc",
+  "files": {
+    "SDK/net10.0/Golemancer.Contracts.dll": "15308dabf713f0a68a08eb5102a44c8dd7a4969a80bf4a59d295cb171f7c4004",
+    "SDK/net10.0/Golemancer.Engine.dll": "cb29197af572b7e9e87258c14f347bb9e65c424c0c490d26913e01d7a5f57088",
+    "SDK/net48/Golemancer.Contracts.dll": "ea2e02c0137b8eaeea5c461a3f444fa477c0ea1ba5143835e81d429714d98681",
+    "SDK/net48/Golemancer.Engine.dll": "b9055c0938d615406ddc125dc08b139b55853bb8fdb03647a8029a0d35edb59f",
+    "Builds/Windows/Golemancer.Engine.dll": "b9055c0938d615406ddc125dc08b139b55853bb8fdb03647a8029a0d35edb59f",
+    "Builds/Windows/Golemancer.Contracts.dll": "ea2e02c0137b8eaeea5c461a3f444fa477c0ea1ba5143835e81d429714d98681"
+  }
+}

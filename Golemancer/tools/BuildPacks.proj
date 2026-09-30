@@ -1,0 +1,12 @@
+<Project DefaultTargets="Build">
+  <PropertyGroup>
+    <GameRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..'))/</GameRoot>
+    <Configuration Condition="'$(Configuration)' == ''">Release</Configuration>
+    <GolemancerTargetFramework Condition="'$(GolemancerTargetFramework)' == ''">net48</GolemancerTargetFramework>
+  </PropertyGroup>
+  <ItemGroup><PackProject Include="$(GameRoot)modules/*/*.csproj" /></ItemGroup>
+  <Target Name="Build">
+    <MSBuild Projects="@(PackProject)" Targets="Restore;Build" BuildInParallel="false"
+      Properties="Configuration=$(Configuration);GolemancerTargetFramework=$(GolemancerTargetFramework)" />
+  </Target>
+</Project>

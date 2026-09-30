@@ -1,10 +1,6 @@
 @echo off
 setlocal
-cd /d "%~dp0"
-if not exist "Builds\Windows\Golemancer.exe" (
-  echo The Windows build is missing. Pull the full repository, or run Build.bat.
-  pause
-  exit /b 1
-)
-set "GOLEMANCER_ROOT=%~dp0"
-start "" "Builds\Windows\Golemancer.exe"
+call "%~dp0Golemancer\MigrateLegacy.bat" "%~dp0"
+if errorlevel 1 exit /b 1
+call "%~dp0Golemancer\Start.bat" %*
+exit /b %errorlevel%

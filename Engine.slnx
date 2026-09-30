@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="src/Golemancer.Contracts/Golemancer.Contracts.csproj" />
+  <Project Path="src/Golemancer.Engine/Golemancer.Engine.csproj" />
+</Solution>

@@ -1,0 +1,9 @@
+<Project>
+  <Import Project="../Directory.Build.props" />
+  <PropertyGroup><EnableDynamicLoading>true</EnableDynamicLoading><FrozenSdkCopyLocal>false</FrozenSdkCopyLocal></PropertyGroup>
+  <Target Name="StageObjectPack" AfterTargets="Build">
+    <MakeDir Directories="$(MSBuildProjectDirectory)/../../Content/Packs/$(PackDirectory)/Bin/$(TargetFramework)" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(MSBuildProjectDirectory)/../../Content/Packs/$(PackDirectory)/Bin/$(TargetFramework)" />
+    <Copy Condition="Exists('$(TargetDir)$(AssemblyName).deps.json')" SourceFiles="$(TargetDir)$(AssemblyName).deps.json" DestinationFolder="$(MSBuildProjectDirectory)/../../Content/Packs/$(PackDirectory)/Bin/$(TargetFramework)" />
+  </Target>
+</Project>
