@@ -139,7 +139,7 @@ internal sealed partial class MainWindow
         { facilityStockSignature = stock; RenderBubbles(); }
         var top = world.TranslatePoint(world.Screen(target.WorldX, target.WorldY), root);
         var holes = new GeometryGroup { FillRule = FillRule.Nonzero };
-        holes.Children.Add(new RectangleGeometry(new Rect(top.X - 8, top.Y - 8, definition.Width * world.Zoom + 16, definition.Height * world.Zoom + 16), 8, 8));
+        holes.Children.Add(new RectangleGeometry(new Rect(top.X - 8, top.Y - 8, definition.Width * world.ViewCamera.Zoom + 16, definition.Height * world.ViewCamera.Zoom + 16), 8, 8));
         foreach (FrameworkElement element in bubbleLayer.Children)
         {
             // RenderSize becomes valid after WPF layout; the next frame updates newly opened menus.

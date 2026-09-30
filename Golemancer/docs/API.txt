@@ -311,7 +311,7 @@ interface Golemancer.Contracts.IFailureHandler
   Golemancer.Contracts.FailureDecision Handle(Golemancer.Contracts.IGameContext context, Golemancer.Contracts.WorldObject actor, Golemancer.Contracts.FailureContext failure);
 }
 
-// Optional native view access. Coordinates are world tiles; zoom is pixels per tile. Headless sessions have no camera.
+// Optional camera access retained for existing packs. Native hosts supply an engine-backed camera, also implementing PackEngine.Contracts.Rendering.ICamera2D for target transitions and snapshots. Coordinates are world tiles; zoom is logical viewport units per tile. Headless sessions have no camera.
 interface Golemancer.Contracts.IGameCamera
 {
   double X { get; set/init; }

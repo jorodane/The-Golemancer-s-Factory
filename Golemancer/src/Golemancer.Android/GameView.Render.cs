@@ -29,7 +29,9 @@ internal sealed partial class GameView
     { Box(c, rect, active ? "#DBB765" : "#DD244637"); Text(c, label, rect.MidX, rect.MidY + 5, 14, active ? "#20352C" : "#FFF0D5", true); hit.Add((rect, id, run)); }
     private void Render(SKCanvas c, int width, int height)
     {
+        if (width <= 0 || height <= 0) return;
         scale = Math.Min(width / 960f, height / 540f); viewWidth = width / scale; viewHeight = height / scale;
+        drawnCamera = camera.Capture(viewWidth, viewHeight);
         c.Clear(Color("#172A22")); c.Save(); c.Scale(scale); hit.Clear();
         RenderWorld(c);
         if (!session.Started)
@@ -53,8 +55,8 @@ internal sealed partial class GameView
     private void RenderWorld(SKCanvas c)
     {
         var s = Game.State;
-        int left = Math.Max(0, (int)(cameraX - viewWidth / zoom / 2) - 1), top = Math.Max(0, (int)(cameraY - viewHeight / zoom / 2) - 1);
-        int right = Math.Min(s.Map.Width, (int)(cameraX + viewWidth / zoom / 2) + 2), bottom = Math.Min(s.Map.Height, (int)(cameraY + viewHeight / zoom / 2) + 2);
+        int left = Math.Max(0, (int)Math.Floor(drawnCamera.Left) - 1), top = Math.Max(0, (int)Math.Floor(drawnCamera.Top) - 1);
+        int right = Math.Min(s.Map.Width, (int)Math.Ceiling(drawnCamera.Right) + 1), bottom = Math.Min(s.Map.Height, (int)Math.Ceiling(drawnCamera.Bottom) + 1);
         foreach (var region in terrain.Visible(s.Map, s.Seed, left, top, right, bottom))
         {
             var p = Screen(region.X - region.Gutter, region.Y - region.Gutter);
@@ -144,8 +146,8 @@ internal sealed partial class GameView
         for (int i = 0; i < ids.Length; i++)
         { string id = ids[i]; string name = Game.Content.InputActions[id].Name; Button(c, "input:" + id, name, SKRect.Create(viewWidth - 388 + i * 75, viewHeight - 78, 70, 58), () => { }, input.Held(id)); }
         Button(c, "input:queue", "예약", SKRect.Create(172, viewHeight - 70, 60, 46), () => { }, queued || input.Held("queue"));
-        Button(c, "zoom-", "−", SKRect.Create(12, 150, 38, 38), () => zoom = Math.Max(24, zoom - 6));
-        Button(c, "zoom+", "+", SKRect.Create(56, 150, 38, 38), () => zoom = Math.Min(72, zoom + 6));
+        Button(c, "zoom-", "−", SKRect.Create(12, 150, 38, 38), () => camera.ZoomTo(Math.Max(24, camera.TargetZoom - 6)));
+        Button(c, "zoom+", "+", SKRect.Create(56, 150, 38, 38), () => camera.ZoomTo(Math.Min(72, camera.TargetZoom + 6)));
     }
     private void RenderDialogue(SKCanvas c)
     {

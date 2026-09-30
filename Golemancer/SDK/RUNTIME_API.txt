@@ -27,6 +27,23 @@ class PackEngine.Runtime.PackLoadContext
   PackLoadContext(string file, System.Collections.Generic.IEnumerable<System.Reflection.Assembly> sharedAssemblies);
 }
 
+class PackEngine.Runtime.Rendering.Camera2D
+  inherits: PackEngine.Contracts.Rendering.ICamera2D
+{
+  Camera2D(double x = 0, double y = 0, double zoom = 1);
+  double TargetX { get; }
+  double TargetY { get; }
+  double TargetZoom { get; }
+  double X { get; set/init; }
+  double Y { get; set/init; }
+  double Zoom { get; set/init; }
+  void Advance(double deltaSeconds);
+  PackEngine.Contracts.Rendering.CameraFrame2D Capture(double viewportWidth, double viewportHeight);
+  void MoveTo(double x, double y, double response = 0);
+  void Snap(double x, double y, double zoom);
+  void ZoomTo(double zoom, double response = 18);
+}
+
 class PackEngine.Runtime.TimingCallbackException
   inherits: System.Exception, System.Runtime.Serialization.ISerializable
 {

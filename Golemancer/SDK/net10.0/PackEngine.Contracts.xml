@@ -13,6 +13,23 @@
         <member name="M:PackEngine.Contracts.PackInfo.#ctor(System.String,System.String,System.String,System.Collections.Generic.IReadOnlyList{System.String},System.Collections.Generic.IReadOnlyList{System.String})">
             <summary>Loaded manifest metadata. Domain content is owned by the caller's content reader.</summary>
         </member>
+        <member name="T:PackEngine.Contracts.Rendering.CameraPoint2D">
+            <summary>A point in consumer-defined world units or logical viewport units.</summary>
+        </member>
+        <member name="T:PackEngine.Contracts.Rendering.CameraFrame2D">
+            <summary>Immutable orthographic view. Screen origin is top-left; positive Y points down.
+            Use the same captured view for drawing, culling and picking until another view is drawn.</summary>
+        </member>
+        <member name="P:PackEngine.Contracts.Rendering.CameraFrame2D.Zoom">
+            <summary>Logical viewport units per world unit. Device-pixel scaling belongs to the backend.</summary>
+        </member>
+        <member name="T:PackEngine.Contracts.Rendering.ICamera2D">
+            <summary>Platform- and game-independent camera control. Direct property writes snap that axis;
+            MoveTo/ZoomTo set targets. Only the owner advances it, once per render-update.</summary>
+        </member>
+        <member name="M:PackEngine.Contracts.Rendering.ICamera2D.MoveTo(System.Double,System.Double,System.Double)">
+            <summary>Response is inverse seconds; zero applies the target at the next Advance.</summary>
+        </member>
         <member name="T:PackEngine.Contracts.EngineTiming">
             <summary>Conventional host-driven timing points. Any nonblank custom name is also supported.</summary>
         </member>

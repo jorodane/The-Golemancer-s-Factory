@@ -6,6 +6,7 @@
 - Game projects use only the PackEngine binaries in Golemancer/SDK. Engine upgrades are explicit work: tools/export-sdk.py establishes a new source-hash baseline; game-only work must preserve that SDK and its lock.
 - Runtime DLL loading is required. Content modules must not depend on one another's concrete types.
 - Host/frame callbacks use the engine timing scheduler. Read docs/TIMING.md before changing ordering or ownership; preserve stable priorities, immediate unregistration and per-session attachment.
+- Camera state, interpolation and projection belong to the engine rendering API (docs/CAMERA.md). Consumers supply game policies and native drawing; use the last-drawn immutable view for picking and keep camera changes independent from terrain cache invalidation.
 - Never upload image bytes or APKs through the assistant's Git tools. Existing image blobs may be relocated by reusing their Git SHAs. Do not change .gitignore. Stage explicit source/runtime paths, never an entire worktree containing generated files.
 - Preserve local images and saves when changing paths. Root Start.bat delegates to the game and copies only missing legacy files without deleting originals.
 - Verify meaningful modules and the full campaign before pushing. Existing user authorization for commits and pushes applies.

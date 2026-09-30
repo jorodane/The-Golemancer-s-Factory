@@ -59,6 +59,7 @@ def main():
 </Project>
 ''', encoding="utf-8")
     shutil.copy2(ROOT / "docs/TIMING.md", workspace / "SDK/TIMING.md")
+    shutil.copy2(ROOT / "docs/CAMERA.md", workspace / "SDK/CAMERA.md")
     print("Exported engine source baseline:", source_id)
 
 

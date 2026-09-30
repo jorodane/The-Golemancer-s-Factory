@@ -7,7 +7,7 @@
 - 독립 게임 검증: `Golemancer/TestIsolation.bat`.
 - [게임 안내](Golemancer/README.md) · [폴더와 API 경계](Golemancer/docs/STANDALONE_GAME.md) · [엔진 개발 안내](docs/ENGINE.md).
 
-`src/PackEngine.Contracts`와 `src/PackEngine.Runtime`은 게임을 참조하지 않는 공통 엔진이다. DLL 로딩·팩 의존성·XML 진입점·UI 계약과 조립을 담당한다. 골렘·마나·이동·녹화·인벤토리·상점·퀘스트·저장·지형의 게임 연결은 전부 `Golemancer` 안에 있다. `Engine.slnx`와 게임 솔루션은 서로의 소스 프로젝트를 빌드하지 않는다.
+`src/PackEngine.Contracts`와 `src/PackEngine.Runtime`은 게임을 참조하지 않는 공통 엔진이다. DLL 로딩·팩 의존성·XML 진입점·UI 계약과 조립·우선순위 타이밍·[렌더 카메라](docs/CAMERA.md)를 담당한다. 골렘·마나·이동·녹화·인벤토리·상점·퀘스트·저장·지형의 게임 연결은 전부 `Golemancer` 안에 있다. `Engine.slnx`와 게임 솔루션은 서로의 소스 프로젝트를 빌드하지 않는다.
 
 게임 DLL 계약은 v2로 갱신됐고 배포 모듈도 함께 재빌드했다. 기존 JSON 저장 형식은 v1을 유지한다. 예전 DLL 팩은 새 게임 계약으로 다시 빌드해야 한다.
 

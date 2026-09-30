@@ -1,15 +1,17 @@
 {
   "schema": 2,
-  "baselineCommit": "source-sha256:63bf8791daed75f8a7274f11e82881f70e1d34926838f511f82c69f1f5d9307e",
+  "baselineCommit": "source-sha256:23b1e90aaef8774f34ec8ec743a653da71b5f7d9fc5067c35fbcc5485d7b404f",
   "engineSourceFiles": {
     "src/PackEngine.Contracts/Compatibility.cs": "743555cdb5744a56fe52d5d7b0ca2259f4b920afdc7c09c4fb5cf460d999a690",
     "src/PackEngine.Contracts/PackEngine.Contracts.csproj": "11c6ef80bbb90a27cf11d231646d5dce3f13aac4af6a78d29870fc0419185f03",
     "src/PackEngine.Contracts/Packs.cs": "25691e9ee673857ec9ebfc2f914f36448a77fc01494960f9c30c35ae8074cd3d",
+    "src/PackEngine.Contracts/Rendering/Camera2D.cs": "52c7ca088e60c1b2bd68b2092a2fcce9bd70b2b2e9e81bef96897c1c6520cb8b",
     "src/PackEngine.Contracts/Timing.cs": "4d267b27f7ba763aca0cf3b177a636e0d5791efcf29e44c41b79ec36b2d8efaa",
     "src/PackEngine.Contracts/UI/UiContracts.cs": "a310a5350d1d920664aaa08c6a2464ad881808af8164fe5c4019d090b6f0a93b",
     "src/PackEngine.Runtime/PackCompiler.cs": "41249fa9c072456fbbfb55d87098562f0af4c3d2eee3bc284aa96693253ef740",
     "src/PackEngine.Runtime/PackEngine.Runtime.csproj": "6f851032d314d8c4b853ee161364a15d9ba243132730b8a9d391a536ee894a42",
     "src/PackEngine.Runtime/PackLoadContext.cs": "7a1b2f2a7655c8b6b6a189ddac1cd2cd926811a3ee3ab99be8aea696e8616c98",
+    "src/PackEngine.Runtime/Rendering/Camera2D.cs": "b98d7d1787caff71051b39fdb2be96e01ceb246a66503e457bc0c3c4412e1eb3",
     "src/PackEngine.Runtime/TimingScheduler.cs": "40967e84aeb2b3542480845fa9f4be2302f4a18fdfd1ecaff7ecb2c69a4e2edd",
     "src/PackEngine.Runtime/UI/UiCatalog.cs": "92580623733bcc9b6f4b273054f37ce62a7b8339811d40f5bc4f8141c16c481f",
     "src/PackEngine.Runtime/UI/UiLayoutMath.cs": "3bb2fbe88f71814d65f37ea0ef535dae04ebaffc40f124cf6c1801fae110e212",
@@ -17,11 +19,11 @@
     "src/PackEngine.Runtime/UI/UiXml.cs": "c247c1d8967260837ce42439d2220a8263a7b76af33da6f1abcf244392394d8f"
   },
   "files": {
-    "SDK/net48/PackEngine.Contracts.dll": "933e2be581f01efe5b2e7e02852147f78f602b325c6122edd9a00273fd31edee",
-    "Builds/Windows/PackEngine.Contracts.dll": "933e2be581f01efe5b2e7e02852147f78f602b325c6122edd9a00273fd31edee",
-    "SDK/net48/PackEngine.Runtime.dll": "40f29656782bfbd3a9780da16cad78a03628fd2ac624eaf511329faf2f3335ca",
-    "Builds/Windows/PackEngine.Runtime.dll": "40f29656782bfbd3a9780da16cad78a03628fd2ac624eaf511329faf2f3335ca",
-    "SDK/net10.0/PackEngine.Contracts.dll": "6f630440fea10eebe65a13f5b3f2072ecf4f6012f0967bc4da76a6dc6acf681c",
-    "SDK/net10.0/PackEngine.Runtime.dll": "92b27207405bb55d9bfe844d69b9f39ab447a6d3759ab25f0c273cf251bd21ac"
+    "SDK/net48/PackEngine.Contracts.dll": "18d1f116821d3a9404c1513f17090361c10f6ede26eb9872e80d564793744ade",
+    "Builds/Windows/PackEngine.Contracts.dll": "18d1f116821d3a9404c1513f17090361c10f6ede26eb9872e80d564793744ade",
+    "SDK/net48/PackEngine.Runtime.dll": "4bda6047511c405eae11d82eaa23123cd26ce36f62d4a96c7f87b4eb38750139",
+    "Builds/Windows/PackEngine.Runtime.dll": "4bda6047511c405eae11d82eaa23123cd26ce36f62d4a96c7f87b4eb38750139",
+    "SDK/net10.0/PackEngine.Contracts.dll": "f87919033d20bf9e22bcbeac052af44610e1fe759f167bfafb84323a342eeacb",
+    "SDK/net10.0/PackEngine.Runtime.dll": "d3c252158b877624eadf545d467970857d74c2381669085e2b1416ea5ebaeb66"
   }
 }

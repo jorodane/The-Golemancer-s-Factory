@@ -5,13 +5,18 @@ using Golemancer.Contracts;
 using Golemancer.Desktop;
 using Golemancer.Runtime;
 using PackEngine.Contracts;
+using PackEngine.Contracts.Rendering;
 using SkiaSharp;
 using SkiaSharp.Views.Android;
 using Stopwatch = System.Diagnostics.Stopwatch;
 namespace Golemancer.Android;
 
-internal sealed partial class GameView : SKCanvasView, Choreographer.IFrameCallback, IGameCamera
+internal sealed partial class GameView : SKCanvasView, Choreographer.IFrameCallback
 {
+    private readonly GameCamera camera = new(0, 0, 42);
+    private CameraFrame2D drawnCamera;
+    private CameraFrame2D ViewCamera => drawnCamera.IsValid ? drawnCamera : camera.Capture(viewWidth, viewHeight);
+    private float zoom => (float)ViewCamera.Zoom;
     private readonly GameSession session;
     private readonly Art art;
     private readonly InputState input = new();
@@ -23,17 +28,14 @@ internal sealed partial class GameView : SKCanvasView, Choreographer.IFrameCallb
     private readonly Dictionary<int, (SKPoint Start, SKPoint Last, double Time, bool Drag, Action? Click, SKRect Bounds)> taps = new();
     private readonly Dictionary<string, (string State, double Since, double X, double Y, double LastMove)> poses = new();
     private bool running, stopped, externalModal, queued;
-    private double lastFrame, accumulator, cameraX, cameraY, toastUntil;
+    private double lastFrame, accumulator, toastUntil;
     private double cameraInputX, cameraInputY;
-    private float scale = 1, viewWidth = 960, viewHeight = 540, zoom = 42;
+    private float scale = 1, viewWidth = 960, viewHeight = 540;
     private string building = "", targetCommand = "", notice = "", lastMessage = "", activeActor = "", inputDialogue = "";
     private SKPoint aim;
     private bool padAim;
     private Simulation Game => session.Game;
     private SKPoint StickCenter => new(88, viewHeight - 86);
-    double IGameCamera.X { get => cameraX; set => cameraX = value; }
-    double IGameCamera.Y { get => cameraY; set => cameraY = value; }
-    double IGameCamera.Zoom { get => zoom; set => zoom = (float)value; }
     public GameView(Context context, GameSession session) : base(context)
     {
         this.session = session; touch = new(input, session.Game.Content); art = new(Game.Content);
@@ -44,7 +46,7 @@ internal sealed partial class GameView : SKCanvasView, Choreographer.IFrameCallb
         }, resolution: 32, capacity: 64, background: true);
         PaintSurface += (_, e) => Render(e.Surface.Canvas, e.Info.Width, e.Info.Height);
         Focusable = FocusableInTouchMode = true; RequestFocus(); Center();
-        session.Camera = this;
+        session.Camera = camera;
         session.Timings.Register(EngineTiming.Input, "android.input", 0, (_, step) => UpdateInput(step.ElapsedSeconds));
         session.Timings.Register(EngineTiming.Update, "android.notices", 0, (_, _) => UpdateNotices());
         session.Timings.Register(EngineTiming.RenderUpdate, "android.camera", -10, (_, step) => UpdateCamera(step.DeltaSeconds));
@@ -108,19 +110,20 @@ internal sealed partial class GameView : SKCanvasView, Choreographer.IFrameCallb
     }
     private void UpdateCamera(double dt)
     {
-        cameraX += cameraInputX * dt * 12; cameraY += cameraInputY * dt * 12;
+        double x = camera.TargetX + cameraInputX * dt * 12, y = camera.TargetY + cameraInputY * dt * 12;
         if (session.Actor is { } actor && (actor.Id != activeActor || actor.GetText("mode") == "combat"))
-        { if (actor.Id != activeActor) { ClearControls(); if (memoryOwner.Length > 0 && memoryOwner != actor.Id) DiscardDraft(); } activeActor = actor.Id; cameraX = actor.WorldX + .5; cameraY = actor.WorldY + .5; }
-        cameraX = Math.Max(0, Math.Min(Game.State.Map.Width, cameraX)); cameraY = Math.Max(0, Math.Min(Game.State.Map.Height, cameraY));
+        { if (actor.Id != activeActor) { ClearControls(); if (memoryOwner.Length > 0 && memoryOwner != actor.Id) DiscardDraft(); } activeActor = actor.Id; x = actor.WorldX + .5; y = actor.WorldY + .5; }
+        camera.MoveTo(Math.Max(0, Math.Min(Game.State.Map.Width, x)), Math.Max(0, Math.Min(Game.State.Map.Height, y)));
+        camera.Advance(dt);
     }
     private void UpdateNotices()
     {
         var message = Game.State.Messages.LastOrDefault();
         if (message is not null && message.Time + message.Text != lastMessage) { lastMessage = message.Time + message.Text; Notify(message.Text); }
     }
-    private void Center() { if (session.Actor is { } a) { cameraX = a.WorldX + .5; cameraY = a.WorldY + .5; } }
-    private SKPoint Screen(double x, double y) => new((float)((x - cameraX) * zoom + viewWidth / 2), (float)((y - cameraY) * zoom + viewHeight / 2));
-    private Tile TileAt(SKPoint p) => new((int)Math.Floor((p.X - viewWidth / 2) / zoom + cameraX), (int)Math.Floor((p.Y - viewHeight / 2) / zoom + cameraY));
+    private void Center() { if (session.Actor is { } a) { camera.X = a.WorldX + .5; camera.Y = a.WorldY + .5; } }
+    private SKPoint Screen(double x, double y) { var p = ViewCamera.WorldToScreen(x, y); return new((float)p.X, (float)p.Y); }
+    private Tile TileAt(SKPoint p) { var world = ViewCamera.ScreenToWorld(p.X, p.Y); return new((int)Math.Floor(world.X), (int)Math.Floor(world.Y)); }
     private WorldObject? Target(Tile t) => Game.State.Objects.Values.Where(o => o.Alive() && o.Get("depleted") == 0 && Game.Kind(o) != "customer"
         && t.X >= o.X && t.Y >= o.Y && t.X < o.X + (Game.Definition(o)?.Width ?? 1) && t.Y < o.Y + (Game.Definition(o)?.Height ?? 1))
         .OrderBy(o => Game.IsGolem(o) ? 0 : 1).FirstOrDefault();
@@ -139,8 +142,8 @@ internal sealed partial class GameView : SKCanvasView, Choreographer.IFrameCallb
         if (!session.Started || session.MenuPaused) return;
         switch (action)
         {
-            case "primary": if (menus.Count > 0) { ActivateFocused(); return; } WorldTap(padAim ? aim : Screen((session.Actor?.WorldX ?? cameraX) + 1.5, (session.Actor?.WorldY ?? cameraY) + .5), false); break;
-            case "context": WorldTap(padAim ? aim : Screen((session.Actor?.WorldX ?? cameraX) + 1.5, (session.Actor?.WorldY ?? cameraY) + .5), true); break;
+            case "primary": if (menus.Count > 0) { ActivateFocused(); return; } WorldTap(padAim ? aim : Screen((session.Actor?.WorldX ?? camera.X) + 1.5, (session.Actor?.WorldY ?? camera.Y) + .5), false); break;
+            case "context": WorldTap(padAim ? aim : Screen((session.Actor?.WorldX ?? camera.X) + 1.5, (session.Actor?.WorldY ?? camera.Y) + .5), true); break;
             case "follow": CloseMenu(); Center(); break;
             case "inventory": OpenRoot("가방", Inventory); break;
             case "crew": OpenRoot("골렘 관리", Crew); break;
@@ -245,7 +248,7 @@ internal sealed partial class GameView : SKCanvasView, Choreographer.IFrameCallb
                 if (taps.TryGetValue(pointer, out var tap))
                 {
                     bool drag = tap.Drag || SKPoint.Distance(tap.Start, at) > 12;
-                    if (drag && tap.Click is null && session.Actor?.GetText("mode") != "combat") { cameraX -= (at.X - tap.Last.X) / zoom; cameraY -= (at.Y - tap.Last.Y) / zoom; }
+                    if (drag && tap.Click is null && session.Actor?.GetText("mode") != "combat") camera.MoveTo(camera.TargetX - (at.X - tap.Last.X) / ViewCamera.Zoom, camera.TargetY - (at.Y - tap.Last.Y) / ViewCamera.Zoom);
                     taps[pointer] = (tap.Start, at, tap.Time, drag, tap.Click, tap.Bounds);
                 }
             }

@@ -7,6 +7,7 @@ internal sealed partial class WorldView
 {
     private void DrawFacilityContents(DrawingContext dc, WorldObject o, ObjectDef d, Point p)
     {
+        double Zoom = ViewCamera.Zoom;
         if (d.Kind != "facility") return;
         if (d.Capacity > 0)
         {

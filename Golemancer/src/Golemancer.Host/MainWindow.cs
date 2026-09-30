@@ -35,7 +35,7 @@ internal sealed partial class MainWindow : Window
         FontFamily=new FontFamily("Malgun Gothic");FontSize=13;Foreground=Ink;Background=Paper;WindowStartupLocation=WindowStartupLocation.CenterScreen;
         UseLayoutRounding=true;SnapsToDevicePixels=true;
         world=new(session,assets);Content=root;root.Children.Add(layout);
-        session.Camera=world;
+        session.Camera=world.Camera;
         session.Timings.Register(EngineTiming.Input,"windows.input",0,(_,_)=>UpdateInput());
         session.Timings.Register(EngineTiming.Update,"windows.hud",0,(_,step)=>RefreshFrame(step.ElapsedSeconds));
         session.Timings.Register(EngineTiming.RenderUpdate,"windows.camera",-10,(_,step)=>

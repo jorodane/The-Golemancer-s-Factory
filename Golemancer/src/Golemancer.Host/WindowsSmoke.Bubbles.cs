@@ -47,8 +47,8 @@ internal sealed partial class MainWindow
             var pause = buttons["pause"]; var pausePoint = pause.TranslatePoint(new Point(pause.ActualWidth / 2, pause.ActualHeight / 2), root);
             if (root.InputHitTest(pausePoint) != bubbleShield) throw new Exception("Underlying HUD remains mouse-accessible while bubbles are open");
             var wheel = new MouseWheelEventArgs(Mouse.PrimaryDevice, Environment.TickCount, 120) { RoutedEvent = UIElement.PreviewMouseWheelEvent };
-            double zoom = world.Zoom; bubbleShield.RaiseEvent(wheel);
-            if (!wheel.Handled || world.Zoom != zoom) throw new Exception("Wheel leaked through the bubble shield");
+            double zoom = world.Camera.TargetZoom; bubbleShield.RaiseEvent(wheel);
+            if (!wheel.Handled || world.Camera.TargetZoom != zoom) throw new Exception("Wheel leaked through the bubble shield");
             var press = new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, mouseButton) { RoutedEvent = UIElement.PreviewMouseDownEvent };
             bubbleShield.RaiseEvent(press); UpdateLayout();
             if (!press.Handled || modalType.Length != 0 || bubbleHistory.Count != 0 || bubbleShield.Visibility != Visibility.Collapsed ||

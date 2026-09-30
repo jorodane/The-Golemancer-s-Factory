@@ -1,6 +1,8 @@
 namespace Golemancer.Contracts;
 
-/// <summary>Optional native view access. Coordinates are world tiles; zoom is pixels per tile. Headless sessions have no camera.</summary>
+/// <summary>Optional camera access retained for existing packs. Native hosts supply an engine-backed camera,
+/// also implementing PackEngine.Contracts.Rendering.ICamera2D for target transitions and snapshots.
+/// Coordinates are world tiles; zoom is logical viewport units per tile. Headless sessions have no camera.</summary>
 public interface IGameCamera
 {
     double X { get; set; }

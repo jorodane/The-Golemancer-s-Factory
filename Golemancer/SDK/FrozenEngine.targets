@@ -1,11 +1,11 @@
 <Project>
   <ItemGroup>
-    <FrozenEngineFile Include="$(MSBuildThisFileDirectory)../Builds/Windows/PackEngine.Contracts.dll"><ExpectedHash>933E2BE581F01EFE5B2E7E02852147F78F602B325C6122EDD9A00273FD31EDEE</ExpectedHash></FrozenEngineFile>
-    <FrozenEngineFile Include="$(MSBuildThisFileDirectory)../Builds/Windows/PackEngine.Runtime.dll"><ExpectedHash>40F29656782BFBD3A9780DA16CAD78A03628FD2AC624EAF511329FAF2F3335CA</ExpectedHash></FrozenEngineFile>
-    <FrozenEngineFile Include="$(MSBuildThisFileDirectory)../SDK/net10.0/PackEngine.Contracts.dll"><ExpectedHash>6F630440FEA10EEBE65A13F5B3F2072ECF4F6012F0967BC4DA76A6DC6ACF681C</ExpectedHash></FrozenEngineFile>
-    <FrozenEngineFile Include="$(MSBuildThisFileDirectory)../SDK/net10.0/PackEngine.Runtime.dll"><ExpectedHash>92B27207405BB55D9BFE844D69B9F39AB447A6D3759AB25F0C273CF251BD21AC</ExpectedHash></FrozenEngineFile>
-    <FrozenEngineFile Include="$(MSBuildThisFileDirectory)../SDK/net48/PackEngine.Contracts.dll"><ExpectedHash>933E2BE581F01EFE5B2E7E02852147F78F602B325C6122EDD9A00273FD31EDEE</ExpectedHash></FrozenEngineFile>
-    <FrozenEngineFile Include="$(MSBuildThisFileDirectory)../SDK/net48/PackEngine.Runtime.dll"><ExpectedHash>40F29656782BFBD3A9780DA16CAD78A03628FD2AC624EAF511329FAF2F3335CA</ExpectedHash></FrozenEngineFile>
+    <FrozenEngineFile Include="$(MSBuildThisFileDirectory)../Builds/Windows/PackEngine.Contracts.dll"><ExpectedHash>18D1F116821D3A9404C1513F17090361C10F6EDE26EB9872E80D564793744ADE</ExpectedHash></FrozenEngineFile>
+    <FrozenEngineFile Include="$(MSBuildThisFileDirectory)../Builds/Windows/PackEngine.Runtime.dll"><ExpectedHash>4BDA6047511C405EAE11D82EAA23123CD26CE36F62D4A96C7F87B4EB38750139</ExpectedHash></FrozenEngineFile>
+    <FrozenEngineFile Include="$(MSBuildThisFileDirectory)../SDK/net10.0/PackEngine.Contracts.dll"><ExpectedHash>F87919033D20BF9E22BCBEAC052AF44610E1FE759F167BFAFB84323A342EEACB</ExpectedHash></FrozenEngineFile>
+    <FrozenEngineFile Include="$(MSBuildThisFileDirectory)../SDK/net10.0/PackEngine.Runtime.dll"><ExpectedHash>D3C252158B877624EADF545D467970857D74C2381669085E2B1416EA5EBAEB66</ExpectedHash></FrozenEngineFile>
+    <FrozenEngineFile Include="$(MSBuildThisFileDirectory)../SDK/net48/PackEngine.Contracts.dll"><ExpectedHash>18D1F116821D3A9404C1513F17090361C10F6EDE26EB9872E80D564793744ADE</ExpectedHash></FrozenEngineFile>
+    <FrozenEngineFile Include="$(MSBuildThisFileDirectory)../SDK/net48/PackEngine.Runtime.dll"><ExpectedHash>4BDA6047511C405EAE11D82EAA23123CD26CE36F62D4A96C7F87B4EB38750139</ExpectedHash></FrozenEngineFile>
   </ItemGroup>
   <Target Name="CheckFrozenEngine" BeforeTargets="PrepareForBuild">
     <Error Condition="!Exists('%(FrozenEngineFile.Identity)')" Text="Frozen engine/API file missing: %(FrozenEngineFile.Identity). Restore the complete workspace." />

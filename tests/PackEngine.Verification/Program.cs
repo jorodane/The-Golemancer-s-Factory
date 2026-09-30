@@ -6,6 +6,7 @@ static void Check(bool value, string message)
 static bool Throws<T>(Action action) where T : Exception
 { try { action(); return false; } catch (T) { return true; } }
 
+CameraTests.Run();
 var frame = new Frame();
 using (var loop = new TimingScheduler<Frame>())
 {

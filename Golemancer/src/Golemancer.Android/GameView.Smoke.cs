@@ -4,6 +4,7 @@ using Golemancer.Runtime;
 using Android.Views;
 using SkiaSharp;
 using PackEngine.Contracts;
+using PackEngine.Contracts.Rendering;
 namespace Golemancer.Android;
 internal sealed partial class GameView
 {
@@ -27,6 +28,22 @@ internal sealed partial class GameView
                 foreach (var clip in sprite.Animations.Values) art.Image(clip.ImagePath);
             Check(true, "all sprite source images decode");
             session.NewGame(); Game.State.Dialogues.Clear(); Center();
+            using (var surface = SKSurface.Create(new SKImageInfo(960, 540))) Render(surface.Canvas, 960, 540);
+            Check(ReferenceEquals(session.Camera, camera) && session.Camera is ICamera2D,
+                "native Android host shares the engine camera with pack callbacks");
+            double startZoom = camera.Zoom;
+            var savedView = ViewCamera; var savedTile = TileAt(new SKPoint(350, 250));
+            hit.Single(h => h.Id == "zoom+").Run(); hit.Single(h => h.Id == "zoom+").Run();
+            Check(camera.Zoom == startZoom && camera.TargetZoom == startZoom + 12,
+                "native zoom buttons accumulate targets without changing the drawn view");
+            UpdateCamera(1.0 / 60);
+            Check(camera.Zoom > startZoom && camera.Zoom < startZoom + 12 && TileAt(new SKPoint(350, 250)) == savedTile && ViewCamera.Zoom == savedView.Zoom,
+                "Android zoom advances smoothly while picking retains the last-drawn view");
+            using (var surface = SKSurface.Create(new SKImageInfo(1440, 810))) Render(surface.Canvas, 1440, 810);
+            var screenProbe = Screen(7.25, 9.75);
+            Check(TileAt(screenProbe) == new Tile(7, 9) && Math.Abs(ViewCamera.Zoom - camera.Zoom) < 1e-9,
+                "Android draw commits the new engine camera with device scaling outside world projection");
+            camera.Zoom = startZoom;
             using (var surface = SKSurface.Create(new SKImageInfo(960, 540))) Render(surface.Canvas, 960, 540);
             void Touch(MotionEventActions action, params (int Id, float X, float Y)[] points)
             {

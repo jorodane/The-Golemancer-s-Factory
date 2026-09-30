@@ -45,6 +45,49 @@ class PackEngine.Contracts.PackInfo
   string Version { get; set/init; }
 }
 
+// Immutable orthographic view. Screen origin is top-left; positive Y points down. Use the same captured view for drawing, culling and picking until another view is drawn.
+struct PackEngine.Contracts.Rendering.CameraFrame2D
+{
+  CameraFrame2D(double x, double y, double zoom, double width, double height);
+  double Bottom { get; }
+  double Height { get; }
+  bool IsValid { get; }
+  double Left { get; }
+  double Right { get; }
+  double Top { get; }
+  double Width { get; }
+  double X { get; }
+  double Y { get; }
+  double Zoom { get; }
+  bool Contains(double x, double y);
+  PackEngine.Contracts.Rendering.CameraPoint2D ScreenToWorld(double x, double y);
+  PackEngine.Contracts.Rendering.CameraPoint2D WorldToScreen(double x, double y);
+}
+
+// A point in consumer-defined world units or logical viewport units.
+struct PackEngine.Contracts.Rendering.CameraPoint2D
+{
+  CameraPoint2D(double x, double y);
+  double X { get; }
+  double Y { get; }
+}
+
+// Platform- and game-independent camera control. Direct property writes snap that axis; MoveTo/ZoomTo set targets. Only the owner advances it, once per render-update.
+interface PackEngine.Contracts.Rendering.ICamera2D
+{
+  double TargetX { get; }
+  double TargetY { get; }
+  double TargetZoom { get; }
+  double X { get; set/init; }
+  double Y { get; set/init; }
+  double Zoom { get; set/init; }
+  void Advance(double deltaSeconds);
+  PackEngine.Contracts.Rendering.CameraFrame2D Capture(double viewportWidth, double viewportHeight);
+  void MoveTo(double x, double y, double response = 0);
+  void Snap(double x, double y, double zoom);
+  void ZoomTo(double zoom, double response = 18);
+}
+
 // Immutable time values supplied by the host. ElapsedSeconds uses the host's clock for this timing point.
 struct PackEngine.Contracts.TimingStep
 {

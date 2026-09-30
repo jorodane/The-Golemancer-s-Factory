@@ -26,6 +26,4 @@ internal sealed class FrameTiming
         return true;
     }
 
-    // Preserve the previous 60 Hz tracking response at every display refresh rate.
-    public static double FollowWeight(double elapsed) => 1 - Math.Pow(.84, Math.Max(0, elapsed) * 60);
 }

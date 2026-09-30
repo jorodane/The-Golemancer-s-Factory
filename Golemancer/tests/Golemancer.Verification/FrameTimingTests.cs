@@ -1,4 +1,5 @@
 using Golemancer.Desktop;
+using Golemancer.Client;
 
 internal static class FrameTimingTests
 {
@@ -10,17 +11,18 @@ internal static class FrameTimingTests
     {
         foreach (int rate in new[] { 30, 60, 75, 120, 144 })
         {
-            var timing = new FrameTiming(); int steps = 0, frames = 0; double pan = 0, follow = 0;
+            var timing = new FrameTiming(); int steps = 0, frames = 0; double pan = 0;
+            var camera = new GameCamera(0, 0, 26); camera.MoveTo(10, 0, -60 * Math.Log(.84)); camera.ZoomTo(96);
             for (int i = 0; i <= rate; i++)
             {
                 CheckFrame(timing.Advance(At(i / (double)rate), out double elapsed, out int count));
-                steps += count; pan += elapsed * 12; follow += (10 - follow) * FrameTiming.FollowWeight(elapsed); frames++;
+                steps += count; pan += elapsed * 12; camera.Advance(elapsed); frames++;
                 if (timing.Advance(At(i / (double)rate), out _, out _)) throw new Exception("Duplicate frame accepted");
             }
             Check(steps == 60 && frames == rate + 1 && Math.Abs(pan - 12) < 1e-9,
                 $"{rate} Hz rendering pans 12 tiles per second and advances exactly 60 simulation steps, ignoring duplicate callbacks");
-            Check(Math.Abs(follow - 10 * (1 - Math.Pow(.84, 60))) < 1e-9,
-                $"{rate} Hz combat camera preserves the 60 Hz follow response");
+            Check(Math.Abs(camera.X - 10 * (1 - Math.Pow(.84, 60))) < 1e-9 && Math.Abs(camera.Zoom - (96 - 70 * Math.Exp(-18))) < 1e-9,
+                $"{rate} Hz native frame timing preserves engine camera follow and zoom response");
         }
         var irregular = new FrameTiming(); int total = 0; double distance = 0;
         foreach (double time in new[] { 0, .005, .027, .066, .084, .1, .139, .18, .25, .31, .35, .4, .47, .56, .64, .73, .81, .9, 1 })

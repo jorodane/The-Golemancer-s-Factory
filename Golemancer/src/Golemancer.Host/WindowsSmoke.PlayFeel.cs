@@ -8,7 +8,7 @@ internal sealed partial class MainWindow
     {
         CloseBubbles(); var a = session.Actor!; a.Data["mode"] = "everyday"; world.CenterOnActor();
         double x = a.WorldX, y = a.WorldY, camera = world.CameraX;
-        world.Pan(2, 1); UpdateLayout();
+        world.Pan(2, 1); world.AdvanceCamera(1.0 / 60); UpdateLayout();
         if (world.Follow || world.CameraX != camera + 2 || a.WorldX != x || a.WorldY != y || world.RenderSize != layout.RenderSize) throw new Exception("Everyday camera pan moved the actor or world did not fill the client");
         var tile = Enumerable.Range(a.X - 3, 7).SelectMany(tx => Enumerable.Range(a.Y - 3, 7).Select(ty => new Tile(tx, ty))).First(t => t.Distance(a.Tile) > 1 && Game.Walkable(t.X, t.Y, a.Id) && world.Target(t) is null);
         ClickTile(tile, false);
