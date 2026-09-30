@@ -1,5 +1,5 @@
 <Ui version="1" id="engine.ui.button">
-  <Widget id="engine.button" description="표준 단발 버튼. 안에서 눌렀다가 안에서 놓으면 활성화. 취소·포커스 상실·비활성화는 실행하지 않음.">
+  <Widget id="engine.button" description="활성화 조건을 충족하면 activate를 보낸다. 기본 구현은 안에서 눌렀다 놓기. 취소·포커스 상실·비활성화는 실행하지 않음.">
     <Property name="text" type="text" default="" />
     <Property name="enabled" type="boolean" default="true" />
     <Property name="selected" type="boolean" default="false" />
@@ -16,4 +16,16 @@
     <Event name="activate" payload="none" />
     <Renderer platform="*" key="engine.button.canvas" />
   </Widget>
+  <Widget id="engine.annotatedButton" extends="engine.button" description="별도 표시 문구와 비활성 이유를 제공하는 버튼. 값의 게임 의미는 소비자가 결정한다.">
+    <Property name="annotation" type="text" default="" />
+    <Property name="disabledReason" type="text" default="" />
+  </Widget>
+  <View id="engine.button.view">
+    <Node id="button" widget="engine.button">
+      <Bind property="text" source="control.text" />
+      <Bind property="enabled" source="control.enabled" />
+      <Bind property="selected" source="control.selected" />
+      <On event="activate" command="control.activate" />
+    </Node>
+  </View>
 </Ui>

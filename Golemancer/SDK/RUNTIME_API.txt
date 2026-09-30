@@ -12,6 +12,11 @@ class PackEngine.Runtime.CookedPacks
   System.Collections.Generic.IReadOnlyList<PackEngine.Contracts.PackInfo> Packs { get; set/init; }
 }
 
+class PackEngine.Runtime.DefinitionInheritance
+{
+  static System.Collections.Generic.IReadOnlyDictionary<string, T> Resolve<T>(System.Collections.Generic.IEnumerable<PackEngine.Contracts.InheritedDefinition<T>> declarations, System.Func<T, PackEngine.Contracts.InheritedDefinition<T>, System.Collections.Generic.IDictionary<string, PackEngine.Contracts.DefinitionOrigin>, T> merge, System.Func<T, T> snapshot, out System.Collections.Generic.IReadOnlyDictionary<string, PackEngine.Contracts.InheritanceTrace> traces);
+}
+
 class PackEngine.Runtime.PackCompiler
 {
   static string EngineContractVersion;
@@ -69,6 +74,8 @@ class PackEngine.Runtime.UI.UiCatalog
   System.Collections.Generic.IReadOnlyList<string> ViewIds { get; }
   PackEngine.Contracts.UI.UiWidgetDefinition Describe(string widget);
   PackEngine.Contracts.UI.UiNode DescribeView(string view);
+  PackEngine.Runtime.UI.UiViewInspection InspectView(string id);
+  PackEngine.Runtime.UI.UiWidgetInspection InspectWidget(string id);
   PackEngine.Runtime.UI.UiMountedView Mount(string view, PackEngine.Contracts.UI.IUiContext context, PackEngine.Contracts.UI.IUiBackend backend);
 }
 
@@ -123,6 +130,23 @@ class PackEngine.Runtime.UI.UiSignal
   PackEngine.Contracts.UI.UiValue Read();
   void Set(PackEngine.Contracts.UI.UiValue value);
   System.IDisposable Subscribe(System.Action<PackEngine.Contracts.UI.UiValue> listener);
+}
+
+class PackEngine.Runtime.UI.UiViewInspection
+  inherits: System.IEquatable<PackEngine.Runtime.UI.UiViewInspection>
+{
+  UiViewInspection(PackEngine.Contracts.UI.UiNode Root, PackEngine.Contracts.InheritanceTrace Inheritance, System.Collections.Generic.IReadOnlyList<PackEngine.Runtime.UI.UiWidgetInspection> Widgets);
+  PackEngine.Contracts.InheritanceTrace Inheritance { get; set/init; }
+  PackEngine.Contracts.UI.UiNode Root { get; set/init; }
+  System.Collections.Generic.IReadOnlyList<PackEngine.Runtime.UI.UiWidgetInspection> Widgets { get; set/init; }
+}
+
+class PackEngine.Runtime.UI.UiWidgetInspection
+  inherits: System.IEquatable<PackEngine.Runtime.UI.UiWidgetInspection>
+{
+  UiWidgetInspection(PackEngine.Contracts.UI.UiWidgetDefinition Definition, PackEngine.Contracts.InheritanceTrace Inheritance);
+  PackEngine.Contracts.UI.UiWidgetDefinition Definition { get; set/init; }
+  PackEngine.Contracts.InheritanceTrace Inheritance { get; set/init; }
 }
 
 class PackEngine.Runtime.UI.UiXml

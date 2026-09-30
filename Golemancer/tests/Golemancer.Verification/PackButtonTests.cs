@@ -27,11 +27,30 @@ static class PackButtonTests
         Check(a == 2, "screen input reset cancels pack button commands");
         DrawA(() => { a++; buttons.EndFrame(Array.Empty<string>()); }); buttons.Down("a", 1); buttons.Up(1, 50, 40);
         Check(a == 3 && !buttons.Up(1, 50, 40), "a button command can close and dispose its own view during release");
+        canvas.Texts.Clear();
+        buttons.Draw(canvas, "cost", "Ignored", bounds, () => a++, enabled: false,
+            view: "golemancer.purchase", annotation: "120 G", disabledReason: "골드가 부족해.");
+        Check(canvas.Texts.SequenceEqual(new[] { "구매", "120 G" }) && buttons.Hint("cost") == "골드가 부족해.",
+            "inherited purchase view overrides its label, displays the bound price and preserves disabled details");
+        buttons.Down("cost", 9); buttons.Up(9, 50, 40);
+        Check(a == 3, "inherited price button obeys its parent's disabled activation contract");
+        var inspection = cooked.Registry.Ui.InspectView("golemancer.purchase");
+        Check(inspection.Inheritance.Lineage.SequenceEqual(new[] { "engine.button.view", "golemancer.button", "golemancer.costButton", "golemancer.purchase" }) &&
+            inspection.Widgets.Single().Inheritance.Lineage.SequenceEqual(new[] { "engine.button", "engine.annotatedButton", "golemancer.button", "golemancer.costButton" }),
+            "game inspection exposes both view and widget ancestry across engine and game packs");
+        buttons.Draw(canvas, "other.cost", "Other", new(120, 20, 100, 40), () => b++, view: "golemancer.purchase", annotation: "7 G");
+        canvas.Texts.Clear(); buttons.Element("cost").Draw(canvas, bounds);
+        Check(canvas.Texts.Last() == "120 G" && buttons.Hint("other.cost") == "" && !ReferenceEquals(buttons.Element("cost"), buttons.Element("other.cost")),
+            "multiple instances of one inherited prototype retain separate annotations and enabled state");
+        DrawA(); buttons.Down("a", 11);
+        buttons.Draw(canvas, "a", "Changed", bounds, () => b++, view: "golemancer.costButton", annotation: "5 G");
+        Check(!buttons.Up(11, 50, 40) && a == 3 && b == 1, "changing a mounted prototype cancels the old captured command");
     }
     sealed class Canvas : IUiCanvas
     {
         public string Color = "";
+        public readonly List<string> Texts = [];
         public void Fill(UiBounds bounds, double radius, UiValue color) => Color = color.Literal;
-        public void Text(string value, UiBounds bounds, double size, UiValue color) { }
+        public void Text(string value, UiBounds bounds, double size, UiValue color) => Texts.Add(value);
     }
 }

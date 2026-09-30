@@ -1,4 +1,3 @@
-<ObjectPack id="golemancer.controls" version="1.0.0" contracts="2">
-  <Depends id="engine.ui.button" minVersion="1.0.0" />
+<ObjectPack id="golemancer.controls" version="1.0.0" contracts="2" extends="engine.ui.button" extendsMinVersion="1.0.0">
   <Ui path="ui.xml" />
 </ObjectPack>

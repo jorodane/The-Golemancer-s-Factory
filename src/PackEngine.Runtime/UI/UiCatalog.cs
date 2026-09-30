@@ -5,10 +5,12 @@ using PackEngine.Contracts.UI;
 namespace PackEngine.Runtime.UI;
 
 /// <summary>Game-independent contract catalog. Construction resolves and validates the entire request tree.</summary>
-public sealed class UiCatalog
+public sealed partial class UiCatalog
 {
     private readonly Dictionary<string, UiWidgetDefinition> widgets = new(StringComparer.Ordinal);
     private readonly Dictionary<string, UiNode> views = new(StringComparer.Ordinal);
+    private IReadOnlyDictionary<string, InheritanceTrace> widgetInheritance = null!;
+    private IReadOnlyDictionary<string, InheritanceTrace> viewInheritance = null!;
     public IReadOnlyList<string> ViewIds => views.Keys.OrderBy(s => s, StringComparer.Ordinal).ToArray();
     public UiWidgetDefinition Describe(string widget) => Copy(Find(widgets, widget, "widget"));
     public UiNode DescribeView(string view) => Copy(Find(views, view, "view"));
@@ -17,19 +19,27 @@ public sealed class UiCatalog
     {
         var ids = new HashSet<string>(StringComparer.Ordinal);
         var contributions = new List<UiContribution>();
+        var widgetDeclarations = new List<InheritedDefinition<UiWidgetDefinition>>();
+        var viewDeclarations = new List<InheritedDefinition<UiViewDefinition>>();
+        var contributionOrigins = new Dictionary<UiContribution, DefinitionOrigin>();
         foreach (var document in documents)
         {
             Name(document.Id);
             if (document.Version != 1) throw Invalid("Unsupported UI contract version in " + document.Id);
             if (!ids.Add(document.Id)) throw Invalid("Duplicate UI document " + document.Id);
+            DefinitionOrigin Origin(string id) => new(document.Pack, document.Source.Length > 0 ? document.Source : document.Id, id);
             foreach (var definition in document.Widgets)
             {
-                var widget = Copy(definition); Validate(widget);
-                Add(widgets, widget.Id, widget, "widget");
+                Name(definition.Id); if (definition.Extends.Length > 0) Name(definition.Extends);
+                widgetDeclarations.Add(new(definition.Id, definition.Extends, Origin(definition.Id), definition));
             }
-            foreach (var view in document.Views) { Name(view.Id); Add(views, view.Id, Copy(view.Root), "view"); }
-            contributions.AddRange(document.Contributions.Select(c => new UiContribution { View = c.View, Parent = c.Parent, Slot = c.Slot, Node = Copy(c.Node) }));
+            foreach (var view in document.Views)
+            { Name(view.Id); if (view.Extends.Length > 0) Name(view.Extends); viewDeclarations.Add(new(view.Id, view.Extends, Origin(view.Id), view)); }
+            foreach (var c in document.Contributions)
+            { var copy = new UiContribution { View = c.View, Parent = c.Parent, Slot = c.Slot, Node = Copy(c.Node) }; contributions.Add(copy); contributionOrigins.Add(copy, Origin(c.Node.Id)); }
         }
+        foreach (var pair in DefinitionInheritance.Resolve(widgetDeclarations, MergeWidget, Copy, out widgetInheritance)) widgets.Add(pair.Key, pair.Value);
+        foreach (var pair in DefinitionInheritance.Resolve(viewDeclarations, MergeView, CopyView, out viewInheritance)) views.Add(pair.Key, pair.Value.Root);
         foreach (var view in views.Values) EnsureIds(view);
         foreach (var c in contributions) { Name(c.View); Name(c.Parent); Name(c.Slot); Find(views, c.View, "contribution view"); }
         // Contributions may themselves export slots. Resolve dependencies, never rely on filesystem order.
@@ -44,6 +54,11 @@ public sealed class UiCatalog
                 if (!parent.Slots.TryGetValue(c.Slot, out var children)) parent.Slots.Add(c.Slot, children = []);
                 children.Add(c.Node); contributions.Remove(c);
                 EnsureIds(views[c.View]);
+                var members = viewInheritance[c.View].Members.ToDictionary(p => p.Key, p => p.Value, StringComparer.Ordinal);
+                MarkNodes(c.Node, members, contributionOrigins[c]);
+                var traces = viewInheritance.ToDictionary(p => p.Key, p => p.Value, StringComparer.Ordinal);
+                traces[c.View] = traces[c.View] with { Members = new System.Collections.ObjectModel.ReadOnlyDictionary<string, DefinitionOrigin>(members) };
+                viewInheritance = traces;
             }
         }
         foreach (var view in views.Values) { EnsureIds(view); Validate(view, true, 0); }
@@ -169,13 +184,17 @@ public sealed class UiCatalog
             foreach (var child in next.Node.Slots.Values.SelectMany(s => s)) pending.Push((child, next.Depth + 1));
         }
     }
-    private static UiWidgetDefinition Copy(UiWidgetDefinition w) => new()
+    private static UiWidgetDefinition Copy(UiWidgetDefinition w)
     {
-        Id = w.Id, Description = w.Description, Renderers = new(w.Renderers, StringComparer.Ordinal),
+        var result = new UiWidgetDefinition {
+        Id = w.Id, Extends = w.Extends, Defaults = new(w.Defaults, StringComparer.Ordinal), Renderers = new(w.Renderers, StringComparer.Ordinal),
         Properties = w.Properties.Select(p => new UiPropertyDefinition { Name = p.Name, Type = p.Type, Default = p.Default, Required = p.Required, Min = p.Min, Max = p.Max, Description = p.Description, Options = [.. p.Options] }).ToList(),
-        Events = w.Events.Select(e => new UiEventDefinition { Name = e.Name, Payload = e.Payload, Description = e.Description }).ToList(),
-        Slots = w.Slots.Select(s => new UiSlotDefinition { Name = s.Name, Min = s.Min, Max = s.Max, Description = s.Description }).ToList()
-    };
+        Events = w.Events.Select(e => { var copy = new UiEventDefinition { Name = e.Name, Payload = e.Payload }; if (e.DescriptionSpecified) copy.Description = e.Description; return copy; }).ToList(),
+        Slots = w.Slots.Select(s => { var copy = new UiSlotDefinition { Name = s.Name, Min = s.Min, Max = s.Max }; if (s.DescriptionSpecified) copy.Description = s.Description; return copy; }).ToList()
+        };
+        if (w.DescriptionSpecified) result.Description = w.Description;
+        return result;
+    }
     private static UiNode Copy(UiNode n, int depth = 0)
     {
         if (depth > 64) throw Invalid("UI nesting exceeds 64 levels (or a C# request contains a cycle).");

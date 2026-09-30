@@ -12,6 +12,9 @@ public interface IUiElementFactory
     IUiElement Create(string nodeId, UiLayout layout);
 }
 
+/// <summary>Optional passive information, including why an element cannot activate. Reading it never activates the element.</summary>
+public interface IUiHintElement { string Hint { get; } }
+
 /// <summary>Logical coordinates supplied by the host. Native types never cross this boundary.</summary>
 public readonly record struct UiBounds(double X, double Y, double Width, double Height)
 {

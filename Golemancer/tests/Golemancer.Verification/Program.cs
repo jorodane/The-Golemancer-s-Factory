@@ -7,6 +7,13 @@ if (args.Contains("--ui")) { UiCompositionTests.Run(root); return; }
 if (args.Contains("--frame-timing")) { FrameTimingTests.Run(); return; }
 string packRoot = args.Contains("--foundation") ? Path.Combine(root, "Content", "Packs", "00.Foundation") : Path.Combine(root, "Content", "Packs");
 var cooked = PackLoader.Cook(packRoot);
+if (Array.IndexOf(args, "--inspect-ui") is var inspect && inspect >= 0)
+{
+    if (args.Length != inspect + 3 || args[inspect + 1] is not ("widget" or "view")) throw new ArgumentException("Use --inspect-ui widget|view <id>");
+    object report = args[inspect + 1] == "widget" ? cooked.Registry.Ui.InspectWidget(args[inspect + 2]) : cooked.Registry.Ui.InspectView(args[inspect + 2]);
+    Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(report, new System.Text.Json.JsonSerializerOptions { WriteIndented = true, Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() } }));
+    return;
+}
 Assert(cooked.Registry.Actions.Count >= 4, "runtime action registration");
 Assert(cooked.Registry.Conditions.Count >= 8, "condition object registration");
 Assert(cooked.Registry.Failures.Count == 4, "failure object registration");

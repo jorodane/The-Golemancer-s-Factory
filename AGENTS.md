@@ -6,6 +6,7 @@
 - Game projects use only the PackEngine binaries in Golemancer/SDK. Engine upgrades are explicit work: tools/export-sdk.py establishes a new source-hash baseline; game-only work must preserve that SDK and its lock.
 - Runtime DLL loading is required. Content modules must not depend on one another's concrete types.
 - Engine UI implementations belong in independent packs (see docs/UI_PACKS.md). Core contracts/runtime must not reference default widget modules. Distribute those DLLs separately from the frozen core SDK.
+- Pack and definition inheritance follows docs/INHERITANCE.md: one parent, omission inherits, explicit values override, additions preserve contracts, no removal. Keep game-specific merge semantics out of the generic resolver and retain inspectable setting origins.
 - Host/frame callbacks use the engine timing scheduler. Read docs/TIMING.md before changing ordering or ownership; preserve stable priorities, immediate unregistration and per-session attachment.
 - Camera state, interpolation and projection belong to the engine rendering API (docs/CAMERA.md). Consumers supply game policies and native drawing; use the last-drawn immutable view for picking and keep camera changes independent from terrain cache invalidation.
 - Never upload image bytes or APKs through the assistant's Git tools. Existing image blobs may be relocated by reusing their Git SHAs. Do not change .gitignore. Stage explicit source/runtime paths, never an entire worktree containing generated files.

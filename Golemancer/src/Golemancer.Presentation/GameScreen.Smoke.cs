@@ -102,6 +102,25 @@ public sealed partial class GameScreen
             Quantity("cancel", () => 12, _ => throw new Exception("cancelled quantity executed"));
             Key("Escape", true);
             Check(!externalModal, "cancel never executes a quantity command");
+            int liveMaximum = 4, bought = 0;
+            Quantity("상속 버튼 검증", () => liveMaximum, value => { bought += value; return ActionResult.Success("purchase"); },
+                annotation: value => $"{value * 7} G", unavailableReason: () => "골드가 부족해.");
+            Key("D3", true);
+            using (var surface = SKSurface.Create(new SKImageInfo(960, 540))) Render(surface.Canvas, 960, 540);
+            var purchaseButton = hit.Single(h => h.Id == "modal.ok");
+            Touch(PointerPhase.Down, 93, purchaseButton.Bounds.MidX, purchaseButton.Bounds.MidY);
+            liveMaximum = 0;
+            using (var surface = SKSurface.Create(new SKImageInfo(960, 540))) Render(surface.Canvas, 960, 540);
+            Touch(PointerPhase.Up, 93, purchaseButton.Bounds.MidX, purchaseButton.Bounds.MidY); Key("Enter", true);
+            Check(bought == 0 && externalModal && packButtons.Hint("modal.ok") == "골드가 부족해.",
+                "inherited purchase button cancels captured activation when live affordability changes and blocks keyboard confirmation");
+            liveMaximum = 4;
+            using (var surface = SKSurface.Create(new SKImageInfo(960, 540))) Render(surface.Canvas, 960, 540);
+            Touch(PointerPhase.Down, 94, purchaseButton.Bounds.MidX, purchaseButton.Bounds.MidY);
+            using (var surface = SKSurface.Create(new SKImageInfo(960, 540))) Render(surface.Canvas, 960, 540);
+            Touch(PointerPhase.Up, 94, purchaseButton.Bounds.MidX, purchaseButton.Bounds.MidY);
+            Check(bought == 3 && !externalModal && session.MenuPaused == beforeModal,
+                "inherited purchase button resumes native activation with its independent quantity and restores pause state");
             input.Set("keyboard:1:W", "move.up", 1); input.Set("gamepad:3:LeftX+", "move.right", 1);
             ReleaseGamepad(3); Check(input.Held("move.up") && !input.Held("move.right"), "disconnect releases only that device's input sources"); ClearControls();
             Check(Game.Content.InputBindings.Any(b => Golemancer.Contracts.InputBindings.For(Game.Content, platform, "touch", "pickup").Contains("pickup")), "portable virtual-control bindings resolve for the host platform");

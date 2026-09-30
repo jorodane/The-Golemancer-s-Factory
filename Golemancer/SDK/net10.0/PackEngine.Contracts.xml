@@ -4,6 +4,24 @@
         <name>PackEngine.Contracts</name>
     </assembly>
     <members>
+        <member name="T:PackEngine.Contracts.DefinitionOrigin">
+            <summary>Authoring location, retained after inheritance is flattened. Not a native resource path.</summary>
+        </member>
+        <member name="M:PackEngine.Contracts.DefinitionOrigin.#ctor(System.String,System.String,System.String)">
+            <summary>Authoring location, retained after inheritance is flattened. Not a native resource path.</summary>
+        </member>
+        <member name="T:PackEngine.Contracts.InheritedDefinition`1">
+            <summary>One named declaration with at most one parent. Payload interpretation belongs to the contract adapter.</summary>
+        </member>
+        <member name="M:PackEngine.Contracts.InheritedDefinition`1.#ctor(System.String,System.String,PackEngine.Contracts.DefinitionOrigin,`0)">
+            <summary>One named declaration with at most one parent. Payload interpretation belongs to the contract adapter.</summary>
+        </member>
+        <member name="T:PackEngine.Contracts.InheritanceTrace">
+            <summary>Resolved ancestry and the declaration responsible for each final member.</summary>
+        </member>
+        <member name="M:PackEngine.Contracts.InheritanceTrace.#ctor(System.String,System.String,System.Collections.Generic.IReadOnlyList{System.String},System.Collections.Generic.IReadOnlyDictionary{System.String,PackEngine.Contracts.DefinitionOrigin})">
+            <summary>Resolved ancestry and the declaration responsible for each final member.</summary>
+        </member>
         <member name="T:PackEngine.Contracts.IPackModule`1">
             <summary>A DLL registers through a caller-owned contract. The engine does not interpret that contract.</summary>
         </member>
@@ -51,6 +69,9 @@
         <member name="P:PackEngine.Contracts.UI.UiNode.Exports">
             <summary>Only these instance slots accept contributions from other UI documents.</summary>
         </member>
+        <member name="T:PackEngine.Contracts.UI.UiNodeOverride">
+            <summary>Explicit node edits. Omission inherits; Set and Bind replace each other for the same property.</summary>
+        </member>
         <member name="T:PackEngine.Contracts.UI.IUiRegistry">
             <summary>Optional pack registry extension; independent DLLs and compiled modules use the same contract.</summary>
         </member>
@@ -65,6 +86,9 @@
         </member>
         <member name="T:PackEngine.Contracts.UI.IUiRendererRegistry">
             <summary>Optional pack registration surface. Renderer keys have no built-in implementations.</summary>
+        </member>
+        <member name="T:PackEngine.Contracts.UI.IUiHintElement">
+            <summary>Optional passive information, including why an element cannot activate. Reading it never activates the element.</summary>
         </member>
         <member name="T:PackEngine.Contracts.UI.UiBounds">
             <summary>Logical coordinates supplied by the host. Native types never cross this boundary.</summary>

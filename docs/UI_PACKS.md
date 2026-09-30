@@ -15,7 +15,7 @@ The engine core has no built-in button implementation or widget definition. `pac
 | Game UI XML | Labels/bindings, game theme and the `control.activate` command |
 | Consumer adapter | Native input conversion, bounds, focus/capture routing, primitive drawing and accessibility integration |
 
-An engine pack declares `engineContracts="1"`, not a game `contracts` version. Its entry point implements `IPackModule<IUiRendererRegistry>` and registers factories. It cannot declare domain `Data`. A game declares an explicit `Depends` on a desired engine pack. Missing packs, DLLs, providers, incompatible contracts and duplicate IDs fail clearly; the engine has no hardcoded fallback. This is an ownership boundary, not a security sandbox for arbitrary DLL code.
+An engine pack declares `engineContracts="1"`, not a game `contracts` version. Its entry point implements `IPackModule<IUiRendererRegistry>` and registers factories. It cannot declare domain `Data`. A game declares `Depends` on a desired engine pack, or `extends` when deriving a child pack. Missing packs, DLLs, providers, incompatible contracts and duplicate IDs fail clearly; the engine has no hardcoded fallback. This is an ownership boundary, not a security sandbox for arbitrary DLL code.
 
 ## Drawing and input
 
@@ -24,6 +24,8 @@ An engine pack declares `engineContracts="1"`, not a game `contracts` version. I
 `Set` never emits user events. Each mounted button has independent state. `Listen` returns independent subscriptions, and disposing the mounted view detaches bindings/listeners and destroys the element. Input and drawing run on the host UI thread. The current canvas hosts do not yet implement general keyboard focus navigation or native accessibility trees.
 
 To replace a button, replace the pack at application startup, preserving its declared widget/event contract or update the consumer's explicit view contract. Do not install two packs with identical IDs together. Editing XML defaults changes styling without recompiling the DLL; replacing DLL behavior does not require recompiling the engine. Live DLL unloading/replacement is outside this change. A pack supplies a factory for many instances; there is no DLL per button.
+
+Alternatively derive new widget and view IDs using [inheritance](INHERITANCE.md). `engine.annotatedButton` inherits `engine.button` and adds `annotation` and `disabledReason`. The same DLL paints an optional second text line and exposes the inactive reason through `IUiHintElement`. `engine.button.view` supplies reusable text/enabled/selected bindings and the activation command. Child packs can override defaults, renderer selection, values and bindings without copying that definition; final contracts and member origins are inspectable. Golemancer uses this path for its theme and purchase confirmation.
 
 ## Current consumer scope
 

@@ -18,6 +18,7 @@ XML `<Assembly path="Bin/{framework}/Feature.dll"/>`, `<Depends>`, `<Data>` and 
 See [priority timing callbacks](TIMING.md) for host-driven lifecycle/frame points, stable priorities and per-session pack attachment.
 See [rendering camera](CAMERA.md) for shared camera control, logical coordinates and immutable views used by drawing and picking.
 See [engine UI object packs](UI_PACKS.md) for the independently loaded default button, canvas/input contracts and consumer integration scope.
+See [pack and definition inheritance](INHERITANCE.md) for single-parent resolution, compatible overrides, reusable UI prototypes and member provenance. The common resolver is domain-independent; Widget/View provide the first concrete merge adapters.
 
 Build with .NET 10 SDK:
 

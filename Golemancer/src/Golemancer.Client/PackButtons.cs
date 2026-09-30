@@ -8,14 +8,22 @@ public sealed class PackButtons(UiCatalog catalog, IUiBackend backend) : IDispos
 {
     private readonly Dictionary<string, Entry> entries = new(StringComparer.Ordinal);
     private readonly Dictionary<int, Entry> pointers = new();
-    public void Draw(IUiCanvas canvas, string id, string text, UiBounds bounds, Action action, bool selected = false, bool enabled = true)
+    public void Draw(IUiCanvas canvas, string id, string text, UiBounds bounds, Action action, bool selected = false, bool enabled = true,
+        string view = "golemancer.button", string annotation = "", string disabledReason = "")
     {
-        if (!entries.TryGetValue(id, out var entry)) entries.Add(id, entry = new(catalog, backend));
+        if (entries.TryGetValue(id, out var existing) && existing.ViewId != view)
+        {
+            foreach (int pointer in pointers.Where(p => p.Value == existing).Select(p => p.Key).ToArray()) Cancel(pointer);
+            existing.Dispose(); entries.Remove(id);
+        }
+        if (!entries.TryGetValue(id, out var entry)) entries.Add(id, entry = new(catalog, backend, view));
         entry.Bounds = bounds; entry.Action = action;
         entry.Text.Set(UiValue.Text(text)); entry.Enabled.Set(UiValue.Boolean(enabled)); entry.Selected.Set(UiValue.Boolean(selected));
+        entry.Annotation.Set(UiValue.Text(annotation)); entry.DisabledReason.Set(UiValue.Text(disabledReason));
         entry.Element.Draw(canvas, bounds);
     }
     public IUiCanvasElement Element(string id) => entries[id].Element;
+    public string Hint(string id) => entries.TryGetValue(id, out var entry) && entry.Element is IUiHintElement hint ? hint.Hint : "";
     public void EndFrame(IEnumerable<string> active)
     {
         var ids = new HashSet<string>(active, StringComparer.Ordinal);
@@ -64,17 +72,21 @@ public sealed class PackButtons(UiCatalog catalog, IUiBackend backend) : IDispos
     private sealed class Entry : IDisposable
     {
         public readonly UiSignal Text = new(UiValue.Text("")), Enabled = new(UiValue.Boolean(true)), Selected = new(UiValue.Boolean(false));
+        public readonly UiSignal Annotation = new(UiValue.Text("")), DisabledReason = new(UiValue.Text(""));
+        public readonly string ViewId;
         public readonly UiMountedView View;
         public readonly IUiCanvasElement Element;
         public UiBounds Bounds;
         public Action Action = () => { };
         public Action? PressedAction;
-        public Entry(UiCatalog catalog, IUiBackend backend)
+        public Entry(UiCatalog catalog, IUiBackend backend, string view)
         {
+            ViewId = view;
             var context = new UiContext();
             context.AddValue("control.text", Text); context.AddValue("control.enabled", Enabled); context.AddValue("control.selected", Selected);
+            context.AddValue("control.annotation", Annotation); context.AddValue("control.disabledReason", DisabledReason);
             context.AddCommand("control.activate", UiValueKind.None, _ => (PressedAction ?? Action)());
-            View = catalog.Mount("golemancer.button", context, backend);
+            View = catalog.Mount(view, context, backend);
             if (View.Root is not IUiCanvasElement element) { View.Dispose(); throw new InvalidOperationException("Button provider must support the canvas/input contract."); }
             Element = element;
         }

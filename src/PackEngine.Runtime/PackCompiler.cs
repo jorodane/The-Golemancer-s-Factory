@@ -77,6 +77,8 @@ public static class PackCompiler
         {
             string id = S(manifest.Xml, "id");
             if (id.Length == 0 || pending.ContainsKey(id)) throw new InvalidDataException("Missing or duplicate pack id: " + id);
+            if (manifest.Xml.Attribute("extends") is not null && string.IsNullOrWhiteSpace(S(manifest.Xml, "extends"))) throw new InvalidDataException("A pack parent cannot be empty: " + id);
+            if (manifest.Xml.Attribute("extendsMinVersion") is not null && manifest.Xml.Attribute("extends") is null) throw new InvalidDataException("extendsMinVersion requires a parent: " + id);
             pending.Add(id, manifest);
         }
         if (pending.Count == 0) throw new InvalidDataException("No object packs found.");
@@ -85,7 +87,8 @@ public static class PackCompiler
         var fingerprint = new StringBuilder();
         while (pending.Count > 0)
         {
-            var ready = pending.Where(k => k.Value.Xml.Elements("Depends").All(d => loaded.ContainsKey(S(d, "id"))))
+            var ready = pending.Where(k => (S(k.Value.Xml, "extends").Length == 0 || loaded.ContainsKey(S(k.Value.Xml, "extends"))) &&
+                    k.Value.Xml.Elements("Depends").All(d => loaded.ContainsKey(S(d, "id"))))
                 .Select(k => k.Key).ToArray();
             if (ready.Length == 0) throw new InvalidDataException("Missing or cyclic pack dependencies: " + string.Join(", ", pending.Keys));
             foreach (string id in ready)
@@ -101,6 +104,9 @@ public static class PackCompiler
                 }
                 else if (S(manifest.Xml, "contracts") != contractVersion) throw new InvalidDataException("Unsupported contract version in " + id);
                 Version version = Version.Parse(S(manifest.Xml, "version", "1.0.0"));
+                string parent = S(manifest.Xml, "extends");
+                if (parent.Length > 0 && loaded[parent] < Version.Parse(S(manifest.Xml, "extendsMinVersion", "1.0.0")))
+                    throw new InvalidDataException("Incompatible parent pack for " + id + ": " + parent);
                 foreach (var dependency in manifest.Xml.Elements("Depends"))
                     if (loaded[S(dependency, "id")] < Version.Parse(S(dependency, "minVersion", "1.0.0")))
                         throw new InvalidDataException("Incompatible dependency for " + id);
@@ -130,9 +136,10 @@ public static class PackCompiler
                     string text = File.ReadAllText(file);
                     fingerprint.Append(text);
                     using var input = new StringReader(text);
-                    readUi(UiXml.Read(input));
+                    var document = UiXml.Read(input); document.Pack = id; document.Source = S(ui, "path"); readUi(document);
                 }
-                packs.Add(new(id, version.ToString(), folder, manifest.Xml.Elements("Depends").Select(d => S(d, "id")).ToArray(), files.Select(p => Path.GetFileName(p)!).ToArray()));
+                var dependencies = manifest.Xml.Elements("Depends").Select(d => S(d, "id")).Concat(parent.Length == 0 ? Array.Empty<string>() : new[] { parent }).Distinct(StringComparer.Ordinal).ToArray();
+                packs.Add(new(id, version.ToString(), folder, dependencies, files.Select(p => Path.GetFileName(p)!).ToArray()) { Parent = parent });
                 loaded[id] = version;
                 pending.Remove(id);
             }

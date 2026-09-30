@@ -8,6 +8,7 @@ static bool Throws<T>(Action action) where T : Exception
 
 CameraTests.Run();
 UiPackTests.Run(Path.Combine(Directory.GetCurrentDirectory(), "packs", "Ui.Button"));
+InheritanceTests.Run(Path.Combine(Directory.GetCurrentDirectory(), "packs", "Ui.Button"));
 var frame = new Frame();
 using (var loop = new TimingScheduler<Frame>())
 {

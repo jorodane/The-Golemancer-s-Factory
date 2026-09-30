@@ -1,19 +1,31 @@
 <Ui version="1" id="golemancer.controls">
-  <View id="golemancer.button">
-    <Node id="golemancer.button.root" widget="engine.button">
-      <Bind property="text" source="control.text" />
-      <Bind property="enabled" source="control.enabled" />
-      <Bind property="selected" source="control.selected" />
-      <Set property="background" value="#244637DD" />
-      <Set property="foreground" value="#FFF0D5" />
-      <Set property="hoverBackground" value="#355E49" />
-      <Set property="pressedBackground" value="#163626" />
-      <Set property="selectedBackground" value="#DBB765" />
-      <Set property="selectedForeground" value="#20352C" />
-      <Set property="disabledBackground" value="#304238" />
-      <Set property="disabledForeground" value="#98A69D" />
-      <Set property="cornerRadius" value="12" />
-      <On event="activate" command="control.activate" />
-    </Node>
+  <!-- One game theme, inherited by ordinary and annotated buttons. -->
+  <Widget id="golemancer.button" extends="engine.annotatedButton">
+    <Default property="background" value="#244637DD" />
+    <Default property="foreground" value="#FFF0D5" />
+    <Default property="hoverBackground" value="#355E49" />
+    <Default property="pressedBackground" value="#163626" />
+    <Default property="selectedBackground" value="#DBB765" />
+    <Default property="selectedForeground" value="#20352C" />
+    <Default property="disabledBackground" value="#304238" />
+    <Default property="disabledForeground" value="#98A69D" />
+    <Default property="cornerRadius" value="12" />
+  </Widget>
+  <Widget id="golemancer.costButton" extends="golemancer.button">
+    <Default property="fontSize" value="13" />
+  </Widget>
+  <View id="golemancer.button" extends="engine.button.view">
+    <Override node="button" widget="golemancer.button">
+      <Bind property="annotation" source="control.annotation" />
+      <Bind property="disabledReason" source="control.disabledReason" />
+    </Override>
+  </View>
+  <View id="golemancer.costButton" extends="golemancer.button">
+    <Override node="button" widget="golemancer.costButton" />
+  </View>
+  <View id="golemancer.purchase" extends="golemancer.costButton">
+    <Override node="button">
+      <Set property="text" value="구매" />
+    </Override>
   </View>
 </Ui>

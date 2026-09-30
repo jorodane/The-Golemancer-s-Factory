@@ -12,7 +12,7 @@ public static class UiXml
     public static UiDocument Read(string path)
     {
         using var stream = File.OpenText(path);
-        return Read(stream);
+        var document = Read(stream); document.Source = Path.GetFileName(path); return document;
     }
     public static UiDocument Read(TextReader input)
     {
@@ -26,8 +26,13 @@ public static class UiXml
             foreach (var e in root.Elements("Widget")) document.Widgets.Add(Widget(e));
             foreach (var e in root.Elements("View"))
             {
-                Shape(e, "id", "Node"); ExactlyOne(e, "Node");
-                document.Views.Add(new() { Id = Required(e, "id"), Root = Node(e.Element("Node")!, 0) });
+                Shape(e, "id extends", "Node Override");
+                string parent = Optional(e, "extends");
+                if (e.Attribute("extends") is not null) Required(e, "extends");
+                if (parent.Length == 0) ExactlyOne(e, "Node");
+                else if (e.Elements("Node").Any()) throw Error(e, "An inherited view edits nodes with Override, not a replacement root.");
+                document.Views.Add(new() { Id = Required(e, "id"), Extends = parent,
+                    Root = e.Element("Node") is { } node ? Node(node, 0) : new(), Overrides = e.Elements("Override").Select(Override).ToList() });
             }
             foreach (var e in root.Elements("Contribute"))
             {
@@ -41,8 +46,12 @@ public static class UiXml
     }
     private static UiWidgetDefinition Widget(XElement e)
     {
-        Shape(e, "id description", "Property Event Slot Renderer");
-        var widget = new UiWidgetDefinition { Id = Required(e, "id"), Description = Optional(e, "description") };
+        Shape(e, "id description extends", "Property Default Event Slot Renderer");
+        var widget = new UiWidgetDefinition { Id = Required(e, "id"), Extends = Optional(e, "extends") };
+        if (e.Attribute("extends") is not null) Required(e, "extends");
+        if (e.Attribute("description") is { } description) widget.Description = description.Value;
+        foreach (var p in e.Elements("Default"))
+        { Shape(p, "property value", ""); widget.Defaults.Add(Required(p, "property"), Required(p, "value", true)); }
         foreach (var p in e.Elements("Property"))
         {
             Shape(p, "name type default required min max description", "Option");
@@ -54,16 +63,45 @@ public static class UiXml
         foreach (var p in e.Elements("Event"))
         {
             Shape(p, "name payload description", "");
-            widget.Events.Add(new() { Name = Required(p, "name"), Payload = Kind(p, "payload"), Description = Optional(p, "description") });
+            var item = new UiEventDefinition { Name = Required(p, "name"), Payload = Kind(p, "payload") };
+            if (p.Attribute("description") is { } detail) item.Description = detail.Value;
+            widget.Events.Add(item);
         }
         foreach (var p in e.Elements("Slot"))
         {
             Shape(p, "name min max description", "");
-            widget.Slots.Add(new() { Name = Required(p, "name"), Min = Integer(p, "min", 0), Max = p.Attribute("max") is null ? null : Integer(p, "max", 0), Description = Optional(p, "description") });
+            var item = new UiSlotDefinition { Name = Required(p, "name"), Min = Integer(p, "min", 0), Max = p.Attribute("max") is null ? null : Integer(p, "max", 0) };
+            if (p.Attribute("description") is { } detail) item.Description = detail.Value;
+            widget.Slots.Add(item);
         }
         foreach (var p in e.Elements("Renderer"))
         { Shape(p, "platform key", ""); widget.Renderers.Add(Required(p, "platform"), Required(p, "key")); }
         return widget;
+    }
+    private static UiNodeOverride Override(XElement e)
+    {
+        Shape(e, "node widget order", "Layout Set Bind On Slot");
+        var result = new UiNodeOverride { Node = Required(e, "node"), Widget = (string?)e.Attribute("widget"),
+            Order = e.Attribute("order") is null ? null : Integer(e, "order", 0) };
+        if (e.Elements("Layout").Count() > 1) throw Error(e, "Only one Layout is allowed.");
+        if (e.Element("Layout") is { } layout)
+        {
+            Shape(layout, "anchorMin anchorMax pivot offset size minSize maxSize safeArea", "");
+            UiVector2? V(string name) => layout.Attribute(name) is null ? null : Vector(layout, name);
+            result.Layout = new() { AnchorMin = V("anchorMin"), AnchorMax = V("anchorMax"), Pivot = V("pivot"), Offset = V("offset"),
+                Size = V("size"), MinSize = V("minSize"), MaxSize = V("maxSize"), SafeArea = layout.Attribute("safeArea") is null ? null : Boolean(layout, "safeArea") };
+        }
+        foreach (var p in e.Elements("Set")) { Shape(p, "property value", ""); result.Values.Add(Required(p, "property"), Required(p, "value", true)); }
+        foreach (var p in e.Elements("Bind")) { Shape(p, "property source", ""); result.Bindings.Add(Required(p, "property"), Required(p, "source")); }
+        foreach (var p in e.Elements("On")) { Shape(p, "event command", ""); result.Events.Add(Required(p, "event"), Required(p, "command")); }
+        foreach (var p in e.Elements("Slot"))
+        {
+            Shape(p, "name export", "Node"); string name = Required(p, "name");
+            if (p.Attribute("export") is not null && !Boolean(p, "export")) throw Error(p, "An override cannot revoke an exported slot.");
+            result.Slots.Add(name, p.Elements("Node").Select(n => Node(n, 0)).ToList());
+            if (Boolean(p, "export")) result.Exports.Add(name);
+        }
+        return result;
     }
     private static UiNode Node(XElement e, int depth)
     {

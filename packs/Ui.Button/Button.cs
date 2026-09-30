@@ -17,15 +17,17 @@ public sealed class ButtonFactory : IUiElementFactory
         ["hoverBackground"] = UiValueKind.Color, ["pressedBackground"] = UiValueKind.Color,
         ["selectedBackground"] = UiValueKind.Color, ["selectedForeground"] = UiValueKind.Color,
         ["disabledBackground"] = UiValueKind.Color, ["disabledForeground"] = UiValueKind.Color,
-        ["fontSize"] = UiValueKind.Number, ["cornerRadius"] = UiValueKind.Number
+        ["fontSize"] = UiValueKind.Number, ["cornerRadius"] = UiValueKind.Number,
+        ["annotation"] = UiValueKind.Text, ["disabledReason"] = UiValueKind.Text
     };
     public bool Supports(UiWidgetDefinition contract) => contract.Slots.Count == 0 && contract.Events.Count == 1 &&
         contract.Events[0].Name == "activate" && contract.Events[0].Payload == UiValueKind.None &&
-        contract.Properties.Count == Properties.Count && contract.Properties.Select(p => p.Name).Distinct(StringComparer.Ordinal).Count() == Properties.Count &&
+        contract.Properties.Select(p => p.Name).Distinct(StringComparer.Ordinal).Count() == contract.Properties.Count &&
+        Properties.Keys.Where(k => k is not ("annotation" or "disabledReason")).All(k => contract.Properties.Any(p => p.Name == k)) &&
         contract.Properties.All(p => Properties.TryGetValue(p.Name, out var type) && p.Type == type && (p.Default is not null || p.Required));
     public IUiElement Create(string nodeId, UiLayout layout) => new Element();
 
-    private sealed class Element : IUiCanvasElement
+    private sealed class Element : IUiCanvasElement, IUiHintElement
     {
         private readonly Dictionary<string, UiValue> values = new(StringComparer.Ordinal);
         private readonly List<Listener> listeners = [];
@@ -33,6 +35,7 @@ public sealed class ButtonFactory : IUiElementFactory
         private string key = "";
         private bool inside, hovered, disposed;
         private bool Enabled => !disposed && values.TryGetValue("enabled", out var value) && value.AsBoolean();
+        public string Hint => !disposed && !Enabled && values.TryGetValue("disabledReason", out var value) ? value.Literal : "";
         public void Set(string property, UiValue value)
         {
             if (disposed) return;
@@ -90,7 +93,10 @@ public sealed class ButtonFactory : IUiElementFactory
             string fill = !Enabled ? "disabledBackground" : pressed ? "pressedBackground" : hovered ? "hoverBackground" : selected ? "selectedBackground" : "background";
             string ink = !Enabled ? "disabledForeground" : selected && !pressed && !hovered ? "selectedForeground" : "foreground";
             canvas.Fill(bounds, values["cornerRadius"].AsNumber(), values[fill]);
-            canvas.Text(values["text"].Literal, bounds, values["fontSize"].AsNumber(), values[ink]);
+            string annotation = values.TryGetValue("annotation", out var note) ? note.Literal : "";
+            var title = annotation.Length == 0 ? bounds : bounds with { Height = bounds.Height * .55 };
+            canvas.Text(values["text"].Literal, title, values["fontSize"].AsNumber(), values[ink]);
+            if (annotation.Length > 0) canvas.Text(annotation, bounds with { Y = bounds.Y + bounds.Height * .55, Height = bounds.Height * .45 }, values["fontSize"].AsNumber() * .8, values[ink]);
         }
         public void Dispose()
         {

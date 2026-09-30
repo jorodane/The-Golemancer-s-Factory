@@ -21,6 +21,8 @@ internal sealed class PackCanvas : IUiCanvas
     {
         using var font = new SKFont(Typeface, (float)fontSize);
         using var paint = new SKPaint { Color = Color(color), IsAntialias = true };
+        Canvas.Save(); Canvas.ClipRect(SKRect.Create((float)bounds.X, (float)bounds.Y, (float)bounds.Width, (float)bounds.Height));
         Canvas.DrawText(text, (float)(bounds.X + bounds.Width / 2), (float)(bounds.Y + bounds.Height / 2) - (font.Metrics.Ascent + font.Metrics.Descent) / 2, SKTextAlign.Center, font, paint);
+        Canvas.Restore();
     }
 }

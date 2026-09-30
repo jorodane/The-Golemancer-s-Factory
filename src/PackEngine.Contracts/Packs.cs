@@ -8,4 +8,7 @@ public interface IPackModule<in TRegistry>
 
 /// <summary>Loaded manifest metadata. Domain content is owned by the caller's content reader.</summary>
 public sealed record PackInfo(string Id, string Version, string Directory,
-    IReadOnlyList<string> Dependencies, IReadOnlyList<string> Assemblies);
+    IReadOnlyList<string> Dependencies, IReadOnlyList<string> Assemblies)
+{
+    public string Parent { get; init; } = "";
+}

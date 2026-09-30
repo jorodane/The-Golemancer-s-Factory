@@ -72,6 +72,7 @@ def main():
     shutil.copy2(ROOT / "docs/TIMING.md", workspace / "SDK/TIMING.md")
     shutil.copy2(ROOT / "docs/CAMERA.md", workspace / "SDK/CAMERA.md")
     shutil.copy2(ROOT / "docs/UI_PACKS.md", workspace / "SDK/UI_PACKS.md")
+    shutil.copy2(ROOT / "docs/INHERITANCE.md", workspace / "SDK/INHERITANCE.md")
     print("Exported engine source baseline:", source_id)
 
 

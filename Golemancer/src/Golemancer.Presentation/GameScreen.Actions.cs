@@ -113,7 +113,8 @@ public sealed partial class GameScreen
     private List<BubbleEntry> Shop(WorldObject target) => BubbleMenu.GroupItems(Game, Prices.Keys, [], item =>
     {
         int Max() => PurchaseRules.Availability(Game, session.Actor!, item, Prices[item]).Maximum;
-        void Buy() => Quantity(Game.ItemName(item) + " · " + Prices[item] + "G/개", Max, n => Send("buy", target.Id, item, n));
+        void Buy() => Quantity(Game.ItemName(item) + " · " + Prices[item] + "G/개", Max, n => Send("buy", target.Id, item, n),
+            annotation: n => $"{n * Prices[item]} G", unavailableReason: () => "골드·보관 공간·구매 가능 수량을 확인해줘.");
         var entry = Leaf("buy." + item, Game.ItemName(item) + " · " + Prices[item] + "G", Buy, icon: "item." + item);
         entry.CanUse = () => Max() > 0; entry.Quantity = Buy;
         entry.Preview = () => new() { Title = Game.ItemName(item), Description = Game.Content.Items[item].Description, Note = $"가격 {Prices[item]}G · 구매 가능 {Max()}개" }; return entry;

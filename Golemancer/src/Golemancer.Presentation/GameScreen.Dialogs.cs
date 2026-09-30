@@ -11,6 +11,9 @@ public sealed partial class GameScreen
         public bool Quantity = quantity, Paused = paused, ReplaceDigits = true;
         public int Maximum = maximum, Value = value;
         public Action<int?> Done = done;
+        public Func<int>? CurrentMaximum;
+        public Func<int, string>? Annotation;
+        public Func<string>? UnavailableReason;
     }
     private Modal? modal;
     private SKRect modalSlider;
@@ -27,7 +30,8 @@ public sealed partial class GameScreen
     }
     private void Details(string title, string text) => ShowModal(title, text, false, 0, 0, _ => { });
     private void Confirm(string title, Action action) => ShowModal(title, "", false, 0, 0, value => { if (value.HasValue) action(); });
-    private void Quantity(string title, Func<int> maximum, Func<int, ActionResult> confirm, int initial = 1)
+    private void Quantity(string title, Func<int> maximum, Func<int, ActionResult> confirm, int initial = 1,
+        Func<int, string>? annotation = null, Func<string>? unavailableReason = null)
     {
         int max = Math.Clamp(maximum(), 0, 9999);
         if (max == 0) { Notify("지금 처리할 수 있는 수량이 없어."); return; }
@@ -38,7 +42,11 @@ public sealed partial class GameScreen
             int live = Math.Clamp(maximum(), 0, 9999);
             if (value.HasValue && live > 0) Finish(() => confirm(Math.Clamp(value.Value, 1, live)));
         });
+        modal!.CurrentMaximum = annotation is null ? null : maximum; modal.Annotation = annotation; modal.UnavailableReason = unavailableReason;
     }
+    private bool CanConfirm(Modal current, bool refresh = false) => !current.Quantity || current.Value > 0 && current.Value <=
+        Math.Clamp(refresh ? current.CurrentMaximum?.Invoke() ?? current.Maximum : current.Maximum, 0, 9999);
+    private void ConfirmModal() { if (modal is { } current && CanConfirm(current, true)) CloseModal(current.Value); }
     private void SetSlider(float x)
     {
         if (modal is not { Quantity: true } m) return;
@@ -49,7 +57,7 @@ public sealed partial class GameScreen
     {
         if (modal is not { } m || !down || repeat) return true;
         if (key is "Escape" or "Back" or "ButtonB") { CloseModal(null); return true; }
-        if (key is "Enter" or "ButtonA") { CloseModal(m.Value); return true; }
+        if (key is "Enter" or "ButtonA") { ConfirmModal(); return true; }
         if (!m.Quantity) return true;
         if (key.Length == 4 && key.StartsWith("Num", StringComparison.Ordinal)) key = key.Substring(3);
         else if (key.Length == 2 && key[0] == 'D') key = key.Substring(1);
@@ -63,6 +71,7 @@ public sealed partial class GameScreen
     private void RenderModal(SKCanvas c)
     {
         if (modal is not { } m) return;
+        if (m.CurrentMaximum is not null) m.Maximum = Math.Clamp(m.CurrentMaximum(), 0, 9999);
         hit.Clear(); Box(c, SKRect.Create(viewWidth, viewHeight), "#C0102019", 0);
         float x = viewWidth / 2 - 300, y = viewHeight / 2 - 210;
         Box(c, SKRect.Create(x, y, 600, 420), "#FF20382B");
@@ -72,7 +81,7 @@ public sealed partial class GameScreen
             Text(c, $"{m.Value} / {m.Maximum}", x + 300, y + 85, 28, centered: true);
             modalSlider = SKRect.Create(x + 36, y + 101, 528, 30);
             Box(c, modalSlider, "#FF4B6550");
-            float fraction = m.Maximum == 1 ? 1 : (m.Value - 1f) / (m.Maximum - 1);
+            float fraction = m.Maximum <= 1 ? 1 : Math.Clamp((m.Value - 1f) / (m.Maximum - 1), 0, 1);
             Box(c, SKRect.Create(modalSlider.Left, modalSlider.Top, Math.Max(8, modalSlider.Width * fraction), 30), "#FFE0C177");
             string[] labels = ["1개", "−절반", "중간", "+절반", "Max"];
             for (int i = 0; i < labels.Length; i++)
@@ -92,6 +101,13 @@ public sealed partial class GameScreen
         }
         else Wrap(c, m.Text, x + 24, y + 75, 552, 15, 12);
         Button(c, "modal.cancel", "취소 / 닫기", SKRect.Create(x + 265, y + 357, 145, 43), () => CloseModal(null));
-        Button(c, "modal.ok", "확인", SKRect.Create(x + 425, y + 357, 145, 43), () => CloseModal(m.Value));
+        var okBounds = SKRect.Create(x + 425, y + 357, 145, 43);
+        string reason = m.UnavailableReason?.Invoke() ?? "처리할 수량을 확인해줘.";
+        packButtons.Draw(packCanvas, "modal.ok", "확인", new(okBounds.Left, okBounds.Top, okBounds.Width, okBounds.Height), ConfirmModal,
+            enabled: CanConfirm(m), view: m.Annotation is null ? "golemancer.button" : "golemancer.purchase",
+            annotation: m.Annotation?.Invoke(m.Value) ?? "", disabledReason: reason);
+        hit.Add((okBounds, "modal.ok", ConfirmModal));
+        string hint = packButtons.Hint("modal.ok");
+        if (hint.Length > 0) Wrap(c, hint, x + 24, y + 352, 380, 12, 1);
     }
 }

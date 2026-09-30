@@ -149,7 +149,7 @@ position = parentOrigin
 
 공개하지 않은 슬롯, 없는 부모/화면/위젯, 중복 노드, 슬롯 수량 초과는 쿠킹 오류다. 기여된 노드도 슬롯을 공개할 수 있다. 엔진이 부모 존재 관계로 조립하며 없는 부모/순환 관계를 거부한다. 팩 배포에서는 제공 팩에 `Depends`도 명시한다.
 
-v1은 **추가** 계약이다. 기존 노드 삭제·속성 patch·위젯 타입 덮어쓰기·before/after 제약은 아직 정의하지 않았다. 현재는 명시적인 순서값과 공개 슬롯으로 확장한다. 실행 중 팩 제거는 화면을 Dispose하고 새 카탈로그/context로 다시 여는 방식이며 라이브 트리 diff는 포함하지 않는다.
+`Contribute`는 **추가** 계약이다. 별도의 `Widget/View extends`와 `Override`는 부모 원형을 복사해 값·연결·배치를 재정의한다. 생략하면 상속하고, 삭제 연산은 없다. 자세한 XML·계약 호환성·출처 조회는 [SDK/INHERITANCE.md](../SDK/INHERITANCE.md)를 따른다. 기여는 상속 뒤에 명시한 화면에만 적용한다. before/after 제약과 라이브 트리 diff는 포함하지 않는다. 실행 중 팩 제거는 화면을 Dispose하고 새 카탈로그/context로 다시 여는 방식이다.
 
 ## 7. 함수/API 명세
 
@@ -165,6 +165,7 @@ v1은 **추가** 계약이다. 기존 노드 삭제·속성 patch·위젯 타입
 | `new UiCatalog(documents)` | DTO를 복사하고 교차 참조·설정·트리를 검증 |
 | `UiCatalog.Describe(widgetId)` | 외부 설정 도구를 위한 제공자 명세 사본 |
 | `UiCatalog.DescribeView(viewId)` | 기여가 조립된 요청 트리 사본 |
+| `UiCatalog.InspectWidget/InspectView` | 상속이 해석된 정의·부모 계보·설정별 팩/파일/정의 출처 |
 | `UiCatalog.Mount(viewId, context, backend)` | 플랫폼 선택·연결 검증·실제 요소 생성. 수명 핸들 반환 |
 | `UiMountedView.Root` | 부모 네이티브 화면에 붙일 루트 요소 핸들 |
 | `UiMountedView.Dispose()` | 구독/이벤트와 요소를 해제. 반복 호출 가능 |

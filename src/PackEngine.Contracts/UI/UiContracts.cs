@@ -88,19 +88,27 @@ public sealed class UiEventDefinition
 {
     public string Name { get; set; } = "";
     public UiValueKind Payload { get; set; }
-    public string Description { get; set; } = "";
+    private string description = "";
+    public string Description { get => description; set { description = value; DescriptionSpecified = true; } }
+    public bool DescriptionSpecified { get; private set; }
 }
 public sealed class UiSlotDefinition
 {
     public string Name { get; set; } = "";
     public int Min { get; set; }
     public int? Max { get; set; }
-    public string Description { get; set; } = "";
+    private string description = "";
+    public string Description { get => description; set { description = value; DescriptionSpecified = true; } }
+    public bool DescriptionSpecified { get; private set; }
 }
 public sealed class UiWidgetDefinition
 {
     public string Id { get; set; } = "";
-    public string Description { get; set; } = "";
+    public string Extends { get; set; } = "";
+    public Dictionary<string, string> Defaults { get; set; } = new(StringComparer.Ordinal);
+    private string description = "";
+    public string Description { get => description; set { description = value; DescriptionSpecified = true; } }
+    public bool DescriptionSpecified { get; private set; }
     public List<UiPropertyDefinition> Properties { get; set; } = [];
     public List<UiEventDefinition> Events { get; set; } = [];
     public List<UiSlotDefinition> Slots { get; set; } = [];
@@ -122,7 +130,33 @@ public sealed class UiNode
 public sealed class UiViewDefinition
 {
     public string Id { get; set; } = "";
+    public string Extends { get; set; } = "";
     public UiNode Root { get; set; } = new();
+    public List<UiNodeOverride> Overrides { get; set; } = [];
+}
+/// <summary>Explicit node edits. Omission inherits; Set and Bind replace each other for the same property.</summary>
+public sealed class UiNodeOverride
+{
+    public string Node { get; set; } = "";
+    public string? Widget { get; set; }
+    public int? Order { get; set; }
+    public UiLayoutOverride? Layout { get; set; }
+    public Dictionary<string, string> Values { get; set; } = new(StringComparer.Ordinal);
+    public Dictionary<string, string> Bindings { get; set; } = new(StringComparer.Ordinal);
+    public Dictionary<string, string> Events { get; set; } = new(StringComparer.Ordinal);
+    public Dictionary<string, List<UiNode>> Slots { get; set; } = new(StringComparer.Ordinal);
+    public HashSet<string> Exports { get; set; } = new(StringComparer.Ordinal);
+}
+public sealed class UiLayoutOverride
+{
+    public UiVector2? AnchorMin { get; set; }
+    public UiVector2? AnchorMax { get; set; }
+    public UiVector2? Pivot { get; set; }
+    public UiVector2? Offset { get; set; }
+    public UiVector2? Size { get; set; }
+    public UiVector2? MinSize { get; set; }
+    public UiVector2? MaxSize { get; set; }
+    public bool? SafeArea { get; set; }
 }
 public sealed class UiContribution
 {
@@ -135,6 +169,8 @@ public sealed class UiDocument
 {
     public int Version { get; set; } = 1;
     public string Id { get; set; } = "";
+    public string Pack { get; set; } = "";
+    public string Source { get; set; } = "";
     public List<UiWidgetDefinition> Widgets { get; set; } = [];
     public List<UiViewDefinition> Views { get; set; } = [];
     public List<UiContribution> Contributions { get; set; } = [];
