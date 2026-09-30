@@ -1,0 +1,3 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup><ProjectReference Include="../PackEngine.Workspace/PackEngine.Workspace.csproj" /></ItemGroup>
+</Project>

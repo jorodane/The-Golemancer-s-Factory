@@ -1,0 +1,8 @@
+<Solution>
+  <Project Path="../src/PackEngine.Contracts/PackEngine.Contracts.csproj" />
+  <Project Path="../src/PackEngine.Runtime/PackEngine.Runtime.csproj" />
+  <Project Path="PackEngine.Workspace/PackEngine.Workspace.csproj" />
+  <Project Path="PackEngine.Tool/PackEngine.Tool.csproj" />
+  <Project Path="PackEngine.Editor/PackEngine.Editor.csproj" />
+  <Project Path="PackEngine.Assistant.Command/PackEngine.Assistant.Command.csproj" />
+</Solution>

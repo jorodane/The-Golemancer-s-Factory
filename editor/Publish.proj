@@ -1,0 +1,27 @@
+<Project DefaultTargets="Publish">
+  <PropertyGroup>
+    <EditorPublishDir>$(MSBuildThisFileDirectory)Builds/Windows/</EditorPublishDir>
+    <Revision Condition="'$(Revision)' == ''">unknown</Revision>
+  </PropertyGroup>
+  <Target Name="Publish">
+    <ItemGroup>
+      <Runtime Include="$(MSBuildThisFileDirectory)PackEngine.Editor/bin/Release/net48/*.exe;$(MSBuildThisFileDirectory)PackEngine.Editor/bin/Release/net48/*.dll;$(MSBuildThisFileDirectory)PackEngine.Editor/bin/Release/net48/*.config" />
+      <Runtime Include="$(MSBuildThisFileDirectory)PackEngine.Tool/bin/Release/net48/PackEngine.Tool.exe;$(MSBuildThisFileDirectory)PackEngine.Tool/bin/Release/net48/PackEngine.Tool.exe.config" />
+    </ItemGroup>
+    <Error Condition="!Exists('$(MSBuildThisFileDirectory)PackEngine.Editor/bin/Release/net48/PackEngine.Editor.exe')" Text="Build editor/Editor.slnx first." />
+    <Error Condition="!Exists('$(MSBuildThisFileDirectory)PackEngine.Tool/bin/Release/net48/PackEngine.Tool.exe')" Text="Build the net48 CLI first." />
+    <MakeDir Directories="$(EditorPublishDir)" />
+    <Copy SourceFiles="@(Runtime)" DestinationFolder="$(EditorPublishDir)" SkipUnchangedFiles="true" />
+    <MakeDir Directories="$(EditorPublishDir)Providers" />
+    <Copy SourceFiles="$(MSBuildThisFileDirectory)PackEngine.Assistant.Command/bin/Release/net48/PackEngine.Assistant.Command.dll" DestinationFolder="$(EditorPublishDir)Providers" />
+    <ItemGroup>
+      <Published Include="$(EditorPublishDir)*.exe;$(EditorPublishDir)*.dll;$(EditorPublishDir)*.config;$(EditorPublishDir)Providers/*.dll" />
+      <Published Update="@(Published)">
+        <RelativePath>$([MSBuild]::MakeRelative('$(EditorPublishDir)', '%(Published.FullPath)'))</RelativePath>
+      </Published>
+    </ItemGroup>
+    <GetFileHash Files="@(Published)" Algorithm="SHA256" MetadataName="Sha256"><Output TaskParameter="Items" ItemName="Hashed" /></GetFileHash>
+    <WriteLinesToFile File="$(EditorPublishDir)SHA256SUMS" Lines="@(Hashed->'%(Sha256)  %(RelativePath)')" Overwrite="true" Encoding="UTF-8" />
+    <WriteLinesToFile File="$(EditorPublishDir)build-info.json" Lines="{ &quot;sourceCommit&quot;: &quot;$(Revision)&quot;, &quot;target&quot;: &quot;net48&quot;, &quot;ui&quot;: &quot;WPF editor shell&quot;, &quot;windowsGuiTested&quot;: false }" Overwrite="true" Encoding="UTF-8" />
+  </Target>
+</Project>

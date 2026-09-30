@@ -19,6 +19,7 @@ See [priority timing callbacks](TIMING.md) for host-driven lifecycle/frame point
 See [rendering camera](CAMERA.md) for shared camera control, logical coordinates and immutable views used by drawing and picking.
 See [engine UI object packs](UI_PACKS.md) for the independently loaded default button, canvas/input contracts and consumer integration scope.
 See [pack and definition inheritance](INHERITANCE.md) for single-parent resolution, compatible overrides, reusable UI prototypes and member provenance. The common resolver is domain-independent; Widget/View provide the first concrete merge adapters.
+See [Project Studio](EDITOR.md) for the chat-first native editor draft, generic project descriptors, relationship navigation, shared context, reviewed edits and per-pack build/run workflows. Golemancer is a loaded project; the editor has no game assembly reference.
 
 Build with .NET 10 SDK:
 

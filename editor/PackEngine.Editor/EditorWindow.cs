@@ -1,0 +1,265 @@
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Threading;
+using Microsoft.Win32;
+using PackEngine.Workspace;
+
+namespace PackEngine.Editor;
+
+public sealed partial class EditorWindow : Window
+{
+    private static readonly Brush BackgroundInk = Brush("#11171F"), PanelInk = Brush("#19232F"), TextInk = Brush("#E9EFF6"), MutedInk = Brush("#A3B4C7"), AccentInk = Brush("#69D1BD");
+    private readonly TreeView tree = new() { Background = PanelInk, Foreground = TextInk, BorderThickness = new Thickness(0), Margin = new Thickness(8) };
+    private readonly TextBox search = Input(), prompt = Input(true), editor = Input(true), intent = Input(), log = ReadBox();
+    private readonly TextBox contract = ReadBox(), diff = ReadBox();
+    private readonly TextBlock status = Label("프로젝트를 열어서 시작해."), projectLabel = Label("PACKENGINE / PROJECT STUDIO", 19), providerLabel = Label("AI 제공자 미연결", 12);
+    private readonly ComboBox targets = new() { MinWidth = 135, Margin = new Thickness(4) }, openDocs = new() { MinWidth = 160, Margin = new Thickness(4) };
+    private readonly StackPanel transcript = new(), contexts = new(), impact = new(), trail = new() { Orientation = Orientation.Horizontal };
+    private readonly TabControl tabs = new() { Background = PanelInk, Foreground = TextInk, BorderThickness = new Thickness(0) };
+    private readonly Canvas graph = new() { Background = BackgroundInk, Width = 1000, Height = 800 };
+    private readonly List<Button> actionButtons = [];
+    private readonly Button submit;
+    private readonly DispatcherTimer draftTimer = new() { Interval = TimeSpan.FromMilliseconds(450) };
+    private EditorSession? session;
+    private ProjectRunner? runner;
+    private IEditorAssistant? provider;
+    private OpenDocument? activeDocument;
+    private ChangeDraft? pending;
+    private ContextRequest? lastRequest;
+    private bool loading, busy;
+    private CancellationTokenSource? operation;
+    private string Target => (string?)targets.SelectedItem ?? runner?.PreferredTarget ?? "";
+    public EditorWindow()
+    {
+        Title = "PackEngine — Project Studio"; Width = 1480; Height = 920; MinWidth = 1080; MinHeight = 680;
+        Background = BackgroundInk; Foreground = TextInk; FontFamily = new FontFamily("Malgun Gothic"); FontSize = 13;
+        var root = new Grid(); root.RowDefinitions.Add(new() { Height = GridLength.Auto }); root.RowDefinitions.Add(new()); root.RowDefinitions.Add(new() { Height = new GridLength(150) }); root.RowDefinitions.Add(new() { Height = GridLength.Auto }); Content = root;
+        var top = new DockPanel { Margin = new Thickness(18, 14, 18, 10) };
+        var brand = new StackPanel(); brand.Children.Add(projectLabel); brand.Children.Add(Label("OBJECT PACKS  /  CONTEXT  /  BUILD", 10, MutedInk)); DockPanel.SetDock(brand, Dock.Left); top.Children.Add(brand);
+        var actions = new WrapPanel { HorizontalAlignment = HorizontalAlignment.Right };
+        actions.Children.Add(Action("프로젝트 열기", ChooseProject)); actions.Children.Add(targets);
+        actions.Children.Add(Action("팩 빌드", () => Work(() => runner!.BuildPack(SelectedPack(), Target, operation!.Token)), true));
+        actions.Children.Add(Action("프로젝트 빌드", () => Work(() => runner!.BuildProject(Target, operation!.Token)), true));
+        actions.Children.Add(Action("실행", () => Guard(() => runner!.Launch(Target)), true));
+        actions.Children.Add(Action("게임 닫기", () => Guard(() => { if (!runner!.RequestGameClose()) SetStatus("게임 창에서 종료해줘. 강제 종료하지 않았어."); }), true));
+        actions.Children.Add(Action("검증", () => Work(() => runner!.Verify(Target, cancellation: operation!.Token)), true));
+        actions.Children.Add(Action("새로고침", () => Guard(RefreshProject), true)); top.Children.Add(actions); root.Children.Add(top);
+        var body = new Grid { Margin = new Thickness(12, 0, 12, 8) };
+        body.ColumnDefinitions.Add(new() { Width = new GridLength(250) }); body.ColumnDefinitions.Add(new() { Width = new GridLength(5) }); body.ColumnDefinitions.Add(new()); body.ColumnDefinitions.Add(new() { Width = new GridLength(5) }); body.ColumnDefinitions.Add(new() { Width = new GridLength(300) }); Grid.SetRow(body, 1); root.Children.Add(body);
+        var browse = new DockPanel { Background = PanelInk };
+        var browseHead = new StackPanel { Margin = new Thickness(12) }; browseHead.Children.Add(Label("프로젝트 탐색", 16)); search.ToolTip = "팩 이름, 정의 ID, 파일 경로 검색"; browseHead.Children.Add(search); DockPanel.SetDock(browseHead, Dock.Top); browse.Children.Add(browseHead); browse.Children.Add(tree); body.Children.Add(browse);
+        body.Children.Add(Splitter(1)); body.Children.Add(Splitter(3)); Grid.SetColumn(tabs, 2); body.Children.Add(tabs);
+        var contextView = new DockPanel { Background = PanelInk }; var contextHead = new StackPanel { Margin = new Thickness(12) };
+        contextHead.Children.Add(Label("함께 보는 문맥", 16)); contextHead.Children.Add(providerLabel);
+        contextHead.Children.Add(Action("AI 제공자 연결…", ConnectProvider)); DockPanel.SetDock(contextHead, Dock.Top); contextView.Children.Add(contextHead);
+        contextView.Children.Add(new ScrollViewer { Content = contexts, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }); Grid.SetColumn(contextView, 4); body.Children.Add(contextView);
+        var chat = new DockPanel { Margin = new Thickness(16) };
+        var composer = new StackPanel(); composer.Children.Add(Label("선택한 객체와 열린 문서를 바탕으로 요청해.", 12, MutedInk)); prompt.Height = 90; composer.Children.Add(prompt);
+        var sendRow = new WrapPanel(); submit = Action("문맥 요청 만들기", Submit); sendRow.Children.Add(submit);
+        sendRow.Children.Add(Action("요청 복사", () => Guard(() => { if (lastRequest is null) throw new InvalidOperationException("먼저 요청을 만들어줘."); session!.ExportContext(lastRequest); Clipboard.SetText(EditorSession.Serialize(lastRequest)); SetStatus("프롬프트와 실제 포함 문맥을 복사했어."); RefreshContext(); })));
+        composer.Children.Add(sendRow); DockPanel.SetDock(composer, Dock.Bottom); chat.Children.Add(composer);
+        chat.Children.Add(new ScrollViewer { Content = transcript, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }); AddTab("대화", chat);
+        var relationship = new DockPanel(); var trailView = new ScrollViewer { Content = trail, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled, Height = 40 }; DockPanel.SetDock(trailView, Dock.Top); relationship.Children.Add(trailView);
+        relationship.Children.Add(new ScrollViewer { Content = graph, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }); AddTab("관계", relationship);
+        var document = new DockPanel { Margin = new Thickness(12) };
+        var documentHead = new StackPanel(); documentHead.Children.Add(openDocs);
+        var docButtons = new WrapPanel(); docButtons.Children.Add(Action("문서 닫기", () => Guard(() => { if (activeDocument is null) return; session!.Close(activeDocument.Path); activeDocument = null; RebuildDocuments(); RefreshContext(); })));
+        docButtons.Children.Add(Action("디스크에서 다시 읽기", ReloadDocument)); documentHead.Children.Add(docButtons);
+        documentHead.Children.Add(Label("변경 이유", 12, MutedInk)); documentHead.Children.Add(intent);
+        documentHead.Children.Add(Action("변경·영향 미리보기", PreviewDocument)); DockPanel.SetDock(documentHead, Dock.Top); document.Children.Add(documentHead);
+        editor.FontFamily = new FontFamily("Consolas"); editor.FontSize = 13; editor.HorizontalScrollBarVisibility = ScrollBarVisibility.Auto; editor.VerticalScrollBarVisibility = ScrollBarVisibility.Auto; editor.AcceptsTab = true; document.Children.Add(editor); AddTab("문서", document);
+        AddTab("계약", contract);
+        var changes = new DockPanel { Margin = new Thickness(12) }; var changeHead = new StackPanel();
+        changeHead.Children.Add(Label("한 문서의 변경을 검토하고 적용해.", 15)); changeHead.Children.Add(Label("영향은 선언된 정적 관계 기준이야. DLL 내부 동작은 프로젝트 검증으로 확인해.", 11, MutedInk));
+        var changeActions = new WrapPanel(); changeActions.Children.Add(Action("검토한 변경 적용", () => ApplyChange(false))); changeActions.Children.Add(Action("이 변경 되돌리기", () => ApplyChange(true)));
+        changeActions.Children.Add(Action("최근 변경 불러오기", () => Guard(() => { pending = session!.Changes().FirstOrDefault(); ShowChange(); }))); changeHead.Children.Add(changeActions);
+        DockPanel.SetDock(changeHead, Dock.Top); changes.Children.Add(changeHead); var affected = new ScrollViewer { Content = impact, Height = 130, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }; DockPanel.SetDock(affected, Dock.Bottom); changes.Children.Add(affected); changes.Children.Add(diff); AddTab("변경", changes);
+        var output = new DockPanel { Margin = new Thickness(14, 0, 14, 0) }; var outputHeader = new DockPanel(); outputHeader.Children.Add(Label("실행 · 빌드 기록", 12, MutedInk)); var cancel = Action("작업 취소", () => operation?.Cancel()); cancel.HorizontalAlignment = HorizontalAlignment.Right; outputHeader.Children.Add(cancel); DockPanel.SetDock(outputHeader, Dock.Top); output.Children.Add(outputHeader); output.Children.Add(log); Grid.SetRow(output, 2); root.Children.Add(output);
+        status.Margin = new Thickness(18, 8, 18, 8); Grid.SetRow(status, 3); root.Children.Add(status);
+        tree.SelectedItemChanged += (_, e) => { if (e.NewValue is TreeViewItem { Tag: string key }) Guard(() => SelectNode(key)); };
+        search.TextChanged += (_, _) => RebuildTree();
+        openDocs.SelectionChanged += (_, _) => { if (!loading && openDocs.SelectedItem is string path) ShowDocument(path); };
+        editor.TextChanged += (_, _) => { if (!loading && activeDocument is not null) { activeDocument.Text = editor.Text; draftTimer.Stop(); draftTimer.Start(); SetStatus(activeDocument.Dirty ? "미적용 초안 · 변경 미리보기에서 검토한 뒤 적용해." : "문서가 디스크와 같아."); } };
+        draftTimer.Tick += (_, _) => { draftTimer.Stop(); Guard(() => { session?.Persist(); RefreshContext(); }); };
+        prompt.PreviewKeyDown += (_, e) => { if (e.Key == Key.Enter && Keyboard.Modifiers.HasFlag(ModifierKeys.Control)) { e.Handled = true; Submit(); } };
+        Closing += (_, e) => { if (busy) { SetStatus("현재 작업을 마치거나 취소한 뒤 닫아줘."); e.Cancel = true; return; } Guard(() => session?.Persist()); };
+        Closed += (_, _) => { draftTimer.Stop(); runner?.Dispose(); provider?.Dispose(); };
+        Message("시작", "프로젝트를 열고 객체를 선택해. 선언과 구현을 오가며 필요한 문맥만 모아서 작업할 수 있어.\n\nAI 제공자를 연결하기 전에는 요청과 문맥을 준비해 Chat에 복사할 수 있어. 제공자를 연결하면 같은 문맥으로 대화를 이어갈 수 있어."); SetBusy(false);
+    }
+    private static Brush Brush(string color) => (Brush)new BrushConverter().ConvertFromString(color)!;
+    private static TextBlock Label(string text, double size = 13, Brush? ink = null) => new() { Text = text, FontSize = size, Foreground = ink ?? TextInk, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(4) };
+    private static TextBox Input(bool multiline = false) => new() { Background = BackgroundInk, Foreground = TextInk, BorderBrush = Brush("#344457"), Padding = new Thickness(8), Margin = new Thickness(3), AcceptsReturn = multiline, TextWrapping = multiline ? TextWrapping.NoWrap : TextWrapping.Wrap, CaretBrush = TextInk };
+    private static TextBox ReadBox() { var box = Input(true); box.IsReadOnly = true; box.FontFamily = new FontFamily("Consolas"); box.VerticalScrollBarVisibility = ScrollBarVisibility.Auto; box.HorizontalScrollBarVisibility = ScrollBarVisibility.Auto; return box; }
+    private Button Action(string title, Action run, bool requiresProject = false)
+    {
+        var button = new Button { Content = title, Padding = new Thickness(11, 6, 11, 6), Margin = new Thickness(3), Background = Brush("#293B4D"), Foreground = TextInk, BorderThickness = new Thickness(0) };
+        button.Click += (_, _) => run(); if (requiresProject) actionButtons.Add(button); return button;
+    }
+    private static GridSplitter Splitter(int column) { var s = new GridSplitter { Width = 5, HorizontalAlignment = HorizontalAlignment.Stretch, Background = BackgroundInk }; Grid.SetColumn(s, column); return s; }
+    private void AddTab(string name, UIElement content) => tabs.Items.Add(new TabItem { Header = name, Content = content, Foreground = Brush("#17202B"), Padding = new Thickness(12, 7, 12, 7) });
+    private void Message(string who, string content)
+    {
+        var block = new StackPanel(); block.Children.Add(Label(who, 12, AccentInk)); block.Children.Add(Label(content, 14));
+        transcript.Children.Add(new Border { Background = BackgroundInk, CornerRadius = new CornerRadius(8), Padding = new Thickness(12), Margin = new Thickness(0, 6, 0, 10), Child = block });
+    }
+    private void SetStatus(string text) => status.Text = text;
+    private void Guard(Action action) { try { action(); } catch (Exception e) { SetStatus(e.Message); AppendLog("ERROR: " + e.Message); } }
+    private void AppendLog(string line)
+    {
+        if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(() => AppendLog(line))); return; }
+        if (log.Text.Length > 150000) log.Text = log.Text.Substring(log.Text.Length - 100000);
+        log.AppendText(line + "\n"); log.ScrollToEnd();
+    }
+    private void SetBusy(bool value)
+    {
+        busy = value; foreach (var button in actionButtons) button.IsEnabled = !busy && session is not null;
+        submit.IsEnabled = !busy && session is not null; editor.IsReadOnly = busy || activeDocument is null || session?.CanEdit(activeDocument.Path) != true;
+        targets.IsEnabled = !busy; tree.IsEnabled = !busy; openDocs.IsEnabled = !busy;
+    }
+    private async void Work(Func<Task> action)
+    {
+        if (session is null || runner is null || busy) return;
+        if (session.Documents.Any(d => d.Dirty)) { SetStatus("먼저 문서 초안을 적용하거나 디스크에서 다시 읽어줘. 빌드는 저장된 파일을 사용해."); return; }
+        SetBusy(true); operation = new();
+        try { session.Refresh(); await action(); SetStatus("작업 완료. 실행 기록을 확인해줘."); RefreshProject(); }
+        catch (OperationCanceledException) { SetStatus("작업을 취소했어."); }
+        catch (Exception e) { SetStatus(e.Message); AppendLog("ERROR: " + e.Message); }
+        finally { operation.Dispose(); operation = null; SetBusy(false); }
+    }
+    private void ChooseProject()
+    {
+        if (busy) return;
+        var dialog = new OpenFileDialog { Title = "프로젝트 열기", Filter = "PackEngine 프로젝트|*.packproject" };
+        if (dialog.ShowDialog(this) == true) OpenProject(dialog.FileName);
+    }
+    public void OpenProject(string path) => Guard(() =>
+    {
+        if (busy) return;
+        if (runner?.GameRunning == true) throw new InvalidOperationException("현재 프로젝트의 게임 창을 닫은 뒤 다른 프로젝트를 열어줘.");
+        session?.Persist();
+        var next = new EditorSession(path); runner?.Dispose(); session = next;
+        runner = new(session, Environment.GetEnvironmentVariable("PACKENGINE_DOTNET") ?? "dotnet"); runner.Output += AppendLog;
+        activeDocument = null; pending = null; lastRequest = session.State.Requests.LastOrDefault();
+        Title = "PackEngine — " + session.Project.Name; projectLabel.Text = session.Project.Name;
+        targets.ItemsSource = session.Project.Targets.Select(t => t.Id).ToArray(); targets.SelectedItem = runner.PreferredTarget;
+        transcript.Children.Clear(); Message("프로젝트", session.Project.Name + "을 열었어. 팩과 문서를 골라서 작업을 시작해.");
+        foreach (var request in session.State.Requests.TakeLastCompat(8)) { Message("나", request.Prompt); if (request.Reply.Length > 0) Message("제공자", request.Reply); }
+        RefreshProject(); RebuildDocuments(); SetBusy(false);
+    });
+    private void RefreshProject()
+    {
+        if (session is null) return; session.Refresh(); RebuildTree(); RefreshContext();
+        if (session.Index.Nodes.ContainsKey(session.State.Selection)) SelectNode(session.State.Selection, false);
+        SetStatus(session.Index.Packs.Count + "개 팩 · " + session.Index.Nodes.Values.Count(n => n.Kind != "file") + "개 노드 · " + session.Index.Diagnostics.Count + "개 진단");
+        foreach (string message in session.Index.Diagnostics) AppendLog(message);
+    }
+    private void RebuildTree()
+    {
+        tree.Items.Clear(); if (session is null) return; string filter = search.Text.Trim();
+        foreach (var pack in session.Index.Packs)
+        {
+            var root = new TreeViewItem { Header = pack.Id, Tag = "pack:" + pack.Id, Foreground = TextInk, Padding = new Thickness(4) };
+            bool entire = filter.Length == 0 || pack.Id.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0;
+            foreach (var node in session.Index.Nodes.Values.Where(n => n.Pack == pack.Id && n.Kind != "pack").OrderBy(n => n.Kind).ThenBy(n => n.Id, StringComparer.Ordinal))
+                if (entire || (node.Key + " " + node.Title).IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0)
+                    root.Items.Add(new TreeViewItem { Header = node.Kind + " · " + (node.Kind == "file" ? Path.GetFileName(node.File) : node.Title), Tag = node.Key, ToolTip = node.Key, Foreground = TextInk, Padding = new Thickness(2) });
+            if (entire || root.Items.Count > 0) { root.IsExpanded = filter.Length > 0; tree.Items.Add(root); }
+        }
+        var documents = new TreeViewItem { Header = "프로젝트 계약", Foreground = MutedInk };
+        foreach (var file in session.Index.Nodes.Values.Where(n => n.Kind == "file" && n.Pack.Length == 0))
+            documents.Items.Add(new TreeViewItem { Header = file.File, Tag = file.Key, Foreground = TextInk });
+        tree.Items.Add(documents);
+    }
+    private void SelectNode(string key, bool remember = true)
+    {
+        if (session is null) return; if (remember) session.Select(key);
+        var node = session.Index.Nodes[key]; contract.Text = EditorSession.Serialize(session.Index.Inspect(key)); DrawGraph(key);
+        if (node.File.Length > 0) { session.Open(node.File); RebuildDocuments(node.File); }
+        RefreshContext();
+        SetStatus(node.Key + (node.Status == "resolved" ? "" : " · " + node.Status));
+    }
+    private string SelectedPack()
+    {
+        if (session is not null && session.Index.Nodes.TryGetValue(session.State.Selection, out var node) && node.Pack.Length > 0) return node.Pack;
+        throw new InvalidOperationException("먼저 빌드할 팩이나 그 안의 객체를 선택해줘.");
+    }
+    private void RebuildDocuments(string? select = null)
+    {
+        if (session is null) return; loading = true; openDocs.ItemsSource = session.Documents.Select(d => d.Path).ToArray(); openDocs.SelectedItem = select ?? activeDocument?.Path ?? session.Documents.FirstOrDefault()?.Path; loading = false;
+        if (openDocs.SelectedItem is string path) ShowDocument(path); else { loading = true; editor.Text = ""; loading = false; }
+    }
+    private void ShowDocument(string path)
+    {
+        if (session is null) return; activeDocument = session.Documents.Single(d => d.Path == path); loading = true; editor.Text = activeDocument.Text; loading = false; SetBusy(busy);
+    }
+    private void ReloadDocument() => Guard(() =>
+    {
+        if (activeDocument is null || session is null || busy) return;
+        if (activeDocument.Dirty && MessageBox.Show(this, "미적용 초안을 버리고 디스크 내용을 다시 읽을까?", "초안 다시 읽기", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
+        session.Reload(activeDocument.Path); session.Persist(); ShowDocument(activeDocument.Path); RefreshContext();
+    });
+    private void PreviewDocument() => Guard(() =>
+    {
+        if (session is null || activeDocument is null || busy) return;
+        pending = session.Preview(activeDocument.Path, activeDocument.Text, intent.Text); ShowChange(); tabs.SelectedIndex = 4;
+    });
+    private void ShowChange()
+    {
+        impact.Children.Clear(); if (pending is null) { diff.Text = "변경 기록이 없어."; return; }
+        diff.Text = pending.Intent + "\n" + pending.File + " · " + pending.State + "\n\n" + string.Join("\n\n", pending.Changes.Select(c => c.Member + "\n  이전: " + (c.Before ?? "(없음)") + "\n  이후: " + (c.After ?? "(없음)")));
+        foreach (string key in pending.Impact.Take(80)) impact.Children.Add(Action(key, () => Guard(() => SelectNode(key))));
+    }
+    private void ApplyChange(bool undo) => Guard(() =>
+    {
+        if (busy || session is null || pending is null) return;
+        session.Apply(pending.Id, undo); pending = session.LoadDraft(pending.Id); ShowChange(); RebuildDocuments(pending.File); RefreshProject();
+        SetStatus(undo ? "이 변경을 되돌렸어." : "변경을 적용했어. DLL 수정은 해당 팩을 빌드하고 게임을 다시 실행하면 반영돼.");
+    });
+    private void ConnectProvider() => Guard(() =>
+    {
+        if (busy) return; var dialog = new OpenFileDialog { Title = "IEditorAssistant 제공자 DLL 연결", Filter = "Assistant DLL|*.dll" };
+        if (dialog.ShowDialog(this) != true) return;
+        var next = AssistantBridge.Load(dialog.FileName); provider?.Dispose(); provider = next; providerLabel.Text = provider.Name; submit.Content = "보내기";
+    });
+    private async void Submit()
+    {
+        if (session is null || busy) return; string text = prompt.Text.Trim(); if (text.Length == 0) return;
+        try
+        {
+            lastRequest = session.PrepareContext(text); Message("나", text); prompt.Clear(); RefreshContext();
+            if (provider is null)
+            {
+                session.ExportContext(lastRequest); Message("문맥 준비", lastRequest.Context.Count + "개 문서·계약을 요청에 담았어. ‘요청 복사’로 Chat에 전달할 수 있어. AI 제공자가 연결되면 이 자리에서 응답을 받게 돼."); RefreshContext(); return;
+            }
+            SetBusy(true); operation = new();
+            var bridge = new AssistantBridge(session, action => Dispatcher.Invoke(() => { action(); RefreshContext(); }));
+            string answer = await bridge.Send(provider, lastRequest, operation.Token); Message(provider.Name, answer); RefreshContext();
+        }
+        catch (Exception e) { SetStatus(e.Message); AppendLog(e.Message); }
+        finally { operation?.Dispose(); operation = null; SetBusy(false); }
+    }
+    private void RefreshContext()
+    {
+        contexts.Children.Clear(); if (session is null) return;
+        contexts.Children.Add(Label("사용자가 연 문서", 13, AccentInk));
+        foreach (var doc in session.Documents) contexts.Children.Add(Action((doc.Dirty ? "● " : "") + Path.GetFileName(doc.Path), () => { ShowDocument(doc.Path); tabs.SelectedIndex = 2; }));
+        if (lastRequest is not null)
+        {
+            contexts.Children.Add(Label("최근 요청 · " + lastRequest.Delivery, 13, AccentInk));
+            contexts.Children.Add(Label(lastRequest.Context.Sum(c => c.Content.Length).ToString("N0") + " / " + lastRequest.CharacterBudget.ToString("N0") + "자", 11, MutedInk));
+            foreach (var item in lastRequest.Context) contexts.Children.Add(Label(item.Path + (item.Partial ? " (일부)" : "") + (item.Draft ? " (미적용 초안)" : "") + (item.DiskChanged ? " (디스크에 외부 변경 있음)" : "") + "\n" + item.Why, 11));
+            if (lastRequest.Omitted.Count > 0) contexts.Children.Add(Label("포함하지 못한 문맥: " + string.Join(", ", lastRequest.Omitted), 11, MutedInk));
+        }
+        contexts.Children.Add(Label("제공자가 명시적으로 읽은 문서", 13, AccentInk));
+        var reads = session.State.Reads.TakeLastCompat(12).Reverse().ToArray();
+        if (reads.Length == 0) contexts.Children.Add(Label("제공자의 추가 문서·계약 요청이 여기에 표시돼.", 11, MutedInk));
+        foreach (var read in reads) contexts.Children.Add(Label(read.Path + "\n" + read.Characters.ToString("N0") + "자 · " + read.Hash.Substring(0, 8) + (read.Partial ? " · 일부" : ""), 11));
+    }
+}
+
+internal static class EditorCollections
+{
+    public static IEnumerable<T> TakeLastCompat<T>(this IEnumerable<T> values, int count) { var array = values.ToArray(); return array.Skip(Math.Max(0, array.Length - count)); }
+}

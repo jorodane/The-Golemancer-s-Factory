@@ -1,0 +1,21 @@
+<IndexRules version="1">
+  <!-- These game semantics belong to the project, never the editor or engine. DLL registrations stay runtime-unknown until verified by the game. -->
+  <Symbol kind="action" select="/GameContent/Actions/Action" id="id" title="name">
+    <Reference attribute="handler" kind="implementation" relation="implemented-by" />
+    <Reference attribute="failure" kind="failure" />
+  </Symbol>
+  <Symbol kind="failure" select="/GameContent/Failures/Failure" id="id">
+    <Reference attribute="handler" kind="implementation" relation="implemented-by" />
+  </Symbol>
+  <Symbol kind="object" select="/GameContent/Objects/Object" id="id" title="name">
+    <Reference attribute="actions" kind="action" separator="," />
+    <Reference select="Data[@key='loot']" attribute="value" kind="item" relation="yields" />
+  </Symbol>
+  <Symbol kind="item" select="/GameContent/Items/Item" id="id" title="name">
+    <Reference attribute="category" kind="category" relation="category" />
+  </Symbol>
+  <Symbol kind="category" select="/GameContent/ItemCategories/Category" id="id" title="name" />
+  <Symbol kind="recipe" select="/GameContent/Recipes/Recipe" id="id" title="name" />
+  <Symbol kind="quest" select="/GameContent/Quests/Quest" id="id" title="name" />
+  <Symbol kind="input" select="/GameContent/InputActions/InputAction" id="id" title="name" />
+</IndexRules>
