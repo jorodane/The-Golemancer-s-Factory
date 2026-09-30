@@ -2,6 +2,6 @@
   <Inputs>
     <Bind action="build" keys="B" />
     <Action id="build" name="건설" command="" item="" group="actions" order="8" virtual="button" />
-    <Bind action="build" device="touch" platforms="android,ios" controls="build" />
+    <Bind action="build" device="touch" controls="build" />
   </Inputs>
 </GameContent>

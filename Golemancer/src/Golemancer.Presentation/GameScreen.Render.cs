@@ -1,9 +1,9 @@
 using Golemancer.Contracts;
 using Golemancer.Desktop;
 using SkiaSharp;
-namespace Golemancer.Android;
+namespace Golemancer.Presentation;
 
-internal sealed partial class GameView
+public sealed partial class GameScreen
 {
     private readonly SKTypeface korean = SKFontManager.Default.MatchCharacter('한') ?? SKTypeface.Default;
     private static SKColor Color(string hex) => SKColor.Parse(hex);
@@ -27,7 +27,7 @@ internal sealed partial class GameView
     }
     private void Button(SKCanvas c, string id, string label, SKRect rect, Action run, bool active = false)
     { Box(c, rect, active ? "#DBB765" : "#DD244637"); Text(c, label, rect.MidX, rect.MidY + 5, 14, active ? "#20352C" : "#FFF0D5", true); hit.Add((rect, id, run)); }
-    private void Render(SKCanvas c, int width, int height)
+    public void Render(SKCanvas c, int width, int height)
     {
         if (width <= 0 || height <= 0) return;
         scale = Math.Min(width / 960f, height / 540f); viewWidth = width / scale; viewHeight = height / scale;
@@ -50,6 +50,7 @@ internal sealed partial class GameView
         }
         if (clock.Elapsed.TotalSeconds < toastUntil)
         { Box(c, SKRect.Create(viewWidth / 2 - 270, 74, 540, 42), "#EC203A2F"); Wrap(c, notice, viewWidth / 2 - 258, 99, 516, 14, 1); }
+        if (modal is not null) RenderModal(c);
         c.Restore();
     }
     private void RenderWorld(SKCanvas c)
@@ -139,6 +140,8 @@ internal sealed partial class GameView
         var q = Game.Content.Quests.Values.FirstOrDefault(q => !Game.State.CompletedQuests.Contains(q.Id) && (q.Requires.Length == 0 || Game.State.CompletedQuests.Contains(q.Requires)));
         if (q is not null) { Box(c, SKRect.Create(12, 75, 260, 65), "#9920382D"); Text(c, q.Name, 24, 96, 14); Wrap(c, q.Description, 24, 117, 236, 12, 2); }
         if (menus.Count > 0 || Game.State.Dialogues.Count > 0) return;
+        if (touchControls)
+        {
         using var ring = new SKPaint { Color = Color("#80234233"), IsAntialias = true }; c.DrawCircle(StickCenter, 62, ring);
         ring.Color = Color("#AADDCE97"); var movement = input.Movement(); c.DrawCircle(StickCenter.X + (float)movement.X * 35, StickCenter.Y + (float)movement.Y * 35, 22, ring);
         Text(c, a.GetText("mode") == "combat" ? "이동" : "카메라", StickCenter.X, viewHeight - 13, 13, centered: true);
@@ -146,6 +149,7 @@ internal sealed partial class GameView
         for (int i = 0; i < ids.Length; i++)
         { string id = ids[i]; string name = Game.Content.InputActions[id].Name; Button(c, "input:" + id, name, SKRect.Create(viewWidth - 388 + i * 75, viewHeight - 78, 70, 58), () => { }, input.Held(id)); }
         Button(c, "input:queue", "예약", SKRect.Create(172, viewHeight - 70, 60, 46), () => { }, queued || input.Held("queue"));
+        }
         Button(c, "zoom-", "−", SKRect.Create(12, 150, 38, 38), () => camera.ZoomTo(Math.Max(24, camera.TargetZoom - 6)));
         Button(c, "zoom+", "+", SKRect.Create(56, 150, 38, 38), () => camera.ZoomTo(Math.Min(72, camera.TargetZoom + 6)));
     }

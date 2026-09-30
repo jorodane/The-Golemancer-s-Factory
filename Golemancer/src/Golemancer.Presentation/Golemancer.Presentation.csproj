@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><TargetFramework>net10.0</TargetFramework><UseGameRuntime>true</UseGameRuntime></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Golemancer.Client/Golemancer.Client.csproj" />
+    <PackageReference Include="SkiaSharp" Version="3.119.4" />
+    <PackageReference Include="Svg.Skia" Version="3.2.1" />
+    <Compile Include="../Golemancer.Host/InteractionChoices.cs" Link="Shared/InteractionChoices.cs" />
+    <Compile Include="../Golemancer.Host/BubbleMenu.cs" Link="Shared/BubbleMenu.cs" />
+    <Compile Include="../Golemancer.Host/BubblePresentation.cs" Link="Shared/BubblePresentation.cs" />
+    <Compile Include="../Golemancer.Host/DialoguePlayback.cs" Link="Shared/DialoguePlayback.cs" />
+  </ItemGroup>
+</Project>

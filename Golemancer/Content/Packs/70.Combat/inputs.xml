@@ -9,8 +9,8 @@
     <Action id="heal" name="회복" command="consume" item="healing_jelly" group="combat" order="12" virtual="button" />
     <Bind action="roll" device="gamepad" controls="ButtonR1" />
     <Bind action="toggle_mode" device="gamepad" controls="ButtonY" />
-    <Bind action="toggle_mode" device="touch" platforms="android,ios" controls="toggle_mode" />
-    <Bind action="roll" device="touch" platforms="android,ios" controls="roll" />
-    <Bind action="heal" device="touch" platforms="android,ios" controls="heal" />
+    <Bind action="toggle_mode" device="touch" controls="toggle_mode" />
+    <Bind action="roll" device="touch" controls="roll" />
+    <Bind action="heal" device="touch" controls="heal" />
   </Inputs>
 </GameContent>

@@ -38,6 +38,14 @@ internal static class PlatformInputTests
         input.Clear(); Check(!input.Held("roll") && input.ConsumePressed().Length == 0, "focus loss clears pending presses as well as held state");
         touch.Down(1, "roll"); touch.Cancel(); Check(input.ConsumePressed().Length == 0, "cancel before the next frame cannot leave a phantom attack press");
         touch.Down(1, "roll"); touch.Up(1); Check(input.ConsumePressed().SequenceEqual(new[] { "roll" }), "a short completed tap still produces its single action");
+        input.Control(c, "ios", "keyboard", "1", "W", 1);
+        touch.Down(1, "roll"); touch.Down(11, "pickup"); touch.Cancel(1);
+        Check(!touch.Contains(1) && touch.Contains(11) && !input.Held("roll") && input.Held("pickup") && input.Held("move.up"), "cancelling one iOS pointer preserves another pointer and keyboard input");
+        Check(input.ConsumePressed().OrderBy(a => a).SequenceEqual(new[] { "move.up", "pickup" }), "single-pointer cancellation removes only its pending action");
+        touch.Down(1, "pickup"); touch.Cancel(11);
+        Check(input.Held("pickup"), "cancelling one source preserves an action held by another pointer");
+        touch.Cancel(); input.Clear();
+        Check(new[] { "linux", "ios" }.All(p => InputBindings.For(c, p, "touch", "roll").Contains("roll") && InputBindings.For(c, p, "keyboard", "heal").SequenceEqual(new[] { "D1" })), "Linux and iOS inherit portable touch and number-key defaults");
         var touchProfile = new ContentCatalog(); touchProfile.InputActions["custom"] = new() { Id = "custom" };
         var mappedTouch = new TouchCapture(input, touchProfile);
         mappedTouch.Down(4, "custom"); mappedTouch.Up(4);

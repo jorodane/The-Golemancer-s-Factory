@@ -7,8 +7,8 @@
     <Action id="mana" name="마나" command="consume" item="mana_jelly" group="combat" order="13" virtual="button" />
     <Action id="crew" name="골렘" command="" item="" group="actions" order="18" virtual="button" />
     <Bind action="crew" keys="C" />
-    <Bind action="equipment" device="touch" platforms="android,ios" controls="equipment" />
-    <Bind action="mana" device="touch" platforms="android,ios" controls="mana" />
-    <Bind action="crew" device="touch" platforms="android,ios" controls="crew" />
+    <Bind action="equipment" device="touch" controls="equipment" />
+    <Bind action="mana" device="touch" controls="mana" />
+    <Bind action="crew" device="touch" controls="crew" />
   </Inputs>
 </GameContent>

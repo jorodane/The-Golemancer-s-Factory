@@ -1,8 +1,8 @@
 using Golemancer.Contracts;
 using Golemancer.Desktop;
 using Golemancer.Runtime;
-namespace Golemancer.Android;
-internal sealed partial class GameView
+namespace Golemancer.Presentation;
+public sealed partial class GameScreen
 {
     private MemoryDraft? memoryDraft;
     private string memoryOwner = "";

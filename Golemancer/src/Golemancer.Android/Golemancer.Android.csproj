@@ -26,13 +26,8 @@
     <EnableDefaultAndroidItems>true</EnableDefaultAndroidItems>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="../Golemancer.Client/Golemancer.Client.csproj" />
+    <ProjectReference Include="../Golemancer.Presentation/Golemancer.Presentation.csproj" />
     <PackageReference Include="SkiaSharp.Views" Version="3.119.4" />
-    <PackageReference Include="Svg.Skia" Version="3.2.1" />
-    <Compile Include="../Golemancer.Host/InteractionChoices.cs" Link="Shared/InteractionChoices.cs" />
-    <Compile Include="../Golemancer.Host/BubbleMenu.cs" Link="Shared/BubbleMenu.cs" />
-    <Compile Include="../Golemancer.Host/BubblePresentation.cs" Link="Shared/BubblePresentation.cs" />
-    <Compile Include="../Golemancer.Host/DialoguePlayback.cs" Link="Shared/DialoguePlayback.cs" />
     <AndroidAsset Include="../../Content/Packs/**/*.xml;../../Content/Packs/**/*.png;../../Content/Packs/**/*.svg;../../Content/Packs/**/Bin/net10.0/*.dll;../../Content/Packs/**/Bin/net10.0/*.deps.json">
       <Link>$([MSBuild]::MakeRelative('$(MSBuildProjectDirectory)/../../', '%(FullPath)'))</Link>
     </AndroidAsset>

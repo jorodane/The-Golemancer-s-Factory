@@ -4,7 +4,7 @@
 - Object packs contain independently compiled implementations, XML settings/localization and optional art. Actions, conditions and failure handlers are objects too.
 - Contracts specify semantics, ownership and partial effects. Keep module implementations local and depend on shared contracts, not other modules' concrete types.
 - Maps, construction footprints, collision and action ranges use integer tiles. Actors move continuously with persisted sub-tile offsets; manual input and replay must never snap to tile centers.
-- Native Windows WPF application targeting .NET Framework 4.8, plus a native Android host targeting net10.0-android. No browser host. Shared engine, client session and independent modules also target net10.0 for Android and portable verification.
+- Native Windows WPF application targeting .NET Framework 4.8, Android targeting net10.0-android, Linux SDL2 targeting net10.0, and an experimental UIKit host targeting net10.0-ios. No browser host. Shared engine, client session and independent modules also target net10.0 for Android and portable verification.
 - Android packages independent net10.0 module DLLs as assets, extracts them to private storage and loads them through PackLoadContext. Preserve JIT/reflection: no trimming or AOT. Keep the SDK's normal assembly store/compression for host runtime assemblies; that does not replace external module loading.
 - Logical input actions belong to modules/XML. Platform/device bindings adapt keyboard, touch and gamepad without key enums in Contracts. Pointer/device release, cancellation and activity suspension must clear only the appropriate input sources.
 - Track ready-to-run EXE/runtime DLLs in Builds/Windows and the compiled net48 module DLLs in Content/Packs/*/Bin/net48. Start.bat launches these files without rebuilding or unzipping. Build.bat rebuilds and publishes them through tools/Publish.proj. Keep Content at the game folder root so local images and saves remain in place across updates.
@@ -37,4 +37,10 @@
 - BuildPacks.bat builds content DLLs and the game contracts. TestIsolation.bat copies this folder without engine source and runs the existing game and full campaign while comparing engine/host hashes. Optional TeaBreak checks require --with-tea-break and are not part of the current separation verification.
 - Generic UI WPF/Android backends are not implemented. The game uses its existing native screens; engine separation does not add renderer capabilities.
 - Native hosts bind frame work through the SDK timing scheduler; see docs/TIMING.md. Keep simulation at priority 0 and camera preparation at render-update -10 before native submission 0. The engine must never learn game or native host types.
-- Both native hosts use Client.GameCamera, a compatibility adapter over the SDK rendering camera. Keep interpolation/projection in the engine, game tracking/bounds in the consumer, and picking on the last-drawn view. Wheel/buttons set zoom targets; zoom alone must not rebuild terrain caches. See SDK/CAMERA.md.
+- All native hosts use Client.GameCamera, a compatibility adapter over the SDK rendering camera. Keep interpolation/projection in the engine, game tracking/bounds in the consumer, and picking on the last-drawn view. Wheel/buttons set zoom targets; zoom alone must not rebuild terrain caches. See SDK/CAMERA.md.
+
+## Portable presentation hosts
+
+- Android, Linux and iOS share Golemancer.Presentation for game-specific rendering, menus, gestures and dialogs. Keep OS types in native hosts. This module is not a generic engine UI backend. WPF retains its existing renderer and shares client logic and linked helper source.
+- iOS bundles independent IL pack DLLs and uses the real loader with UseInterpreter=true and TrimMode=copy. Do not replace runtime pack loading with a static registry to make the experiment pass. Mac/Xcode native build and device execution remain separate validation gates.
+- Linux full runtime packages are separate downloads; commit source, launch/build scripts and Builds/Linux metadata only. Never include saves in delivery packages.

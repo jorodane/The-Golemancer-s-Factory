@@ -1,7 +1,7 @@
 <Project>
   <PropertyGroup>
     <FrozenSdkFramework>$(TargetFramework)</FrozenSdkFramework>
-    <FrozenSdkFramework Condition="'$(TargetFramework)' == 'net10.0-android'">net10.0</FrozenSdkFramework>
+    <FrozenSdkFramework Condition="'$(TargetFramework)' == 'net10.0-android' Or '$(TargetFramework)' == 'net10.0-ios'">net10.0</FrozenSdkFramework>
     <FrozenSdkCopyLocal Condition="'$(FrozenSdkCopyLocal)' == ''">true</FrozenSdkCopyLocal>
   </PropertyGroup>
   <ItemGroup>

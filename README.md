@@ -1,9 +1,11 @@
 # The Golemancer’s Factory / PackEngine
 
-게임 작업은 **[Golemancer](Golemancer)** 폴더 안에서 진행한다. 게임 소스·모듈·XML·이미지·Windows 실행 파일·Android 호스트·게임 계약·고정 엔진 SDK가 모두 들어 있다. 이 폴더만 복사해 실행하고 개발할 수 있다.
+게임 작업은 **[Golemancer](Golemancer)** 폴더 안에서 진행한다. 게임 소스·모듈·XML·이미지·Windows 실행 파일·Android/Linux/iOS 호스트·게임 계약·고정 엔진 SDK가 모두 들어 있다. 이 폴더만 복사해 실행하고 개발할 수 있다.
 
 - 실행: 루트 `Start.bat` 또는 `Golemancer/Start.bat`.
 - 게임 빌드: `Golemancer/Build.bat`. 게임팩만 빌드: `Golemancer/BuildPacks.bat`.
+- Linux: `Golemancer/BuildLinux.sh`, `Golemancer/StartLinux.sh`. iPhone: [Mac 빌드 절차](Golemancer/docs/IOS.md).
+- [플랫폼 공통점 분석](Golemancer/docs/PLATFORMS.md).
 - 독립 게임 검증: `Golemancer/TestIsolation.bat`.
 - [게임 안내](Golemancer/README.md) · [폴더와 API 경계](Golemancer/docs/STANDALONE_GAME.md) · [엔진 개발 안내](docs/ENGINE.md).
 

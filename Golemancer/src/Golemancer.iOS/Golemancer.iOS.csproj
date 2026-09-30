@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-ios</TargetFramework><TargetPlatformVersion>26.2</TargetPlatformVersion>
+    <SupportedOSPlatformVersion>15.0</SupportedOSPlatformVersion>
+    <OutputType>Exe</OutputType><UseGameRuntime>true</UseGameRuntime>
+    <ApplicationId>com.golemancer.factory</ApplicationId>
+    <ApplicationTitle>The Golemancer's Factory</ApplicationTitle>
+    <ApplicationVersion>1</ApplicationVersion><ApplicationDisplayVersion>0.3.0</ApplicationDisplayVersion>
+    <!-- Keep external IL packs: no static content-module project references.
+         iOS requires its linker task to run; copy mode keeps all managed code. -->
+    <UseInterpreter>true</UseInterpreter><TrimMode>copy</TrimMode><PublishAot>false</PublishAot>
+    <CodesignConfigureDependsOn>$(CodesignConfigureDependsOn);ConfigureSimulatorSigning</CodesignConfigureDependsOn>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Golemancer.Presentation/Golemancer.Presentation.csproj" />
+    <PackageReference Include="SkiaSharp.Views" Version="3.119.4" />
+    <BundleResource Include="../../Content/Packs/**/*.xml;../../Content/Packs/**/*.png;../../Content/Packs/**/*.svg;../../Content/Packs/**/Bin/net10.0/*.dll;../../Content/Packs/**/Bin/net10.0/*.deps.json">
+      <LogicalName>$([MSBuild]::MakeRelative('$(MSBuildProjectDirectory)/../../', '%(FullPath)'))</LogicalName>
+    </BundleResource>
+  </ItemGroup>
+  <Target Name="ConfigureSimulatorSigning">
+    <PropertyGroup><EnableCodeSigning Condition="'$(SdkIsSimulator)' == 'true'">false</EnableCodeSigning></PropertyGroup>
+  </Target>
+  <Target Name="RequireExternalPacks" BeforeTargets="PrepareForBuild">
+    <Error Condition="!Exists('../../Content/Packs/00.Foundation/Bin/net10.0/Golemancer.Conditions.dll')" Text="Run BuildiOS.sh first to compile the independent net10.0 object-pack DLLs." />
+  </Target>
+</Project>

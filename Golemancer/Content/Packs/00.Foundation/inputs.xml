@@ -37,15 +37,15 @@
     <Bind action="menu" device="gamepad" controls="ButtonStart,ButtonB" />
     <Bind action="pickup" device="gamepad" controls="ButtonL1" />
     <Bind action="queue" device="gamepad" controls="ButtonL2" />
-    <Bind action="pickup" device="touch" platforms="android,ios" controls="pickup" />
-    <Bind action="queue" device="touch" platforms="android,ios" controls="queue" />
-    <Bind action="quantity.one" device="touch" platforms="android,ios" controls="quantity.one" />
-    <Bind action="quantity.all" device="touch" platforms="android,ios" controls="quantity.all" />
-    <Bind action="follow" device="touch" platforms="android,ios" controls="follow" />
-    <Bind action="cancel" device="touch" platforms="android,ios" controls="cancel" />
-    <Bind action="primary" device="touch" platforms="android,ios" controls="primary" />
-    <Bind action="context" device="touch" platforms="android,ios" controls="context" />
-    <Bind action="menu" device="touch" platforms="android,ios" controls="menu" />
-    <Bind action="inventory" device="touch" platforms="android,ios" controls="inventory" />
+    <Bind action="pickup" device="touch" controls="pickup" />
+    <Bind action="queue" device="touch" controls="queue" />
+    <Bind action="quantity.one" device="touch" controls="quantity.one" />
+    <Bind action="quantity.all" device="touch" controls="quantity.all" />
+    <Bind action="follow" device="touch" controls="follow" />
+    <Bind action="cancel" device="touch" controls="cancel" />
+    <Bind action="primary" device="touch" controls="primary" />
+    <Bind action="context" device="touch" controls="context" />
+    <Bind action="menu" device="touch" controls="menu" />
+    <Bind action="inventory" device="touch" controls="inventory" />
   </Inputs>
 </GameContent>

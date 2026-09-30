@@ -1,9 +1,9 @@
 using Golemancer.Contracts;
 using Golemancer.Desktop;
 using Golemancer.Runtime;
-namespace Golemancer.Android;
+namespace Golemancer.Presentation;
 
-internal sealed partial class GameView
+public sealed partial class GameScreen
 {
     private static readonly Dictionary<string, int> Prices = new() { ["harvest_core"] = 20, ["craft_core"] = 35, ["combat_core"] = 75, ["jelly_book"] = 12, ["mana_book"] = 65, ["healing_jelly"] = 22, ["wood"] = 3 };
     private List<BubbleEntry> AllActions()

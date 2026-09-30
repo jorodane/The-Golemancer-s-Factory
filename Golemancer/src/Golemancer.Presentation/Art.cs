@@ -2,7 +2,7 @@ using Golemancer.Contracts;
 using Golemancer.Runtime;
 using SkiaSharp;
 using Svg.Skia;
-namespace Golemancer.Android;
+namespace Golemancer.Presentation;
 
 // Loads the same external artwork and frame metadata as Windows. No replacement artwork.
 internal sealed class Art(ContentCatalog content) : IDisposable

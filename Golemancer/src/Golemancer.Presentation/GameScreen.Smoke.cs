@@ -1,22 +1,22 @@
 using Golemancer.Client;
 using Golemancer.Contracts;
 using Golemancer.Runtime;
-using Android.Views;
 using SkiaSharp;
 using PackEngine.Contracts;
 using PackEngine.Contracts.Rendering;
-namespace Golemancer.Android;
-internal sealed partial class GameView
+namespace Golemancer.Presentation;
+public sealed partial class GameScreen
 {
-    public void RunSmoke(CookedGame cooked)
+    public IReadOnlyList<string> RunSmoke(CookedGame cooked, Action<PointerPhase, int, float, float>? nativePointer = null)
     {
         var report = new List<string>();
         void Check(bool ok, string label) { if (!ok) throw new InvalidOperationException("SMOKE FAIL: " + label); report.Add("PASS: " + label); }
+        bool previousTouch = touchControls; touchControls = true;
         try
         {
             Check(cooked.Registry.Actions.Count >= 20, "pack registry populated");
-            Check(cooked.Registry.Actions.Values.All(a => PackLoader.IsExternalModule(a.GetType().Assembly)), "real external DLL loading on Android");
-            Check(!typeof(GameView).Assembly.GetReferencedAssemblies().Any(a => a.Name is not null && cooked.Content.Packs.Any(p => p.Assemblies.Contains(a.Name + ".dll"))), "host has no content-module references");
+            Check(cooked.Registry.Actions.Values.All(a => PackLoader.IsExternalModule(a.GetType().Assembly)), "real external DLL loading on " + platform + "");
+            Check(!typeof(GameScreen).Assembly.GetReferencedAssemblies().Any(a => a.Name is not null && cooked.Content.Packs.Any(p => p.Assemblies.Contains(a.Name + ".dll"))), "host has no content-module references");
             using var test = new GameSession(session.Root, cooked, Path.Combine(session.Root, "SmokeSaves")); test.NewGame(); test.Game.State.Dialogues.Clear();
             var state = new InputState(); var capture = new TouchCapture(state);
             capture.Down(1, "stick"); capture.Stick(1, 1, 0); capture.Down(2, "pickup"); capture.Up(2);
@@ -30,7 +30,7 @@ internal sealed partial class GameView
             session.NewGame(); Game.State.Dialogues.Clear(); Center();
             using (var surface = SKSurface.Create(new SKImageInfo(960, 540))) Render(surface.Canvas, 960, 540);
             Check(ReferenceEquals(session.Camera, camera) && session.Camera is ICamera2D,
-                "native Android host shares the engine camera with pack callbacks");
+                "shared screen shares the engine camera with pack callbacks");
             double startZoom = camera.Zoom;
             var savedView = ViewCamera; var savedTile = TileAt(new SKPoint(350, 250));
             hit.Single(h => h.Id == "zoom+").Run(); hit.Single(h => h.Id == "zoom+").Run();
@@ -38,46 +38,44 @@ internal sealed partial class GameView
                 "native zoom buttons accumulate targets without changing the drawn view");
             UpdateCamera(1.0 / 60);
             Check(camera.Zoom > startZoom && camera.Zoom < startZoom + 12 && TileAt(new SKPoint(350, 250)) == savedTile && ViewCamera.Zoom == savedView.Zoom,
-                "Android zoom advances smoothly while picking retains the last-drawn view");
+                "shared zoom advances smoothly while picking retains the last-drawn view");
             using (var surface = SKSurface.Create(new SKImageInfo(1440, 810))) Render(surface.Canvas, 1440, 810);
             var screenProbe = Screen(7.25, 9.75);
             Check(TileAt(screenProbe) == new Tile(7, 9) && Math.Abs(ViewCamera.Zoom - camera.Zoom) < 1e-9,
-                "Android draw commits the new engine camera with device scaling outside world projection");
+                "shared draw commits the new engine camera with device scaling outside world projection");
             camera.Zoom = startZoom;
             using (var surface = SKSurface.Create(new SKImageInfo(960, 540))) Render(surface.Canvas, 960, 540);
-            void Touch(MotionEventActions action, params (int Id, float X, float Y)[] points)
+            void Touch(PointerPhase phase, int id, float x, float y)
             {
-                var properties = points.Select(p => new MotionEvent.PointerProperties { Id = p.Id, ToolType = MotionEventToolType.Finger }).ToArray();
-                var coords = points.Select(p => new MotionEvent.PointerCoords { X = p.X, Y = p.Y, Pressure = 1, Size = 1 }).ToArray();
-                using var e = MotionEvent.Obtain(100, 100, action, points.Length, properties, coords, 0, 0, 1, 1, 0, 0, InputSourceType.Touchscreen, 0);
-                OnTouchEvent(e);
-                foreach (var property in properties) property.Dispose(); foreach (var coord in coords) coord.Dispose();
+                if (nativePointer is not null) nativePointer(phase, id, x, y);
+                else switch (phase)
+                {
+                    case PointerPhase.Down: PointerDown(id, x, y); break;
+                    case PointerPhase.Move: PointerMove(id, x, y); break;
+                    case PointerPhase.Up: PointerUp(id, x, y); break;
+                    case PointerPhase.Cancel: CancelPointers(); break;
+                }
             }
-            Touch(MotionEventActions.Down, (11, 88, 454));
-            Touch(MotionEventActions.Move, (11, 140, 454));
-            Touch((MotionEventActions)((int)MotionEventActions.PointerDown | 1 << 8), (11, 140, 454), (42, 832, 491));
-            Check(input.Held("move.right") && input.Held("roll"), "native MotionEvent routes joystick plus second-finger button");
-            Touch((MotionEventActions)((int)MotionEventActions.PointerUp | 1 << 8), (11, 140, 454), (42, 832, 491));
-            Check(input.Held("move.right") && !input.Held("roll"), "native pointer-up keeps first finger captured");
-            Touch(MotionEventActions.Cancel, (11, 140, 454));
-            Check(input.Movement() == (0, 0) && input.ConsumePressed().Length == 0, "native touch cancellation clears held and pending input");
+            Touch(PointerPhase.Down, 11, 88, 454);
+            Touch(PointerPhase.Move, 11, 140, 454);
+            Touch(PointerPhase.Down, 42, 832, 491);
+            Check(input.Held("move.right") && input.Held("roll"), "pointer bridge routes stick plus second-finger button");
+            Touch(PointerPhase.Up, 42, 832, 491);
+            Check(input.Held("move.right") && !input.Held("roll"), "pointer-up preserves first-finger capture");
+            Touch(PointerPhase.Cancel, 11, 140, 454);
+            Check(input.Movement() == (0, 0) && input.ConsumePressed().Length == 0, "pointer cancellation clears held and pending controls");
             OpenRoot("검증 메뉴", () => [Leaf("test", "검증", () => { })]);
             using (var surface = SKSurface.Create(new SKImageInfo(960, 540))) Render(surface.Canvas, 960, 540);
             Check(hit.All(h => h.Id is not ("inventory" or "crew" or "more")), "open radial menu shields underlying HUD controls"); CloseMenu();
             session.NewGame();
-            void Frame()
-            {
-                running = true;
-                try { DoFrame(0); }
-                finally { running = false; Choreographer.Instance!.RemoveFrameCallback(this); }
-            }
+            void Frame() { Resume(); Tick(); }
             Frame();
             var line = Game.State.Dialogues[0];
             dialogue.Begin(line.Id, line.Text, clock.Elapsed.TotalSeconds - 100);
             int lines = Game.State.Dialogues.Count;
-            Touch(MotionEventActions.Down, (7, 700, 430)); Frame();
-            Touch(MotionEventActions.Up, (7, 700, 430));
-            Check(Game.State.Dialogues.Count == lines - 1, "dialogue tap survives a rendered frame between native down and up events");
+            Touch(PointerPhase.Down, 7, 700, 430); Frame();
+            Touch(PointerPhase.Up, 7, 700, 430);
+            Check(Game.State.Dialogues.Count == lines - 1, "dialogue tap survives a rendered frame between pointer down and up events");
             var timingOrder = new List<string>(); bool cameraPrepared = false;
             using (session.Timings.Register(EngineTiming.Input, "smoke.input", 10, (_, _) => timingOrder.Add("input")))
             using (session.Timings.Register(EngineTiming.Update, "smoke.update", 10, (_, _) => timingOrder.Add("update")))
@@ -87,12 +85,22 @@ internal sealed partial class GameView
                 Frame();
             Check(string.Join(",", timingOrder) == "input,update,before-camera,after-camera,after-render", "native frame dispatches input/update/render timing callbacks in priority order");
             Check(cameraPrepared, "native camera -10 runs between pack hooks -20 and -5 before render 0");
-            report.Add("ANDROID_SMOKE_PASS");
+            int chosen = 0;
+            bool beforeModal = session.MenuPaused;
+            Quantity("test", () => 37, value => { chosen = value; return ActionResult.Success("quantity"); });
+            Check(session.MenuPaused && externalModal, "quantity modal pauses the game");
+            Key("Num3", true); Key("D5", true); Key("Enter", true);
+            Check(chosen == 35 && !externalModal && session.MenuPaused == beforeModal, "numeric keyboard confirms bounded quantity and restores pause state");
+            Quantity("cancel", () => 12, _ => throw new Exception("cancelled quantity executed"));
+            Key("Escape", true);
+            Check(!externalModal, "cancel never executes a quantity command");
+            input.Set("keyboard:1:W", "move.up", 1); input.Set("gamepad:3:LeftX+", "move.right", 1);
+            ReleaseGamepad(3); Check(input.Held("move.up") && !input.Held("move.right"), "disconnect releases only that device's input sources"); ClearControls();
+            Check(Game.Content.InputBindings.Any(b => Golemancer.Contracts.InputBindings.For(Game.Content, platform, "touch", "pickup").Contains("pickup")), "portable virtual-control bindings resolve for the host platform");
+            report.Add("PRESENTATION_SMOKE_PASS");
             session.NewGame(); Center();
+            return report;
         }
-        catch (Exception ex) { report.Add("ANDROID_SMOKE_FAIL " + ex); }
-        string result = string.Join("\n", report);
-        File.WriteAllText(Path.Combine(session.Root, "android-smoke.txt"), result);
-        global::Android.Util.Log.Info("GolemancerSmoke", result);
+        finally { touchControls = previousTouch; ClearControls(); }
     }
 }

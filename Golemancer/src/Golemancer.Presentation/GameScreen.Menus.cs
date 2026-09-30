@@ -1,12 +1,9 @@
-using Android.App;
-using Android.Text;
-using Android.Widget;
 using Golemancer.Contracts;
 using Golemancer.Desktop;
 using SkiaSharp;
-namespace Golemancer.Android;
+namespace Golemancer.Presentation;
 
-internal sealed partial class GameView
+public sealed partial class GameScreen
 {
     private sealed class MenuFrame(string title, Func<List<BubbleEntry>> build, SKPoint center)
     { public string Title = title; public Func<List<BubbleEntry>> Build = build; public SKPoint Center = center; public int Page; }
@@ -88,43 +85,5 @@ internal sealed partial class GameView
             float x = center.X + 172; if (x + 260 > viewWidth) x = center.X - 432;
             if (x >= 8) { Box(c, SKRect.Create(x, center.Y - 128, 255, 225), "#ED20382B"); Text(c, preview.Title, x + 12, center.Y - 102, 15); Wrap(c, PreviewText(preview), x + 12, center.Y - 77, 230, 13, 10); }
         }
-    }
-    private void Details(string title, string message)
-    {
-        bool paused = session.MenuPaused; externalModal = true; session.MenuPaused = true; ClearControls();
-        var dialog = new AlertDialog.Builder(Context!).SetTitle(title)!.SetMessage(message)!.SetPositiveButton("확인", (_, _) => { })!.Create()!;
-        dialog.DismissEvent += (_, _) => { externalModal = false; session.MenuPaused = paused; ClearControls(); }; dialog.Show();
-    }
-    private void Confirm(string title, Action action)
-    {
-        externalModal = true; ClearControls();
-        var dialog = new AlertDialog.Builder(Context!).SetTitle(title)!.SetNegativeButton("취소", (_, _) => { })!.SetPositiveButton("확인", (_, _) => action())!.Create()!;
-        dialog.DismissEvent += (_, _) => { externalModal = false; ClearControls(); }; dialog.Show();
-    }
-    private void Quantity(string title, Func<int> maximum, Func<int, ActionResult> confirm, int initial = 1)
-    {
-        int max = Math.Max(0, Math.Min(9999, maximum()));
-        if (max == 0) { Notify("지금 처리할 수 있는 수량이 없어."); return; }
-        int shortcut = QuantityPicker.Modifier(oneModifier || input.Held("quantity.one"), allModifier || input.Held("quantity.all"), max);
-        if (shortcut > 0) { Finish(() => confirm(shortcut)); return; }
-        bool paused = session.MenuPaused; externalModal = true; session.MenuPaused = true; ClearControls();
-        var panel = new LinearLayout(Context) { Orientation = Orientation.Vertical }; panel.SetPadding(24, 8, 24, 8);
-        var field = new EditText(Context) { InputType = InputTypes.ClassNumber, Text = QuantityPicker.Clamp(initial, max).ToString(), TextSize = 22 };
-        var slider = new SeekBar(Context) { Max = max - 1, Progress = QuantityPicker.Clamp(initial, max) - 1 };
-        panel.AddView(field); panel.AddView(slider); bool updating = false;
-        void Set(int n) { updating = true; int v = QuantityPicker.Clamp(n, max); field.Text = v.ToString(); slider.Progress = v - 1; updating = false; }
-        int Current() => int.TryParse(field.Text, out int n) ? QuantityPicker.Clamp(n, max) : 1;
-        field.TextChanged += (_, _) => { if (!updating) { updating = true; slider.Progress = Current() - 1; updating = false; } };
-        slider.ProgressChanged += (_, e) => { if (!updating && e.FromUser) Set(e.Progress + 1); };
-        foreach (var ids in new[] { new[] { "-10", "-5", "-1", "+1", "+5", "+10" }, new[] { "one", "mean", "max" } })
-        {
-            var row = new LinearLayout(Context) { Orientation = Orientation.Horizontal };
-            foreach (string id in ids)
-            { var button = new global::Android.Widget.Button(Context) { Text = id switch { "one" => "1개", "mean" => "중간", "max" => "Max", _ => id } }; button.Click += (_, _) => Set(QuantityPicker.Shortcut(id, Current(), max)); row.AddView(button, new LinearLayout.LayoutParams(0, -2, 1)); }
-            panel.AddView(row);
-        }
-        var dialog = new AlertDialog.Builder(Context!).SetTitle(title + " · 최대 " + max)!.SetView(panel)!.SetNegativeButton("취소", (_, _) => { })!
-            .SetPositiveButton("확인", (_, _) => { session.MenuPaused = paused; int live = Math.Max(0, Math.Min(9999, maximum())); if (live > 0) Finish(() => confirm(Math.Min(Current(), live))); })!.Create()!;
-        dialog.DismissEvent += (_, _) => { externalModal = false; session.MenuPaused = paused && menus.Count > 0; ClearControls(); }; dialog.Show();
     }
 }

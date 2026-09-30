@@ -8,8 +8,8 @@
     <Bind action="memory" keys="M" />
     <Bind action="record" device="gamepad" controls="ButtonSelect" />
     <Bind action="play" device="gamepad" controls="ButtonR2" />
-    <Bind action="record" device="touch" platforms="android,ios" controls="record" />
-    <Bind action="play" device="touch" platforms="android,ios" controls="play" />
-    <Bind action="memory" device="touch" platforms="android,ios" controls="memory" />
+    <Bind action="record" device="touch" controls="record" />
+    <Bind action="play" device="touch" controls="play" />
+    <Bind action="memory" device="touch" controls="memory" />
   </Inputs>
 </GameContent>

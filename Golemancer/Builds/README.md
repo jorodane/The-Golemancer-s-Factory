@@ -2,7 +2,9 @@
 
 Android 개발 빌드는 별도 다운로드로 제공하는 **Golemancer.apk**를 설치하면 돼. APK는 Git 저장소에 포함하지 않고, `Android/build-info.json`과 `Android/SHA256SUMS`에 빌드 정보와 해시만 기록해. Android 8.0 이상 ARM64/x86_64용이며 런타임·모듈·현재 이미지가 포함돼. 개발용 서명을 사용하고, 실제 휴대폰 확인은 별도로 필요해. [Android 안내](../docs/ANDROID.md)에 빌드와 조작을 정리했어.
 
-`Golemancer` 폴더의 **Start.bat**을 실행하면 돼. .NET Framework 4.8만 필요하고 SDK 설치나 빌드 ZIP 압축 해제는 필요 없어.
+Linux x64 실행 패키지는 별도 다운로드로 제공해. 압축 해제 후 `Golemancer/StartLinux.sh`를 실행하며 SDL2·fontconfig·한글 글꼴이 필요해. .NET 런타임과 실제 Content는 포함돼. [Linux 안내](../docs/LINUX.md)를 참고해. iOS는 아직 실행 패키지가 없으며 [Mac 빌드 프로젝트](../docs/IOS.md)를 제공해.
+
+Windows는 `Golemancer` 폴더의 **Start.bat**을 실행하면 돼. .NET Framework 4.8만 필요하고 SDK 설치나 빌드 ZIP 압축 해제는 필요 없어.
 
 | 위치 | 내용 |
 |---|---|

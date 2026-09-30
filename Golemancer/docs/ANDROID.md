@@ -2,7 +2,7 @@
 
 별도 다운로드로 제공하는 `Golemancer.apk`는 Android 8.0(API 26) 이상 ARM64 및 x86_64용 개발 빌드다. APK 파일은 Git에 커밋하지 않는다. 저장소의 `Builds/Android/build-info.json`과 `Builds/Android/SHA256SUMS`에서 빌드 정보와 해시를 확인할 수 있다. .NET 런타임, 공유 엔진, 독립 객체팩 DLL, XML, 저장소에 있는 아트를 포함한다. 개발용 서명이며 스토어 배포 빌드는 아니다. 기존 앱의 서명과 다른 키로 만든 APK는 덮어쓸 수 없으므로 배포 시 동일한 서명 키를 유지해야 한다.
 
-현재 빌드는 API 29 x86_64 에뮬레이터에서 실행·터치·저장·DLL 로딩·앱 복귀를 검증했다. 실제 ARM64 휴대폰과 물리 게임패드는 아직 검증하지 않았다. 상세 결과는 [검증 기록](VERIFICATION.md)에 있다.
+이전 타이밍 버전은 API 29 x86_64 에뮬레이터에서 실행·터치·저장·DLL 로딩·앱 복귀를 검증했다. 이번 공통 Presentation 버전은 APK 빌드와 Linux에서의 공통 화면 검사를 통과했으며 Android 기기에서는 아직 재실행하지 않았다. 실제 ARM64 휴대폰과 물리 게임패드도 미검증이다. 상세 결과는 [검증 기록](VERIFICATION.md)에 있다.
 
 ## 실행과 조작
 
@@ -22,7 +22,7 @@ APK를 기기에 복사하고 설치한 뒤 가로 화면에서 실행한다. An
 | 메뉴 안 방향키 / A / B | 항목 선택 / 실행 / 뒤로 |
 | 외부 키보드 | 기존 Windows 키 배치, 플랫폼별 키 이름은 XML에서 변환 |
 
-수량 입력은 Android 숫자 입력창과 슬라이더를 사용한다. 메뉴·대사·앱 비활성 전환 시 남아 있는 이동과 터치를 해제한다. 앱을 벗어날 때 자동 저장하며, 시작 화면의 이어하기는 자동 저장을 읽는다. 저장은 앱 전용 `FilesDir/Saves`, 스모크 검증은 별도 `SmokeSaves`를 사용한다.
+수량 입력은 공통 화면의 숫자 키패드·슬라이더·확인 버튼을 사용한다. 외부 키보드의 숫자와 Enter/Escape도 지원한다. 메뉴·대사·앱 비활성 전환 시 남아 있는 이동과 터치를 해제한다. 앱을 벗어날 때 자동 저장하며, 시작 화면의 이어하기는 자동 저장을 읽는다. 저장은 앱 전용 `FilesDir/Saves`, 스모크 검증은 별도 `SmokeSaves`를 사용한다.
 
 ## 빌드
 
@@ -40,7 +40,7 @@ bash build-android.sh -p:AndroidSdkDirectory=/path/to/android-sdk -p:JavaSdkDire
 
 ## 실제 DLL 로딩
 
-`Golemancer.Android → Golemancer.Client → Golemancer.Runtime → Golemancer.Contracts`는 게임 폴더 안의 프로젝트 참조로 연결한다. 공통 `PackEngine.Contracts`·`PackEngine.Runtime`은 SDK 바이너리만 참조한다. 콘텐츠 모듈은 독립적으로 빌드한 `Content/Packs/*/Bin/net10.0/*.dll`이다. APK asset에서 앱 전용 Content 디렉터리로 추출한 뒤 `PackLoadContext.LoadFromAssemblyPath`로 읽는다. 모듈별 XML과 번역도 같은 팩에서 읽는다.
+`Golemancer.Android → Golemancer.Presentation → Golemancer.Client → Golemancer.Runtime → Golemancer.Contracts`는 게임 폴더 안의 프로젝트 참조로 연결한다. 공통 `PackEngine.Contracts`·`PackEngine.Runtime`은 SDK 바이너리만 참조한다. 콘텐츠 모듈은 독립적으로 빌드한 `Content/Packs/*/Bin/net10.0/*.dll`이다. APK asset에서 앱 전용 Content 디렉터리로 추출한 뒤 `PackLoadContext.LoadFromAssemblyPath`로 읽는다. 모듈별 XML과 번역도 같은 팩에서 읽는다.
 
 호스트 런타임의 assembly store/압축은 기본값을 유지한다. 이 패키징과 외부 객체팩 DLL 로딩은 별개다. `PublishTrimmed=false`, `RunAOTCompilation=false`를 유지하여 동적으로 참조하는 타입과 JIT 실행을 보존한다. Release 시작 시 JNI 메서드 등록 누락을 피하도록 `AndroidEnableMarshalMethods=false`로 동적 JNI 등록을 사용한다. [공식 빌드 속성 설명](https://learn.microsoft.com/en-us/dotnet/android/building-apps/build-properties#androidenablemarshalmethods)에 해당 옵션을 정리하고 있다. Android에서 사용할 수 없는 `AssemblyDependencyResolver`는 인접 DLL 탐색으로 대체한다. 사용자 팩을 가져오는 화면은 아직 제공하지 않는다.
 
@@ -65,7 +65,7 @@ bash build-android.sh -p:AndroidSdkDirectory=/path/to/android-sdk -p:JavaSdkDire
 - 각 키·포인터·게임패드 축은 독립적인 source ID를 사용한다. 한 손가락을 떼어도 다른 손가락이나 키보드의 입력을 지우지 않는다. 취소·연결 해제는 아직 처리하지 않은 눌림 이벤트도 정리한다.
 - `examples/TeaBreak`는 호스트 수정 없이 DLL 입력 계약, 키보드 K와 게임패드 R3 바인딩을 추가하는 예제다.
 
-Linux 네이티브 창과 iOS 호스트는 아직 구현하지 않았다. iOS용 Xcode 파일 세트 제공과 동적 DLL 실행 가능 범위는 별도 플랫폼 검토가 필요하다.
+Android의 게임 화면은 공통 Presentation DLL로 옮겼다. [Linux 호스트](LINUX.md)는 같은 화면으로 실행 검증했고, [iOS 호스트](IOS.md)는 Mac 빌드·실행을 준비했다. iOS에서 동적 DLL 실행이 성공하는지는 아직 검증하지 않았다. [플랫폼 공통점 분석](PLATFORMS.md)에 코드 경계를 정리했다.
 
 ## Android 스모크 검증 실행
 

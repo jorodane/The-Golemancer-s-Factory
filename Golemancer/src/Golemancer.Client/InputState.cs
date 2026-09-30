@@ -32,6 +32,11 @@ public sealed class InputState
     }
     public string[] ConsumePressed() { var result = pressed.Keys.ToArray(); pressed.Clear(); return result; }
     public void Release(string source) => sources.Remove(source);
+    public void CancelSource(string source)
+    {
+        sources.Remove(source);
+        foreach (string action in pressed.Where(p => p.Value == source && !Held(p.Key)).Select(p => p.Key).ToArray()) pressed.Remove(action);
+    }
     public void ReleaseDevice(string devicePrefix)
     {
         foreach (string source in sources.Keys.Where(s => s.StartsWith(devicePrefix, StringComparison.Ordinal)).ToArray()) sources.Remove(source);
@@ -69,5 +74,6 @@ public sealed class TouchCapture(InputState input, ContentCatalog? content = nul
         input.Set(source, "move.up", Math.Max(0, -y)); input.Set(source, "move.down", Math.Max(0, y));
     }
     public void Up(int pointer) { pointers.Remove(pointer); input.Release("touch:" + pointer); }
+    public void Cancel(int pointer) { pointers.Remove(pointer); input.CancelSource("touch:" + pointer); }
     public void Cancel() { pointers.Clear(); input.ReleaseDevice("touch:"); }
 }

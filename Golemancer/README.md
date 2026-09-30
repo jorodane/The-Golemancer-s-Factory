@@ -10,9 +10,11 @@
 
 ## 실행
 
-Windows용 **WPF / .NET Framework 4.8** 앱과 Android용 **네이티브 .NET 10** 앱이야.
+Windows용 **WPF / .NET Framework 4.8**, Android 및 Linux용 **네이티브 .NET 10** 앱이야. iPhone/iPad용 UIKit 프로젝트도 추가했으며 Mac 빌드와 기기 실행은 아직 확인하지 않았어. [플랫폼별 공통점과 검증 범위](docs/PLATFORMS.md)를 참고해.
 
 Android에서는 별도 다운로드로 제공하는 `Golemancer.apk`를 설치해. APK는 Git 저장소에 올리지 않아. Android 8.0 이상, ARM64 휴대폰과 x86_64 에뮬레이터용 개발 빌드야. 터치·게임패드 조작과 빌드 방법은 [Android 플랫폼 안내](docs/ANDROID.md)에 있어.
+
+Linux는 별도 실행 패키지를 풀고 `./StartLinux.sh`를 실행해. 저장소에서 직접 빌드하려면 `./BuildLinux.sh`를 사용해. [Linux 안내](docs/LINUX.md)와 [iOS의 Mac 빌드 절차](docs/IOS.md)에 준비물을 정리했어.
 
 저장소를 받거나 pull한 뒤 **루트의 `Start.bat`을 실행**하면 돼. 압축을 풀어둔 [Windows 실행 파일](Builds/README.md)과 모듈 DLL이 함께 들어 있고 .NET Framework 4.8 런타임만 필요해. SDK나 빌드 ZIP 압축 해제는 필요 없어.
 
@@ -27,7 +29,7 @@ Android에서는 별도 다운로드로 제공하는 `Golemancer.apk`를 설치�
 ## 조작
 
 팩 DLL은 [타이밍 콜백](docs/TIMING.md)으로 입력·고정 업데이트·렌더 준비 등의 앞뒤에 우선순위를 지정해 코드를 등록할 수 있어. 기본 카메라 갱신은 렌더 단계의 `-10`, 화면 갱신 요청은 `0`에서 실행돼.
-Windows와 Android는 같은 [엔진 카메라](SDK/CAMERA.md)를 사용해. 휠·줌 버튼은 목표 배율을 바꾸고 실제 배율은 렌더 프레임마다 보간돼. 줌만 바뀌면 기존 지형 캐시는 그대로 유지하며, 클릭 좌표는 마지막으로 그린 카메라 상태를 기준으로 계산해.
+네 플랫폼 호스트는 같은 [엔진 카메라](SDK/CAMERA.md)를 사용해. 휠·줌 버튼은 목표 배율을 바꾸고 실제 배율은 렌더 프레임마다 보간돼. 줌만 바뀌면 기존 지형 캐시는 그대로 유지하며, 클릭 좌표는 마지막으로 그린 카메라 상태를 기준으로 계산해.
 
 | 조작 | 기능 |
 |---|---|
@@ -135,6 +137,8 @@ R로 녹화를 마칠 때에는 진행 중인 행동과 **아직 실행하지 �
 | `SDK/<framework>/Golemancer.Contracts.dll` | 모듈이 참조하는 고정 API |
 | `SDK/<framework>/Golemancer.Engine.dll` | 고정 엔진: DLL 로딩·쿠킹·실행·저장 |
 | `src/Golemancer.Host` | 네이티브 WPF 창, 이미지·시트 표시와 입력 |
+| `src/Golemancer.Presentation` | Android·Linux·iOS가 공유하는 게임 화면·메뉴·제스처 |
+| `src/Golemancer.Android`, `Golemancer.Linux`, `Golemancer.iOS` | 각 OS의 창·입력·프레임·생명주기 연결 |
 | `modules/Golemancer.*` | 독립적으로 빌드되는 13개 구현 DLL |
 | `Content/Packs` | 의존성과 XML을 포함한 15개 객체팩 |
 | `tests/Golemancer.Verification` | 실제 명령으로 끝까지 진행하는 캠페인과 회귀 검증 |
