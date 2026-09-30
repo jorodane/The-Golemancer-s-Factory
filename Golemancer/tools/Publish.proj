@@ -14,7 +14,7 @@
     <Error Condition="!Exists('$(VerificationDirectory)Golemancer.Verification.exe')" Text="The net48 verification build is missing." />
     <ItemGroup>
       <HostRuntime Include="$(HostDirectory)*.exe;$(HostDirectory)*.dll;$(HostDirectory)*.config" />
-      <HostRuntime Remove="$(HostDirectory)Golemancer.Engine.dll;$(HostDirectory)Golemancer.Contracts.dll" />
+      <HostRuntime Remove="$(HostDirectory)PackEngine.Runtime.dll;$(HostDirectory)PackEngine.Contracts.dll" />
       <VerificationRuntime Include="$(VerificationDirectory)Golemancer.Verification.exe;$(VerificationDirectory)Golemancer.Verification.exe.config" />
       <ModuleRuntime Include="$(RepositoryRoot)Content/Packs/**/Bin/net48/*.dll" />
     </ItemGroup>

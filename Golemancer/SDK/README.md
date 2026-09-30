@@ -1,9 +1,9 @@
-# Frozen engine/API
+# Frozen PackEngine SDK
 
-These are the existing compiled engine and API, included so the game folder can be copied and developed without access to engine source. They are dependencies, not editable game code.
+Only the game-independent PackEngine.Contracts and PackEngine.Runtime assemblies belong here. The game domain API and simulation are built from ../src/Golemancer.Contracts and ../src/Golemancer.Runtime; they are not engine dependencies.
 
-`engine-lock.json` records the baseline commit and SHA256 values. `FrozenEngine.targets` checks the same values before game project builds. `Directory.Build.targets` supplies the binary references. Modules and examples receive only the Contracts reference; native game clients and verification explicitly opt into the Engine reference as well.
+engine-lock.json records each engine source file SHA256, their combined source baseline and the shipped DLL hashes. FrozenEngine.targets enforces those DLL hashes during all game builds. Game modules see PackEngine.Contracts plus Golemancer.Contracts; game runtime/clients/tests also reference PackEngine.Runtime. Game projects never compile engine source.
 
-For game work, read `../docs/CONTRACTS.md`, `../docs/UI_CONTRACTS.md`, the public signatures in `API.txt`, the XML documentation beside each Contracts DLL, and the relevant module/pack files. `API.txt` is generated from the frozen DLL by reflection; it is a reading reference with no implementation, and omits nullable reference annotations. Do not add a project reference to the engine or API source. Do not replace these DLLs or edit the lock when testing a game-only extension. An API gap is a result to report.
+Read API.txt and RUNTIME_API.txt for engine signatures, ../docs/API.txt and ../docs/CONTRACTS.md for game contracts, and ../docs/UI_CONTRACTS.md for UI semantics. Nullable annotations and implementation details are omitted from generated signatures.
 
-The net48 files exactly match the Windows distribution at `c77bcdc`. The net10.0 files are the already-built portable counterparts of the same UI-contract source (`cc1d670`). They were copied from the verified build without rebuilding engine source during this folder experiment.
+Do not replace the engine or edit its lock during a game-only experiment. An intentional engine upgrade is made from the parent repository with tools/export-sdk.py, followed by rebuilding and verifying the consumer. This split deliberately establishes a new baseline; it does not claim the previous c77bcdc engine is unchanged.

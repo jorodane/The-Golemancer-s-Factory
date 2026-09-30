@@ -1,4 +1,4 @@
-<ObjectPack id="sample.ui.mod" version="1.0.0" contracts="1">
+<ObjectPack id="sample.ui.mod" version="1.0.0" contracts="2">
   <Depends id="sample.ui.project" minVersion="1.0.0" />
   <Ui path="ui.xml" />
 </ObjectPack>

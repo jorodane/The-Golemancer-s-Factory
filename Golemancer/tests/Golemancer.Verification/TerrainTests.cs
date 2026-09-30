@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using System.Text.Json;
 using Golemancer.Contracts;
-using Golemancer.Engine;
+using Golemancer.Runtime;
 
 internal static class TerrainTests
 {
@@ -139,7 +139,7 @@ internal static class TerrainTests
     private static void Xml(CookedGame cooked, string root)
     {
         string folder = Path.Combine(root, "TestResults", "terrain-xml"); Directory.CreateDirectory(folder);
-        File.WriteAllText(Path.Combine(folder, "pack.xml"), "<ObjectPack id='terrain_test' contracts='1' version='1.0.0'><Data path='test.xml'/></ObjectPack>");
+        File.WriteAllText(Path.Combine(folder, "pack.xml"), "<ObjectPack id='terrain_test' contracts='2' version='1.0.0'><Data path='test.xml'/></ObjectPack>");
         string xml = "<GameContent><Tilesets><Tileset id='test'><Tile id='a' image='ground.png'><Terrain repeatX='2'><Receive distance='.03' strength='.2' rejectTags='vegetation'/><Finish image='hem.png' width='.1'/></Terrain></Tile></Tileset></Tilesets><Maps><Map id='test' tileset='test' width='2' height='2'><Legend><Tile char='a' type='a'/></Legend><Rows><Row>aa</Row><Row>aa</Row></Rows><Layers><Layer id='rug' order='3'><Rows><Row>.a</Row><Row>..</Row></Rows></Layer></Layers></Map></Maps></GameContent>";
         File.WriteAllText(Path.Combine(folder, "test.xml"), xml); var loaded = PackLoader.Cook(folder);
         Check(loaded.Content.Maps["test"].Map.Layers.Single().Tiles.SequenceEqual(new[] { "", "a", "", "" }) && loaded.Content.Tilesets["test"].Tiles["a"].Terrain.RepeatX == 2, "XML loads sparse ordered layers, repeat size and external hem images");

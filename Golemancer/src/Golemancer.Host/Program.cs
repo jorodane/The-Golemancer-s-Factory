@@ -1,5 +1,5 @@
 using System.Windows;
-using Golemancer.Engine;
+using Golemancer.Runtime;
 namespace Golemancer.Desktop;
 internal static class Program
 {

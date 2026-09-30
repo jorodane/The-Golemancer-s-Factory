@@ -1,6 +1,6 @@
 using Golemancer.Contracts;
 using Golemancer.Desktop;
-using Golemancer.Engine;
+using Golemancer.Runtime;
 namespace Golemancer.Android;
 internal sealed partial class GameView
 {

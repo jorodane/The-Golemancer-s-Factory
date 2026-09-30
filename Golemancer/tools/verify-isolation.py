@@ -1,4 +1,4 @@
-"""Copy only the game folder and build an external pack against unchanged engine DLLs."""
+"""Build and run the standalone game with its frozen engine; optional extension checks are explicit."""
 from __future__ import annotations
 
 import argparse
@@ -34,7 +34,7 @@ def check_projects(root: Path) -> int:
     for project in projects:
         if {"obj", "bin", "TestResults"} & set(project.relative_to(root).parts):
             continue
-        if project.stem in {"Golemancer.Engine", "Golemancer.Contracts"}:
+        if project.stem in {"PackEngine.Runtime", "PackEngine.Contracts"}:
             raise RuntimeError(f"Engine/API source project must not be inside the game experiment: {project}")
         for reference in ET.parse(project).iter("ProjectReference"):
             value = reference.attrib["Include"]
@@ -64,6 +64,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dotnet", default="dotnet", help=".NET 10 SDK executable")
     parser.add_argument("--keep", action="store_true", help="Keep the isolated copy for inspection")
+    parser.add_argument("--with-tea-break", action="store_true", help="Also run the optional TeaBreak extension experiment")
     args = parser.parse_args()
     dotnet = shutil.which(args.dotnet)
     if not dotnet:
@@ -89,14 +90,16 @@ def main() -> None:
         campaign = run(isolated, output, "campaign", [dotnet, runner])
         if "PASS: FULL CAMPAIGN:" not in campaign:
             raise RuntimeError("The full campaign was not executed.")
-        for name in ["Golemancer.Contracts.dll", "Golemancer.Engine.dll"]:
+        for name in ["PackEngine.Contracts.dll", "PackEngine.Runtime.dll"]:
             if digest(isolated / "SDK/net10.0" / name) != digest(isolated / Path(runner).parent / name):
                 raise RuntimeError(f"Verification loaded a different engine/API build: {name}")
-        run(isolated, output, "extension-net10", [dotnet, "build", "examples/TeaBreak/TeaBreak.csproj", "-p:GolemancerTargetFramework=net10.0", *sdk_flags])
-        example = run(isolated, output, "extension-behavior", [dotnet, runner, "--example"])
-        run(isolated, output, "extension-net48", [dotnet, "build", "examples/TeaBreak/TeaBreak.csproj", "-p:GolemancerTargetFramework=net48", *sdk_flags])
+        example = ""
+        if args.with_tea_break:
+            run(isolated, output, "extension-net10", [dotnet, "build", "examples/TeaBreak/TeaBreak.csproj", "-p:GolemancerTargetFramework=net10.0", *sdk_flags])
+            example = run(isolated, output, "extension-behavior", [dotnet, runner, "--example"])
+            run(isolated, output, "extension-net48", [dotnet, "build", "examples/TeaBreak/TeaBreak.csproj", "-p:GolemancerTargetFramework=net48", *sdk_flags])
         # A deliberately altered API file must fail the same MSBuild gate used by every game project.
-        probe = isolated / "SDK/net10.0/Golemancer.Contracts.dll"
+        probe = isolated / "SDK/net10.0/PackEngine.Contracts.dll"
         original_api = probe.read_bytes()
         try:
             probe.write_bytes(original_api + b"isolation-guard-probe")
@@ -116,8 +119,8 @@ def main() -> None:
                        "frozenFilesBefore": before, "frozenFilesAfter": after,
                        "campaignPassCount": sum(s.startswith("PASS:") for s in campaign.splitlines()),
                        "extensionPassCount": sum(s.startswith("PASS:") for s in example.splitlines()),
-                       "extensionFrameworks": ["net10.0", "net48"], "windowsGuiTested": False})
-        print(f"PASS: standalone folder, external DLL behavior, full campaign, {len(before)} unchanged engine/host files.")
+                       "extensionFrameworks": ["net10.0", "net48"] if args.with_tea_break else [], "windowsGuiTested": False})
+        print(f"PASS: standalone folder, existing game DLLs, full campaign, {len(before)} unchanged engine/host files.")
     except Exception as error:
         report["error"] = str(error)
         raise

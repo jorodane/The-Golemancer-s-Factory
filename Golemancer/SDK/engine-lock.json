@@ -1,13 +1,25 @@
 {
-  "schema": 1,
-  "baselineCommit": "c77bcdcb2e8a654a135d4c82f85da17ef4dba5ed",
-  "sourceCommit": "cc1d670ab55f88fab2af8097946b6bf927d2b9dc",
+  "schema": 2,
+  "baselineCommit": "source-sha256:f6e80eefde2ba3ac27bd6dbc8740ed7b7a76b2061e483cad1414c77eaa66c12a",
+  "engineSourceFiles": {
+    "src/PackEngine.Contracts/Compatibility.cs": "743555cdb5744a56fe52d5d7b0ca2259f4b920afdc7c09c4fb5cf460d999a690",
+    "src/PackEngine.Contracts/PackEngine.Contracts.csproj": "11c6ef80bbb90a27cf11d231646d5dce3f13aac4af6a78d29870fc0419185f03",
+    "src/PackEngine.Contracts/Packs.cs": "25691e9ee673857ec9ebfc2f914f36448a77fc01494960f9c30c35ae8074cd3d",
+    "src/PackEngine.Contracts/UI/UiContracts.cs": "a310a5350d1d920664aaa08c6a2464ad881808af8164fe5c4019d090b6f0a93b",
+    "src/PackEngine.Runtime/PackCompiler.cs": "41249fa9c072456fbbfb55d87098562f0af4c3d2eee3bc284aa96693253ef740",
+    "src/PackEngine.Runtime/PackEngine.Runtime.csproj": "6f851032d314d8c4b853ee161364a15d9ba243132730b8a9d391a536ee894a42",
+    "src/PackEngine.Runtime/PackLoadContext.cs": "7a1b2f2a7655c8b6b6a189ddac1cd2cd926811a3ee3ab99be8aea696e8616c98",
+    "src/PackEngine.Runtime/UI/UiCatalog.cs": "92580623733bcc9b6f4b273054f37ce62a7b8339811d40f5bc4f8141c16c481f",
+    "src/PackEngine.Runtime/UI/UiLayoutMath.cs": "3bb2fbe88f71814d65f37ea0ef535dae04ebaffc40f124cf6c1801fae110e212",
+    "src/PackEngine.Runtime/UI/UiMountedView.cs": "95eb0f3350fbc6a5c6c3f52f7b1d6a5e6514fa826ebe987bb35f73ae5c9a84a5",
+    "src/PackEngine.Runtime/UI/UiXml.cs": "c247c1d8967260837ce42439d2220a8263a7b76af33da6f1abcf244392394d8f"
+  },
   "files": {
-    "SDK/net10.0/Golemancer.Contracts.dll": "15308dabf713f0a68a08eb5102a44c8dd7a4969a80bf4a59d295cb171f7c4004",
-    "SDK/net10.0/Golemancer.Engine.dll": "cb29197af572b7e9e87258c14f347bb9e65c424c0c490d26913e01d7a5f57088",
-    "SDK/net48/Golemancer.Contracts.dll": "ea2e02c0137b8eaeea5c461a3f444fa477c0ea1ba5143835e81d429714d98681",
-    "SDK/net48/Golemancer.Engine.dll": "b9055c0938d615406ddc125dc08b139b55853bb8fdb03647a8029a0d35edb59f",
-    "Builds/Windows/Golemancer.Engine.dll": "b9055c0938d615406ddc125dc08b139b55853bb8fdb03647a8029a0d35edb59f",
-    "Builds/Windows/Golemancer.Contracts.dll": "ea2e02c0137b8eaeea5c461a3f444fa477c0ea1ba5143835e81d429714d98681"
+    "SDK/net48/PackEngine.Contracts.dll": "9658ea921d4eba6b73e64df2bac239588c578b9fb5809900a35847a882a9b1fa",
+    "Builds/Windows/PackEngine.Contracts.dll": "9658ea921d4eba6b73e64df2bac239588c578b9fb5809900a35847a882a9b1fa",
+    "SDK/net48/PackEngine.Runtime.dll": "e21e55120a9d2c2bd3620790923a511e54bc49c8968279ef2b89a58edabb6726",
+    "Builds/Windows/PackEngine.Runtime.dll": "e21e55120a9d2c2bd3620790923a511e54bc49c8968279ef2b89a58edabb6726",
+    "SDK/net10.0/PackEngine.Contracts.dll": "83f1b878695574e1c97548d1c50950e410e1a8ea38b809a32a99c389d5d103ba",
+    "SDK/net10.0/PackEngine.Runtime.dll": "c579f6b8d0900f42bd03fae43133ce490e34c7a47d588595ef3a5f3fa7c8a027"
   }
 }

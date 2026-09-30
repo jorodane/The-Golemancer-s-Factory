@@ -1,5 +1,5 @@
 using Golemancer.Contracts;
-using Golemancer.Engine;
+using Golemancer.Runtime;
 using Golemancer.Desktop;
 
 internal static class ExamplePack

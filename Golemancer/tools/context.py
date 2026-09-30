@@ -18,9 +18,9 @@ else:
     project = next(module.glob("*.csproj"))
     pack_name = ET.parse(project).findtext(".//PackDirectory")
     pack = root / "Content" / "Packs" / pack_name
-    print("Frozen API: docs/CONTRACTS.md + docs/UI_CONTRACTS.md + SDK/<framework>/Golemancer.Contracts.xml")
-    print("Public signatures: SDK/API.txt (search just the types used by this module)")
-    print("Reference: SDK/<framework>/Golemancer.Contracts.dll (no engine/API source project)")
+    print("Game API: docs/CONTRACTS.md + docs/API.txt; UI: docs/UI_CONTRACTS.md + SDK/API.txt")
+    print("Public game signatures: docs/API.txt (search just the types used by this module)")
+    print("References: local Golemancer.Contracts project + frozen SDK/<framework>/PackEngine.Contracts.dll")
     print("Build: dotnet build " + str(project.relative_to(root)) + " -m:1 --disable-build-servers")
     print("Module sources:")
     for file in sorted(module.glob("*.cs")):

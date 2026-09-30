@@ -1,6 +1,6 @@
 using Golemancer.Contracts;
 using Golemancer.Desktop;
-using Golemancer.Engine;
+using Golemancer.Runtime;
 internal static class QueueTests
 {
     private static void Check(bool ok, string message) { if (!ok) throw new Exception("FAIL: " + message); Console.WriteLine("PASS: " + message); }

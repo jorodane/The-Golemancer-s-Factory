@@ -1,7 +1,7 @@
 using System.Text.Json;
 using Golemancer.Contracts;
 using Golemancer.Desktop;
-using Golemancer.Engine;
+using Golemancer.Runtime;
 internal static class PlayFeelTests
 {
     private static void Check(bool value, string label) { if (!value) throw new Exception("FAIL: " + label); Console.WriteLine("PASS: " + label); }

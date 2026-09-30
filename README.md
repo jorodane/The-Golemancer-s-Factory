@@ -1,13 +1,14 @@
-# The Golemancer’s Factory
+# The Golemancer’s Factory / PackEngine
 
-게임 작업은 **[Golemancer](Golemancer)** 폴더 안에서 진행한다. 게임 모듈 소스, XML·이미지, Windows 실행 파일, Android 호스트, 예제, 테스트, API 명세와 고정 SDK를 함께 넣었다. **이 폴더만 별도 위치에 복사해도 실행·게임 빌드·팩 확장 실험을 할 수 있다.**
+게임 작업은 **[Golemancer](Golemancer)** 폴더 안에서 진행한다. 게임 소스·모듈·XML·이미지·Windows 실행 파일·Android 호스트·게임 계약·고정 엔진 SDK가 모두 들어 있다. 이 폴더만 복사해 실행하고 개발할 수 있다.
 
-- 실행: 루트의 `Start.bat` 또는 `Golemancer/Start.bat`.
-- 게임 모듈만 빌드: `Golemancer/BuildPacks.bat`. 엔진/API 소스 프로젝트는 빌드하지 않는다.
-- 독립 폴더 실험: `Golemancer/TestIsolation.bat` 또는 `python Golemancer/tools/verify-isolation.py`.
-- 게임 조작·기획·모드: [게임 안내](Golemancer/README.md).
-- 실험 기준과 한계: [독립 게임 폴더 안내](Golemancer/docs/STANDALONE_GAME.md).
+- 실행: 루트 `Start.bat` 또는 `Golemancer/Start.bat`.
+- 게임 빌드: `Golemancer/Build.bat`. 게임팩만 빌드: `Golemancer/BuildPacks.bat`.
+- 독립 게임 검증: `Golemancer/TestIsolation.bat`.
+- [게임 안내](Golemancer/README.md) · [폴더와 API 경계](Golemancer/docs/STANDALONE_GAME.md) · [엔진 개발 안내](docs/ENGINE.md).
 
-루트 `Start.bat`은 이전 위치의 `Content`와 `Saves`에 남은 파일을 게임 폴더로 보충 복사한다. 새 위치에 이미 있는 파일은 덮어쓰지 않고 원본도 삭제하지 않는다. 이전 버전에서 업데이트했다면 한 번은 루트 런처로 실행한 뒤 `Golemancer` 폴더를 따로 복사한다.
+`src/PackEngine.Contracts`와 `src/PackEngine.Runtime`은 게임을 참조하지 않는 공통 엔진이다. DLL 로딩·팩 의존성·XML 진입점·UI 계약과 조립을 담당한다. 골렘·마나·이동·녹화·인벤토리·상점·퀘스트·저장·지형의 게임 연결은 전부 `Golemancer` 안에 있다. `Engine.slnx`와 게임 솔루션은 서로의 소스 프로젝트를 빌드하지 않는다.
 
-`src/Golemancer.Engine`·`src/Golemancer.Contracts`와 `Engine.slnx`는 기존 공통 코드의 개발 영역이다. 게임 폴더의 프로젝트는 이 소스를 참조하지 않고 `SDK`의 기존 DLL만 참조한다. 이번 실험의 엔진/API 기준은 `c77bcdc`이며, **현재 공통 코드에도 골렘·마나 같은 게임 규칙이 남아 있다.** 이 구조는 고정된 현재 API로 팩을 확장할 수 있는지 검증하기 위한 것으로, 모든 게임에 독립적인 범용 엔진 분리 완료를 뜻하지 않는다.
+게임 DLL 계약은 v2로 갱신됐고 배포 모듈도 함께 재빌드했다. 기존 JSON 저장 형식은 v1을 유지한다. 예전 DLL 팩은 새 게임 계약으로 다시 빌드해야 한다.
+
+루트 `Start.bat`은 이전 위치의 Content·Saves에서 새 위치에 없는 파일만 복사한다. 기존 파일과 원본은 삭제하지 않는다. 이전 구조에서 업데이트했다면 한 번은 루트 런처로 실행한 뒤 게임 폴더를 따로 복사한다.

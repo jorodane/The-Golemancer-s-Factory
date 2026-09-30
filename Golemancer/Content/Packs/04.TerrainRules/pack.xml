@@ -1,4 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ObjectPack id="terrain_rules" version="1.0.0" contracts="1">
+<ObjectPack id="terrain_rules" version="1.0.0" contracts="2">
   <Assembly path="Bin/{framework}/Golemancer.Terrain.dll" />
 </ObjectPack>

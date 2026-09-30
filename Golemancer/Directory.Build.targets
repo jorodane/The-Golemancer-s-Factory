@@ -5,14 +5,16 @@
     <FrozenSdkCopyLocal Condition="'$(FrozenSdkCopyLocal)' == ''">true</FrozenSdkCopyLocal>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Golemancer.Contracts">
-      <HintPath>$(GolemancerGameRoot)SDK/$(FrozenSdkFramework)/Golemancer.Contracts.dll</HintPath>
+    <Reference Include="PackEngine.Contracts">
+      <HintPath>$(GolemancerGameRoot)SDK/$(FrozenSdkFramework)/PackEngine.Contracts.dll</HintPath>
       <Private>$(FrozenSdkCopyLocal)</Private>
     </Reference>
-    <Reference Include="Golemancer.Engine" Condition="'$(UseFrozenEngine)' == 'true'">
-      <HintPath>$(GolemancerGameRoot)SDK/$(FrozenSdkFramework)/Golemancer.Engine.dll</HintPath>
+    <Reference Include="PackEngine.Runtime" Condition="'$(UseGameRuntime)' == 'true' Or '$(MSBuildProjectName)' == 'Golemancer.Runtime'">
+      <HintPath>$(GolemancerGameRoot)SDK/$(FrozenSdkFramework)/PackEngine.Runtime.dll</HintPath>
       <Private>true</Private>
     </Reference>
+    <ProjectReference Include="$(GolemancerGameRoot)src/Golemancer.Contracts/Golemancer.Contracts.csproj" Condition="'$(MSBuildProjectName)' != 'Golemancer.Contracts'" />
+    <ProjectReference Include="$(GolemancerGameRoot)src/Golemancer.Runtime/Golemancer.Runtime.csproj" Condition="'$(UseGameRuntime)' == 'true'" />
   </ItemGroup>
   <Import Project="$(GolemancerGameRoot)SDK/FrozenEngine.targets" />
 </Project>

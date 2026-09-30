@@ -1,5 +1,5 @@
 using Golemancer.Contracts;
-using Golemancer.Engine;
+using Golemancer.Runtime;
 namespace Golemancer.Client;
 // The native host event loop owns simulation access on every platform.
 public class GameSession

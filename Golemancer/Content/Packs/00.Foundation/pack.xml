@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<ObjectPack id="foundation" version="1.0.0" contracts="1">
+<ObjectPack id="foundation" version="1.0.0" contracts="2">
   <Assembly path="Bin/{framework}/Golemancer.Conditions.dll" />
   <Assembly path="Bin/{framework}/Golemancer.Failures.dll" />
   <Assembly path="Bin/{framework}/Golemancer.Logistics.dll" />

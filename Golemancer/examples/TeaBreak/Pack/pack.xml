@@ -1,4 +1,4 @@
-<ObjectPack id="tea_break" version="1.0.0" contracts="1">
+<ObjectPack id="tea_break" version="1.0.0" contracts="2">
   <Depends id="foundation" minVersion="1.0.0" />
   <Depends id="feast_trail" minVersion="1.0.0" />
   <Assembly path="Bin/{framework}/TeaBreak.dll" />

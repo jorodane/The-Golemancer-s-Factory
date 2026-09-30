@@ -6,7 +6,7 @@
 
 ## 독립 게임 폴더
 
-이 문서의 모든 경로는 `Golemancer` 폴더 기준이야. 이 폴더만 따로 복사해도 게임 소스·팩·리소스·고정 SDK·실행 파일을 함께 사용할 수 있어. `BuildPacks.bat`은 엔진 소스 없이 게임 모듈만 빌드하고, `TestIsolation.bat`은 별도 사본에서 확장과 엔진 파일 불변을 검사해. [폴더별 역할과 실험 방법](docs/STANDALONE_GAME.md)을 먼저 참고해.
+이 문서의 모든 경로는 `Golemancer` 폴더 기준이야. 이 폴더만 따로 복사해도 게임 소스·팩·리소스·고정 SDK·실행 파일을 함께 사용할 수 있어. `BuildPacks.bat`은 엔진 소스 없이 게임 계약과 모듈만 빌드하고, `TestIsolation.bat`은 별도 사본에서 기존 게임 실행과 엔진 파일 불변을 검사해. [폴더별 역할과 실험 방법](docs/STANDALONE_GAME.md)을 먼저 참고해.
 
 ## 실행
 

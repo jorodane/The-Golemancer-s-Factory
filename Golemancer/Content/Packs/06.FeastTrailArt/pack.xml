@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ObjectPack id="feast_trail_art" version="1.0.0" contracts="1">
+<ObjectPack id="feast_trail_art" version="1.0.0" contracts="2">
   <Depends id="foundation" minVersion="1.0.0" />
   <Data path="sprites.xml" />
 </ObjectPack>

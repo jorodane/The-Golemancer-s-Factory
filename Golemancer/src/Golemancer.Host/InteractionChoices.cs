@@ -1,5 +1,5 @@
 using Golemancer.Contracts;
-using Golemancer.Engine;
+using Golemancer.Runtime;
 namespace Golemancer.Desktop;
 
 // Shared by the native bubbles and headless interaction-flow verification.

@@ -5,7 +5,7 @@
     <AssemblyName>Golemancer</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <StartupObject>Golemancer.Desktop.Program</StartupObject>
-    <UseFrozenEngine>true</UseFrozenEngine>
+    <UseGameRuntime>true</UseGameRuntime>
   </PropertyGroup>
   <ItemGroup><ProjectReference Include="../Golemancer.Client/Golemancer.Client.csproj" />
     <Reference Include="WindowsBase" /><Reference Include="PresentationCore" />

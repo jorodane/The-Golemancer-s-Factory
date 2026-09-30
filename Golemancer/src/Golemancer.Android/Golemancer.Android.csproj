@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net10.0-android</TargetFramework>
-    <UseFrozenEngine>true</UseFrozenEngine>
+    <UseGameRuntime>true</UseGameRuntime>
     <SupportedOSPlatformVersion>26</SupportedOSPlatformVersion>
     <OutputType>Exe</OutputType>
     <ApplicationId>com.golemancer.factory</ApplicationId>

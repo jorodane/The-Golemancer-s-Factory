@@ -1,6 +1,6 @@
 using Golemancer.Contracts;
 using Golemancer.Client;
-using Golemancer.Engine;
+using Golemancer.Runtime;
 
 internal static class PlatformInputTests
 {

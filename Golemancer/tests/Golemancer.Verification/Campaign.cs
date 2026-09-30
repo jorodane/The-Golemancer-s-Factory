@@ -1,5 +1,5 @@
 using Golemancer.Contracts;
-using Golemancer.Engine;
+using Golemancer.Runtime;
 using System.Text.Json;
 
 internal static class Campaign

@@ -1,0 +1,38 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>PackEngine.Contracts</name>
+    </assembly>
+    <members>
+        <member name="T:PackEngine.Contracts.IPackModule`1">
+            <summary>A DLL registers through a caller-owned contract. The engine does not interpret that contract.</summary>
+        </member>
+        <member name="T:PackEngine.Contracts.PackInfo">
+            <summary>Loaded manifest metadata. Domain content is owned by the caller's content reader.</summary>
+        </member>
+        <member name="M:PackEngine.Contracts.PackInfo.#ctor(System.String,System.String,System.String,System.Collections.Generic.IReadOnlyList{System.String},System.Collections.Generic.IReadOnlyList{System.String})">
+            <summary>Loaded manifest metadata. Domain content is owned by the caller's content reader.</summary>
+        </member>
+        <member name="T:PackEngine.Contracts.UI.UiValue">
+            <summary>Platform-neutral, validated value. Resource values are opaque asset IDs, never native objects.</summary>
+        </member>
+        <member name="T:PackEngine.Contracts.UI.UiLayout">
+            <summary>Top-left origin, logical UI units. Size is added to the anchor span; Offset moves the pivot.</summary>
+        </member>
+        <member name="P:PackEngine.Contracts.UI.UiNode.Exports">
+            <summary>Only these instance slots accept contributions from other UI documents.</summary>
+        </member>
+        <member name="T:PackEngine.Contracts.UI.IUiRegistry">
+            <summary>Optional pack registry extension; independent DLLs and compiled modules use the same contract.</summary>
+        </member>
+        <member name="T:PackEngine.Contracts.UI.IUiValueSource">
+            <summary>All operations, including notifications, run on the host UI thread. Each subscription is independent.</summary>
+        </member>
+        <member name="T:PackEngine.Contracts.UI.IUiContext">
+            <summary>Explicit names only: XML cannot reflect into arbitrary methods or mutate game state directly.</summary>
+        </member>
+        <member name="T:PackEngine.Contracts.UI.IUiElement">
+            <summary>Set must not emit user events. Dispose releases only this element, not its children.</summary>
+        </member>
+    </members>
+</doc>

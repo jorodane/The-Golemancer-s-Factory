@@ -1,15 +1,15 @@
 <Project>
   <ItemGroup>
-    <FrozenEngineFile Include="$(GolemancerGameRoot)SDK/net10.0/Golemancer.Contracts.dll"><ExpectedHash>15308DABF713F0A68A08EB5102A44C8DD7A4969A80BF4A59D295CB171F7C4004</ExpectedHash></FrozenEngineFile>
-    <FrozenEngineFile Include="$(GolemancerGameRoot)SDK/net10.0/Golemancer.Engine.dll"><ExpectedHash>CB29197AF572B7E9E87258C14F347BB9E65C424C0C490D26913E01D7A5F57088</ExpectedHash></FrozenEngineFile>
-    <FrozenEngineFile Include="$(GolemancerGameRoot)SDK/net48/Golemancer.Contracts.dll"><ExpectedHash>EA2E02C0137B8EAEEA5C461A3F444FA477C0EA1BA5143835E81D429714D98681</ExpectedHash></FrozenEngineFile>
-    <FrozenEngineFile Include="$(GolemancerGameRoot)SDK/net48/Golemancer.Engine.dll"><ExpectedHash>B9055C0938D615406DDC125DC08B139B55853BB8FDB03647A8029A0D35EDB59F</ExpectedHash></FrozenEngineFile>
-    <FrozenEngineFile Include="$(GolemancerGameRoot)Builds/Windows/Golemancer.Engine.dll"><ExpectedHash>B9055C0938D615406DDC125DC08B139B55853BB8FDB03647A8029A0D35EDB59F</ExpectedHash></FrozenEngineFile>
-    <FrozenEngineFile Include="$(GolemancerGameRoot)Builds/Windows/Golemancer.Contracts.dll"><ExpectedHash>EA2E02C0137B8EAEEA5C461A3F444FA477C0EA1BA5143835E81D429714D98681</ExpectedHash></FrozenEngineFile>
+    <FrozenEngineFile Include="$(MSBuildThisFileDirectory)../Builds/Windows/PackEngine.Contracts.dll"><ExpectedHash>9658EA921D4EBA6B73E64DF2BAC239588C578B9FB5809900A35847A882A9B1FA</ExpectedHash></FrozenEngineFile>
+    <FrozenEngineFile Include="$(MSBuildThisFileDirectory)../Builds/Windows/PackEngine.Runtime.dll"><ExpectedHash>E21E55120A9D2C2BD3620790923A511E54BC49C8968279EF2B89A58EDABB6726</ExpectedHash></FrozenEngineFile>
+    <FrozenEngineFile Include="$(MSBuildThisFileDirectory)../SDK/net10.0/PackEngine.Contracts.dll"><ExpectedHash>83F1B878695574E1C97548D1C50950E410E1A8EA38B809A32A99C389D5D103BA</ExpectedHash></FrozenEngineFile>
+    <FrozenEngineFile Include="$(MSBuildThisFileDirectory)../SDK/net10.0/PackEngine.Runtime.dll"><ExpectedHash>C579F6B8D0900F42BD03FAE43133CE490E34C7A47D588595EF3A5F3FA7C8A027</ExpectedHash></FrozenEngineFile>
+    <FrozenEngineFile Include="$(MSBuildThisFileDirectory)../SDK/net48/PackEngine.Contracts.dll"><ExpectedHash>9658EA921D4EBA6B73E64DF2BAC239588C578B9FB5809900A35847A882A9B1FA</ExpectedHash></FrozenEngineFile>
+    <FrozenEngineFile Include="$(MSBuildThisFileDirectory)../SDK/net48/PackEngine.Runtime.dll"><ExpectedHash>E21E55120A9D2C2BD3620790923A511E54BC49C8968279EF2B89A58EDABB6726</ExpectedHash></FrozenEngineFile>
   </ItemGroup>
   <Target Name="CheckFrozenEngine" BeforeTargets="PrepareForBuild">
-    <Error Condition="!Exists('%(FrozenEngineFile.Identity)')" Text="Frozen engine/API file missing: %(FrozenEngineFile.Identity). Restore the complete Golemancer folder." />
+    <Error Condition="!Exists('%(FrozenEngineFile.Identity)')" Text="Frozen engine/API file missing: %(FrozenEngineFile.Identity). Restore the complete workspace." />
     <GetFileHash Files="@(FrozenEngineFile)" Algorithm="SHA256" MetadataName="ActualHash"><Output TaskParameter="Items" ItemName="CheckedFrozenEngine" /></GetFileHash>
-    <Error Condition="'%(CheckedFrozenEngine.ActualHash)' != '%(CheckedFrozenEngine.ExpectedHash)'" Text="Frozen engine/API changed: %(CheckedFrozenEngine.Identity). This experiment must use the original SDK and engine binaries." />
+    <Error Condition="'%(CheckedFrozenEngine.ActualHash)' != '%(CheckedFrozenEngine.ExpectedHash)'" Text="Frozen engine/API changed: %(CheckedFrozenEngine.Identity). Restore the SDK baseline; engine upgrades are a separate operation." />
   </Target>
 </Project>

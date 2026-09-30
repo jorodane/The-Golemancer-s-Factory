@@ -1,6 +1,6 @@
 using Golemancer.Contracts;
 using Golemancer.Desktop;
-using Golemancer.Engine;
+using Golemancer.Runtime;
 internal static class BubbleTests
 {
     private static void Check(bool condition, string message) { if (!condition) throw new Exception("FAIL: " + message); Console.WriteLine("PASS: " + message); }

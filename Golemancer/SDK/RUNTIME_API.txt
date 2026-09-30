@@ -1,0 +1,85 @@
+PackEngine.Runtime public API signatures
+Assembly version: 1.0.0.0
+
+Generated from the net10.0 DLL; implementation and nullable annotations are omitted.
+See the accompanying contract documentation for semantics.
+
+class PackEngine.Runtime.CookedPacks
+  inherits: System.IEquatable<PackEngine.Runtime.CookedPacks>
+{
+  CookedPacks(System.Collections.Generic.IReadOnlyList<PackEngine.Contracts.PackInfo> Packs, string Fingerprint);
+  string Fingerprint { get; set/init; }
+  System.Collections.Generic.IReadOnlyList<PackEngine.Contracts.PackInfo> Packs { get; set/init; }
+}
+
+class PackEngine.Runtime.PackCompiler
+{
+  static string RuntimeFolder;
+  static PackEngine.Runtime.CookedPacks Cook<TRegistry>(string directory, TRegistry registry, System.Action<System.Xml.Linq.XElement, string> readData, System.Action<PackEngine.Contracts.UI.UiDocument> readUi, string contractVersion, System.Collections.Generic.IEnumerable<System.Reflection.Assembly> sharedAssemblies = null);
+  static bool IsExternalModule(System.Reflection.Assembly assembly, System.Reflection.Assembly[] sharedAssemblies);
+  static System.Xml.Linq.XDocument ReadXml(string path);
+  static string SafePath(string root, string relative);
+}
+
+class PackEngine.Runtime.PackLoadContext
+  inherits: System.Runtime.Loader.AssemblyLoadContext
+{
+  PackLoadContext(string file, System.Collections.Generic.IEnumerable<System.Reflection.Assembly> sharedAssemblies);
+}
+
+class PackEngine.Runtime.UI.UiCatalog
+{
+  UiCatalog(System.Collections.Generic.IEnumerable<PackEngine.Contracts.UI.UiDocument> documents);
+  System.Collections.Generic.IReadOnlyList<string> ViewIds { get; }
+  PackEngine.Contracts.UI.UiWidgetDefinition Describe(string widget);
+  PackEngine.Contracts.UI.UiNode DescribeView(string view);
+  PackEngine.Runtime.UI.UiMountedView Mount(string view, PackEngine.Contracts.UI.IUiContext context, PackEngine.Contracts.UI.IUiBackend backend);
+}
+
+class PackEngine.Runtime.UI.UiContext
+  inherits: PackEngine.Contracts.UI.IUiContext
+{
+  UiContext();
+  void AddCommand(string name, PackEngine.Contracts.UI.UiValueKind payload, System.Action<PackEngine.Contracts.UI.UiValue> execute);
+  void AddValue(string name, PackEngine.Contracts.UI.IUiValueSource source);
+  PackEngine.Contracts.UI.IUiCommand Command(string name);
+  PackEngine.Contracts.UI.IUiValueSource Value(string name);
+}
+
+class PackEngine.Runtime.UI.UiLayoutMath
+{
+  static PackEngine.Runtime.UI.UiRect Resolve(PackEngine.Contracts.UI.UiLayout layout, PackEngine.Runtime.UI.UiRect parent);
+}
+
+class PackEngine.Runtime.UI.UiMountedView
+  inherits: System.IDisposable
+{
+  PackEngine.Contracts.UI.IUiElement Root { get; }
+  void Dispose();
+}
+
+struct PackEngine.Runtime.UI.UiRect
+  inherits: System.IEquatable<PackEngine.Runtime.UI.UiRect>
+{
+  UiRect(double X, double Y, double Width, double Height);
+  double Height { get; set/init; }
+  double Width { get; set/init; }
+  double X { get; set/init; }
+  double Y { get; set/init; }
+}
+
+class PackEngine.Runtime.UI.UiSignal
+  inherits: PackEngine.Contracts.UI.IUiValueSource
+{
+  UiSignal(PackEngine.Contracts.UI.UiValue initial);
+  PackEngine.Contracts.UI.UiValueKind Type { get; }
+  PackEngine.Contracts.UI.UiValue Read();
+  void Set(PackEngine.Contracts.UI.UiValue value);
+  System.IDisposable Subscribe(System.Action<PackEngine.Contracts.UI.UiValue> listener);
+}
+
+class PackEngine.Runtime.UI.UiXml
+{
+  static PackEngine.Contracts.UI.UiDocument Read(string path);
+  static PackEngine.Contracts.UI.UiDocument Read(System.IO.TextReader input);
+}

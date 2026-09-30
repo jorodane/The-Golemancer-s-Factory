@@ -1,933 +1,127 @@
-Frozen Golemancer.Contracts API signatures
-Baseline source: cc1d670ab55f88fab2af8097946b6bf927d2b9dc
+PackEngine.Contracts public API signatures
+Assembly version: 1.0.0.0
 
-Generated from the shipped net10.0 DLL. This is a reading reference, not buildable source.
-Member names use reflection conventions; implementation is deliberately omitted.
-Use docs/CONTRACTS.md and docs/UI_CONTRACTS.md for semantics.
+Generated from the net10.0 DLL; implementation and nullable annotations are omitted.
+See the accompanying contract documentation for semantics.
 
-// Manhattan distance to a rectangular footprint. Minimum 1 keeps the actor outside it.
-class Golemancer.Contracts.ActionApproach
-  inherits: System.IEquatable<Golemancer.Contracts.ActionApproach>
+// A DLL registers through a caller-owned contract. The engine does not interpret that contract.
+interface PackEngine.Contracts.IPackModule<TRegistry>
 {
-  ActionApproach(int X, int Y, int Width, int Height, int Range, int Minimum = 0);
-  int Height { get; set/init; }
-  int Minimum { get; set/init; }
-  int Range { get; set/init; }
-  int Width { get; set/init; }
-  int X { get; set/init; }
-  int Y { get; set/init; }
-  bool Accepts(Golemancer.Contracts.Tile tile);
-  int Distance(Golemancer.Contracts.Tile tile);
+  void Register(TRegistry registry);
 }
 
-class Golemancer.Contracts.ActionDef
+// Loaded manifest metadata. Domain content is owned by the caller's content reader.
+class PackEngine.Contracts.PackInfo
+  inherits: System.IEquatable<PackEngine.Contracts.PackInfo>
 {
-  ActionDef();
-  Golemancer.Contracts.BubbleDisplayDef Bubble { get; set/init; }
-  Golemancer.Contracts.ConditionNode Condition { get; set/init; }
-  string Description { get; set/init; }
-  string Failure { get; set/init; }
-  string Handler { get; set/init; }
-  string Icon { get; set/init; }
-  string Id { get; set/init; }
-  bool Interrupts { get; set/init; }
-  string Name { get; set/init; }
-  string Path { get; set/init; }
-  int Range { get; set/init; }
-  bool Recordable { get; set/init; }
-  string SubName { get; set/init; }
-  string TargetKind { get; set/init; }
-  System.Collections.Generic.Dictionary<string, double> Works { get; set/init; }
-}
-
-class Golemancer.Contracts.ActionRequest
-  inherits: System.IEquatable<Golemancer.Contracts.ActionRequest>
-{
-  ActionRequest();
-  string Action { get; set/init; }
-  string ActorId { get; set/init; }
-  bool Enqueue { get; set/init; }
-  string Failure { get; set/init; }
-  string Item { get; set/init; }
-  string Mode { get; set/init; }
-  string Option { get; set/init; }
-  int Quantity { get; set/init; }
-  string ReservationId { get; set/init; }
-  System.Collections.Generic.List<Golemancer.Contracts.Tile> Route { get; set/init; }
-  string SlotId { get; set/init; }
-  string TargetId { get; set/init; }
-  int X { get; set/init; }
-  int Y { get; set/init; }
-}
-
-class Golemancer.Contracts.ActionResult
-  inherits: System.IEquatable<Golemancer.Contracts.ActionResult>
-{
-  ActionResult(Golemancer.Contracts.ActionStatus Status, string Message = "", string Reason = "", int Applied = 0);
-  int Applied { get; set/init; }
-  string Message { get; set/init; }
-  bool Ok { get; }
-  string Reason { get; set/init; }
-  Golemancer.Contracts.ActionStatus Status { get; set/init; }
-  static Golemancer.Contracts.ActionResult Fail(string message, string reason = "unavailable");
-  static Golemancer.Contracts.ActionResult Started(string message = "");
-  static Golemancer.Contracts.ActionResult Success(string message = "", int applied = 0);
-}
-
-enum Golemancer.Contracts.ActionStatus
-  inherits: System.IComparable, System.ISpanFormattable, System.IFormattable, System.IConvertible
-{
-  Success = 0;
-  Fail = 1;
-  Interrupted = 2;
-  Unavailable = 3;
-  Started = 4;
-}
-
-class Golemancer.Contracts.ActiveWork
-{
-  ActiveWork();
-  double Done { get; set/init; }
-  System.Collections.Generic.Dictionary<string, double> Progress { get; set/init; }
-  Golemancer.Contracts.ActionRequest Request { get; set/init; }
-  double Total { get; set/init; }
-}
-
-class Golemancer.Contracts.AnimationDef
-{
-  AnimationDef();
-  int Columns { get; set/init; }
-  string CompositeOver { get; set/init; }
-  double DrawHeight { get; set/init; }
-  double DrawWidth { get; set/init; }
-  int FrameHeight { get; set/init; }
-  System.Collections.Generic.List<Golemancer.Contracts.SpriteFrameDef> FrameRects { get; set/init; }
-  int Frames { get; set/init; }
-  double FrameSeconds { get; set/init; }
-  int FrameWidth { get; set/init; }
-  string ImagePath { get; set/init; }
-  bool Loop { get; set/init; }
-  double OffsetX { get; set/init; }
-  double OffsetY { get; set/init; }
-  double OverlayX { get; set/init; }
-  double OverlayY { get; set/init; }
-  double PivotX { get; set/init; }
-  double PivotY { get; set/init; }
-  string State { get; set/init; }
-  int X { get; set/init; }
-  int Y { get; set/init; }
-}
-
-class Golemancer.Contracts.BubbleDisplayDef
-{
-  BubbleDisplayDef();
-  string Badge { get; set/init; }
-  string BadgeTone { get; set/init; }
-  System.Nullable<bool> Details { get; set/init; }
-  string Name { get; set/init; }
-}
-
-class Golemancer.Contracts.CheckResult
-  inherits: System.IEquatable<Golemancer.Contracts.CheckResult>
-{
-  CheckResult(bool Allowed, string Message = "", string Reason = "");
-  bool Allowed { get; set/init; }
-  string Message { get; set/init; }
-  string Reason { get; set/init; }
-  static Golemancer.Contracts.CheckResult Yes { get; }
-  static Golemancer.Contracts.CheckResult No(string text, string reason = "unavailable");
-}
-
-class Golemancer.Contracts.ConditionNode
-{
-  ConditionNode();
-  System.Collections.Generic.Dictionary<string, string> Args { get; set/init; }
-  System.Collections.Generic.List<Golemancer.Contracts.ConditionNode> Children { get; set/init; }
-  string Type { get; set/init; }
-}
-
-class Golemancer.Contracts.ContentCatalog
-{
-  ContentCatalog();
-  System.Collections.Generic.Dictionary<string, Golemancer.Contracts.ActionDef> Actions { get; }
-  System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<string>> ActionSets { get; }
-  System.Collections.Generic.Dictionary<string, Golemancer.Contracts.FailureDef> Failures { get; }
-  System.Collections.Generic.Dictionary<string, Golemancer.Contracts.InputActionDef> InputActions { get; }
-  System.Collections.Generic.List<Golemancer.Contracts.InputBindingDef> InputBindings { get; }
-  System.Collections.Generic.Dictionary<string, string> Inputs { get; }
-  System.Collections.Generic.Dictionary<string, string> ItemCategories { get; }
-  System.Collections.Generic.Dictionary<string, Golemancer.Contracts.ItemDef> Items { get; }
-  System.Collections.Generic.Dictionary<string, Golemancer.Contracts.MapDefinition> Maps { get; }
-  System.Collections.Generic.Dictionary<string, Golemancer.Contracts.ObjectDef> Objects { get; }
-  System.Collections.Generic.List<Golemancer.Contracts.PackInfo> Packs { get; }
-  System.Collections.Generic.HashSet<string> PreserveMenuDirectories { get; }
-  System.Collections.Generic.Dictionary<string, Golemancer.Contracts.QuestDef> Quests { get; }
-  System.Collections.Generic.Dictionary<string, Golemancer.Contracts.RecipeDef> Recipes { get; }
-  System.Collections.Generic.Dictionary<string, Golemancer.Contracts.SpriteDef> Sprites { get; }
-  System.Collections.Generic.Dictionary<string, string> Texts { get; }
-  System.Collections.Generic.Dictionary<string, Golemancer.Contracts.TilesetDef> Tilesets { get; }
-  System.Collections.Generic.List<string> Warnings { get; }
-  string Text(string key);
-}
-
-class Golemancer.Contracts.Dialogue
-  inherits: System.IEquatable<Golemancer.Contracts.Dialogue>
-{
-  Dialogue(string Id, string Speaker, string Text, string Mood, string Chalk);
-  string Chalk { get; set/init; }
-  string Id { get; set/init; }
-  string ListenerPortrait { get; set/init; }
-  string Mood { get; set/init; }
-  string Portrait { get; set/init; }
-  string Side { get; set/init; }
-  string Speaker { get; set/init; }
-  string Text { get; set/init; }
-}
-
-class Golemancer.Contracts.FailureContext
-  inherits: System.IEquatable<Golemancer.Contracts.FailureContext>
-{
-  FailureContext(Golemancer.Contracts.ActionRequest Request, Golemancer.Contracts.ActionResult Result, int Attempt, Golemancer.Contracts.FailureDef Definition);
-  int Attempt { get; set/init; }
-  Golemancer.Contracts.FailureDef Definition { get; set/init; }
-  Golemancer.Contracts.ActionRequest Request { get; set/init; }
-  Golemancer.Contracts.ActionResult Result { get; set/init; }
-}
-
-class Golemancer.Contracts.FailureDecision
-  inherits: System.IEquatable<Golemancer.Contracts.FailureDecision>
-{
-  FailureDecision(Golemancer.Contracts.FlowDirective Directive, double Delay = 0);
-  double Delay { get; set/init; }
-  Golemancer.Contracts.FlowDirective Directive { get; set/init; }
-}
-
-class Golemancer.Contracts.FailureDef
-{
-  FailureDef();
-  double Delay { get; set/init; }
-  string Handler { get; set/init; }
-  string Id { get; set/init; }
-  int MaxRetries { get; set/init; }
-}
-
-enum Golemancer.Contracts.FlowDirective
-  inherits: System.IComparable, System.ISpanFormattable, System.IFormattable, System.IConvertible
-{
-  Advance = 0;
-  Repeat = 1;
-  Halt = 2;
-}
-
-class Golemancer.Contracts.FollowState
-{
-  FollowState();
-  string LeaderId { get; set/init; }
-  System.Collections.Generic.List<Golemancer.Contracts.Tile> Path { get; set/init; }
-  double RepathAt { get; set/init; }
-  string Status { get; set/init; }
-}
-
-class Golemancer.Contracts.GameMessage
-  inherits: System.IEquatable<Golemancer.Contracts.GameMessage>
-{
-  GameMessage(double Time, string Text, string Kind = "info");
-  string Kind { get; set/init; }
-  string Text { get; set/init; }
-  double Time { get; set/init; }
-}
-
-class Golemancer.Contracts.GameState
-{
-  GameState();
-  System.Collections.Generic.HashSet<string> CompletedQuests { get; set/init; }
-  string ControlledId { get; set/init; }
-  System.Collections.Generic.List<Golemancer.Contracts.Dialogue> Dialogues { get; set/init; }
-  System.Collections.Generic.List<Golemancer.Contracts.VisualEffect> Effects { get; set/init; }
-  System.Collections.Generic.Dictionary<string, System.Text.Json.JsonElement> ExtensionData { get; set/init; }
-  System.Collections.Generic.HashSet<string> FavoriteItems { get; set/init; }
-  System.Collections.Generic.HashSet<string> Flags { get; set/init; }
-  System.Collections.Generic.Dictionary<int, Golemancer.Contracts.HotbarAction> Hotbar { get; set/init; }
-  Golemancer.Contracts.TileMap Map { get; set/init; }
-  string MapId { get; set/init; }
-  System.Collections.Generic.List<Golemancer.Contracts.GameMessage> Messages { get; set/init; }
-  System.Collections.Generic.Dictionary<string, Golemancer.Contracts.WorldObject> Objects { get; set/init; }
-  System.Collections.Generic.List<Golemancer.Contracts.OrderState> Orders { get; set/init; }
-  System.Collections.Generic.Dictionary<string, string> PackVersions { get; set/init; }
-  bool Paused { get; set/init; }
-  System.Collections.Generic.Dictionary<string, Golemancer.Contracts.Recording> Recordings { get; set/init; }
-  System.Int64 Revision { get; set/init; }
-  int SchemaVersion { get; set/init; }
-  int Seed { get; set/init; }
-  double Time { get; set/init; }
-  System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<string>> TransferCategories { get; set/init; }
-  System.Collections.Generic.Dictionary<string, int> Treasury { get; set/init; }
-  System.Collections.Generic.Dictionary<string, double> Values { get; set/init; }
-  void Add(string key, double amount = 1);
-  double Get(string key, double fallback = 0);
-}
-
-// A saved action intent. Empty ActorId resolves to the currently controlled actor.
-class Golemancer.Contracts.HotbarAction
-{
-  HotbarAction();
-  string Icon { get; set/init; }
-  string Name { get; set/init; }
-  Golemancer.Contracts.ActionRequest Request { get; set/init; }
-}
-
-// Optional, pure work-position description supplied by an action's own DLL.
-interface Golemancer.Contracts.IActionApproach
-{
-  Golemancer.Contracts.ActionApproach Approach(Golemancer.Contracts.IGameContext context, Golemancer.Contracts.WorldObject actor, Golemancer.Contracts.ActionRequest request);
-}
-
-// Check is side-effect free. Execute owns permanent effects and runs after work and a fresh Check.
-interface Golemancer.Contracts.IActionHandler
-{
-  Golemancer.Contracts.CheckResult Check(Golemancer.Contracts.IGameContext context, Golemancer.Contracts.WorldObject actor, Golemancer.Contracts.ActionRequest request);
-  Golemancer.Contracts.ActionResult Execute(Golemancer.Contracts.IGameContext context, Golemancer.Contracts.WorldObject actor, Golemancer.Contracts.ActionRequest request);
-}
-
-// Optional, deterministic forecast. Only mutate the supplied detached context; no I/O or retained state.
-interface Golemancer.Contracts.IActionProjection
-{
-  Golemancer.Contracts.ActionResult Project(Golemancer.Contracts.IGameContext context, Golemancer.Contracts.WorldObject actor, Golemancer.Contracts.ActionRequest request);
-}
-
-interface Golemancer.Contracts.IConditionHandler
-{
-  bool Evaluate(Golemancer.Contracts.IGameContext context, Golemancer.Contracts.WorldObject actor, Golemancer.Contracts.WorldObject target, Golemancer.Contracts.ConditionNode node);
-}
-
-// Optional long-lived command. Started keeps ownership; Success completes one queued/recorded step.
-interface Golemancer.Contracts.IContinuousAction
-{
-  Golemancer.Contracts.ActionResult Continue(Golemancer.Contracts.IGameContext context, Golemancer.Contracts.WorldObject actor, Golemancer.Contracts.ActionRequest request);
-  bool IsContinuous(Golemancer.Contracts.IGameContext context, Golemancer.Contracts.WorldObject actor, Golemancer.Contracts.ActionRequest request);
-}
-
-interface Golemancer.Contracts.IFailureHandler
-{
-  Golemancer.Contracts.FailureDecision Handle(Golemancer.Contracts.IGameContext context, Golemancer.Contracts.WorldObject actor, Golemancer.Contracts.FailureContext failure);
-}
-
-// Simulation-thread context. All calls are serialized by the host. Never retain it across threads.
-interface Golemancer.Contracts.IGameContext
-{
-  Golemancer.Contracts.ContentCatalog Content { get; }
-  string ReservationId { get; }
-  Golemancer.Contracts.GameState State { get; }
-  void CompletePlaybackStep(Golemancer.Contracts.WorldObject actor, Golemancer.Contracts.ActionResult result, Golemancer.Contracts.ActionRequest request);
-  Golemancer.Contracts.ObjectDef Definition(Golemancer.Contracts.WorldObject obj);
-  Golemancer.Contracts.ActionResult Dispatch(Golemancer.Contracts.ActionRequest request, bool playback = False);
-  void Effect(string kind, int x, int y, string text = "", double seconds = 1);
-  bool Evaluate(Golemancer.Contracts.ConditionNode node, Golemancer.Contracts.WorldObject actor, Golemancer.Contracts.WorldObject target = null);
-  Golemancer.Contracts.WorldObject Find(string id);
-  double MoveExternal(Golemancer.Contracts.WorldObject actor, double dx, double dy, bool consumeMana);
-  bool Navigate(Golemancer.Contracts.WorldObject actor, Golemancer.Contracts.Tile destination, int range = 0);
-  void Notice(string text, string kind = "info");
-  System.Collections.Generic.List<Golemancer.Contracts.Tile> Route(Golemancer.Contracts.WorldObject actor, Golemancer.Contracts.Tile destination, int range = 0);
-  Golemancer.Contracts.WorldObject Spawn(string definition, int x, int y, string id = null);
-  bool Walkable(int x, int y, string ignoreId = null);
-}
-
-// One independently compiled pack entry point. Register objects, never start a private game loop.
-interface Golemancer.Contracts.IGameModule
-{
-  void Register(Golemancer.Contracts.IModuleRegistry registry);
-}
-
-// Optional module extension. Logical actions never refer to a platform key enum.
-interface Golemancer.Contracts.IInputRegistry
-{
-  void Input(Golemancer.Contracts.InputActionDef action);
-}
-
-// Optional: describe debits after Check, before travel/work. Pure; normalize all/fill to a fixed operation.
-interface Golemancer.Contracts.IInventoryAction
-{
-  Golemancer.Contracts.PreparedAction Prepare(Golemancer.Contracts.IGameContext context, Golemancer.Contracts.WorldObject actor, Golemancer.Contracts.ActionRequest request);
-}
-
-interface Golemancer.Contracts.IModuleRegistry
-{
-  void Action(string implementationId, Golemancer.Contracts.IActionHandler action);
-  void Condition(string implementationId, Golemancer.Contracts.IConditionHandler condition);
-  void Failure(string implementationId, Golemancer.Contracts.IFailureHandler failure);
-  void System(Golemancer.Contracts.IRuntimeSystem system);
-  void World(string implementationId, Golemancer.Contracts.IWorldGenerator generator);
-}
-
-class Golemancer.Contracts.InputActionDef
-{
-  InputActionDef();
-  string Command { get; set/init; }
-  string Group { get; set/init; }
-  string Id { get; set/init; }
-  string Item { get; set/init; }
-  string Name { get; set/init; }
-  int Order { get; set/init; }
-  string Target { get; set/init; }
-  string Virtual { get; set/init; }
-}
-
-class Golemancer.Contracts.InputBindingDef
-{
-  InputBindingDef();
-  string Action { get; set/init; }
-  string Controls { get; set/init; }
-  string Device { get; set/init; }
-  string Platforms { get; set/init; }
-}
-
-class Golemancer.Contracts.InputBindings
-{
-  static string[] For(Golemancer.Contracts.ContentCatalog content, string platform, string device, string action);
-}
-
-class Golemancer.Contracts.InputSlotDef
-{
-  InputSlotDef();
-  int Capacity { get; set/init; }
-  string Id { get; set/init; }
-  System.Collections.Generic.HashSet<string> Items { get; set/init; }
-  string Name { get; set/init; }
-  System.Collections.Generic.HashSet<string> Tags { get; set/init; }
-  bool Accepts(Golemancer.Contracts.ItemDef item);
-}
-
-class Golemancer.Contracts.InventoryReservation
-{
-  InventoryReservation();
-  string ActorId { get; set/init; }
-  string Id { get; set/init; }
-  int Input { get; set/init; }
-  string Item { get; set/init; }
-  int Output { get; set/init; }
-}
-
-// Optional forecast of production completion on a detached context only.
-interface Golemancer.Contracts.IProductionProjection
-{
-  void Project(Golemancer.Contracts.IGameContext context);
-}
-
-interface Golemancer.Contracts.IRuntimeSystem
-{
-  string Id { get; }
-  int Order { get; }
-  void Tick(Golemancer.Contracts.IGameContext context, double delta);
-}
-
-// Optional continuous command that owns its path during Continue, including moving and stopping.
-interface Golemancer.Contracts.ISelfNavigatingAction
-{
-}
-
-class Golemancer.Contracts.ItemDef
-{
-  ItemDef();
-  string Category { get; set/init; }
-  string Color { get; set/init; }
-  string Description { get; set/init; }
-  string EquipmentSlot { get; set/init; }
-  string Id { get; set/init; }
-  string Name { get; set/init; }
-  int Price { get; set/init; }
-  int Stack { get; set/init; }
-  System.Collections.Generic.HashSet<string> Tags { get; set/init; }
-}
-
-class Golemancer.Contracts.ItemRequirement
-  inherits: System.IEquatable<Golemancer.Contracts.ItemRequirement>
-{
-  ItemRequirement(string SourceId, string Item, int Amount, bool InputOnly = False);
-  int Amount { get; set/init; }
-  bool InputOnly { get; set/init; }
-  string Item { get; set/init; }
-  string SourceId { get; set/init; }
-}
-
-// Pure coverage mask, not artwork. May run off the simulation thread. No I/O, retained state or random state.
-interface Golemancer.Contracts.ITerrainBlendRule
-{
-  double Coverage(Golemancer.Contracts.TerrainSample sample, Golemancer.Contracts.TerrainBlendDef settings);
-}
-
-interface Golemancer.Contracts.ITerrainRegistry
-{
-  void TerrainBlend(string id, Golemancer.Contracts.ITerrainBlendRule rule);
-}
-
-interface Golemancer.Contracts.IWorldGenerator
-{
-  void Populate(Golemancer.Contracts.IGameContext context);
-}
-
-class Golemancer.Contracts.MapDefinition
-{
-  MapDefinition();
-  string Id { get; set/init; }
-  Golemancer.Contracts.TileMap Map { get; set/init; }
-  System.Collections.Generic.List<Golemancer.Contracts.SpawnDefinition> Spawns { get; set/init; }
-}
-
-class Golemancer.Contracts.ObjectDef
-{
-  ObjectDef();
-  System.Collections.Generic.List<string> Actions { get; set/init; }
-  int Capacity { get; set/init; }
-  System.Collections.Generic.Dictionary<string, int> Cost { get; set/init; }
-  System.Collections.Generic.Dictionary<string, string> Data { get; set/init; }
-  int Height { get; set/init; }
-  string Id { get; set/init; }
-  System.Collections.Generic.List<Golemancer.Contracts.InputSlotDef> InputSlots { get; set/init; }
-  string Kind { get; set/init; }
-  string Name { get; set/init; }
-  int OutputCapacity { get; set/init; }
-  int OutputSlots { get; set/init; }
-  Golemancer.Contracts.ConditionNode Placement { get; set/init; }
-  int Slots { get; set/init; }
-  bool Solid { get; set/init; }
-  string Sprite { get; set/init; }
-  System.Collections.Generic.Dictionary<string, double> Values { get; set/init; }
-  int Width { get; set/init; }
-}
-
-class Golemancer.Contracts.OrderState
-{
-  OrderState();
-  bool Accepted { get; set/init; }
-  bool Delivered { get; set/init; }
-  string Id { get; set/init; }
-  string Name { get; set/init; }
-  int Reputation { get; set/init; }
-  System.Collections.Generic.Dictionary<string, int> Requirements { get; set/init; }
-  int Reward { get; set/init; }
-}
-
-class Golemancer.Contracts.PackInfo
-  inherits: System.IEquatable<Golemancer.Contracts.PackInfo>
-{
-  PackInfo(string Id, string Version, string Directory, string[] Dependencies, string[] Assemblies);
-  string[] Assemblies { get; set/init; }
-  string[] Dependencies { get; set/init; }
+  PackInfo(string Id, string Version, string Directory, System.Collections.Generic.IReadOnlyList<string> Dependencies, System.Collections.Generic.IReadOnlyList<string> Assemblies);
+  System.Collections.Generic.IReadOnlyList<string> Assemblies { get; set/init; }
+  System.Collections.Generic.IReadOnlyList<string> Dependencies { get; set/init; }
   string Directory { get; set/init; }
   string Id { get; set/init; }
   string Version { get; set/init; }
 }
 
-class Golemancer.Contracts.Playback
-{
-  Playback();
-  double CycleStartedAt { get; set/init; }
-  int CycleSuccesses { get; set/init; }
-  System.Collections.Generic.Dictionary<string, System.Text.Json.JsonElement> ExtensionData { get; set/init; }
-  System.Collections.Generic.Dictionary<int, string> Failures { get; set/init; }
-  int Index { get; set/init; }
-  bool Paused { get; set/init; }
-  double PausedAt { get; set/init; }
-  string RecordingId { get; set/init; }
-  double ResumeAt { get; set/init; }
-  int Retries { get; set/init; }
-  bool Returning { get; set/init; }
-  Golemancer.Contracts.Recording Snapshot { get; set/init; }
-  string Status { get; set/init; }
-  bool Waiting { get; set/init; }
-}
-
-class Golemancer.Contracts.PreparedAction
-  inherits: System.IEquatable<Golemancer.Contracts.PreparedAction>
-{
-  PreparedAction(Golemancer.Contracts.ActionRequest Request, System.Collections.Generic.IReadOnlyList<Golemancer.Contracts.ItemRequirement> Items);
-  System.Collections.Generic.IReadOnlyList<Golemancer.Contracts.ItemRequirement> Items { get; set/init; }
-  Golemancer.Contracts.ActionRequest Request { get; set/init; }
-}
-
-class Golemancer.Contracts.ProductionJob
-{
-  ProductionJob();
-  bool IngredientsCommitted { get; set/init; }
-  double Progress { get; set/init; }
-  string RecipeId { get; set/init; }
-}
-
-class Golemancer.Contracts.PurchaseAvailability
-  inherits: System.IEquatable<Golemancer.Contracts.PurchaseAvailability>
-{
-  PurchaseAvailability(int Maximum, string Message = "", string Reason = "");
-  int Maximum { get; set/init; }
-  string Message { get; set/init; }
-  string Reason { get; set/init; }
-  Golemancer.Contracts.CheckResult Check(int quantity);
-}
-
-class Golemancer.Contracts.PurchaseRules
-{
-  static Golemancer.Contracts.PurchaseAvailability Availability(Golemancer.Contracts.IGameContext c, Golemancer.Contracts.WorldObject actor, string item, int price);
-}
-
-class Golemancer.Contracts.QuestDef
-{
-  QuestDef();
-  string Chalk { get; set/init; }
-  string Description { get; set/init; }
-  string Dialogue { get; set/init; }
-  string Flag { get; set/init; }
-  System.Collections.Generic.List<Golemancer.Contracts.QuestGoal> Goals { get; set/init; }
-  string Id { get; set/init; }
-  string Mood { get; set/init; }
-  string Name { get; set/init; }
-  string Requires { get; set/init; }
-  int Reward { get; set/init; }
-}
-
-class Golemancer.Contracts.QuestGoal
-  inherits: System.IEquatable<Golemancer.Contracts.QuestGoal>
-{
-  QuestGoal(string Key, double Amount, string Label);
-  double Amount { get; set/init; }
-  string Key { get; set/init; }
-  string Label { get; set/init; }
-}
-
-class Golemancer.Contracts.QueuedAction
-{
-  QueuedAction();
-  string RecordedIn { get; set/init; }
-  Golemancer.Contracts.ActionRequest Request { get; set/init; }
-  double RetryAt { get; set/init; }
-  string Status { get; set/init; }
-}
-
-class Golemancer.Contracts.RecipeDef
-{
-  RecipeDef();
-  int Amount { get; set/init; }
-  double DefaultEfficiency { get; set/init; }
-  System.Collections.Generic.Dictionary<string, double> Efficiencies { get; set/init; }
-  string Facility { get; set/init; }
-  string Id { get; set/init; }
-  System.Collections.Generic.Dictionary<string, int> Inputs { get; set/init; }
-  string Name { get; set/init; }
-  string Output { get; set/init; }
-  string Unlock { get; set/init; }
-  double Work { get; set/init; }
-}
-
-class Golemancer.Contracts.RecordedStep
-{
-  RecordedStep();
-  Golemancer.Contracts.Tile ActorTile { get; set/init; }
-  System.Collections.Generic.Dictionary<string, System.Text.Json.JsonElement> ExtensionData { get; set/init; }
-  double Offset { get; set/init; }
-  Golemancer.Contracts.ActionRequest Request { get; set/init; }
-  Golemancer.Contracts.RecordedStep Copy();
-}
-
-class Golemancer.Contracts.Recording
-{
-  Recording();
-  string ActorDefinition { get; set/init; }
-  bool Combat { get; set/init; }
-  bool Editing { get; set/init; }
-  System.Collections.Generic.Dictionary<string, System.Text.Json.JsonElement> ExtensionData { get; set/init; }
-  string Id { get; set/init; }
-  System.Collections.Generic.Dictionary<string, string> InitialEquipment { get; set/init; }
-  System.Collections.Generic.Dictionary<string, int> InitialInventory { get; set/init; }
-  string Name { get; set/init; }
-  Golemancer.Contracts.Tile Origin { get; set/init; }
-  int Revision { get; set/init; }
-  double StartedAt { get; set/init; }
-  System.Collections.Generic.List<Golemancer.Contracts.RecordedStep> Steps { get; set/init; }
-  Golemancer.Contracts.Recording Copy();
-}
-
-class Golemancer.Contracts.Rules
-{
-  static bool AcceptsInput(Golemancer.Contracts.IGameContext c, Golemancer.Contracts.WorldObject o, string item);
-  static bool Alive(Golemancer.Contracts.WorldObject o);
-  static void Animate(Golemancer.Contracts.IGameContext c, Golemancer.Contracts.WorldObject o, string state, double seconds = 0.48);
-  static int Available(Golemancer.Contracts.WorldObject o, string item, string reservation = "");
-  static int Available(Golemancer.Contracts.IGameContext c, Golemancer.Contracts.WorldObject o, string item, bool inputOnly = False);
-  static int AvailableInput(Golemancer.Contracts.WorldObject o, string item, string reservation = "");
-  static int AvailableOutput(Golemancer.Contracts.WorldObject o, string item, string reservation = "");
-  static void CancelActions(Golemancer.Contracts.IGameContext c, Golemancer.Contracts.WorldObject actor, bool stopPlayback = True);
-  static bool CanOperate(Golemancer.Contracts.IGameContext c, Golemancer.Contracts.WorldObject actor);
-  static bool Capability(Golemancer.Contracts.IGameContext c, Golemancer.Contracts.WorldObject actor, string ability);
-  static bool CommandBusy(Golemancer.Contracts.IGameContext c, Golemancer.Contracts.WorldObject actor);
-  static double Distance(Golemancer.Contracts.IGameContext c, Golemancer.Contracts.WorldObject a, Golemancer.Contracts.WorldObject b);
-  static Golemancer.Contracts.WorldObject Drop(Golemancer.Contracts.IGameContext c, int x, int y, System.Collections.Generic.IReadOnlyDictionary<string, int> items, string owner = "");
-  static Golemancer.Contracts.WorldObject Drop(Golemancer.Contracts.IGameContext c, int x, int y, System.Collections.Generic.IReadOnlyDictionary<string, int> items, string owner, bool collectOnLanding);
-  static double Efficiency(Golemancer.Contracts.IGameContext c, Golemancer.Contracts.WorldObject actor);
-  static int Give(Golemancer.Contracts.IGameContext c, Golemancer.Contracts.WorldObject o, string item, int amount);
-  static int GiveOutput(Golemancer.Contracts.IGameContext c, Golemancer.Contracts.WorldObject o, string item, int amount);
-  static bool Has(Golemancer.Contracts.WorldObject o, System.Collections.Generic.IReadOnlyDictionary<string, int> items, int count = 1);
-  static bool Has(Golemancer.Contracts.WorldObject o, System.Collections.Generic.IReadOnlyDictionary<string, int> items, int count, string reservation);
-  static bool Has(Golemancer.Contracts.IGameContext c, Golemancer.Contracts.WorldObject o, System.Collections.Generic.IReadOnlyDictionary<string, int> items, int count = 1);
-  static Golemancer.Contracts.InputSlotDef InputSlot(Golemancer.Contracts.IGameContext c, Golemancer.Contracts.WorldObject o, string item);
-  static bool InShop(int x, int y);
-  static bool Is(Golemancer.Contracts.IGameContext c, Golemancer.Contracts.WorldObject o, string kind);
-  static bool IsGolem(Golemancer.Contracts.IGameContext c, Golemancer.Contracts.WorldObject o);
-  static string ItemName(Golemancer.Contracts.IGameContext c, string id);
-  static string Kind(Golemancer.Contracts.IGameContext c, Golemancer.Contracts.WorldObject o);
-  static bool Night(Golemancer.Contracts.IGameContext c);
-  static System.Collections.Generic.IEnumerable<Golemancer.Contracts.WorldObject> OfKind(Golemancer.Contracts.IGameContext c, string kind);
-  static int OrderAvailable(Golemancer.Contracts.IGameContext c, Golemancer.Contracts.WorldObject actor, string item);
-  static System.Collections.Generic.IEnumerable<Golemancer.Contracts.WorldObject> OrderSources(Golemancer.Contracts.IGameContext c, Golemancer.Contracts.WorldObject actor);
-  static int OutputRoom(Golemancer.Contracts.IGameContext c, Golemancer.Contracts.WorldObject o, string item);
-  static void Pay(Golemancer.Contracts.WorldObject o, System.Collections.Generic.IReadOnlyDictionary<string, int> items, int count = 1);
-  static void Pay(Golemancer.Contracts.WorldObject o, System.Collections.Generic.IReadOnlyDictionary<string, int> items, int count, string reservation);
-  static void Pay(Golemancer.Contracts.IGameContext c, Golemancer.Contracts.WorldObject o, System.Collections.Generic.IReadOnlyDictionary<string, int> items, int count = 1);
-  static string Phase(Golemancer.Contracts.IGameContext c);
-  static Golemancer.Contracts.CheckResult Placement(Golemancer.Contracts.IGameContext c, Golemancer.Contracts.WorldObject actor, Golemancer.Contracts.ObjectDef definition, int x, int y);
-  static Golemancer.Contracts.CheckResult Placement(Golemancer.Contracts.IGameContext c, Golemancer.Contracts.WorldObject actor, Golemancer.Contracts.ObjectDef definition, int x, int y, bool ignoreActor);
-  static void ReleaseReservation(Golemancer.Contracts.IGameContext c, string id);
-  static Golemancer.Contracts.CheckResult RequireTarget(Golemancer.Contracts.IGameContext c, Golemancer.Contracts.ActionRequest r, string kind);
-  static int Reserved(Golemancer.Contracts.WorldObject o, string item);
-  static int Room(Golemancer.Contracts.IGameContext c, Golemancer.Contracts.WorldObject o, string item);
-  static string Setting(Golemancer.Contracts.IGameContext c, Golemancer.Contracts.WorldObject o, string key, string fallback = "");
-  static int Slots(Golemancer.Contracts.IGameContext c, Golemancer.Contracts.WorldObject o);
-  static void Take(Golemancer.Contracts.WorldObject o, string item, int amount);
-  static void Take(Golemancer.Contracts.WorldObject o, string item, int amount, string reservation, bool inputOnly = False);
-  static void Take(Golemancer.Contracts.IGameContext c, Golemancer.Contracts.WorldObject o, string item, int amount, bool inputOnly = False);
-  static Golemancer.Contracts.WorldObject Target(Golemancer.Contracts.IGameContext c, Golemancer.Contracts.ActionRequest r);
-  static int UsedSlots(Golemancer.Contracts.IGameContext c, Golemancer.Contracts.WorldObject o);
-}
-
-class Golemancer.Contracts.SpawnDefinition
-  inherits: System.IEquatable<Golemancer.Contracts.SpawnDefinition>
-{
-  SpawnDefinition(string Id, string Definition, int X, int Y);
-  string Definition { get; set/init; }
-  string Id { get; set/init; }
-  int X { get; set/init; }
-  int Y { get; set/init; }
-}
-
-class Golemancer.Contracts.SpriteDef
-{
-  SpriteDef();
-  System.Collections.Generic.Dictionary<string, Golemancer.Contracts.AnimationDef> Animations { get; set/init; }
-  string Id { get; set/init; }
-}
-
-class Golemancer.Contracts.SpriteFrameDef
-{
-  SpriteFrameDef();
-  int Height { get; set/init; }
-  double PivotX { get; set/init; }
-  double PivotY { get; set/init; }
-  int Width { get; set/init; }
-  int X { get; set/init; }
-  int Y { get; set/init; }
-}
-
-class Golemancer.Contracts.TerrainBlendDef
-{
-  TerrainBlendDef();
-  string Handler { get; set/init; }
-  System.Collections.Generic.Dictionary<string, double> Parameters { get; set/init; }
-  double Width { get; set/init; }
-}
-
-class Golemancer.Contracts.TerrainFinishDef
-{
-  TerrainFinishDef();
-  string ImagePath { get; set/init; }
-  double Inset { get; set/init; }
-  double Width { get; set/init; }
-}
-
-class Golemancer.Contracts.TerrainMapLayer
-{
-  TerrainMapLayer();
-  System.Collections.Generic.Dictionary<string, System.Text.Json.JsonElement> Extra { get; set/init; }
-  string Id { get; set/init; }
-  int Order { get; set/init; }
-  string[] Tiles { get; set/init; }
-  string TilesetId { get; set/init; }
-  bool Visible { get; set/init; }
-}
-
-class Golemancer.Contracts.TerrainReceiveDef
-{
-  TerrainReceiveDef();
-  double Distance { get; set/init; }
-  System.Collections.Generic.HashSet<string> RejectTags { get; set/init; }
-  double Strength { get; set/init; }
-}
-
-struct Golemancer.Contracts.TerrainSample
-  inherits: System.IEquatable<Golemancer.Contracts.TerrainSample>
-{
-  TerrainSample(double X, double Y, double Distance, double NormalX, double NormalY, double PixelSize, int Seed);
-  double Distance { get; set/init; }
-  double NormalX { get; set/init; }
-  double NormalY { get; set/init; }
-  double PixelSize { get; set/init; }
-  int Seed { get; set/init; }
-  double X { get; set/init; }
-  double Y { get; set/init; }
-}
-
-class Golemancer.Contracts.TerrainVisualDef
-{
-  TerrainVisualDef();
-  Golemancer.Contracts.TerrainBlendDef Blend { get; set/init; }
-  Golemancer.Contracts.TerrainFinishDef Finish { get; set/init; }
-  Golemancer.Contracts.TerrainReceiveDef Receive { get; set/init; }
-  double RepeatX { get; set/init; }
-  double RepeatY { get; set/init; }
-  System.Collections.Generic.HashSet<string> Tags { get; set/init; }
-}
-
-struct Golemancer.Contracts.Tile
-  inherits: System.IEquatable<Golemancer.Contracts.Tile>
-{
-  Tile(int X, int Y);
-  int X { get; set/init; }
-  int Y { get; set/init; }
-  int Distance(Golemancer.Contracts.Tile other);
-}
-
-class Golemancer.Contracts.TileDef
-{
-  TileDef();
-  string Id { get; set/init; }
-  string ImagePath { get; set/init; }
-  int SourceHeight { get; set/init; }
-  int SourceWidth { get; set/init; }
-  int SourceX { get; set/init; }
-  int SourceY { get; set/init; }
-  Golemancer.Contracts.TerrainVisualDef Terrain { get; set/init; }
-  bool Walkable { get; set/init; }
-}
-
-class Golemancer.Contracts.TileMap
-{
-  TileMap();
-  System.Collections.Generic.Dictionary<string, System.Text.Json.JsonElement> Extra { get; set/init; }
-  int Height { get; set/init; }
-  System.Collections.Generic.List<Golemancer.Contracts.TerrainMapLayer> Layers { get; set/init; }
-  string[] Tiles { get; set/init; }
-  string TilesetId { get; set/init; }
-  int Width { get; set/init; }
-  string At(int x, int y);
-  Golemancer.Contracts.TileMap Clone();
-  bool Inside(int x, int y);
-  void Set(int x, int y, string type);
-  void SetLayer(string id, int x, int y, string type);
-}
-
-class Golemancer.Contracts.TilesetDef
-{
-  TilesetDef();
-  string Id { get; set/init; }
-  System.Collections.Generic.Dictionary<string, Golemancer.Contracts.TileDef> Tiles { get; set/init; }
-}
-
-interface Golemancer.Contracts.UI.IUiBackend
+interface PackEngine.Contracts.UI.IUiBackend
 {
   string Platform { get; }
-  Golemancer.Contracts.UI.IUiElement Create(string renderer, string nodeId, Golemancer.Contracts.UI.UiLayout layout);
-  bool Supports(string renderer, Golemancer.Contracts.UI.UiWidgetDefinition contract);
+  PackEngine.Contracts.UI.IUiElement Create(string renderer, string nodeId, PackEngine.Contracts.UI.UiLayout layout);
+  bool Supports(string renderer, PackEngine.Contracts.UI.UiWidgetDefinition contract);
 }
 
-interface Golemancer.Contracts.UI.IUiCommand
+interface PackEngine.Contracts.UI.IUiCommand
 {
-  Golemancer.Contracts.UI.UiValueKind Payload { get; }
-  void Execute(Golemancer.Contracts.UI.UiValue value);
+  PackEngine.Contracts.UI.UiValueKind Payload { get; }
+  void Execute(PackEngine.Contracts.UI.UiValue value);
 }
 
 // Explicit names only: XML cannot reflect into arbitrary methods or mutate game state directly.
-interface Golemancer.Contracts.UI.IUiContext
+interface PackEngine.Contracts.UI.IUiContext
 {
-  Golemancer.Contracts.UI.IUiCommand Command(string name);
-  Golemancer.Contracts.UI.IUiValueSource Value(string name);
+  PackEngine.Contracts.UI.IUiCommand Command(string name);
+  PackEngine.Contracts.UI.IUiValueSource Value(string name);
 }
 
 // Set must not emit user events. Dispose releases only this element, not its children.
-interface Golemancer.Contracts.UI.IUiElement
+interface PackEngine.Contracts.UI.IUiElement
   inherits: System.IDisposable
 {
-  void Add(string slot, Golemancer.Contracts.UI.IUiElement child);
-  System.IDisposable Listen(string eventName, System.Action<Golemancer.Contracts.UI.UiValue> handler);
-  void Set(string property, Golemancer.Contracts.UI.UiValue value);
+  void Add(string slot, PackEngine.Contracts.UI.IUiElement child);
+  System.IDisposable Listen(string eventName, System.Action<PackEngine.Contracts.UI.UiValue> handler);
+  void Set(string property, PackEngine.Contracts.UI.UiValue value);
 }
 
-// Optional IGameModule extension; independent DLLs and compiled modules use the same contract.
-interface Golemancer.Contracts.UI.IUiRegistry
+// Optional pack registry extension; independent DLLs and compiled modules use the same contract.
+interface PackEngine.Contracts.UI.IUiRegistry
 {
-  void RegisterUi(Golemancer.Contracts.UI.UiDocument document);
+  void RegisterUi(PackEngine.Contracts.UI.UiDocument document);
 }
 
 // All operations, including notifications, run on the host UI thread. Each subscription is independent.
-interface Golemancer.Contracts.UI.IUiValueSource
+interface PackEngine.Contracts.UI.IUiValueSource
 {
-  Golemancer.Contracts.UI.UiValueKind Type { get; }
-  Golemancer.Contracts.UI.UiValue Read();
-  System.IDisposable Subscribe(System.Action<Golemancer.Contracts.UI.UiValue> changed);
+  PackEngine.Contracts.UI.UiValueKind Type { get; }
+  PackEngine.Contracts.UI.UiValue Read();
+  System.IDisposable Subscribe(System.Action<PackEngine.Contracts.UI.UiValue> changed);
 }
 
-class Golemancer.Contracts.UI.UiContribution
+class PackEngine.Contracts.UI.UiContribution
 {
   UiContribution();
-  Golemancer.Contracts.UI.UiNode Node { get; set/init; }
+  PackEngine.Contracts.UI.UiNode Node { get; set/init; }
   string Parent { get; set/init; }
   string Slot { get; set/init; }
   string View { get; set/init; }
 }
 
-class Golemancer.Contracts.UI.UiDocument
+class PackEngine.Contracts.UI.UiDocument
 {
   UiDocument();
-  System.Collections.Generic.List<Golemancer.Contracts.UI.UiContribution> Contributions { get; set/init; }
+  System.Collections.Generic.List<PackEngine.Contracts.UI.UiContribution> Contributions { get; set/init; }
   string Id { get; set/init; }
   int Version { get; set/init; }
-  System.Collections.Generic.List<Golemancer.Contracts.UI.UiViewDefinition> Views { get; set/init; }
-  System.Collections.Generic.List<Golemancer.Contracts.UI.UiWidgetDefinition> Widgets { get; set/init; }
+  System.Collections.Generic.List<PackEngine.Contracts.UI.UiViewDefinition> Views { get; set/init; }
+  System.Collections.Generic.List<PackEngine.Contracts.UI.UiWidgetDefinition> Widgets { get; set/init; }
 }
 
-class Golemancer.Contracts.UI.UiEventDefinition
+class PackEngine.Contracts.UI.UiEventDefinition
 {
   UiEventDefinition();
   string Description { get; set/init; }
   string Name { get; set/init; }
-  Golemancer.Contracts.UI.UiValueKind Payload { get; set/init; }
+  PackEngine.Contracts.UI.UiValueKind Payload { get; set/init; }
 }
 
 // Top-left origin, logical UI units. Size is added to the anchor span; Offset moves the pivot.
-class Golemancer.Contracts.UI.UiLayout
-  inherits: System.IEquatable<Golemancer.Contracts.UI.UiLayout>
+class PackEngine.Contracts.UI.UiLayout
+  inherits: System.IEquatable<PackEngine.Contracts.UI.UiLayout>
 {
   UiLayout();
-  Golemancer.Contracts.UI.UiVector2 AnchorMax { get; set/init; }
-  Golemancer.Contracts.UI.UiVector2 AnchorMin { get; set/init; }
-  System.Nullable<Golemancer.Contracts.UI.UiVector2> MaxSize { get; set/init; }
-  Golemancer.Contracts.UI.UiVector2 MinSize { get; set/init; }
-  Golemancer.Contracts.UI.UiVector2 Offset { get; set/init; }
-  Golemancer.Contracts.UI.UiVector2 Pivot { get; set/init; }
+  PackEngine.Contracts.UI.UiVector2 AnchorMax { get; set/init; }
+  PackEngine.Contracts.UI.UiVector2 AnchorMin { get; set/init; }
+  System.Nullable<PackEngine.Contracts.UI.UiVector2> MaxSize { get; set/init; }
+  PackEngine.Contracts.UI.UiVector2 MinSize { get; set/init; }
+  PackEngine.Contracts.UI.UiVector2 Offset { get; set/init; }
+  PackEngine.Contracts.UI.UiVector2 Pivot { get; set/init; }
   bool SafeArea { get; set/init; }
-  Golemancer.Contracts.UI.UiVector2 Size { get; set/init; }
+  PackEngine.Contracts.UI.UiVector2 Size { get; set/init; }
 }
 
-class Golemancer.Contracts.UI.UiNode
+class PackEngine.Contracts.UI.UiNode
 {
   UiNode();
   System.Collections.Generic.Dictionary<string, string> Bindings { get; set/init; }
   System.Collections.Generic.Dictionary<string, string> Events { get; set/init; }
   System.Collections.Generic.HashSet<string> Exports { get; set/init; }
   string Id { get; set/init; }
-  Golemancer.Contracts.UI.UiLayout Layout { get; set/init; }
+  PackEngine.Contracts.UI.UiLayout Layout { get; set/init; }
   int Order { get; set/init; }
-  System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<Golemancer.Contracts.UI.UiNode>> Slots { get; set/init; }
+  System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<PackEngine.Contracts.UI.UiNode>> Slots { get; set/init; }
   System.Collections.Generic.Dictionary<string, string> Values { get; set/init; }
   string Widget { get; set/init; }
 }
 
-class Golemancer.Contracts.UI.UiPropertyDefinition
+class PackEngine.Contracts.UI.UiPropertyDefinition
 {
   UiPropertyDefinition();
   string Default { get; set/init; }
@@ -937,10 +131,10 @@ class Golemancer.Contracts.UI.UiPropertyDefinition
   string Name { get; set/init; }
   System.Collections.Generic.List<string> Options { get; set/init; }
   bool Required { get; set/init; }
-  Golemancer.Contracts.UI.UiValueKind Type { get; set/init; }
+  PackEngine.Contracts.UI.UiValueKind Type { get; set/init; }
 }
 
-class Golemancer.Contracts.UI.UiSlotDefinition
+class PackEngine.Contracts.UI.UiSlotDefinition
 {
   UiSlotDefinition();
   string Description { get; set/init; }
@@ -950,21 +144,21 @@ class Golemancer.Contracts.UI.UiSlotDefinition
 }
 
 // Platform-neutral, validated value. Resource values are opaque asset IDs, never native objects.
-class Golemancer.Contracts.UI.UiValue
-  inherits: System.IEquatable<Golemancer.Contracts.UI.UiValue>
+class PackEngine.Contracts.UI.UiValue
+  inherits: System.IEquatable<PackEngine.Contracts.UI.UiValue>
 {
-  Golemancer.Contracts.UI.UiValueKind Kind { get; }
+  PackEngine.Contracts.UI.UiValueKind Kind { get; }
   string Literal { get; }
-  static Golemancer.Contracts.UI.UiValue None { get; }
+  static PackEngine.Contracts.UI.UiValue None { get; }
   bool AsBoolean();
   double AsNumber();
-  static Golemancer.Contracts.UI.UiValue Boolean(bool value);
-  static Golemancer.Contracts.UI.UiValue Number(double value);
-  static Golemancer.Contracts.UI.UiValue Parse(Golemancer.Contracts.UI.UiValueKind kind, string literal);
-  static Golemancer.Contracts.UI.UiValue Text(string value);
+  static PackEngine.Contracts.UI.UiValue Boolean(bool value);
+  static PackEngine.Contracts.UI.UiValue Number(double value);
+  static PackEngine.Contracts.UI.UiValue Parse(PackEngine.Contracts.UI.UiValueKind kind, string literal);
+  static PackEngine.Contracts.UI.UiValue Text(string value);
 }
 
-enum Golemancer.Contracts.UI.UiValueKind
+enum PackEngine.Contracts.UI.UiValueKind
   inherits: System.IComparable, System.ISpanFormattable, System.IFormattable, System.IConvertible
 {
   None = 0;
@@ -976,82 +170,30 @@ enum Golemancer.Contracts.UI.UiValueKind
   Vector2 = 6;
 }
 
-struct Golemancer.Contracts.UI.UiVector2
-  inherits: System.IEquatable<Golemancer.Contracts.UI.UiVector2>
+struct PackEngine.Contracts.UI.UiVector2
+  inherits: System.IEquatable<PackEngine.Contracts.UI.UiVector2>
 {
   UiVector2(double X, double Y);
   double X { get; set/init; }
   double Y { get; set/init; }
   static double Finite(string text);
-  static Golemancer.Contracts.UI.UiVector2 Parse(string text);
+  static PackEngine.Contracts.UI.UiVector2 Parse(string text);
 }
 
-class Golemancer.Contracts.UI.UiViewDefinition
+class PackEngine.Contracts.UI.UiViewDefinition
 {
   UiViewDefinition();
   string Id { get; set/init; }
-  Golemancer.Contracts.UI.UiNode Root { get; set/init; }
+  PackEngine.Contracts.UI.UiNode Root { get; set/init; }
 }
 
-class Golemancer.Contracts.UI.UiWidgetDefinition
+class PackEngine.Contracts.UI.UiWidgetDefinition
 {
   UiWidgetDefinition();
   string Description { get; set/init; }
-  System.Collections.Generic.List<Golemancer.Contracts.UI.UiEventDefinition> Events { get; set/init; }
+  System.Collections.Generic.List<PackEngine.Contracts.UI.UiEventDefinition> Events { get; set/init; }
   string Id { get; set/init; }
-  System.Collections.Generic.List<Golemancer.Contracts.UI.UiPropertyDefinition> Properties { get; set/init; }
+  System.Collections.Generic.List<PackEngine.Contracts.UI.UiPropertyDefinition> Properties { get; set/init; }
   System.Collections.Generic.Dictionary<string, string> Renderers { get; set/init; }
-  System.Collections.Generic.List<Golemancer.Contracts.UI.UiSlotDefinition> Slots { get; set/init; }
-}
-
-class Golemancer.Contracts.VisualEffect
-  inherits: System.IEquatable<Golemancer.Contracts.VisualEffect>
-{
-  VisualEffect(string Kind, int X, int Y, double Until, string Text = "");
-  string Kind { get; set/init; }
-  string Text { get; set/init; }
-  double Until { get; set/init; }
-  int X { get; set/init; }
-  int Y { get; set/init; }
-}
-
-class Golemancer.Contracts.WorldObject
-{
-  WorldObject();
-  System.Collections.Generic.List<Golemancer.Contracts.QueuedAction> ActionQueue { get; set/init; }
-  Golemancer.Contracts.Recording CompletedDraft { get; set/init; }
-  System.Collections.Generic.Dictionary<string, string> Data { get; set/init; }
-  string DefinitionId { get; set/init; }
-  System.Collections.Generic.Dictionary<string, string> Equipment { get; set/init; }
-  System.Collections.Generic.Dictionary<string, System.Text.Json.JsonElement> ExtensionData { get; set/init; }
-  Golemancer.Contracts.FollowState Following { get; set/init; }
-  string Id { get; set/init; }
-  double InputX { get; set/init; }
-  double InputY { get; set/init; }
-  System.Collections.Generic.Dictionary<string, int> Inventory { get; set/init; }
-  Golemancer.Contracts.RecordedStep ManualRecording { get; set/init; }
-  string Name { get; set/init; }
-  Golemancer.Contracts.ActionRequest Ongoing { get; set/init; }
-  System.Collections.Generic.Dictionary<string, int> OutputInventory { get; set/init; }
-  System.Collections.Generic.List<Golemancer.Contracts.Tile> Path { get; set/init; }
-  Golemancer.Contracts.ActionRequest Pending { get; set/init; }
-  Golemancer.Contracts.Playback Playback { get; set/init; }
-  System.Collections.Generic.List<Golemancer.Contracts.ProductionJob> Production { get; set/init; }
-  Golemancer.Contracts.Recording Recording { get; set/init; }
-  System.Collections.Generic.List<Golemancer.Contracts.InventoryReservation> Reservations { get; set/init; }
-  double SubX { get; set/init; }
-  double SubY { get; set/init; }
-  Golemancer.Contracts.Tile Tile { get; }
-  System.Collections.Generic.Dictionary<string, double> Values { get; set/init; }
-  Golemancer.Contracts.ActiveWork Work { get; set/init; }
-  double WorldX { get; }
-  double WorldY { get; }
-  int X { get; set/init; }
-  int Y { get; set/init; }
-  int Count(string item);
-  double Get(string key, double fallback = 0);
-  string GetText(string key, string fallback = "");
-  void Set(string key, double value);
-  void SetPosition(double x, double y);
-  System.Collections.Generic.Dictionary<string, int> Stock();
+  System.Collections.Generic.List<PackEngine.Contracts.UI.UiSlotDefinition> Slots { get; set/init; }
 }

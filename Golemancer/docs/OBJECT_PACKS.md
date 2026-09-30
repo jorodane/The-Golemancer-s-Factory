@@ -7,7 +7,7 @@
 팩은 `Content/Packs/<폴더>/pack.xml`로 발견한다. 폴더명보다 매니페스트 `id`가 정체성을 결정한다.
 
 ```xml
-<ObjectPack id="my_pack" version="1.0.0" contracts="1">
+<ObjectPack id="my_pack" version="1.0.0" contracts="2">
   <Depends id="foundation" minVersion="1.0.0" />
   <Depends id="feast_trail" minVersion="1.0.0" />
   <Assembly path="Bin/{framework}/MyPack.dll" />

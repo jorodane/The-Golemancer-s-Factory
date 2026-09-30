@@ -1,5 +1,5 @@
 using Golemancer.Contracts;
-using Golemancer.Engine;
+using Golemancer.Runtime;
 using Golemancer.Desktop;
 internal static class DesktopTests
 {
@@ -33,7 +33,7 @@ internal static class DesktopTests
         foreach(string source in Directory.GetFiles(packs,"*",SearchOption.AllDirectories).Where(p=>p.EndsWith(".xml",StringComparison.Ordinal)||p.EndsWith(".dll",StringComparison.Ordinal)||p.EndsWith(".deps.json",StringComparison.Ordinal)))
         {string dest=Path.Combine(isolated,source.Substring(packs.Length+1));Directory.CreateDirectory(Path.GetDirectoryName(dest)!);File.Copy(source,dest);}
         string mod=Path.Combine(isolated,"99.TestTiles");Directory.CreateDirectory(mod);
-        File.WriteAllText(Path.Combine(mod,"pack.xml"),"<ObjectPack id='test_tiles' version='1.0.0' contracts='1'><Depends id='feast_trail_animations' minVersion='1.0.0'/><Data path='visuals.xml'/></ObjectPack>");
+        File.WriteAllText(Path.Combine(mod,"pack.xml"),"<ObjectPack id='test_tiles' version='1.0.0' contracts='2'><Depends id='feast_trail_animations' minVersion='1.0.0'/><Data path='visuals.xml'/></ObjectPack>");
         File.WriteAllText(Path.Combine(mod,"visuals.xml"),"<GameContent><Tilesets><Tileset id='feast_trail'><Tile id='grass' image='grass.png' walkable='false' x='64' y='0' width='64' height='64'/></Tileset></Tilesets><Sprites><Sprite id='harvest_golem'><Animation state='move' image='walk.png' frameWidth='64' frameHeight='64' frames='4' columns='4' offsetX='.25' offsetY='-.1'/></Sprite></Sprites></GameContent>");
         var modified=PackLoader.Cook(isolated);var game=new Simulation(modified);int grass=Array.IndexOf(game.State.Map.Tiles,"grass");
         Check(!game.Walkable(grass%game.State.Map.Width,grass/game.State.Map.Width)&&modified.Content.Tilesets["feast_trail"].Tiles["floor"].Walkable,"independent tileset patch changes one tile and preserves other definitions");

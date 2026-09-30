@@ -2,7 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using Golemancer.Contracts;
-using Golemancer.Engine;
+using Golemancer.Runtime;
 namespace Golemancer.Desktop;
 
 internal sealed partial class MainWindow

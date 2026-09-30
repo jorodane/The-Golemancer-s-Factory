@@ -1,8 +1,8 @@
-# Object pack contract, v1
+# Golemancer object pack contract, v2
 
-`Golemancer.Contracts.dll` is the shared type identity. The host and modules share exactly this assembly. The host references Contracts and Engine only. Pack assemblies are discovered at runtime through `pack.xml` and loaded with `Assembly.LoadFrom` on .NET Framework 4.8. Portable net10.0 engine verification uses separate `AssemblyLoadContext`s. Each DLL supplies `IGameModule.Register` and registers independent action, condition, failure, system or world objects.
+`Golemancer.Contracts.dll` is the game domain type identity. Its source is inside this game folder. `IGameModule` extends the game-independent `PackEngine.Contracts.IPackModule<IModuleRegistry>`. Hosts reference the game runtime, never concrete content modules. PackEngine loads independent DLLs with Assembly.LoadFrom on net48 or private AssemblyLoadContexts on net10.0, sharing the engine and game contract identities.
 
-The standalone `Golemancer` game folder consumes the exact DLLs in `SDK/net48` or `SDK/net10.0`. Game projects have no project reference to engine/API source. The frozen binary hashes are in `SDK/engine-lock.json`; the MSBuild gate rejects modified binaries. See [the standalone experiment](STANDALONE_GAME.md) for the current game-specific API limitations.
+Game projects compile local game contracts and reference only the frozen PackEngine DLLs in SDK. The SDK hash gate protects the common engine; it does not prohibit editing game rules. Game DLLs must be rebuilt for ABI v2 (`contracts="2"`). JSON saves remain schema version 1. See [the standalone guide](STANDALONE_GAME.md).
 
 ## Lifecycle and ownership
 
@@ -34,7 +34,7 @@ ActionRequest.Enqueue submits a recordable intent to WorldObject.ActionQueue. Co
 
 Stopping a recording is permitted during work/travel. Already started steps remain recorded once; pending QueuedAction entries are appended in order and marked RecordedIn. Continuing the queue does not mutate the saved recording. Replay submits ordinary intents without Enqueue or ReservationId. Queues and reservations persist in saves; old saves default to empty lists.
 
-An optional IInventoryAction.Prepare provides a pure PreparedAction (fixed operation plus ItemRequirements). The engine acquires the entire debit plan atomically after Check, before travel/work. All/fill transfers and recipe batch counts freeze at this point; the recording retains the original intent. InventoryReservation tracks input/output quantities on the source, an opaque token and actor identity. Count/Stock remain physical totals; Available/AvailableInput subtract other tokens. No items leave stock until Execute. Reserved capacity is still physically occupied.
+An optional IInventoryAction.Prepare provides a pure PreparedAction (fixed operation plus ItemRequirements). The game runtime acquires the entire debit plan atomically after Check, before travel/work. All/fill transfers and recipe batch counts freeze at this point; the recording retains the original intent. InventoryReservation tracks input/output quantities on the source, an opaque token and actor identity. Count/Stock remain physical totals; Available/AvailableInput subtract other tokens. No items leave stock until Execute. Reserved capacity is still physically occupied.
 
 Use context-aware c.Available/c.Has/c.Take/c.Pay inside Check/Execute to access the current action's lease through IGameContext.ReservationId. Background systems and legacy object-only Has/Pay/Take have no token and cannot spend reserved stock. Existing object-only method signatures remain available for compiled modules. Never debit Inventory dictionaries directly. ReservationId is engine-owned, stripped from new requests and recordings, and only active pending/work calls regain that scope. Core automatic production, pickup and retail use unreserved stock.
 
@@ -75,7 +75,7 @@ Clicking any InputSlots facility focuses its world object and interactive slot b
 
 ## Detached planning
 
-`IActionProjection.Project` is an optional opt-in for DLL actions. It receives a detached context and must be deterministic, mutate only that context, perform no I/O, and retain no state. The engine never executes an unopted-in handler to guess its effects. Existing handlers remain loadable; an unknown projection or failed prerequisite stops the forecast at that point without inventing inventory. `IProductionProjection.Project` settles a module's machines in the same detached context. A forecast is an availability preview, not a reservation or guarantee against other units' later actions. The live handler checks again at execution. Other actors' current leases remain protected in the forecast.
+`IActionProjection.Project` is an optional opt-in for DLL actions. It receives a detached context and must be deterministic, mutate only that context, perform no I/O, and retain no state. The game runtime never executes an unopted-in handler to guess its effects. Existing handlers remain loadable; an unknown projection or failed prerequisite stops the forecast at that point without inventing inventory. `IProductionProjection.Project` settles a module's machines in the same detached context. A forecast is an availability preview, not a reservation or guarantee against other units' later actions. The live handler checks again at execution. Other actors' current leases remain protected in the forecast.
 
 `Object.Data["quickUse"]` is an explicit interaction/action ID. Missing data means opening the normal context menu. Golems and general storage have no implicit quick use. Everyday keyboard input pans the camera; combat keyboard input drives the actor. Rolling enters combat in the handler, so recordings follow the same semantics.
 

@@ -1,5 +1,5 @@
 using Golemancer.Contracts;
-using Golemancer.Engine;
+using Golemancer.Runtime;
 namespace Golemancer.Desktop;
 
 // The same tree, compression and inventory projection serve every interaction.

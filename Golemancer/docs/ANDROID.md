@@ -40,7 +40,7 @@ bash build-android.sh -p:AndroidSdkDirectory=/path/to/android-sdk -p:JavaSdkDire
 
 ## 실제 DLL 로딩
 
-`Golemancer.Android → Golemancer.Client → Golemancer.Engine → Golemancer.Contracts`만 프로젝트 참조로 연결한다. 콘텐츠 모듈은 독립적으로 빌드한 `Content/Packs/*/Bin/net10.0/*.dll`이다. APK asset에서 앱 전용 Content 디렉터리로 추출한 뒤 `PackLoadContext.LoadFromAssemblyPath`로 읽는다. 모듈별 XML과 번역도 같은 팩에서 읽는다.
+`Golemancer.Android → Golemancer.Client → Golemancer.Runtime → Golemancer.Contracts`는 게임 폴더 안의 프로젝트 참조로 연결한다. 공통 `PackEngine.Contracts`·`PackEngine.Runtime`은 SDK 바이너리만 참조한다. 콘텐츠 모듈은 독립적으로 빌드한 `Content/Packs/*/Bin/net10.0/*.dll`이다. APK asset에서 앱 전용 Content 디렉터리로 추출한 뒤 `PackLoadContext.LoadFromAssemblyPath`로 읽는다. 모듈별 XML과 번역도 같은 팩에서 읽는다.
 
 호스트 런타임의 assembly store/압축은 기본값을 유지한다. 이 패키징과 외부 객체팩 DLL 로딩은 별개다. `PublishTrimmed=false`, `RunAOTCompilation=false`를 유지하여 동적으로 참조하는 타입과 JIT 실행을 보존한다. Release 시작 시 JNI 메서드 등록 누락을 피하도록 `AndroidEnableMarshalMethods=false`로 동적 JNI 등록을 사용한다. [공식 빌드 속성 설명](https://learn.microsoft.com/en-us/dotnet/android/building-apps/build-properties#androidenablemarshalmethods)에 해당 옵션을 정리하고 있다. Android에서 사용할 수 없는 `AssemblyDependencyResolver`는 인접 DLL 탐색으로 대체한다. 사용자 팩을 가져오는 화면은 아직 제공하지 않는다.
 

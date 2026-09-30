@@ -23,7 +23,7 @@ WCW의 `GenericWidgetClaim`, `Contain…`, `InfoConnectable`에서 참고한 책
 기존 객체팩 매니페스트에서 UI 파일을 명시한다. UI 파일은 `<GameContent>` 파일과 별개다.
 
 ```xml
-<ObjectPack id="my.ui" version="1.0.0" contracts="1">
+<ObjectPack id="my.ui" version="1.0.0" contracts="2">
   <Depends id="common.widgets" minVersion="1.0.0" />
   <Ui path="ui.xml" />
 </ObjectPack>
@@ -153,7 +153,7 @@ v1은 **추가** 계약이다. 기존 노드 삭제·속성 patch·위젯 타입
 
 ## 7. 함수/API 명세
 
-공유 타입: `Golemancer.Contracts.UI`. 엔진 구현: `Golemancer.Engine.UI`.
+공유 타입: `PackEngine.Contracts.UI`. 엔진 구현: `PackEngine.Runtime.UI`.
 
 | API | 책임 |
 |---|---|

@@ -1,7 +1,7 @@
 <Project>
   <PropertyGroup>
-    <GolemancerTargetFramework Condition="'$(GolemancerTargetFramework)' == ''">net48</GolemancerTargetFramework>
-    <TargetFramework>$(GolemancerTargetFramework)</TargetFramework>
+    <EngineTargetFramework Condition="'$(EngineTargetFramework)' == ''">net48</EngineTargetFramework>
+    <TargetFramework>$(EngineTargetFramework)</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>

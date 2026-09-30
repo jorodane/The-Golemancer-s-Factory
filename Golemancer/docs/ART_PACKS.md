@@ -20,7 +20,7 @@ PNG는 투명 RGBA를 권장한다. SVG는 path, rect, ellipse, circle, line, po
 `Content/Packs/95.MyTiles/pack.xml`:
 
 ```xml
-<ObjectPack id="my_tiles" version="1.0.0" contracts="1">
+<ObjectPack id="my_tiles" version="1.0.0" contracts="2">
   <Depends id="feast_trail_tiles" minVersion="1.0.0" />
   <Data path="tiles.xml" />
 </ObjectPack>
@@ -50,7 +50,7 @@ PNG는 투명 RGBA를 권장한다. SVG는 path, rect, ellipse, circle, line, po
 `Content/Packs/96.MyCharacter/pack.xml`:
 
 ```xml
-<ObjectPack id="my_character_art" version="1.0.0" contracts="1">
+<ObjectPack id="my_character_art" version="1.0.0" contracts="2">
   <Depends id="feast_trail_animations" minVersion="1.0.0" />
   <Data path="animations.xml" />
 </ObjectPack>

@@ -1,6 +1,6 @@
 using System.Text.Json;
 using Golemancer.Contracts;
-using Golemancer.Engine;
+using Golemancer.Runtime;
 
 internal static class CollectionPowerTests
 {

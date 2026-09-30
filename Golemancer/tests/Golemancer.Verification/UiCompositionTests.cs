@@ -1,8 +1,8 @@
 using System.Globalization;
 using System.Xml;
-using Golemancer.Contracts.UI;
-using Golemancer.Engine;
-using Golemancer.Engine.UI;
+using PackEngine.Contracts.UI;
+using Golemancer.Runtime;
+using PackEngine.Runtime.UI;
 
 internal static class UiCompositionTests
 {
@@ -124,7 +124,7 @@ internal static class UiCompositionTests
             string path = Path.Combine(temp, "Project", "ui.xml");
             File.WriteAllText(path, File.ReadAllText(path).Replace("value=\"12\"", "value=\"13\""));
             Check(first != PackLoader.Cook(temp).Fingerprint, "UI configuration participates in the cooked content fingerprint");
-            File.WriteAllText(Path.Combine(temp, "Mod", "pack.xml"), "<ObjectPack id='escape' version='1.0.0' contracts='1'><Ui path='../Project/ui.xml'/></ObjectPack>");
+            File.WriteAllText(Path.Combine(temp, "Mod", "pack.xml"), "<ObjectPack id='escape' version='1.0.0' contracts='2'><Ui path='../Project/ui.xml'/></ObjectPack>");
             Reject(() => PackLoader.Cook(temp), "UI manifest paths cannot escape their pack");
         }
         finally { if (Directory.Exists(temp)) Directory.Delete(temp, true); }
