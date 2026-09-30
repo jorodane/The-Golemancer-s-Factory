@@ -24,8 +24,7 @@ public sealed partial class EditorWindow
     {
         var row = new WrapPanel(); row.Children.Add(pointingMode); row.Children.Add(Action("대상 비우기", () => { session?.Pointing.Targets.Clear(); RefreshPointing(); }));
         composer.Children.Add(row); composer.Children.Add(new ScrollViewer { Content = pointChips, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled, MaxHeight = 70 });
-        var permissions = new WrapPanel(); permissions.Children.Add(allowPackWrites); permissions.Children.Add(allowProjectCommands); composer.Children.Add(permissions);
-        composer.Children.Add(Label("단일: 탐색기·관계도 클릭 / 범위: 관계도 드래그·여러 객체 클릭·XML 텍스트 선택. 전송할 때 상태를 고정해.", 11, MutedInk));
+        composer.Children.Add(Label("단일: 객체 클릭 / 범위: 관계도 드래그·XML 선택. ChatGPT 도구 요청 또는 에디터 전송 시 고정해.", 11, MutedInk));
         pointingMode.SelectionChanged += (_, _) => { session?.SetPointingMode(new[] { "none", "single", "range" }[Math.Max(0, pointingMode.SelectedIndex)]); RefreshPointing(); };
     }
     private void RefreshPointing()
@@ -91,12 +90,16 @@ public sealed partial class EditorWindow
             .Where(p => !session.Project.Sources.TryGetValue(p, out var source) || source.Editable).Distinct(StringComparer.Ordinal).ToList() : [];
         session.Persist(); streamMessages.Clear();
     }
-    private void AddResidentControls(StackPanel panel)
+    private void AddResidentControls(StackPanel parent)
     {
+        parent.Children.Add(Action("ChatGPT 열기", OpenChatGpt));
+        parent.Children.Add(Action("ChatGPT 연결·작업 범위", () => tabs.SelectedIndex = 6));
+        var panel = new StackPanel(); parent.Children.Add(new Expander { Header = "에디터 안에서 Codex 대화", Foreground = TextInk, Margin = new Thickness(4), Content = panel });
         panel.Children.Add(Label("Codex 작업 세션", 13, AccentInk));
         codexPath.ToolTip = "선택 사항: 네이티브 codex.exe 경로. 비워 두면 StartEditor가 준비한 설치 위치나 PATH에서 찾아.";
         codexPath.MaxWidth = 250;
         var advanced = new StackPanel(); advanced.Children.Add(Label("Codex 실행 경로 · 비워 두면 자동 탐색", 11, MutedInk)); advanced.Children.Add(codexPath);
+        advanced.Children.Add(Action("다음 시작 때 Codex 설치 준비", () => Guard(() => { PackEngine.Installation.EditorStartMode.Save(false); SetStatus("다음 StartEditor 실행에서 Codex 준비를 확인할게."); })));
         advanced.Children.Add(Action("다른 AI 제공자 연결…", ConnectProvider));
         panel.Children.Add(new Expander { Header = "고급 연결 설정", Foreground = TextInk, Margin = new Thickness(4), Content = advanced });
         string preferences = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PackEngine", "codex-path.txt");
@@ -106,7 +109,7 @@ public sealed partial class EditorWindow
         panel.Children.Add(second); panel.Children.Add(models);
         panel.Children.Add(Action("대화 목록·접근 설정", () => tabs.SelectedIndex = 5));
         models.SelectionChanged += (_, _) => { if (provider is IResidentAssistant agent && models.SelectedItem is AssistantModel model) agent.Model = model.Id; };
-        panel.Children.Add(Label("기본: 시작할 때 자동 연결\n웹 문맥은 대화·접근 탭에서 등록해줘.", 11, MutedInk));
+        panel.Children.Add(Label("ChatGPT 연결을 켜면 별도 Codex 자동 연결은 쉬어. 여기의 대화는 ChatGPT 웹 대화와 별도야.", 11, MutedInk));
     }
     private async void ConnectCodex() => await ConnectCodexAsync();
     private async Task<bool> ConnectCodexAsync()

@@ -7,9 +7,11 @@
     <ItemGroup>
       <Runtime Include="$(MSBuildThisFileDirectory)PackEngine.Editor/bin/Release/net48/*.exe;$(MSBuildThisFileDirectory)PackEngine.Editor/bin/Release/net48/*.dll;$(MSBuildThisFileDirectory)PackEngine.Editor/bin/Release/net48/*.config" />
       <Runtime Include="$(MSBuildThisFileDirectory)PackEngine.Tool/bin/Release/net48/PackEngine.Tool.exe;$(MSBuildThisFileDirectory)PackEngine.Tool/bin/Release/net48/PackEngine.Tool.exe.config" />
+      <Runtime Include="$(MSBuildThisFileDirectory)PackEngine.Mcp/bin/Release/net48/PackEngine.Mcp.exe;$(MSBuildThisFileDirectory)PackEngine.Mcp/bin/Release/net48/PackEngine.Mcp.exe.config" />
     </ItemGroup>
     <Error Condition="!Exists('$(MSBuildThisFileDirectory)PackEngine.Editor/bin/Release/net48/PackEngine.Editor.exe')" Text="Build editor/Editor.slnx first." />
     <Error Condition="!Exists('$(MSBuildThisFileDirectory)PackEngine.Tool/bin/Release/net48/PackEngine.Tool.exe')" Text="Build the net48 CLI first." />
+    <Error Condition="!Exists('$(MSBuildThisFileDirectory)PackEngine.Mcp/bin/Release/net48/PackEngine.Mcp.exe')" Text="Build the MCP bridge first." />
     <Error Condition="!Exists('$(MSBuildThisFileDirectory)PackEngine.Launcher/bin/Release/net48/StartEditor.exe')" Text="Build the launcher first." />
     <Copy SourceFiles="$(MSBuildThisFileDirectory)PackEngine.Launcher/bin/Release/net48/StartEditor.exe;$(MSBuildThisFileDirectory)PackEngine.Launcher/bin/Release/net48/StartEditor.exe.config" DestinationFolder="$(MSBuildThisFileDirectory)../" />
     <MakeDir Directories="$(EditorPublishDir)" />

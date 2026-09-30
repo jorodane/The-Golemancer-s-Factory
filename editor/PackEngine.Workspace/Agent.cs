@@ -99,7 +99,8 @@ public sealed class AgentWorkspace : IAgentWorkspace, IDisposable
     private static int Num(JsonElement a, string key, int fallback) => a.TryGetProperty(key, out var v) && v.TryGetInt32(out int n) ? n : fallback;
     private static object Spec(string name, string description, string schema)
     { using var json = JsonDocument.Parse(schema); return new { type = "function", name, description, inputSchema = json.RootElement.Clone() }; }
-    public IReadOnlyList<object> ToolDefinitions { get; } = new[]
+    public IReadOnlyList<object> ToolDefinitions => Definitions;
+    public static IReadOnlyList<object> Definitions { get; } = new[]
     {
         Spec("packengine_find", "Find declared object IDs or source files by text, optionally within one pack. Returns at most 30 metadata entries, no file contents.", "{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"string\"},\"pack\":{\"type\":\"string\"}},\"required\":[\"query\"],\"additionalProperties\":false}"),
         Spec("packengine_inspect", "Inspect one object: definition is the current XML fragment; relations are one-hop references; contract is the resolved SAVED definition with provenance. Drafts are not runtime state. Implementation IDs can remain runtime-unknown.", "{\"type\":\"object\",\"properties\":{\"key\":{\"type\":\"string\"},\"section\":{\"type\":\"string\",\"enum\":[\"definition\",\"relations\",\"contract\"]}},\"required\":[\"key\",\"section\"],\"additionalProperties\":false}"),

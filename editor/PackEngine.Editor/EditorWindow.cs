@@ -54,10 +54,10 @@ public sealed partial class EditorWindow : Window
         var contextView = new DockPanel { Background = PanelInk }; var contextHead = new StackPanel { Margin = new Thickness(12) };
         contextHead.Children.Add(Label("함께 보는 문맥", 16)); contextHead.Children.Add(providerLabel);
         DockPanel.SetDock(contextHead, Dock.Top); contextView.Children.Add(contextHead);
-        AddResidentControls(contextHead);
+        AddPointingControls(contextHead); AddResidentControls(contextHead);
         contextView.Children.Add(new ScrollViewer { Content = contexts, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }); Grid.SetColumn(contextView, 4); body.Children.Add(contextView);
         var chat = new DockPanel { Margin = new Thickness(16) }; AddConversationHeader(chat);
-        var composer = new StackPanel(); AddPointingControls(composer); prompt.Height = 90; composer.Children.Add(prompt);
+        var composer = new StackPanel(); var permissions = new WrapPanel(); permissions.Children.Add(allowPackWrites); permissions.Children.Add(allowProjectCommands); composer.Children.Add(permissions); prompt.Height = 90; composer.Children.Add(prompt);
         var sendRow = new WrapPanel(); submit = Action("문맥 요청 만들기", Submit); sendRow.Children.Add(submit);
         sendRow.Children.Add(Action("요청 복사", () => Guard(() => { if (lastRequest is null) throw new InvalidOperationException("먼저 요청을 만들어줘."); session!.ExportContext(lastRequest); Clipboard.SetText(EditorSession.Serialize(lastRequest)); SetStatus("프롬프트와 실제 포함 문맥을 복사했어."); RefreshContext(); })));
         composer.Children.Add(sendRow); DockPanel.SetDock(composer, Dock.Bottom); chat.Children.Add(composer);
@@ -77,7 +77,7 @@ public sealed partial class EditorWindow : Window
         var changeActions = new WrapPanel(); changeActions.Children.Add(Action("검토한 변경 적용", () => ApplyChange(false))); changeActions.Children.Add(Action("이 변경 되돌리기", () => ApplyChange(true)));
         changeActions.Children.Add(Action("최근 변경 불러오기", () => Guard(() => { pending = session!.Changes().FirstOrDefault(); ShowChange(); }))); changeHead.Children.Add(changeActions);
         DockPanel.SetDock(changeHead, Dock.Top); changes.Children.Add(changeHead); var affected = new ScrollViewer { Content = impact, Height = 130, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }; DockPanel.SetDock(affected, Dock.Bottom); changes.Children.Add(affected); changes.Children.Add(diff); AddTab("변경", changes);
-        AddHistoryTab();
+        AddHistoryTab(); AddChatGptTab();
         var output = new DockPanel { Margin = new Thickness(14, 0, 14, 0) }; var outputHeader = new DockPanel(); outputHeader.Children.Add(Label("실행 · 빌드 기록", 12, MutedInk)); var cancel = Action("작업 취소", () => operation?.Cancel()); cancel.HorizontalAlignment = HorizontalAlignment.Right; outputHeader.Children.Add(cancel); DockPanel.SetDock(outputHeader, Dock.Top); output.Children.Add(outputHeader); output.Children.Add(log); Grid.SetRow(output, 2); root.Children.Add(output);
         status.Margin = new Thickness(18, 8, 18, 8); Grid.SetRow(status, 3); root.Children.Add(status);
         tree.SelectedItemChanged += (_, e) => { if (e.NewValue is TreeViewItem { Tag: string key }) Guard(() => { SelectNode(key); if (!busy && !loading) PointObject(key, "tree"); }); };
@@ -89,7 +89,7 @@ public sealed partial class EditorWindow : Window
         draftTimer.Tick += (_, _) => { draftTimer.Stop(); Guard(() => { session?.Persist(); RefreshContext(); }); };
         prompt.PreviewKeyDown += (_, e) => { if (e.Key == Key.Enter && Keyboard.Modifiers.HasFlag(ModifierKeys.Control)) { e.Handled = true; Submit(); } };
         Closing += (_, e) => { if (busy) { SetStatus("현재 작업을 마치거나 취소한 뒤 닫아줘."); e.Cancel = true; return; } Guard(() => session?.Persist()); };
-        Closed += (_, _) => { draftTimer.Stop(); runner?.Dispose(); provider?.Dispose(); };
+        Closed += (_, _) => { draftTimer.Stop(); StopChatGptBridge(); runner?.Dispose(); provider?.Dispose(); };
         Message("시작", "일반 대화에는 포인팅을 첨부하지 않아. 대상을 가리키려면 ‘이거’ 모드를 켜고 탐색기·관계도·XML에서 지정해줘. 전송할 때 대상과 문서 버전을 고정해.\n\nAI 제공자를 연결하기 전에는 요청과 문맥을 준비해 Chat에 복사할 수 있어. 제공자를 연결하면 같은 문맥으로 대화를 이어갈 수 있어."); SetBusy(false);
     }
     private static Brush Brush(string color) => (Brush)new BrushConverter().ConvertFromString(color)!;
@@ -121,7 +121,7 @@ public sealed partial class EditorWindow : Window
         busy = value; foreach (var button in actionButtons) button.IsEnabled = !busy && session is not null;
         submit.IsEnabled = !busy && session is not null; editor.IsReadOnly = busy || activeDocument is null || session?.CanEdit(activeDocument.Path) != true;
         targets.IsEnabled = !busy; tree.IsEnabled = !busy; openDocs.IsEnabled = !busy; models.IsEnabled = !busy;
-        codexPath.IsEnabled = !busy; SetHistoryBusy(busy);
+        codexPath.IsEnabled = !busy; SetHistoryBusy(busy); SetChatGptBusy(busy);
         if (!busy && pendingAccountRefresh) { pendingAccountRefresh = false; Dispatcher.BeginInvoke(new Action(RefreshCodex)); }
     }
     private async void Work(Func<Task> action)
@@ -145,14 +145,14 @@ public sealed partial class EditorWindow : Window
         if (busy) return;
         if (runner?.GameRunning == true) throw new InvalidOperationException("현재 프로젝트의 게임 창을 닫은 뒤 다른 프로젝트를 열어줘.");
         session?.Persist();
-        var next = new EditorSession(path); runner?.Dispose(); provider?.Dispose(); provider = null; providerLabel.Text = "AI 제공자 미연결"; session = next;
+        var next = new EditorSession(path); StopChatGptBridge(); runner?.Dispose(); provider?.Dispose(); provider = null; providerLabel.Text = "AI 제공자 미연결"; session = next;
         runner = new(session, Environment.GetEnvironmentVariable("PACKENGINE_DOTNET") ?? "dotnet"); runner.Output += AppendLog;
         activeDocument = null; pending = null; lastRequest = null;
         Title = "PackEngine — " + session.Project.Name; projectLabel.Text = session.Project.Name;
         targets.ItemsSource = session.Project.Targets.Select(t => t.Id).ToArray(); targets.SelectedItem = runner.PreferredTarget;
         transcript.Children.Clear(); Message("프로젝트", session.Project.Name + "을 열었어. 팩과 문서를 골라서 작업을 시작해.");
         pointingMode.SelectedIndex = 0; allowPackWrites.IsChecked = false; allowProjectCommands.IsChecked = false; models.ItemsSource = null; submit.Content = "문맥 요청 만들기"; RefreshProject(); RebuildDocuments(); SetBusy(false); RefreshPointing();
-        RegisterProject();
+        RegisterProject(); RefreshChatGptProject();
     });
     private void RefreshProject()
     {

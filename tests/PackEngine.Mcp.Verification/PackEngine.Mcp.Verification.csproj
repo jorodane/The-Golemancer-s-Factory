@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../editor/PackEngine.Workspace/PackEngine.Workspace.csproj" />
+    <ProjectReference Include="../../editor/PackEngine.Mcp/PackEngine.Mcp.csproj" />
+    <Compile Include="../../editor/Shared/EditorStartMode.cs" Link="EditorStartMode.cs" />
+  </ItemGroup>
+</Project>

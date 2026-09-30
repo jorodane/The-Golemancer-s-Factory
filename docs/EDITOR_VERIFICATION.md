@@ -1,5 +1,19 @@
 # Project Studio 자동 연결·대화 접근·입주 환경 검증 — 2026-10-01
 
+## ChatGPT MCP 브리지 추가 검증
+
+`tools/verify-mcp.py`에서 실제 MCP 실행 파일의 STDIO handshake·도구 목록·ping·오류 응답 4개와 프로토콜/실제 작업 세션 검사 37개를 통과했다. 지정 XML 캡처 후 포인팅 초기화, 일반 요청의 본문 제외, 미저장 버퍼 읽기, 허용 범위·관측 해시·초안 충돌, 다른 요청/연결의 변경 적용 거부, 실제 XML 수정·팩 검증·정확한 되돌리기, 접근 철회·요청 종료·취소 전달·재연결, 설정 저장을 포함한다.
+
+이 실행 환경은 named pipe의 Linux 구현에 필요한 로컬 소켓 생성을 거부했다. 검사 보고서에 `namedPipeTested: false`를 남기고 생산 프로토콜을 익명 스트림으로 구동했으며, IPC 메시지 직렬화는 메모리 스트림으로 검사했다. **Windows named pipe ACL/연결과 WPF 화면, 실제 ChatGPT 플러그인·터널·모델 호출은 확인하지 않았다.** 에디터의 **PC 내부 연결 검사**는 배포 실행 파일과 실제 WPF 세션 간의 읽기 전용 상태 조회를 수행한다. 외부 연결은 그 다음 ChatGPT의 `packengine_status` 호출로 확인해야 한다.
+
+```sh
+python tools/verify-mcp.py --dotnet /path/to/dotnet
+```
+
+상세 결과는 `TestResults/mcp/report.json`, `stdio.jsonl`, `verification.log`에 남는다. 이 통신 검증은 모델 응답을 만들지 않으며 제품에 테스트 응답기를 배포하지 않는다.
+
+## 기존 기능 검증
+
 사용자가 기존 Windows 에디터에서 Codex 연결과 정상 채팅을 확인했다(2026-10-01). 아래는 자동 검사에서 확인한 범위이며, 새 대화·접근 화면과 시작 창의 실제 Windows 조작은 별도로 남아 있다.
 
 `tools/verify-editor.py`를 통해 실제 골레맨서 프로젝트의 임시 복사본으로 작업 흐름을 확인했다. 결과는 20개 작업 흐름 확인 통과, 기존 전체 캠페인 540개 확인 통과, Linux 실행 검사 30개 통과와 SDL offscreen 30프레임 실행이다.

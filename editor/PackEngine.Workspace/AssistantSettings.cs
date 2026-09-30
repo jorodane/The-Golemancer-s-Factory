@@ -35,11 +35,12 @@ public sealed class ProjectAssistantAccess
     public bool HistoryEnabled { get; set; } = true;
     public List<string> BlockedThreads { get; set; } = [];
     public List<SharedChatReference> WebChats { get; set; } = [];
+    public ChatGptProjectLink ChatGpt { get; set; } = new();
     public override string ToString() => Name + (Enabled ? "" : " · Codex 차단");
     public List<SharedChatReference> CaptureSharedChats()
     {
         if (!Enabled) return [];
-        var shared = WebChats.Where(c => c.Shared).ToArray();
+        var shared = WebChats.Where(c => c.Shared && !string.IsNullOrWhiteSpace(c.Content)).ToArray();
         if (shared.Length > 32) throw new InvalidOperationException("공유 웹 문맥은 프로젝트마다 32개까지 선택해줘.");
         return shared.Select(c => c.Snapshot()).ToList();
     }
@@ -52,7 +53,7 @@ public sealed class SharedChatReference
     public string Content { get; set; } = "";
     public bool Shared { get; set; }
     public string Path => "chat:" + Id;
-    public override string ToString() => Title + (Shared ? " · 문맥 공유" : " · 비공유");
+    public override string ToString() => Title + (Shared && !string.IsNullOrWhiteSpace(Content) ? " · 문맥 공유" : " · 링크/비공유");
     public static string ValidateUrl(string url)
     {
         if (url.Length > 4096 || !Uri.TryCreate(url.Trim(), UriKind.Absolute, out var uri) || uri.Scheme != "https" || uri.Host != "chatgpt.com" ||

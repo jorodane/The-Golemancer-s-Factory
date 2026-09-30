@@ -57,8 +57,8 @@ public sealed partial class EditorWindow
         localHead.Children.Add(Label("클릭하면 기록을 열고 같은 대화로 이어가. 로그인 계정의 웹 채팅 목록과는 별도야.", 11, MutedInk));
         var actions = new WrapPanel(); actions.Children.Add(Action("목록 새로고침", () => HistoryWork(t => RefreshThreadList(t)))); actions.Children.Add(Action("더 보기", () => HistoryWork(t => RefreshThreadList(t, true)))); actions.Children.Add(Action("새 대화", NewCodexConversation));
         localHead.Children.Add(actions); localHead.Children.Add(threadAccess); localHead.Children.Add(historyStatus); DockPanel.SetDock(localHead, Dock.Top); local.Children.Add(localHead); local.Children.Add(historyThreads); columns.Children.Add(local);
-        var web = new StackPanel(); web.Children.Add(Label("웹 ChatGPT 연결 문맥", 15, AccentInk));
-        web.Children.Add(Label("웹 기록 자동 조회는 지원하지 않아. 대화·프로젝트 링크와 필요한 내용을 등록하면 여기서 원문을 열고, 허용한 문맥만 Codex와 공유할 수 있어.", 12, MutedInk));
+        var web = new StackPanel(); web.Children.Add(Label("수동 참고 메모 · 선택 사항", 15, AccentInk));
+        web.Children.Add(Label("ChatGPT에서 직접 작업하려면 ‘ChatGPT 연결’ 탭을 사용해줘. 아래는 별도 에디터 Codex에 텍스트를 제공하는 이전 방식이야. 링크만으로 대화 내용이 전달되지는 않아.", 12, MutedInk));
         web.Children.Add(webChats);
         var links = new WrapPanel(); links.Children.Add(Action("등록", () => EditWebChat(false))); links.Children.Add(Action("내용·공유 설정", () => EditWebChat(true)));
         links.Children.Add(Action("웹에서 열기", () => Guard(() => { if (webChats.SelectedItem is SharedChatReference item) Process.Start(new ProcessStartInfo(SharedChatReference.ValidateUrl(item.Url)) { UseShellExecute = true }); })));
@@ -100,7 +100,7 @@ public sealed partial class EditorWindow
     private void ScheduleAutoConnect()
     {
         var opened = session;
-        Dispatcher.BeginInvoke(new Action(() => { if (ReferenceEquals(session, opened) && !busy && CurrentAccess is { } access && assistantSettings.ShouldConnect(access) && provider is null) ConnectCodex(); }));
+        Dispatcher.BeginInvoke(new Action(() => { if (ReferenceEquals(session, opened) && !busy && CurrentAccess is { } access && !access.ChatGpt.Enabled && assistantSettings.ShouldConnect(access) && provider is null) ConnectCodex(); }));
     }
     private void RefreshAccessControls()
     {
@@ -199,6 +199,7 @@ public sealed partial class EditorWindow
         {
             try
             {
+                if (share.IsChecked == true && string.IsNullOrWhiteSpace(content.Text)) throw new InvalidDataException("링크만으로는 대화 내용을 공유할 수 없어. 참고 본문을 넣거나 ‘ChatGPT 연결’ 탭을 사용해줘.");
                 var entry = new SharedChatReference { Id = original?.Id ?? Guid.NewGuid().ToString("N"), Title = name.Text, Url = url.Text, Content = content.Text, Shared = share.IsChecked == true }.Snapshot();
                 if (original is null) project.WebChats.Add(entry); else project.WebChats[project.WebChats.IndexOf(original)] = entry;
                 SaveSettings(); RefreshWebChats(); dialog.Close();

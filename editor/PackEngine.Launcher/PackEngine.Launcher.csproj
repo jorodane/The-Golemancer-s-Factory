@@ -5,6 +5,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../Shared/CodexInstallation.cs" Link="CodexInstallation.cs" />
+    <Compile Include="../Shared/EditorStartMode.cs" Link="EditorStartMode.cs" />
     <Reference Include="WindowsBase" /><Reference Include="PresentationCore" /><Reference Include="PresentationFramework" /><Reference Include="System.Xaml" />
   </ItemGroup>
 </Project>
