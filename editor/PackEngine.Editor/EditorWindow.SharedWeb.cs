@@ -38,12 +38,12 @@ public sealed partial class EditorWindow
     {
         sharingSurface = surface; surface.Children.Add(yogiOverlay); yogiOverlay.Children.Add(yogiBox); yogiBox.Visibility = Visibility.Collapsed;
         var row = new WrapPanel(); row.Children.Add(Action("에디터 연결", BeginSharedEditor));
-        var exactly = Action("Exactly Yogi", () => ArmYogi(false)); exactly.ToolTip = "AI에게 대상을 집어 알려줍니다. Ctrl+클릭으로 여러 요소를 선택할 수 있습니다."; row.Children.Add(exactly);
-        var look = Action("Look At Yogi", () => ArmYogi(true)); look.ToolTip = "요소를 클릭하거나 범위를 드래그해 해당 화면을 AI에게 보여줍니다."; row.Children.Add(look);
-        row.Children.Add(Action("대상 공유", () => PreviewSharedContext("ExactlyYogi")));
+        var exactly = Action("Exactly Yogi", () => ArmYogi(false)); exactly.ToolTip = "지정한 대상 정보를 현재 채팅 입력창에 파일로 첨부합니다. Ctrl+클릭으로 여러 요소를 선택할 수 있습니다."; row.Children.Add(exactly);
+        var look = Action("Look At Yogi", () => ArmYogi(true)); look.ToolTip = "요소를 클릭하거나 범위를 드래그해 현재 채팅 입력창에 PNG로 첨부합니다."; row.Children.Add(look);
+        row.Children.Add(Action("선택 첨부", () => PreviewSharedContext("ExactlyYogi")));
         row.Children.Add(Action("문서 공유", () => PreviewSharedContext("Document")));
         row.Children.Add(Action("상태 공유", () => PreviewSharedContext("State")));
-        row.Children.Add(Action("연결 중지", StopSharedEditor)); header.Children.Add(row); header.Children.Add(sharingStatus);
+        row.Children.Add(Action("연결 중지", StopSharedEditor)); header.Children.Add(row); header.Children.Add(sharingStatus); header.Children.Add(yogiAttachments);
         sharingTimer.Tick += async (_, _) => await PollSharedEditor();
         yogiOverlay.PreviewMouseLeftButtonDown += (_, e) =>
         {
@@ -79,7 +79,7 @@ public sealed partial class EditorWindow
                 sharedUiTargets.Add(new() { Type = element.GetType().Name, Name = element.Name, Label = text.Substring(0, Math.Min(160, text.Length)), X = bounds.X, Y = bounds.Y, Width = bounds.Width, Height = bounds.Height });
                 if (element.Tag is string key && session.Index.Nodes.ContainsKey(key)) { session.Pointing.Mode = "single"; session.Point(key, "ExactlyYogi", true); }
                 else if (element == editor && activeDocument is not null) { session.Pointing.Mode = "single"; session.Point("file:" + activeDocument.Path, "ExactlyYogi", true); }
-                RefreshPointing(); sharingStatus.Text = sharedUiTargets.Count + "개 요소 지정됨 · ‘대상 공유’로 전달해.";
+                RefreshPointing(); sharingStatus.Text = sharedUiTargets.Count + "개 요소 지정됨 · ‘선택 첨부’로 채팅에 붙여줘.";
                 if (!append) { DisarmYogi(); PreviewSharedContext("ExactlyYogi"); }
             });
         };
@@ -109,7 +109,7 @@ public sealed partial class EditorWindow
     }
     private void ArmYogi(bool image)
     {
-        if (busy || session is null) return;
+        if (busy || session is null || attachingYogi) return;
         detailedWorkspace = true; ApplyBrowserLayout(); visualYogi = image; pointedImage = null;
         if (!image) { sharedUiTargets.Clear(); session.SetPointingMode("single"); editorPoints.Clear(); }
         yogiOverlay.Cursor = image ? Cursors.Cross : Cursors.Arrow; yogiOverlay.Visibility = Visibility.Visible; yogiBox.Visibility = Visibility.Collapsed;
@@ -135,18 +135,19 @@ public sealed partial class EditorWindow
     }
     private void PreviewSharedContext(string kind) => Guard(() =>
     {
-        if (busy || session is null || conversation is null) return;
+        if (busy || session is null || conversation is null || attachingYogi) return;
         DisarmYogi();
         var snapshot = session.CaptureSharedContext(conversation.Id, kind, kind == "Document" ? activeDocument?.Path : null);
         if (kind == "ExactlyYogi")
         {
             snapshot.UiTargets = sharedUiTargets.ToList();
             var request = session.State.Requests.Last(); CaptureEditorPacks(request);
-            snapshot.EditorTargets = request.EditorInput.Targets; snapshot.Context = request.Context;
+            snapshot.EditorTargets = request.EditorInput.Targets; snapshot.Context = request.Context; snapshot.Omitted = request.Omitted.ToList();
             if (snapshot.UiTargets.Count + snapshot.Targets.Count + snapshot.EditorTargets.Count == 0) throw new InvalidOperationException("Exactly Yogi로 요소를 먼저 지정해줘.");
         }
         if (kind == "LookAtYogi") snapshot.Image = pointedImage ?? throw new InvalidOperationException("Look At Yogi로 화면을 먼저 지정해줘.");
         snapshot = SharedEditorProtocol.Freeze(snapshot);
+        if (kind is "ExactlyYogi" or "LookAtYogi") { StageYogiAttachment(snapshot); return; }
         var dialog = new Window { Owner = this, Title = "대화에 공유할 내용", Width = 640, Height = 560, MinWidth = 420, MinHeight = 350, Background = PanelInk, Foreground = TextInk, WindowStartupLocation = WindowStartupLocation.CenterOwner };
         var panel = new DockPanel { Margin = new Thickness(18) }; dialog.Content = panel;
         var top = new StackPanel(); top.Children.Add(Label(snapshot.Kind + " · " + session.Project.Name, 18)); top.Children.Add(Label("열린 문서 " + snapshot.Documents.Count + "개 · 지정 요소 " + (snapshot.Targets.Count + snapshot.EditorTargets.Count + snapshot.UiTargets.Count) + "개 · 본문 " + snapshot.Context.Sum(c => c.Content.Length).ToString("N0") + "자", 13, MutedInk));
@@ -159,19 +160,10 @@ public sealed partial class EditorWindow
             {
                 string path = Path.Combine(session.StateDirectory, "shared-" + snapshot.Id + ".json"); EditorSession.AtomicWrite(path, Encoding.UTF8.GetBytes(SharedEditorProtocol.Serialize(snapshot)));
                 await SharedEditorCall("publish", snapshot); sharingStatus.Text = "공유됨 · " + snapshot.Kind + " · " + snapshot.Id.Substring(0, 8); dialog.Close();
-                if (kind == "ExactlyYogi") { session.SetPointingMode("none"); pointingMode.SelectedIndex = 0; editorPoints.Clear(); sharedUiTargets.Clear(); RefreshPointing(); }
-                if (kind == "LookAtYogi") pointedImage = null;
             }
             catch (Exception e) { error.Text = e.Message; }
         })); DockPanel.SetDock(bottom, Dock.Bottom); panel.Children.Add(bottom);
-        if (snapshot.Image is { } image)
-        {
-            var bitmap = new BitmapImage(); bitmap.BeginInit(); bitmap.StreamSource = new MemoryStream(Convert.FromBase64String(image.Data)); bitmap.CacheOption = BitmapCacheOption.OnLoad; bitmap.EndInit(); bitmap.Freeze(); panel.Children.Add(new Image { Source = bitmap, Stretch = Stretch.Uniform });
-        }
-        else
-        {
-            var text = ReadBox(); text.Text = string.Join("\n", snapshot.Documents.Select(d => d.Path + (d.Draft ? " · 미저장 초안" : "") + (d.DiskChanged ? " · 외부 변경" : ""))) + "\n\n" + string.Join("\n", snapshot.UiTargets.Select(t => t.Type + " · " + t.Label)) + "\n\n" + string.Join("\n\n", snapshot.Context.Select(c => c.Path + (c.Partial ? " · 일부" : "") + "\n" + c.Content)); panel.Children.Add(text);
-        }
+        var text = ReadBox(); text.Text = string.Join("\n", snapshot.Documents.Select(d => d.Path + (d.Draft ? " · 미저장 초안" : "") + (d.DiskChanged ? " · 외부 변경" : ""))) + "\n\n" + string.Join("\n\n", snapshot.Context.Select(c => c.Path + (c.Partial ? " · 일부" : "") + "\n" + c.Content)); panel.Children.Add(text);
         dialog.ShowDialog();
     });
     private async void BeginSharedEditor()

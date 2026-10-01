@@ -83,6 +83,8 @@ public sealed partial class EditorWindow
     private void RefreshWebProject()
     {
         if (webLayout is null) return;
+        string currentProject = session?.Project.Manifest ?? "";
+        if (attachmentProject != currentProject) { yogiAttachments.Children.Clear(); attachmentProject = currentProject; }
         pendingWebConnection = null; connectingProfile = null;
         connectionBrowser.Visibility = Visibility.Collapsed; browser.Visibility = Visibility.Visible; returnToChat!.Visibility = Visibility.Collapsed;
         welcome.Children.Clear();
@@ -143,7 +145,8 @@ public sealed partial class EditorWindow
             if (!chatConfigured)
             {
                 ConfigureBrowser(browser, false);
-                browser.CoreWebView2.SourceChanged += (_, _) => RefreshBrowserAddress();
+                browser.CoreWebView2.NavigationStarting += (_, _) => chatNavigationVersion++;
+                browser.CoreWebView2.SourceChanged += (_, _) => { chatNavigationVersion++; RefreshBrowserAddress(); };
                 browser.CoreWebView2.NavigationCompleted += (_, e) => { RefreshBrowserAddress(); if (!e.IsSuccess) webStatus.Text = "페이지를 열지 못했어. 새로고침하거나 다른 대화를 열어줘."; };
                 chatConfigured = true;
             }

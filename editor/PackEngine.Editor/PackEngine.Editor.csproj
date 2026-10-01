@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><TargetFramework>net48</TargetFramework><OutputType>WinExe</OutputType><ApplicationManifest>app.manifest</ApplicationManifest></PropertyGroup>
   <ItemGroup>
+    <EmbeddedResource Include="ChatComposerAttachment.js" />
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4258.31" />
     <ProjectReference Include="../PackEngine.Workspace/PackEngine.Workspace.csproj" /><ProjectReference Include="../PackEngine.EditorPacks/PackEngine.EditorPacks.csproj" />
     <Compile Include="../Shared/EditorStartMode.cs" Link="EditorStartMode.cs" />
