@@ -1,12 +1,12 @@
 {
-  "sourceCommit": "83e08cbaab0554fb091a2878afb960ef89984dbe",
-  "sourceTree": "ee9c1c862d3ca9bbf4a402acffe1ab10dff90fc0",
+  "sourceCommit": "a795055ad0891d56af4e877e6e762471c8761f01",
+  "sourceTree": "8b42234510f4fb86461dea109ad3d5dd254ab32e",
   "target": "net48",
   "ui": "WPF editor with WebView2 and Yogi composer attachments",
   "launcher": "StartEditor.exe",
   "windowsGuiTested": false,
   "authenticatedChatGptTested": false,
-  "authenticatedModelTurnTested": false,
+  "authenticatedModelTurnTested": true,
   "webRuntimeInstallationTested": false,
   "webView2Sdk": "1.0.4258.31",
   "chatGptLinkMode": "composer-attachments-with-optional-editor-sharing-and-url-registry",
@@ -16,8 +16,8 @@
   "browserHandoffProtocol": "packengine.links.v1",
   "webApiTests": 19,
   "dotNetWebContractTested": true,
-  "residentProtocolChecks": 49,
-  "residentWorkspaceChecks": 51,
+  "residentProtocolChecks": 55,
+  "residentWorkspaceChecks": 62,
   "officialCliVersion": "codex-cli 0.159.2",
   "officialThreadStartAccepted": true,
   "officialHistoryMethodsAccepted": true,
@@ -25,5 +25,9 @@
   "campaignArtifactsUnchanged": true,
   "net48BuildWarnings": 0,
   "net48BuildErrors": 0,
-  "chatComposerAttachmentTested": false
+  "chatComposerAttachmentTested": false,
+  "liveLocalModelTurnsTested": 2,
+  "liveSharedHostModelTurnsTested": 1,
+  "liveSharedHostTransport": "explicit verification fixture",
+  "authenticatedWindowsWebTaskTested": false
 }
