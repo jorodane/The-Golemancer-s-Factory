@@ -8,4 +8,8 @@
   <Project Path="PackEngine.Assistant.Command/PackEngine.Assistant.Command.csproj" />
   <Project Path="PackEngine.Assistant.Codex/PackEngine.Assistant.Codex.csproj" />
   <Project Path="PackEngine.Launcher/PackEngine.Launcher.csproj" />
+  <Project Path="PackEngine.Editor.Contracts/PackEngine.Editor.Contracts.csproj" />
+  <Project Path="PackEngine.EditorPacks/PackEngine.EditorPacks.csproj" />
+  <Project Path="PackEngine.PackHost/PackEngine.PackHost.csproj" />
+  <Project Path="Packs/CoreTools/PackEngine.Editor.CoreTools.csproj" />
 </Solution>

@@ -139,6 +139,8 @@ public sealed partial class EditorSession
         State.Reads.Add(new() { Request = request, Path = path, Hash = hash, Characters = text.Length, Partial = partial, TimeUtc = DateTime.UtcNow.ToString("O") });
         if (State.Reads.Count > 200) State.Reads.RemoveAt(0); Persist();
     }
+    public void RecordEditorPackRead(string request, string subject, string content, string hash, bool partial)
+    { RequireRequest(request); RecordRead(request, "editor:" + subject, content, hash, partial); }
     public void RecordOperation(string request, string tool, string subject, string status, string detail = "")
     {
         State.Operations.Add(new() { Request = request, Tool = tool, Subject = subject, Status = status, Detail = detail, TimeUtc = DateTime.UtcNow.ToString("O") });

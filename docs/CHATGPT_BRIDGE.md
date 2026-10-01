@@ -58,3 +58,5 @@ ChatGPT의 플러그인 추가 화면에서 Tunnel 연결을 선택하고 같은
 프록시는 2025-11-25 및 이전 handshake 계열을 협상하며 newline JSON-RPC, 취소, bounded IPC 메시지를 사용한다. 도구 실행 오류는 MCP `isError`로 반환한다. stdout에는 프로토콜 메시지만 기록한다. 도구의 읽기 전용 표시는 설명이며, 실제 권한은 에디터 호스트가 검사한다. MCP 연결에 접근할 수 있는 사용자에게 선택한 프로젝트 권한이 주어지므로 터널의 계정·워크스페이스 접근 설정도 적용해야 한다. ChatGPT 대화별 서버 인증을 구현한 것은 아니다.
 
 `python tools/verify-mcp.py --dotnet /path/to/dotnet`으로 생산 코드의 프로토콜과 실제 XML 작업을 검증한다. 검증 환경이 named pipe 생성을 막으면 그 부분을 명시적으로 건너뛰고 익명 스트림으로 프로토콜·세션·메시지 직렬화를 검사한다. Windows WPF·named pipe·실제 ChatGPT 플러그인·터널은 이 Linux 환경에서 연결 확인하지 못했다. Windows에서는 **PC 내부 연결 검사** 후 ChatGPT에서 `packengine_status`를 요청해 두 경계를 각각 확인한다.
+
+에디터 자체의 팩도 `packengine_editor`로 조회하고 수정할 수 있다. 권한은 **에디터팩** 탭에서 별도로 설정한다. 요청에는 `EditorInput`, `WritableEditorPacks`, `AllowEditorReload`가 포함되며 게임팩 범위를 에디터팩 권한으로 사용하지 않는다. 자세한 흐름은 [에디터팩 명세](EDITOR_PACKS.md)를 따른다.

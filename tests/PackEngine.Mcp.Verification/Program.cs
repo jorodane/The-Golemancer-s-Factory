@@ -54,7 +54,7 @@ var init = await peer.Request("initialize", new { protocolVersion = "future-vers
 Check(init.GetProperty("result").GetProperty("protocolVersion").GetString() == "2025-11-25", "stdio handshake negotiates an implemented protocol revision");
 await peer.Notify("notifications/initialized", new { });
 var tools = (await peer.Request("tools/list", new { })).GetProperty("result").GetProperty("tools").EnumerateArray().ToArray();
-Check(tools.Length == 10 && tools.Where(t => t.GetProperty("name").GetString() is not ("packengine_context" or "packengine_status")).All(t => t.GetProperty("inputSchema").GetProperty("required").EnumerateArray().Any(r => r.GetString() == "requestId")), "MCP exposes bounded semantic tools with explicit request identities");
+Check(tools.Length == 11 && tools.Where(t => t.GetProperty("name").GetString() is not ("packengine_context" or "packengine_status")).All(t => t.GetProperty("inputSchema").GetProperty("required").EnumerateArray().Any(r => r.GetString() == "requestId")), "MCP exposes bounded semantic tools with explicit request identities");
 Check(tools.Single(t => t.GetProperty("name").GetString() == "packengine_patch").GetProperty("annotations").GetProperty("readOnlyHint").GetBoolean() == false, "write tools are annotated as writes");
 Check((await peer.Tool("packengine_status", new { })).Error, "live editor denial is enforced even when tool discovery succeeds");
 access.Enabled = true;
