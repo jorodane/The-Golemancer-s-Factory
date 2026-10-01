@@ -2,9 +2,33 @@
 
 대화는 ChatGPT에 남긴다. 에디터는 현재 열고 허용한 `.packproject`의 객체팩·XML 조회, 변경 미리보기·적용, 빌드·검증 도구를 MCP로 제공한다. 브리지는 모델을 실행하거나 별도 추론 API를 호출하지 않는다. 다른 ChatGPT 채팅 본문, 로그인 쿠키, 화면 이미지를 가져오지 않는다.
 
-## PC 앱에서 처음 연결
+## ChatGPT 웹에서 처음 연결 · 기본 경로
 
-1. `StartEditor.exe`에서 **기존 ChatGPT 채팅·프로젝트 연결**을 고른다. 이미 선택했다면 **ChatGPT 연결 → ChatGPT 연결 설정 · 단계별로 준비**를 연다.
+Windows ChatGPT 앱을 설치할 필요는 없다. 기본 마법사는 브라우저의 ChatGPT와 에디터를 공식 Secure MCP Tunnel로 연결한다. 웹에서는 데스크톱의 **MCP servers → Restart** 메뉴를 찾지 않는다.
+
+1. **기존 ChatGPT 채팅·프로젝트 연결** 또는 **ChatGPT 연결 → ChatGPT 연결 설정 · 단계별로 준비**를 연다. 사용할 대화 주소를 넣는다. 주소는 바로가기이며 도구 연결이나 로그인 승인이 아니다. 표시 이름은 게임팩 이름이다.
+2. **계정 연결 준비**의 공식 화면 버튼으로 ChatGPT 개발자 모드, OpenAI 터널과 대상 ChatGPT 워크스페이스의 연결, 실행용 API 키를 준비한다. 터널 생성에는 Tunnels Read + Manage, 실행과 선택에는 Read + Use가 필요하다. ChatGPT 개발자 모드는 별도의 계정·워크스페이스 권한이며 모든 사용자에게 제공된다고 가정하지 않는다. 메뉴나 권한이 없으면 계정 관리자가 확인해야 한다. Windows 앱 설치로 웹 권한을 대신하지 않는다.
+3. 에디터의 터널 ID와 암호 입력란에 값을 넣는다. **프로젝트 읽기**, **웹 연결 실행**, 필요한 경우 **공식 프로그램 설치**를 체크한다. 수정할 팩, 프로젝트 실행·검증, 이 Windows 계정의 키 저장·자동 연결은 각각 선택한다. 다른 에디터나 PC에서 실행 중인 터널 ID를 동시에 사용하지 않는다.
+4. 요약을 확인하고 실행한다. 에디터가 공식 연결 프로그램을 설치·확인하고 실제 에디터와의 내부 검사를 수행한 뒤 터널 프로세스를 실행한다. JSON/YAML 파일 편집이나 PowerShell 명령 입력은 필요 없다. 진행 중 취소와 이전 단계 수정·재시도를 지원한다.
+5. **ChatGPT 웹에서 승인·확인**에서 Plugins → ＋ → Connection → Tunnel을 선택하고 같은 터널 ID로 플러그인을 만든다. 발견한 도구를 검토하고 승인한다. 사용할 대화의 도구 메뉴에서 추가한 뒤 **연결 확인 요청 복사**를 한 번 보낸다. 기존 대화에서 도구를 추가할 수 없다면 새 대화를 사용하고 주소를 갱신한다. 실제 `packengine_status` 응답이 에디터에 도달해야 외부 호출 확인으로 표시된다.
+
+에디터가 계정의 터널·플러그인을 몰래 생성하거나 로그인·동의를 대신하지 않는다. 계정에서 받은 ID와 실행 키는 에디터가 수집하고 나머지 로컬 준비를 실행한다. 프로그램의 `/healthz` 응답은 프로세스 실행 증거일 뿐, 터널 인증·워크스페이스 승인·ChatGPT 도구 호출 성공을 의미하지 않는다. 실제 호출을 기다리는 동안 창을 닫아도 연결은 유지된다.
+
+### 프로그램과 실행 키 관리
+
+OpenAI `tunnel-client` **v0.0.15**의 공식 Windows x64/ARM64 ZIP과 고정 SHA-256을 확인한 뒤 `%LOCALAPPDATA%/PackEngine/WebTunnels/Tools`에 설치한다. 웹 경로는 Codex나 Node.js를 설치하지 않고 기존 Codex MCP 설정도 수정하지 않는다. 터널은 외부에서 PC로 포트를 열지 않고 OpenAI로 나가는 HTTPS 연결을 사용한다. 진단 서버는 임시 포트의 `127.0.0.1`에만 바인딩한다.
+
+실행 키는 프로세스 인자·생성한 설정·실행 기록에 쓰지 않고 터널 자식 프로세스의 환경으로 전달한다. **키 암호화 저장·자동 연결**을 선택하면 Windows DPAPI CurrentUser로 보호하고 프로젝트 식별값에 묶어 이 PC의 `assistant-settings.json`에 저장한다. 게임팩의 `conversation.xml`이나 MCP 작업 문맥으로 내보내지 않는다. 선택하지 않으면 현재 연결에만 사용하고 다음 실행에 다시 입력한다. 에디터는 모델 추론 API를 직접 호출하지 않는다.
+
+프로젝트 접근 해제, 다른 프로젝트 열기, 대화 방식 전환, 에디터 종료 시 터널을 멈춘다. Windows에서는 종료 관리용 Job Object로 터널과 자식 프로세스를 에디터 수명에 묶는다. **웹 연결 중지**는 자동 시작도 끄며, **이 PC의 저장된 실행 키 삭제**는 저장된 키를 지우고 실행을 멈춘다. OpenAI 계정의 키 자체를 폐기하는 기능은 아니다. **웹 연결 시작·다시 시도**로 저장된 키를 사용하거나 설정 창에서 다시 입력한다.
+
+공식 근거: [ChatGPT 플러그인 연결](https://developers.openai.com/plugins/deploy/connect-chatgpt), [Secure MCP Tunnel](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels), [클라이언트 릴리스](https://github.com/openai/tunnel-client/releases/latest). PC·에디터·터널이 켜져 있어야 도구가 동작한다. 모바일 등 다른 화면의 플러그인 제공 여부는 해당 화면과 계정에서 확인해야 한다.
+
+## 선택 경로 · PC 앱의 로컬 작업
+
+**ChatGPT 연결 → 다른 방법 · 데스크톱 앱의 로컬 작업**을 명시적으로 선택할 때만 사용하는 별도 경로다. 아래 Restart 안내는 웹에 적용하지 않는다.
+
+1. **데스크톱 앱 로컬 연결 설정**을 연다.
 2. **사용할 대화**에서 기존 채팅·프로젝트 주소를 넣는다. 연결 표시는 게임팩 이름을 쓴다. 예전 ‘연결 이름’은 주소 옆에 보이던 별명이었으며 호칭이나 연결 목록 기능이 아니었다. 현재 입력은 제거했고, 기존 저장 파일의 `Title`은 호환성을 위해 보존한다.
 3. **허용할 작업**에서 프로젝트 읽기와 앱 등록을 체크한다. 수정·빌드는 선택한 팩만 허용하고, 프로젝트 실행·검증은 별도 체크다. 필요한 공식 연결 프로그램의 설치 허용도 따로 선택한다. 새 PC의 권한은 기본적으로 꺼져 있다.
 4. **준비 내용 확인**에서 대화 주소·권한·설치 여부를 확인한 뒤 **허용한 내용으로 연결 준비**를 누른다. 에디터가 연결 프로그램 확인, 앱 등록, 실제 에디터에 대한 내부 검사를 실행한다. 사용자가 MCP 파일을 열거나 JSON·명령을 입력할 필요는 없다.
@@ -27,23 +51,6 @@
 **새 게임팩**은 빈 폴더에 기본 객체팩과 `.packproject`를 만든 뒤 대화 방식을 고르게 한다. 기존 게임팩도 첫 실행에 같은 선택을 한다. 설정은 `.packengine/<manifest 파일명>/conversation.xml`에 저장하므로 게임팩을 옮기면 주소도 함께 이동한다. 로컬 Codex 기록의 이동은 [게임팩 대화](PROJECT_CONVERSATIONS.md)에 설명한다.
 
 ChatGPT 방식은 기존 채팅·프로젝트를 사용하는 흐름이다. **저장한 ChatGPT 대화 열기**는 저장한 주소를 열며, 대화 생성이나 웹 기록 다운로드를 수행하지 않는다. 주소 등록과 실제 MCP 도구 연결은 구분한다.
-
-## 웹·휴대폰 연결
-
-로컬 STDIO 등록만으로 웹·휴대폰에 도구가 생기지는 않는다. 공식 [Secure MCP Tunnel](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels)에 같은 MCP 실행 파일을 연결하고 해당 ChatGPT 워크스페이스에 개발자 모드 플러그인을 등록한다. 터널에는 Platform 권한, 터널 ID, 실행용 API 키가 필요하다. 터널 이용 자격·비용은 이 프로그램이 판정하지 않는다.
-
-공식 터널 클라이언트를 준비한 뒤 PowerShell에서 다음과 같이 실제 설치 경로를 넣는다. API 키는 공식 안내에 따라 **로컬 환경**에서 설정하고 채팅이나 저장소에 붙이지 않는다.
-
-```powershell
-$bridgeExe = 'C:\your-folder\editor\Builds\Windows\PackEngine.Mcp.exe'
-$gameProject = 'C:\your-folder\Golemancer\Golemancer.packproject'
-$bridgeCommand = '"' + $bridgeExe + '" --project "' + $gameProject + '"'
-tunnel-client init --sample sample_mcp_stdio_local --profile packengine --tunnel-id <YOUR_TUNNEL_ID> --mcp-command $bridgeCommand
-tunnel-client doctor --profile packengine --explain
-tunnel-client run --profile packengine
-```
-
-ChatGPT의 플러그인 추가 화면에서 Tunnel 연결을 선택하고 같은 터널을 지정한다. 터널은 대상 ChatGPT 워크스페이스와 연결되어야 한다. 터널 클라이언트는 에디터와 같은 Windows 사용자로 실행한다. PC·에디터·터널 클라이언트가 켜져 있어야 실제 파일을 읽거나 수정할 수 있다. PC가 꺼져 있을 때 ChatGPT에서 대화를 이어가는 것과 게임 도구가 실행되는 것은 별개다. 이 배포 작업에서는 실제 계정의 터널을 생성하거나 원격 플러그인을 연결하지 않았다.
 
 ## 문맥과 작업 범위
 
@@ -70,4 +77,4 @@ ChatGPT의 플러그인 추가 화면에서 Tunnel 연결을 선택하고 같은
 
 에디터 자체의 팩도 `packengine_editor`로 조회하고 수정할 수 있다. 권한은 **에디터팩** 탭에서 별도로 설정한다. 요청에는 `EditorInput`, `WritableEditorPacks`, `AllowEditorReload`가 포함되며 게임팩 범위를 에디터팩 권한으로 사용하지 않는다. 자세한 흐름은 [에디터팩 명세](EDITOR_PACKS.md)를 따른다.
 
-`python tools/verify-chatgpt-setup.py --dotnet /path/to/dotnet --codex /path/to/native/codex`는 동의 누락, 손상 다운로드, 설치 실패·취소·재시도, 기존 설정 보존, 경로 특수문자, 충돌, 등록 후 중단을 검사한다. 설치 경계는 명시적 fixture ZIP으로 검사하고, 등록은 공식 Codex CLI와 임시 설정 폴더를 사용한다. 실제 Windows 다운로드·WPF 조작·로그인한 ChatGPT의 최종 호출은 별도로 확인해야 한다.
+`python tools/verify-chatgpt-setup.py --dotnet /path/to/dotnet --codex /path/to/native/codex`는 웹·데스크톱 동의와 설치 실패·취소·재시도, 키 전달과 설정 분리, 특수문자 경로, 중복 터널 실행 차단, 실제 테스트 프로세스 시작·종료·자식 정리, 진단 URL 범위를 검사한다. 설치와 터널 계정 경계는 명시적 fixture로 검사하고, 데스크톱 등록은 공식 Codex CLI와 임시 설정 폴더로 검사한다. 실제 Windows 다운로드·WPF·DPAPI·Job Object·인증된 OpenAI 터널 및 ChatGPT의 최종 호출은 별도로 확인해야 한다. 이 작업에서 실제 계정의 터널이나 플러그인을 생성하지 않았다.

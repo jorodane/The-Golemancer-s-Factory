@@ -10,6 +10,11 @@ public sealed class ChatGptProjectLink
     public string Url { get; set; } = "";
     public List<string> WritablePacks { get; set; } = [];
     public bool AllowProjectCommands { get; set; }
+    // Device settings only: never copied into the portable conversation or tool context.
+    public string ConnectionKind { get; set; } = "";
+    public string TunnelId { get; set; } = "";
+    public string ProtectedTunnelKey { get; set; } = "";
+    public bool AutoStartTunnel { get; set; }
     public string ValidatedUrl() => Url.Trim().Length == 0 ? "https://chatgpt.com/" : SharedChatReference.ValidateUrl(Url);
 }
 

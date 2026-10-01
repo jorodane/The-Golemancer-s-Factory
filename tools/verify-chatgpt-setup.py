@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify consent, installation recovery and MCP registration in disposable client settings."""
+"""Verify web runtime lifecycle and desktop MCP registration using disposable fixtures/settings."""
 import argparse
 import json
 from pathlib import Path
@@ -31,7 +31,9 @@ def main():
         print(run.stderr, end='')
     report = dict(passed=run.returncode == 0, checks=sum(line.startswith('PASS:') for line in run.stdout.splitlines()),
                   officialCliRegistrationTested=bool(args.codex), windowsGuiTested=False, windowsDownloadTested=False,
-                  authenticatedChatGptTested=False)
+                  authenticatedChatGptTested=False, authenticatedTunnelTested=False,
+                  webRuntimeFixtureTested='real fixture process and loopback health' in run.stdout,
+                  windowsJobAndDpapiTested=False)
     (output / 'report.json').write_text(json.dumps(report, indent=2) + '\n')
     run.check_returncode()
 

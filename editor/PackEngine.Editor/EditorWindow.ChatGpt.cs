@@ -25,6 +25,20 @@ public sealed partial class EditorWindow
         page.Children.Add(Label("이 게임팩의 ChatGPT 대화와 에디터 도구를 연결해.", 13, MutedInk));
         page.Children.Add(Action("ChatGPT 연결 설정 · 단계별로 준비", ShowChatGptSetup));
         page.Children.Add(chatGptBookmark); page.Children.Add(chatGptStatus);
+        page.Children.Add(chatGptWebStatus);
+        var webActions = new WrapPanel();
+        webActions.Children.Add(Action("웹 연결 시작·다시 시도", StartSavedChatGptWeb));
+        webActions.Children.Add(Action("웹 연결 중지", () => Guard(() =>
+        {
+            if (busy || CurrentAccess is not { } access) return;
+            access.ChatGpt.AutoStartTunnel = false; SaveSettings(); StopChatGptWeb(); chatGptWorkspace?.Revoke();
+        })));
+        webActions.Children.Add(Action("이 PC의 저장된 실행 키 삭제", () => Guard(() =>
+        {
+            if (busy || CurrentAccess is not { } access) return;
+            access.ChatGpt.ProtectedTunnelKey = ""; access.ChatGpt.AutoStartTunnel = false; SaveSettings(); StopChatGptWeb(); chatGptWorkspace?.Revoke();
+        })));
+        page.Children.Add(webActions);
         var actions = new WrapPanel(); actions.Children.Add(Action("저장한 ChatGPT 대화 열기", OpenChatGpt));
         actions.Children.Add(Action("연결 확인 요청 복사", CopyChatGptSetup)); page.Children.Add(actions);
         page.Children.Add(chatGptAccess);
@@ -32,11 +46,11 @@ public sealed partial class EditorWindow
         page.Children.Add(Label("ChatGPT가 수정·빌드할 수 있는 팩", 15));
         page.Children.Add(Label("아무것도 선택하지 않으면 읽기만 가능해. 새 작업마다 이 범위를 고정하고, 설정을 바꾸면 이전 작업 권한을 철회해.", 12, MutedInk));
         page.Children.Add(new ScrollViewer { Content = chatGptPacks, MaxHeight = 210, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }); page.Children.Add(chatGptCommands);
-        var remote = new StackPanel();
-        remote.Children.Add(Label("PC 앱 자동 설정은 같은 Windows의 로컬 작업에 적용돼. 웹·휴대폰·클라우드 작업은 ChatGPT 플러그인과 별도 터널 연결이 필요해.", 12, MutedInk));
-        remote.Children.Add(Label("웹 연결에는 OpenAI 계정의 터널 ID·실행 키와 플러그인 권한이 필요해. 아래 공식 안내에서 계정 연결을 준비할 수 있어.", 12, MutedInk));
-        remote.Children.Add(Action("웹·휴대폰 연결 안내", () => OpenUrl("https://developers.openai.com/api/docs/guides/secure-mcp-tunnels")));
-        page.Children.Add(new Expander { Header = "웹·휴대폰에서 사용하기", Foreground = TextInk, Margin = new Thickness(4, 16, 4, 8), Content = remote });
+        page.Children.Add(Label("웹 연결은 PC와 에디터가 켜져 있을 때 동작해. 주소를 저장한 것만으로 도구가 연결되지는 않아. 계정의 플러그인 승인 후 실제 도구 호출을 확인해줘.", 12, MutedInk));
+        var desktop = new StackPanel();
+        desktop.Children.Add(Label("ChatGPT 데스크톱 앱에서 같은 PC의 로컬 작업을 사용할 때만 선택해. 웹 연결과는 별도 설정이야.", 12, MutedInk));
+        desktop.Children.Add(Action("데스크톱 앱 로컬 연결 설정", ShowChatGptDesktopSetup));
+        page.Children.Add(new Expander { Header = "다른 방법 · 데스크톱 앱의 로컬 작업", Foreground = TextInk, Margin = new Thickness(4, 16, 4, 8), Content = desktop });
         page.Children.Add(Label("‘이거’는 오른쪽에서 단일·범위를 골라 지정해. ChatGPT가 작업 문맥을 요청할 때 딱 한 번 전달한 뒤 일반 모드로 돌아와. ChatGPT 메시지 전송 순간을 감지하는 기능은 아직 없어.", 12, MutedInk));
         AddTab("ChatGPT 연결", new ScrollViewer { Content = page, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
         chatGptAccess.Click += (_, _) => Guard(() =>
@@ -86,6 +100,7 @@ public sealed partial class EditorWindow
     });
     private void StopChatGptBridge()
     {
+        StopChatGptWeb();
         chatGptServer?.Dispose(); chatGptServer = null; chatGptWorkspace?.Dispose(); chatGptWorkspace = null; lastChatGptCall = ""; chatGptExternalConfirmed = false; chatGptConnectionChanged?.Invoke();
     }
     private void StartChatGptBridge()
@@ -138,6 +153,7 @@ public sealed partial class EditorWindow
             }, AppendLog);
             chatGptStatus.Text = "에디터 연결 준비됨 · 아직 ChatGPT의 도구 호출은 확인하지 않았어.";
             providerLabel.Text = "ChatGPT 도구 연결 대기";
+            ScheduleChatGptWeb();
         }
         catch { host.Dispose(); chatGptWorkspace = null; chatGptStatus.Text = "연결 준비 실패 · 실행 기록을 확인해줘."; throw; }
     }

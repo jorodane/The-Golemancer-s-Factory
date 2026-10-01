@@ -59,12 +59,14 @@ var tools = (await peer.Request("tools/list", new { })).GetProperty("result").Ge
 Check(tools.Length == 11 && tools.Where(t => t.GetProperty("name").GetString() is not ("packengine_context" or "packengine_status")).All(t => t.GetProperty("inputSchema").GetProperty("required").EnumerateArray().Any(r => r.GetString() == "requestId")), "MCP exposes bounded semantic tools with explicit request identities");
 Check(tools.Single(t => t.GetProperty("name").GetString() == "packengine_patch").GetProperty("annotations").GetProperty("readOnlyHint").GetBoolean() == false, "write tools are annotated as writes");
 Check((await peer.Tool("packengine_status", new { })).Error, "live editor denial is enforced even when tool discovery succeeds");
-access.Enabled = true;
+access.Enabled = true; access.TunnelId = "tunnel_PRIVATE_SETTINGS_SENTINEL"; access.ProtectedTunnelKey = "ENCRYPTED_PRIVATE_KEY_SENTINEL";
 var status = await peer.Tool("packengine_status", new { });
 Check(!status.Error && status.Json.GetProperty("Identity").GetString() == session.Project.Identity && !status.Json.GetProperty("ChatHistoryAccess").GetBoolean(), "status reaches the live project without claiming web history access");
 session.Select(key);
 var ordinary = await peer.Tool("packengine_context", new { intent = "ordinary project task" }); string ordinaryId = ordinary.Json.GetProperty("requestId").GetString()!;
 Check(ordinary.Json.GetProperty("Context").GetArrayLength() == 0 && ordinary.Json.GetProperty("OpenFiles").GetArrayLength() == 1, "ordinary remote tasks export metadata without selection or file bodies");
+Check(!status.Json.GetRawText().Contains("SENTINEL") && !ordinary.Json.GetRawText().Contains("SENTINEL") &&
+    !status.Json.TryGetProperty("ProtectedTunnelKey", out _) && !ordinary.Json.TryGetProperty("ProtectedTunnelKey", out _), "device tunnel settings and protected credentials never enter MCP status or task context");
 Check((await peer.Tool("packengine_context", new { intent = "elevate", WritablePacks = new[] { "golemancer.controls" } })).Error, "remote arguments cannot grant write permissions");
 Check((await peer.Tool("packengine_read", new { requestId = ordinaryId, path = "../outside" })).Error, "MCP cannot read outside the project");
 Check((await peer.Tool("packengine_read", new { requestId = ordinaryId, path = "README.md" })).Error, "MCP cannot read undeclared project files");

@@ -7,7 +7,7 @@ namespace PackEngine.Editor;
 
 public sealed partial class EditorWindow
 {
-    private void ShowChatGptSetup() => Guard(() =>
+    private void ShowChatGptDesktopSetup() => Guard(() =>
     {
         if (busy || session is null || conversation is null || CurrentAccess is not { } access || chatGptSetupPending) return;
         var project = session.Project;
@@ -27,7 +27,7 @@ public sealed partial class EditorWindow
         pages[0].Children.Add(Label("기존 ChatGPT 채팅·프로젝트 주소", 13)); pages[0].Children.Add(url);
         pages[0].Children.Add(Label("연결은 게임팩 이름으로 표시해. 이 주소는 같은 대화를 다시 여는 바로가기야.", 12, MutedInk));
         pages[0].Children.Add(Action("ChatGPT에서 주소 찾기", () => OpenUrl("https://chatgpt.com/")));
-        pages[0].Children.Add(Label("이 설정은 이 PC의 ChatGPT 앱에서 로컬 작업을 할 때 사용해. 웹·휴대폰·클라우드 작업은 ‘ChatGPT 연결’ 탭의 별도 연결 안내를 확인해줘.", 13, MutedInk));
+        pages[0].Children.Add(Label("이 설정은 이 PC의 ChatGPT 데스크톱 앱에서 로컬 작업을 할 때 사용해. 브라우저를 사용한다면 ‘ChatGPT 연결’ 탭의 기본 연결 설정 마법사를 사용해줘.", 13, MutedInk));
 
         var allowRead = Setting("ChatGPT가 이 프로젝트의 문맥·파일을 읽도록 허용"); allowRead.IsChecked = access.ChatGpt.Enabled;
         var allowCommands = Setting("프로젝트 실행·검증 허용"); allowCommands.IsChecked = access.ChatGpt.AllowProjectCommands;
@@ -92,6 +92,7 @@ public sealed partial class EditorWindow
                 var updated = ProjectConversation.Load(project.Manifest); updated.Mode = "chatgpt"; updated.Url = link; updated.Save(); conversation = updated;
                 StopChatGptBridge(); ResetResidentConnection();
                 access.ChatGpt.Url = link; access.ChatGpt.Enabled = true; access.ChatGpt.WritablePacks = writable; access.ChatGpt.AllowProjectCommands = commands;
+                access.ChatGpt.ConnectionKind = "desktop"; access.ChatGpt.AutoStartTunnel = false;
                 SaveSettings(); ApplyConversationMode();
                 Report("PC 내부 연결 검사 중");
                 using var check = CancellationTokenSource.CreateLinkedTokenSource(stop.Token); check.CancelAfter(TimeSpan.FromSeconds(12));

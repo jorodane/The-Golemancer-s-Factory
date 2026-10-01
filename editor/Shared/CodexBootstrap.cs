@@ -114,7 +114,7 @@ internal static class SetupProcess
         if (process.ExitCode != 0) throw new IOException("준비 작업이 실패했어 (종료 코드 " + process.ExitCode + "). 아래 실행 기록을 확인하고 다시 시도해줘.");
         lock (sync) return log.ToString();
     }, cancellation);
-    private static void Stop(Process process)
+    internal static void Stop(Process process)
     {
         try
         {

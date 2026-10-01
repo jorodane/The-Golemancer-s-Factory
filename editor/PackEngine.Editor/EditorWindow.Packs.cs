@@ -138,7 +138,7 @@ public sealed partial class EditorWindow
     {
         if (busy) return; SetBusy(true); operation = new();
         try { await action(); } catch (Exception e) { packStatus.Text = "적용 실패 · " + e.Message; AppendLog(packStatus.Text); }
-        finally { operation.Dispose(); operation = null; SetBusy(false); if (connectAfter && session is not null) ScheduleAutoConnect(); }
+        finally { operation.Dispose(); operation = null; SetBusy(false); if (connectAfter && session is not null) { ScheduleAutoConnect(); ScheduleChatGptWeb(); } }
     }
     private async Task ReloadEditorPacks(IReadOnlyCollection<string>? authorized, CancellationToken cancellation)
     {

@@ -107,6 +107,7 @@ try
         Check(!messages.Any(x => x.Contains("SYNTHETIC_CONFIG_SENTINEL")), "setup progress never publishes existing client configuration values");
     }
     else Console.WriteLine("SKIP_REAL_CODEX: pass the official native CLI path to test real configuration updates");
+    await WebTunnelVerification.Run(root, Check);
     Console.WriteLine("CHATGPT_SETUP_VERIFICATION_PASS " + checks);
 }
 finally { Directory.Delete(root, true); }

@@ -132,7 +132,7 @@ internal sealed class ChatGptSetup
         var buffer = new byte[81920]; int count;
         while ((count = input.Read(buffer, 0, buffer.Length)) > 0) { cancellation.ThrowIfCancellationRequested(); output.Write(buffer, 0, count); }
     }
-    private static async Task DownloadFile(string url, string target, CancellationToken cancellation)
+    internal static async Task DownloadFile(string url, string target, CancellationToken cancellation)
     {
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellation); timeout.CancelAfter(TimeSpan.FromMinutes(10)); cancellation = timeout.Token;
         using var client = new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
