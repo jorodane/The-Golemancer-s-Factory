@@ -36,8 +36,10 @@ if (available)
     catch (IOException) { Check(true, "only one live editor owns a project's MCP pipe"); }
 }
 bool online = true;
+bool lastWasLocalCheck = false;
 async Task<EditorPipeReply> Transport(EditorPipeCall call, CancellationToken token)
 {
+    lastWasLocalCheck = call.LocalCheck;
     if (available) return await EditorPipe.Call(session.Project.Manifest, call, token);
     if (!online) throw new IOException("Editor offline (test transport).");
     // Same length-prefixed serialization, over memory streams when named sockets are unavailable.
@@ -126,6 +128,15 @@ Check(ProjectConversation.Load(session.Project.Manifest).Mode == "local", "the s
 var preferences = new AssistantSettings(); var registered = preferences.Register(session.Project); registered.ChatGpt = access; access.Url = "https://chatgpt.com/c/user-chosen";
 string settingsPath = Path.Combine(args[1], "mcp-settings.json"); preferences.Save(settingsPath); var restored = AssistantSettings.Load(settingsPath).Projects.Single().ChatGpt;
 Check(restored.Enabled && restored.WritablePacks.Single() == "golemancer.controls" && restored.ValidatedUrl() == access.Url, "project link and MCP permissions survive settings reload");
+await using (var check = new Peer(Transport, true))
+{
+    online = true; available = false; // The marker also survives the serialized in-memory fallback.
+    await check.Initialize();
+    Check(!(await check.Tool("packengine_status", new { })).Error && lastWasLocalCheck, "internal status checks carry a distinct marker through MCP and editor IPC");
+    Check((await check.Tool("packengine_context", new { intent = "not allowed in a local check" })).Error, "an internal check cannot acquire a task or invoke project tools");
+    await peer.Tool("packengine_status", new { });
+    Check(!lastWasLocalCheck, "normal external clients never inherit the internal-check marker");
+}
 Console.WriteLine("MCP_VERIFICATION_PASS " + checks);
 
 internal sealed class Peer : IAsyncDisposable
@@ -138,12 +149,12 @@ internal sealed class Peer : IAsyncDisposable
     private readonly ConcurrentDictionary<int, TaskCompletionSource<JsonElement>> pending = new();
     private readonly Task reading;
     private int sequence;
-    internal Peer(Func<EditorPipeCall, CancellationToken, Task<EditorPipeReply>> invoke)
+    internal Peer(Func<EditorPipeCall, CancellationToken, Task<EditorPipeReply>> invoke, bool localCheck = false)
     {
         var requests = new AnonymousPipeServerStream(PipeDirection.Out); var responses = new AnonymousPipeServerStream(PipeDirection.Out);
         input = new StreamWriter(requests); output = new StreamReader(new AnonymousPipeClientStream(PipeDirection.In, responses.GetClientHandleAsString()));
         serverInput = new StreamReader(new AnonymousPipeClientStream(PipeDirection.In, requests.GetClientHandleAsString())); serverOutput = new StreamWriter(responses);
-        protocol = Task.Run(async () => { try { await McpProtocol.Run(serverInput, serverOutput, invoke); } finally { serverOutput.Dispose(); } });
+        protocol = Task.Run(async () => { try { await McpProtocol.Run(serverInput, serverOutput, invoke, localCheck); } finally { serverOutput.Dispose(); } });
         reading = Task.Run(async () =>
         {
             while (await output.ReadLineAsync() is { } line)

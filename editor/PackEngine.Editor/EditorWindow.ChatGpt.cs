@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using PackEngine.Installation;
@@ -11,49 +10,33 @@ public sealed partial class EditorWindow
 {
     private readonly CheckBox chatGptAccess = Setting("ChatGPT에서 이 프로젝트 접근 허용 · 다음 실행에도 유지"), chatGptCommands = Setting("프로젝트 실행·검증 허용");
     private readonly TextBlock chatGptStatus = Label("아직 연결하지 않았어.", 13, AccentInk);
-    private readonly TextBox chatGptUrl = Input(), chatGptCommand = ReadBox(), chatGptArguments = ReadBox();
+    private readonly TextBlock chatGptBookmark = Label("", 12, MutedInk);
     private readonly StackPanel chatGptPacks = new();
     private EditorPipeServer? chatGptServer;
     private EditorMcpWorkspace? chatGptWorkspace;
     private bool updatingChatGpt, checkingChatGpt;
     private string lastChatGptCall = "";
+    private bool chatGptSetupPending, chatGptExternalConfirmed;
+    private System.Action? chatGptConnectionChanged;
     private void AddChatGptTab()
     {
         var page = new StackPanel { Margin = new Thickness(18) };
         page.Children.Add(Label("ChatGPT에서 함께 작업", 21));
-        page.Children.Add(Action("게임팩 대화 방식 선택", ChooseConversationMode));
-        page.Children.Add(Label("대화는 ChatGPT에 두고, 이 에디터의 객체팩·XML 도구를 연결해. 연결한 뒤에는 대화 내용을 복사할 필요가 없어.", 13, MutedInk));
-        page.Children.Add(chatGptStatus); page.Children.Add(chatGptAccess);
-        var actions = new WrapPanel(); actions.Children.Add(Action("ChatGPT 열기", OpenChatGpt));
-        actions.Children.Add(Action("처음 연결할 안내 복사", CopyChatGptSetup));
-        actions.Children.Add(Action("연결 다시 준비", () => Guard(() => { if (!busy) StartChatGptBridge(); }))); page.Children.Add(actions);
-        page.Children.Add(Action("PC 내부 연결 검사", CheckChatGptBridge));
-        page.Children.Add(Label("이 게임의 ChatGPT 프로젝트·대화", 15)); chatGptUrl.MaxLength = 4096; page.Children.Add(chatGptUrl);
-        page.Children.Add(Action("연결 주소 저장", () => Guard(() =>
-        {
-            if (busy || CurrentAccess is not { } access || conversation is null) return;
-            string url = ProjectConversation.ValidateLink(chatGptUrl.Text);
-            var updated = ProjectConversation.Load(session!.Project.Manifest); updated.Url = url; updated.Save(); conversation = updated;
-            access.ChatGpt.Url = url; SaveSettings(); chatGptUrl.Text = url; SetStatus("게임팩 내부에 기존 ChatGPT 주소를 저장했어.");
-        })));
-        page.Children.Add(Label("기존 채팅이나 프로젝트 주소를 한 번 저장해줘. 이 주소는 다시 여는 용도야. 도구 연결은 아래 MCP 설정으로 확인해.", 12, MutedInk));
+        page.Children.Add(Label("이 게임팩의 ChatGPT 대화와 에디터 도구를 연결해.", 13, MutedInk));
+        page.Children.Add(Action("ChatGPT 연결 설정 · 단계별로 준비", ShowChatGptSetup));
+        page.Children.Add(chatGptBookmark); page.Children.Add(chatGptStatus);
+        var actions = new WrapPanel(); actions.Children.Add(Action("저장한 ChatGPT 대화 열기", OpenChatGpt));
+        actions.Children.Add(Action("연결 확인 요청 복사", CopyChatGptSetup)); page.Children.Add(actions);
+        page.Children.Add(chatGptAccess);
+        page.Children.Add(Action("PC 내부 연결 다시 검사", CheckChatGptBridge));
         page.Children.Add(Label("ChatGPT가 수정·빌드할 수 있는 팩", 15));
         page.Children.Add(Label("아무것도 선택하지 않으면 읽기만 가능해. 새 작업마다 이 범위를 고정하고, 설정을 바꾸면 이전 작업 권한을 철회해.", 12, MutedInk));
         page.Children.Add(new ScrollViewer { Content = chatGptPacks, MaxHeight = 210, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }); page.Children.Add(chatGptCommands);
-        page.Children.Add(Label("PC의 ChatGPT 앱 연결 · STDIO", 15));
-        page.Children.Add(Label("ChatGPT 설정 → MCP servers → Add server에서 아래 실행 파일과 인자를 등록한 뒤 Restart해줘.", 12, MutedInk));
-        page.Children.Add(Label("실행 파일", 11)); chatGptCommand.Height = 55; page.Children.Add(chatGptCommand);
-        page.Children.Add(Label("인자 · JSON 배열", 11)); chatGptArguments.Height = 75; page.Children.Add(chatGptArguments);
-        page.Children.Add(Action("MCP 설정 JSON 복사", () => Guard(() =>
-        {
-            if (session is null) return;
-            Clipboard.SetText(EditorSession.Serialize(new { mcpServers = new Dictionary<string, object> { ["packengine-" + session.Project.Identity.Substring(0, 10)] = new { command = McpExecutable, args = new[] { "--project", session.Project.Manifest } } } }));
-            SetStatus("로컬 MCP 클라이언트용 설정을 복사했어. 웹·모바일 등록과는 별도야.");
-        })));
-        page.Children.Add(Label("웹·휴대폰에서 이어가기", 15));
-        page.Children.Add(Label("웹·휴대폰은 PC의 STDIO 설정을 자동으로 가져오지 않아. 공식 Secure MCP Tunnel에 같은 실행 파일을 연결하고 ChatGPT 플러그인으로 등록해줘. 터널 ID, 실행용 API 키, 계정 권한이 필요해. 키는 채팅이나 프로젝트 파일에 넣지 말고 공식 터널 클라이언트에서 설정해.", 12, MutedInk));
-        page.Children.Add(Action("공식 터널 설정 안내", () => OpenUrl("https://developers.openai.com/api/docs/guides/secure-mcp-tunnels")));
-        page.Children.Add(Label("PC와 에디터·터널이 켜져 있어야 폰에서도 실제 프로젝트 도구를 쓸 수 있어. ‘접근 허용’은 준비 상태이며, 실제 호출이 와야 위에 도구 호출 시각이 표시돼.", 12, MutedInk));
+        var remote = new StackPanel();
+        remote.Children.Add(Label("PC 앱 자동 설정은 같은 Windows의 로컬 작업에 적용돼. 웹·휴대폰·클라우드 작업은 ChatGPT 플러그인과 별도 터널 연결이 필요해.", 12, MutedInk));
+        remote.Children.Add(Label("웹 연결에는 OpenAI 계정의 터널 ID·실행 키와 플러그인 권한이 필요해. 아래 공식 안내에서 계정 연결을 준비할 수 있어.", 12, MutedInk));
+        remote.Children.Add(Action("웹·휴대폰 연결 안내", () => OpenUrl("https://developers.openai.com/api/docs/guides/secure-mcp-tunnels")));
+        page.Children.Add(new Expander { Header = "웹·휴대폰에서 사용하기", Foreground = TextInk, Margin = new Thickness(4, 16, 4, 8), Content = remote });
         page.Children.Add(Label("‘이거’는 오른쪽에서 단일·범위를 골라 지정해. ChatGPT가 작업 문맥을 요청할 때 딱 한 번 전달한 뒤 일반 모드로 돌아와. ChatGPT 메시지 전송 순간을 감지하는 기능은 아직 없어.", 12, MutedInk));
         AddTab("ChatGPT 연결", new ScrollViewer { Content = page, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
         chatGptAccess.Click += (_, _) => Guard(() =>
@@ -86,8 +69,8 @@ public sealed partial class EditorWindow
     private void RefreshChatGptProject()
     {
         updatingChatGpt = true; chatGptPacks.Children.Clear(); var access = CurrentAccess?.ChatGpt;
-        chatGptAccess.IsChecked = access?.Enabled == true; chatGptCommands.IsChecked = access?.AllowProjectCommands == true; chatGptUrl.Text = conversation?.Url ?? "";
-        chatGptCommand.Text = McpExecutable; chatGptArguments.Text = session is null ? "" : JsonSerializer.Serialize(new[] { "--project", session.Project.Manifest });
+        chatGptAccess.IsChecked = access?.Enabled == true; chatGptCommands.IsChecked = access?.AllowProjectCommands == true;
+        chatGptBookmark.Text = conversation?.Mode == "chatgpt" ? session?.Project.Name + " · " + conversation.Url : "연결 설정에서 사용할 대화를 골라줘.";
         if (session is not null && access is not null)
             foreach (var pack in session.Index.Packs.Where(p => !session.Project.Sources.TryGetValue(p.Id, out var source) || source.Editable))
             { var box = Setting(pack.Id); box.Tag = pack.Id; box.IsChecked = access.WritablePacks.Contains(pack.Id); box.Click += (_, _) => SaveChatGptScope(); chatGptPacks.Children.Add(box); }
@@ -103,7 +86,7 @@ public sealed partial class EditorWindow
     });
     private void StopChatGptBridge()
     {
-        chatGptServer?.Dispose(); chatGptServer = null; chatGptWorkspace?.Dispose(); chatGptWorkspace = null; lastChatGptCall = "";
+        chatGptServer?.Dispose(); chatGptServer = null; chatGptWorkspace?.Dispose(); chatGptWorkspace = null; lastChatGptCall = ""; chatGptExternalConfirmed = false; chatGptConnectionChanged?.Invoke();
     }
     private void StartChatGptBridge()
     {
@@ -120,18 +103,34 @@ public sealed partial class EditorWindow
                 Task<string>? work = null; CancellationTokenSource? active = null;
                 await Dispatcher.InvokeAsync(() =>
                 {
-                    if (busy || !ReferenceEquals(session, currentSession) || !ReferenceEquals(chatGptWorkspace, host)) throw new InvalidOperationException("에디터가 다른 작업 중이거나 프로젝트가 바뀌었어. 작업을 마친 뒤 다시 요청해줘.");
-                    cancellation.ThrowIfCancellationRequested(); SetBusy(true); operation = active = CancellationTokenSource.CreateLinkedTokenSource(cancellation);
+                    if (!ReferenceEquals(session, currentSession) || !ReferenceEquals(chatGptWorkspace, host)) throw new InvalidOperationException("에디터가 다른 작업 중이거나 프로젝트가 바뀌었어. 작업을 마친 뒤 다시 요청해줘.");
+                    cancellation.ThrowIfCancellationRequested();
+                    if (call.LocalCheck)
+                    {
+                        if (call.Tool != "packengine_status") throw new InvalidOperationException("내부 검사는 연결 상태만 확인할 수 있어.");
+                        work = host.CallAsync(call.Client, call.Tool, call.Arguments, cancellation); return;
+                    }
+                    if (busy || chatGptSetupPending) throw new InvalidOperationException("에디터의 연결 준비나 현재 작업을 마친 뒤 다시 요청해줘.");
+                    SetBusy(true); operation = active = CancellationTokenSource.CreateLinkedTokenSource(cancellation);
                     lastChatGptCall = DateTime.Now.ToString("HH:mm:ss"); chatGptStatus.Text = "실제 MCP 도구 호출 · " + lastChatGptCall + " · " + call.Tool;
                     AppendLog("MCP 요청 · " + call.Tool);
                     work = host.CallAsync(call.Client, call.Tool, call.Arguments, active.Token);
                 });
-                try { return await work!.ConfigureAwait(false); }
+                try
+                {
+                    string result = await work!.ConfigureAwait(false);
+                    if (!call.LocalCheck) await Dispatcher.InvokeAsync(() =>
+                    {
+                        chatGptExternalConfirmed = true; chatGptConnectionChanged?.Invoke();
+                    });
+                    return result;
+                }
                 catch (Exception e) { AppendLog("MCP 실패 · " + call.Tool + " · " + e.Message); throw; }
                 finally
                 {
                     await Dispatcher.InvokeAsync(() =>
                     {
+                        if (call.LocalCheck) return;
                         active?.Dispose(); if (ReferenceEquals(operation, active)) operation = null;
                         SetBusy(false); RefreshContext(); chatGptStatus.Text = "도구 호출 기록 · " + lastChatGptCall + " · " + call.Tool + " · 결과는 실행 기록에서 확인";
                     });
@@ -144,7 +143,7 @@ public sealed partial class EditorWindow
     }
     private void SetChatGptBusy(bool value)
     {
-        chatGptAccess.IsEnabled = chatGptCommands.IsEnabled = chatGptPacks.IsEnabled = chatGptUrl.IsEnabled = !value && session is not null && conversation?.Mode == "chatgpt";
+        chatGptAccess.IsEnabled = chatGptCommands.IsEnabled = chatGptPacks.IsEnabled = !value && session is not null && conversation?.Mode == "chatgpt";
     }
     private async void CheckChatGptBridge()
     {
@@ -155,7 +154,7 @@ public sealed partial class EditorWindow
         {
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(12));
             await EditorMcpCheck.Run(McpExecutable, project.Manifest, project.Identity, timeout.Token);
-            if (ReferenceEquals(session?.Project, project)) chatGptStatus.Text = "PC 내부 연결 검사 통과 · 실행 파일↔에디터 확인. ChatGPT 앱·터널 연결은 별도로 확인해줘.";
+            if (ReferenceEquals(session?.Project, project) && !chatGptExternalConfirmed) chatGptStatus.Text = "PC 내부 검사 통과 · ChatGPT의 실제 도구 호출은 아직 기다리고 있어.";
         }
         catch (Exception e) { SetStatus(e.Message); AppendLog("MCP 내부 검사 실패 · " + e.Message); }
         finally { checkingChatGpt = false; }

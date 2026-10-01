@@ -87,7 +87,7 @@ internal sealed class CodexBootstrap
 }
 internal static class SetupProcess
 {
-    internal static Task<string> Run(string file, string[] arguments, Action<string> output, CancellationToken cancellation) => Task.Run(() =>
+    internal static Task<string> Run(string file, string[] arguments, Action<string> output, CancellationToken cancellation, IReadOnlyDictionary<string, string>? environment = null) => Task.Run(() =>
     {
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellation);
         timeout.CancelAfter(arguments.Length == 1 && arguments[0] == "--version" ? TimeSpan.FromSeconds(15) : TimeSpan.FromMinutes(10));
@@ -96,6 +96,7 @@ internal static class SetupProcess
             CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true, StandardOutputEncoding = Encoding.UTF8, StandardErrorEncoding = Encoding.UTF8,
             WorkingDirectory = Path.GetDirectoryName(file)! };
         info.EnvironmentVariables["PATH"] = string.Join(Path.PathSeparator.ToString(), new[] { Path.GetDirectoryName(file)! }.Concat(CodexInstallation.SearchDirectories()));
+        if (environment is not null) foreach (var pair in environment) info.EnvironmentVariables[pair.Key] = pair.Value;
         using var process = new Process { StartInfo = info }; var log = new StringBuilder(); object sync = new();
         void Receive(DataReceivedEventArgs e, bool capture)
         {

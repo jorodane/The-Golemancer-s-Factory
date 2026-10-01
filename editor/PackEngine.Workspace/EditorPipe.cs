@@ -11,6 +11,8 @@ namespace PackEngine.Workspace;
 public sealed class EditorPipeCall
 {
     public string Client { get; set; } = "";
+    // A diagnostic marker only, never an access grant. Local checks cannot confirm an external client.
+    public bool LocalCheck { get; set; }
     public string Tool { get; set; } = "";
     public JsonElement Arguments { get; set; }
 }

@@ -13,7 +13,7 @@ internal static class Program
         if (args.Length != 2 || args[0] != "--project" || !Path.IsPathRooted(args[1]))
         { Console.Error.WriteLine("Usage: PackEngine.Mcp.exe --project <absolute .packproject path>"); return 2; }
         // The proxy does not open/execute a manifest. Only an explicitly enabled live editor serves tool calls.
-        try { await McpProtocol.Run(Console.In, Console.Out, (call, token) => EditorPipe.Call(args[1], call, token)); return 0; }
+        try { await McpProtocol.Run(Console.In, Console.Out, (call, token) => EditorPipe.Call(args[1], call, token), Environment.GetEnvironmentVariable("PACKENGINE_MCP_LOCAL_CHECK") == "1"); return 0; }
         catch (Exception e) { Console.Error.WriteLine(e.Message); return 1; }
     }
 }
@@ -21,7 +21,7 @@ internal static class Program
 /// <summary>STDIO protocol, with transport injection for verification against a real session without WPF.</summary>
 public static class McpProtocol
 {
-    public static async Task Run(TextReader input, TextWriter output, Func<EditorPipeCall, CancellationToken, Task<EditorPipeReply>> invoke)
+    public static async Task Run(TextReader input, TextWriter output, Func<EditorPipeCall, CancellationToken, Task<EditorPipeReply>> invoke, bool localCheck = false)
     {
         var pending = new ConcurrentDictionary<string, CancellationTokenSource>(); var writes = new SemaphoreSlim(1, 1);
         var tasks = new List<Task>(); string client = Guid.NewGuid().ToString("N"); bool initialized = false, ready = false;
@@ -33,7 +33,8 @@ public static class McpProtocol
             try
             {
                 EditorMcpTools.Validate(name, arguments);
-                var result = await invoke(new() { Client = client, Tool = name, Arguments = arguments }, stop.Token).ConfigureAwait(false);
+                if (localCheck && name != "packengine_status") throw new InvalidOperationException("Local checks may only inspect connection status.");
+                var result = await invoke(new() { Client = client, LocalCheck = localCheck, Tool = name, Arguments = arguments }, stop.Token).ConfigureAwait(false);
                 await Send(new { jsonrpc = "2.0", id, result = new { content = new[] { new { type = "text", text = result.Text } }, isError = result.IsError } }).ConfigureAwait(false);
             }
             catch (Exception e)

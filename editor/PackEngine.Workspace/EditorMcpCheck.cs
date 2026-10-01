@@ -11,6 +11,7 @@ public static class EditorMcpCheck
     {
         using var process = new Process { StartInfo = new ProcessStartInfo(executable) { Arguments = "--project " + Quote(manifest), UseShellExecute = false,
             CreateNoWindow = true, RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true, StandardOutputEncoding = Encoding.UTF8 } };
+        process.StartInfo.EnvironmentVariables["PACKENGINE_MCP_LOCAL_CHECK"] = "1";
         if (!process.Start()) throw new IOException("MCP 실행 파일을 시작하지 못했어.");
         using var stop = cancellation.Register(() => { try { if (!process.HasExited) process.Kill(); } catch (Exception e) when (e is InvalidOperationException or System.ComponentModel.Win32Exception) { } });
         var errors = process.StandardError.ReadToEndAsync();

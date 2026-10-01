@@ -119,7 +119,7 @@ public sealed partial class EditorWindow
     private async void ConnectCodex() => await ConnectCodexAsync();
     private async Task<bool> ConnectCodexAsync()
     {
-        if (session is null || busy) return false;
+        if (session is null || busy || chatGptSetupPending) return false;
         if (conversation?.Mode != "local") { ChooseConversationMode(); return false; }
         if (CurrentAccess is not { } access || !assistantSettings.ConnectionEnabled || !access.Enabled) { SetStatus("대화·접근 설정에서 이 프로젝트의 Codex 사용을 허용해줘."); return false; }
         SetBusy(true); operation = new();
