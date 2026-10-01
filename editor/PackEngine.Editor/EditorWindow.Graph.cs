@@ -35,6 +35,7 @@ public sealed partial class EditorWindow
             if (!session.Index.Nodes.TryGetValue(pair.Key, out var node)) continue;
             var button = Action(node.Kind + "\n" + node.Id + (node.Status == "resolved" ? "" : "\n" + node.Status), () => Guard(() => { SelectNode(node.Key); PointObject(node.Key, "graph"); }));
             button.Width = 166; button.Height = 62; button.ToolTip = node.Key + "\n" + node.File;
+            button.Tag = node.Key;
             button.Background = node.Key == key ? Brush("#245548") : node.Status == "resolved" ? PanelInk : Brush("#594326");
             button.Content = new TextBlock { Text = (string)button.Content, TextWrapping = TextWrapping.Wrap, TextTrimming = TextTrimming.CharacterEllipsis, Foreground = TextInk, TextAlignment = TextAlignment.Center };
             graphObjects[node.Key] = new Rect(pair.Value.X - 83, pair.Value.Y - 31, 166, 62);

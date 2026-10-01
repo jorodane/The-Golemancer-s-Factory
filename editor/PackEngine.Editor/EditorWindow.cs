@@ -151,7 +151,7 @@ public sealed partial class EditorWindow : Window
         if (busy) return;
         if (runner?.GameRunning == true) throw new InvalidOperationException("현재 프로젝트의 게임 창을 닫은 뒤 다른 프로젝트를 열어줘.");
         if (PackDocumentDirty()) throw new InvalidOperationException("먼저 에디터팩 초안을 저장해줘.");
-        session?.Persist();
+        session?.Persist(); TryStopSharedEditorBeforeSwitch(); ClearSharedEditor();
         var next = new EditorSession(path); var nextConversation = PackEngine.Installation.ProjectConversation.Load(next.Project.Manifest);
         StopChatGptBridge(); runner?.Dispose(); provider?.Dispose(); provider = null; providerLabel.Text = "AI 제공자 미연결"; session = next; conversation = nextConversation;
         runner = new(session, Environment.GetEnvironmentVariable("PACKENGINE_DOTNET") ?? "dotnet"); runner.Output += AppendLog;

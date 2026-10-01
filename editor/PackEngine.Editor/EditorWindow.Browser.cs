@@ -45,11 +45,11 @@ public sealed partial class EditorWindow
         buttons.Children.Add(Action("ChatGPT", () => NavigateChat("https://chatgpt.com/")));
         buttons.Children.Add(Action("뒤로", () => Guard(() => { if (browser.CoreWebView2?.CanGoBack == true) browser.CoreWebView2.GoBack(); })));
         buttons.Children.Add(Action("새로고침", () => Guard(() => browser.CoreWebView2?.Reload())));
-        connectCurrent = Action("현재 대화 연결", BeginWebConnection); buttons.Children.Add(connectCurrent);
+        connectCurrent = Action("대화 주소 저장", BeginWebConnection); connectCurrent.ToolTip = "다음에 같은 대화를 열 수 있도록 주소를 저장합니다. 에디터 작업 연결은 ‘에디터 연결’을 사용합니다."; buttons.Children.Add(connectCurrent);
         returnToChat = Action("대화로 돌아가기", CancelWebConnection); returnToChat.Visibility = Visibility.Collapsed; buttons.Children.Add(returnToChat);
         header.Children.Add(buttons); header.Children.Add(webStatus); header.Children.Add(webAddress);
         DockPanel.SetDock(header, Dock.Top); web.Children.Add(header);
-        webContent.Children.Add(browser); connectionBrowser.Visibility = Visibility.Collapsed; webContent.Children.Add(connectionBrowser);
+        webContent.Children.Add(browser); connectionBrowser.Visibility = Visibility.Collapsed; webContent.Children.Add(connectionBrowser); sharedBrowser.Visibility = Visibility.Hidden; webContent.Children.Add(sharedBrowser);
         webContent.Children.Add(webFallback); web.Children.Add(webContent); webLayout.Children.Add(web);
         webLayout.Children.Add(Splitter(1));
         var workspace = new DockPanel(); Grid.SetColumn(workspace, 2); webLayout.Children.Add(workspace);
@@ -57,7 +57,7 @@ public sealed partial class EditorWindow
         detailsButton = Action("작업 도구 펼치기", () => { detailedWorkspace = !detailedWorkspace; ApplyBrowserLayout(); }); workspaceHeader.Children.Add(detailsButton);
         workspaceHeader.Children.Add(Action("대화 방식", () => { if (session is null) { SetStatus("먼저 게임팩을 만들거나 열어줘."); return; } ChooseConversationMode(); }));
         DockPanel.SetDock(workspaceHeader, Dock.Top); workspace.Children.Add(workspaceHeader);
-        var main = new Grid(); main.Children.Add(body); welcomeView.Content = welcome; main.Children.Add(welcomeView); workspace.Children.Add(main);
+        var main = new Grid(); main.Children.Add(body); welcomeView.Content = welcome; main.Children.Add(welcomeView); workspace.Children.Add(main); AddSharingControls(header, main);
         ShowBrowserFallback("웹 대화를 준비하고 있어.", false);
         Loaded += async (_, _) => await InitializeBrowser();
         Closed += (_, _) => { webDisposed = true; pendingWebConnection = null; webInstallCancellation?.Cancel(); foreach (var popup in webPopups.ToArray()) popup.Close(); browser.Dispose(); connectionBrowser.Dispose(); };
@@ -87,7 +87,7 @@ public sealed partial class EditorWindow
         connectionBrowser.Visibility = Visibility.Collapsed; browser.Visibility = Visibility.Visible; returnToChat!.Visibility = Visibility.Collapsed;
         welcome.Children.Clear();
         welcome.Children.Add(Label(session is null ? "대화하면서 시작해." : session.Project.Name, 26));
-        welcome.Children.Add(Label(session is null ? "왼쪽에서 평소처럼 로그인하고 대화해. 작업할 게임팩은 새로 만들거나 열면 돼." : "왼쪽에서 사용할 대화를 열고 ‘현재 대화 연결’을 눌러줘.", 15, MutedInk));
+        welcome.Children.Add(Label(session is null ? "왼쪽에서 평소처럼 로그인하고 대화해. 작업할 게임팩은 새로 만들거나 열면 돼." : "‘에디터 연결’을 누르면 이 대화에서 객체와 문서를 공유하고 Codex에게 작업을 맡길 수 있어.", 15, MutedInk));
         var actions = new WrapPanel { Margin = new Thickness(0, 16, 0, 16) };
         actions.Children.Add(Action("새 게임팩", CreateGameProject)); actions.Children.Add(Action("게임팩 열기", ChooseProject)); welcome.Children.Add(actions);
         if (session is not null)
@@ -258,6 +258,7 @@ public sealed partial class EditorWindow
     }
     private void CancelWebConnection()
     {
+        if (sharedBrowser.Visibility == Visibility.Visible && sharingSession.Length == 0) ClearSharedEditor();
         pendingWebConnection = null; connectingProfile = null;
         browser.Visibility = Visibility.Visible; connectionBrowser.Visibility = Visibility.Collapsed;
         if (returnToChat is not null) returnToChat.Visibility = Visibility.Collapsed;

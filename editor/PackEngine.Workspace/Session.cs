@@ -50,6 +50,8 @@ public sealed class ContextRequest
     public bool AllowEditorReload { get; set; }
     public bool AllowProjectCommands { get; set; }
     public string Target { get; set; } = "";
+    public List<SharedUiTarget> UiTargets { get; set; } = [];
+    public List<SharedEditorImage> Images { get; set; } = [];
 }
 public sealed class ReadReceipt
 {

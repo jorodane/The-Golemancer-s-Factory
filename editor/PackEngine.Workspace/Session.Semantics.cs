@@ -47,11 +47,11 @@ public sealed partial class EditorSession
         if (mode is not ("none" or "single" or "range")) throw new ArgumentException("Unknown pointing mode.");
         Pointing.Mode = mode; Pointing.Targets.Clear();
     }
-    public void Point(string key, string surface = "selection")
+    public void Point(string key, string surface = "selection", bool append = false)
     {
         if (Pointing.Mode == "none") return;
         if (!Index.Nodes.ContainsKey(key)) throw new InvalidDataException("Unknown target: " + key);
-        if (Pointing.Mode == "single") Pointing.Targets.Clear();
+        if (Pointing.Mode == "single" && !append) Pointing.Targets.Clear();
         if (Pointing.Targets.Any(t => t.Key == key)) return;
         if (Pointing.Targets.Count >= 64) throw new InvalidOperationException("Point at no more than 64 objects in one request.");
         Pointing.Targets.Add(new() { Key = key, Surface = surface });

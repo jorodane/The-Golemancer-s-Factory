@@ -170,9 +170,11 @@ public sealed partial class CodexAssistant : IResidentAssistant
             var done = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
             lock (sync) { completion = done; workspace = tools; turnCancellation = lifetime.Token; turnId = ""; finalText = ""; lastMessage = ""; messages.Clear(); toolTasks.Clear(); }
             string context = EditorSession.Serialize(new { request.Id, request.Project, request.Input, request.OpenFiles, request.Documents, request.Context, request.Omitted,
-                request.EditorInput, request.WritablePacks, request.WritableEditorPacks, request.AllowEditorReload, request.AllowProjectCommands, request.Target,
+                request.EditorInput, request.UiTargets, request.WritablePacks, request.WritableEditorPacks, request.AllowEditorReload, request.AllowProjectCommands, request.Target,
                 SharedChats = request.SharedChats.Where(c => c.Shared).Select(c => new { c.Path, c.Title, Source = "user-provided context; not synchronized" }).ToArray() });
-            var parameters = new Dictionary<string, object> { ["threadId"] = ThreadId, ["input"] = new[] { new { type = "text", text = request.Prompt + "\n\n[Editor context captured when this request was sent]\n" + context } }, ["environments"] = Array.Empty<object>() };
+            var input = new List<object> { new { type = "text", text = request.Prompt + "\n\n[Editor context captured when this request was sent]\n" + context } };
+            foreach (var image in request.Images.Take(1)) input.Add(new { type = "image", url = "data:image/png;base64," + image.Data });
+            var parameters = new Dictionary<string, object> { ["threadId"] = ThreadId, ["input"] = input, ["environments"] = Array.Empty<object>() };
             if (Model.Length > 0) parameters["model"] = Model;
             var response = await Client.Call("turn/start", parameters, cancellation).ConfigureAwait(false);
             lock (sync) turnId = Text(response.GetProperty("turn"), "id");

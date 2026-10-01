@@ -51,6 +51,8 @@ def main():
             original = ui.read_bytes()
             workspace = subprocess.run([dotnet, str(harness), str(project), str(folder / 'workspace-state'), dotnet], capture_output=True, text=True, timeout=60)
             (output / 'workspace.log').write_text(workspace.stdout + workspace.stderr)
+            contract = folder / 'workspace-state/shared-contract.json'
+            if contract.exists(): shutil.copy2(contract, output / 'shared-contract.json')
             check(workspace.returncode == 0 and 'RESIDENT_WORKSPACE_PASS' in workspace.stdout, 'workspace snapshots, scopes, conflict detection, real XML apply/build and undo')
             report['workspaceChecks'] = sum(line.startswith('PASS:') for line in workspace.stdout.splitlines())
             state = folder / 'resident-state'

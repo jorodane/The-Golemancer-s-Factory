@@ -43,7 +43,7 @@ public sealed partial class EditorWindow
     {
         if (session is null || busy || session.Pointing.Mode == "none") return;
         if (session.Pointing.Mode == "single") { editorPoints.Clear(); packPointLabel.Text = "에디터 요소 포인팅 없음"; }
-        session.Point(key, surface); RefreshPointing();
+        session.Point(key, surface, Keyboard.Modifiers.HasFlag(ModifierKeys.Control)); RefreshPointing();
     }
     private void PointXmlRange()
     {
@@ -116,11 +116,12 @@ public sealed partial class EditorWindow
         models.SelectionChanged += (_, _) => { if (provider is IResidentAssistant agent && models.SelectedItem is AssistantModel model) agent.Model = model.Id; };
         panel.Children.Add(Label("로컬 방식을 선택하면 시작 시 자동 연결해. 대화 원본은 게임팩에 저장하고, 로그인은 이 PC의 Codex를 사용해.", 11, MutedInk));
     }
-    private async void ConnectCodex() => await ConnectCodexAsync();
-    private async Task<bool> ConnectCodexAsync()
+    private async void ConnectCodex() => await ConnectCodexAsync(SharedEditorConnected && sharingPermissions.Codex);
+    private async Task<bool> ConnectCodexAsync(bool webExecutor = false)
     {
         if (session is null || busy || chatGptSetupPending) return false;
-        if (conversation?.Mode != "local") { ChooseConversationMode(); return false; }
+        if (conversation is null) return false;
+        if (conversation.Mode != "local" && !(webExecutor && SharedEditorConnected && sharingPermissions.Codex)) { ChooseConversationMode(); return false; }
         if (CurrentAccess is not { } access || !assistantSettings.ConnectionEnabled || !access.Enabled) { SetStatus("대화·접근 설정에서 이 프로젝트의 Codex 사용을 허용해줘."); return false; }
         SetBusy(true); operation = new();
         try
@@ -137,8 +138,8 @@ public sealed partial class EditorWindow
             var loadedProvider = AssistantBridge.Load(path);
             if (loadedProvider is not IResidentAssistant next) { loadedProvider.Dispose(); throw new InvalidDataException("The Codex provider does not implement resident sessions."); }
             provider?.Dispose(); provider = next; models.ItemsSource = null; next.Progress += update => Dispatcher.BeginInvoke(new Action(() => { if (ReferenceEquals(provider, next)) AgentProgress(update); }));
-            var options = assistantSettings.Connection(access, prepared.Executable, session.StateDirectory);
-            options.ConversationDirectory = conversation.ConversationsPath; options.ConversationProject = conversation.Id;
+            var options = assistantSettings.Connection(access, prepared.Executable, webExecutor ? Path.Combine(session.StateDirectory, "web-codex") : session.StateDirectory);
+            options.ConversationDirectory = webExecutor ? Path.Combine(conversation.ConversationsPath, "web-executor") : conversation.ConversationsPath; options.ConversationProject = conversation.Id;
             var account = await next.ConnectAsync(options, operation.Token);
             ShowAccount(account); submit.Content = "보내기";
             if (!access.HistoryEnabled) conversationTitle.Text = "기록 접근 꺼짐 · 매 요청 새 대화";
@@ -185,6 +186,7 @@ public sealed partial class EditorWindow
     private void AgentProgress(AssistantEvent update)
     {
         if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(() => AgentProgress(update))); return; }
+        SharedTaskProgress(update);
         if (update.Kind is "delta" or "message")
         {
             if (!streamMessages.TryGetValue(update.Subject, out var block))
