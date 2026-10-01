@@ -60,7 +60,7 @@ public sealed class SharedEditorTaskJournal
     public string TaskId { get; set; } = "";
     public string SessionId { get; set; } = "";
     public string ClaimId { get; set; } = "";
-    public string State { get; set; } = "started";
+    public string State { get; set; } = "queued";
     public string RequestId { get; set; } = "";
     public JsonElement? Completion { get; set; }
 }

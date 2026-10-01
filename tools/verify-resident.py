@@ -81,6 +81,8 @@ def main():
                   'resident transport streams the correct turn and performs only authorized real XML operations')
             start_options = next(m['params'] for m in messages if m.get('method') == 'thread/start')
             operations = json.loads((state / 'session.json').read_text())['Operations']
+            check(json.loads((state / 'session.json').read_text())['Requests'][-1]['Delivery'].startswith('completed:'),
+                  'a completed model reply is persisted as completed rather than left in the sent state')
             check(any(o['Tool'] == 'packengine_build' and o['Status'] == 'completed' for o in operations) and any(o['Status'] == 'failed' for o in operations),
                   'transport retains completed and denied operations in the editor history')
             ui.write_bytes(original)
@@ -92,6 +94,7 @@ def main():
             _, api_key = call('api-key', fail=True)
             check(not any(m.get('method') in ('turn/start', 'thread/start', 'thread/resume') for m in api_key), 'API-key authentication never silently replaces ChatGPT login')
             call('failure', fail=True)
+            check(json.loads((state / 'session.json').read_text())['Requests'][-1]['Delivery'].startswith('failed:'), 'a failed model turn is persisted as failed')
             call('disconnect', fail=True)
             cmd, env, log = command('cancel')
             process = subprocess.Popen(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
@@ -106,6 +109,7 @@ def main():
                 (output / 'cancel.log').write_text(stdout + stderr)
                 messages = [json.loads(line) for line in log.read_text().splitlines()]
                 check(process.returncode != 0 and any(m.get('method') == 'turn/interrupt' for m in messages), 'cancellation interrupts the active turn and terminates its transport')
+                check(json.loads((state / 'session.json').read_text())['Requests'][-1]['Delivery'].startswith('cancelled:'), 'a cancelled model turn is persisted separately from failure')
             finally:
                 if process.poll() is None:
                     process.kill()

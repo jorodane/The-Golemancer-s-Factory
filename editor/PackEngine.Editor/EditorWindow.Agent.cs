@@ -20,6 +20,7 @@ public sealed partial class EditorWindow
     private readonly Dictionary<string, Rect> graphObjects = new(StringComparer.Ordinal);
     private Point? rangeStart;
     private Rectangle? rangeBox;
+    private bool providerWebExecutor;
     private void AddPointingControls(StackPanel composer)
     {
         var row = new WrapPanel(); row.Children.Add(pointingMode); row.Children.Add(Action("대상 비우기", () => { session?.Pointing.Targets.Clear(); editorPoints.Clear(); packPointLabel.Text = "에디터 요소 포인팅 없음"; RefreshPointing(); }));
@@ -116,7 +117,7 @@ public sealed partial class EditorWindow
         models.SelectionChanged += (_, _) => { if (provider is IResidentAssistant agent && models.SelectedItem is AssistantModel model) agent.Model = model.Id; };
         panel.Children.Add(Label("로컬 방식을 선택하면 시작 시 자동 연결해. 대화 원본은 게임팩에 저장하고, 로그인은 이 PC의 Codex를 사용해.", 11, MutedInk));
     }
-    private async void ConnectCodex() => await ConnectCodexAsync(SharedEditorConnected && sharingPermissions.Codex);
+    private async void ConnectCodex() => await ConnectCodexAsync(WebMode && SharedEditorConnected && sharingPermissions.Codex);
     private async Task<bool> ConnectCodexAsync(bool webExecutor = false)
     {
         if (session is null || busy || chatGptSetupPending) return false;
@@ -137,7 +138,7 @@ public sealed partial class EditorWindow
             string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Providers", "PackEngine.Assistant.Codex.dll");
             var loadedProvider = AssistantBridge.Load(path);
             if (loadedProvider is not IResidentAssistant next) { loadedProvider.Dispose(); throw new InvalidDataException("The Codex provider does not implement resident sessions."); }
-            provider?.Dispose(); provider = next; models.ItemsSource = null; next.Progress += update => Dispatcher.BeginInvoke(new Action(() => { if (ReferenceEquals(provider, next)) AgentProgress(update); }));
+            provider?.Dispose(); provider = next; providerWebExecutor = webExecutor; models.ItemsSource = null; next.Progress += update => Dispatcher.BeginInvoke(new Action(() => { if (ReferenceEquals(provider, next)) AgentProgress(update); }));
             var options = assistantSettings.Connection(access, prepared.Executable, webExecutor ? Path.Combine(session.StateDirectory, "web-codex") : session.StateDirectory);
             options.ConversationDirectory = webExecutor ? Path.Combine(conversation.ConversationsPath, "web-executor") : conversation.ConversationsPath; options.ConversationProject = conversation.Id;
             var account = await next.ConnectAsync(options, operation.Token);
@@ -155,7 +156,7 @@ public sealed partial class EditorWindow
             catch (Exception e) { historyStatus.Text = e.Message; AppendLog("대화 기록: " + e.Message); }
             return true;
         }
-        catch (Exception e) { provider?.Dispose(); provider = null; providerLabel.Text = "연결 실패 · 다시 시도 가능"; accountDetails.Text = e.Message; SetStatus(e.Message); AppendLog(e.Message); return false; }
+        catch (Exception e) { provider?.Dispose(); provider = null; providerWebExecutor = false; providerLabel.Text = "연결 실패 · 다시 시도 가능"; accountDetails.Text = e.Message; SetStatus(e.Message); AppendLog(e.Message); return false; }
         finally { operation?.Dispose(); operation = null; SetBusy(false); }
     }
     private async Task LoadModels(IResidentAssistant agent, CancellationToken cancellation)

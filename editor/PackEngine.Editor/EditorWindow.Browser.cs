@@ -196,6 +196,7 @@ public sealed partial class EditorWindow
     }
     private void UseEmbeddedChat()
     {
+        if (conversation is not null) { conversation.Mode = "chatgpt"; conversation.Save(); }
         preferWeb = true; ResetResidentConnection(); ApplyBrowserLayout();
         var urls = conversation is null ? (ProjectUrl: "", ChatUrl: "") : ConversationLinkMetadata.Read(conversation);
         NavigateChat(urls.ChatUrl.Length > 0 ? urls.ChatUrl : urls.ProjectUrl.Length > 0 ? urls.ProjectUrl : "https://chatgpt.com/");

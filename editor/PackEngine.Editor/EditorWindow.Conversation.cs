@@ -29,7 +29,7 @@ public sealed partial class EditorWindow
         var local = new RadioButton { Content = "로컬 Codex 대화", Foreground = TextInk, Margin = new Thickness(4, 16, 4, 6), IsChecked = !WebMode, GroupName = "conversation" };
         var linked = new RadioButton { Content = "ChatGPT 웹 대화", Foreground = TextInk, Margin = new Thickness(4, 16, 4, 6), IsChecked = WebMode, GroupName = "conversation" };
         panel.Children.Add(local); panel.Children.Add(Label("에디터 안에서 대화해. Codex 대화 원본을 게임팩 내부에 저장하고, 폴더를 옮긴 PC에서 불러와 이어갈 수 있어.", 12, MutedInk));
-        panel.Children.Add(linked); panel.Children.Add(Label("왼쪽 웹 패널에서 로그인하고 대화해. 사용할 프로젝트나 대화를 연 뒤 ‘현재 대화 연결’을 누르면 게임팩과 연결돼.", 12, MutedInk));
+        panel.Children.Add(linked); panel.Children.Add(Label("왼쪽 웹 패널에서 로그인하고 대화해. Yogi로 자료를 첨부하고, 로컬 Codex에게 작업을 맡기려면 ‘에디터 연결’을 눌러줘.", 12, MutedInk));
         panel.Children.Add(Label("선택은 게임팩과 함께 저장돼. 다른 기기에서는 Codex 로그인이나 ChatGPT 도구 연결을 준비해줘. 저장 폴더를 옮기면 기록도 이동하고, 기기 간 자동 동기화는 별도로 설정해야 해.", 12, MutedInk));
         var error = Label("", 12, AccentInk); panel.Children.Add(error);
         bool setupChatGpt = false;

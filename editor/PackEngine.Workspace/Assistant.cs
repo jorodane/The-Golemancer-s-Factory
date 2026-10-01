@@ -29,8 +29,9 @@ public sealed class AssistantBridge(EditorSession session, Action<Action> dispat
         try
         {
             string reply = await provider.ReplyAsync(request, workspace ?? new Reader(session, request.Id, dispatch), cancellation).ConfigureAwait(false);
-            dispatch(() => { request.Reply = reply; session.Persist(); }); return reply;
+            dispatch(() => { request.Reply = reply; request.Delivery = "completed:" + provider.Name; session.Persist(); }); return reply;
         }
+        catch (OperationCanceledException) { dispatch(() => { request.Delivery = "cancelled:" + provider.Name; session.Persist(); }); throw; }
         catch { dispatch(() => { request.Delivery = "failed:" + provider.Name; session.Persist(); }); throw; }
     }
     private sealed class Reader(EditorSession session, string request, Action<Action> dispatch) : IAssistantWorkspace

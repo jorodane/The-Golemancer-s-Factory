@@ -279,76 +279,69 @@ public sealed partial class EditorWindow
                 if (id == activeWebTask) { if (task.GetProperty("cancelRequested").GetBoolean()) CancelSharedTask(); continue; }
                 var journal = session!.LoadSharedTask(id);
                 if (journal?.Completion is { } completed) { await SharedEditorCall("complete", completed); journal.State = "delivered"; session.SaveSharedTask(journal); continue; }
-                if (journal?.State is "started" or "claiming" && task.GetProperty("state").GetString() == "running") { journal.Completion = MakeSharedCompletion(journal, "interrupted", "이전 실행이 중단됐어. 적용된 변경을 확인한 뒤 새 작업으로 이어가줘.", session.State.Requests.FirstOrDefault(r => r.Id == journal.RequestId)); session.SaveSharedTask(journal); await SharedEditorCall("complete", journal.Completion); continue; }
+                if (journal?.State is "started" or "claiming" && task.GetProperty("state").GetString() == "running") { journal.Completion = SharedEditorTaskRunner.Completion(session, journal, "interrupted", "이전 실행이 중단됐어. 적용된 변경을 확인한 뒤 새 작업으로 이어가줘."); journal.State = "completed"; session.SaveSharedTask(journal); await SharedEditorCall("complete", journal.Completion); journal.State = "delivered"; session.SaveSharedTask(journal); continue; }
                 if (!busy && !sharingTaskExecuting && sharingPermissions.Codex && task.GetProperty("state").GetString() == "queued") { _ = ExecuteSharedTask(task.Clone()); break; }
             }
         }
         catch (Exception e) { sharingPollFailed = true; sharingStatus.Text = "공유 연결 확인 필요 · " + e.Message; }
         finally { sharingPolling = false; }
     }
-    private JsonElement MakeSharedCompletion(SharedEditorTaskJournal journal, string state, string reply, ContextRequest? request)
-    {
-        var changes = new HashSet<string>(request is null ? Array.Empty<string>() : session!.State.Operations.Where(o => o.Request == request.Id && o.Tool == "packengine_apply" && o.Status == "completed").Select(o => o.Subject), StringComparer.Ordinal);
-        var applied = session!.Changes().Where(c => changes.Contains(c.Id)).Take(100).Select(c => new { file = c.File, state = c.State, beforeHash = c.BeforeHash, afterHash = c.AfterHash }).ToArray();
-        var operations = session.State.Operations.Where(o => request is not null && o.Request == request.Id).TakeLastCompat(100).Select(o => new { tool = o.Tool, subject = o.Subject.Substring(0, Math.Min(400, o.Subject.Length)), status = o.Status }).ToArray();
-        return JsonSerializer.SerializeToElement(new { taskId = journal.TaskId, claimId = journal.ClaimId, state, result = new { reply = reply.Substring(0, Math.Min(20000, reply.Length)), partial = reply.Length > 20000 || state == "interrupted", changes = applied, operations } }, SharedEditorProtocol.Json);
-    }
     private async Task ExecuteSharedTask(JsonElement task)
     {
         if (session is null || runner is null || sharingTaskExecuting) return; sharingTaskExecuting = true; activeWebTaskCancelled = false;
         var ownerSession = session; string remoteId = task.GetProperty("id").GetString()!;
-        var journal = ownerSession.LoadSharedTask(remoteId) ?? new SharedEditorTaskJournal { TaskId = remoteId, SessionId = sharingSession, ClaimId = Guid.NewGuid().ToString() };
-        ContextRequest? request = null; string reply = "", state = "failed";
         try
         {
-            if (journal.State is "started" or "delivered") return;
-            SetBusy(true); journal.State = "claiming"; ownerSession.SaveSharedTask(journal);
-            await SharedEditorCall("claim", new { taskId = remoteId, claimId = journal.ClaimId });
-            journal.State = "started"; ownerSession.SaveSharedTask(journal); activeWebTask = remoteId; activeWebClaim = journal.ClaimId;
-            if (!sharingPermissions.Codex || CurrentAccess?.Enabled != true || !assistantSettings.ConnectionEnabled) throw new InvalidOperationException("이 프로젝트의 Codex 접근이 차단됐어.");
-            if (provider is not IResidentAssistant { IsConnected: true })
-            {
-                SetBusy(false); bool connected = await ConnectCodexAsync(true);
-                if (activeWebTaskCancelled) throw new OperationCanceledException();
-                if (!connected) throw new InvalidOperationException("Codex를 연결하지 못했어. 에디터의 로그인·연결 상태를 확인해줘.");
-            }
             SetBusy(true);
-            if (!SharedEditorConnected || !ReferenceEquals(session, ownerSession)) throw new InvalidOperationException("작업을 시작하기 전에 에디터 연결이 바뀌었어.");
-            // Recheck the existing claim after a potentially slow installation/login handshake.
-            var claimed = await SharedEditorCall("claim", new { taskId = remoteId, claimId = journal.ClaimId });
-            if (activeWebTaskCancelled || claimed.GetProperty("task").GetProperty("cancelRequested").GetBoolean()) throw new OperationCanceledException();
-            SharedEditorSnapshot? snapshot = null;
-            if (task.GetProperty("snapshotId").ValueKind == JsonValueKind.String)
+            var flow = new SharedEditorTaskRunner(ownerSession, (action, payload) => SharedEditorCall(action, payload));
+            var finished = await flow.Run(remoteId, sharingSession, async journal =>
             {
-                string snapshotId = task.GetProperty("snapshotId").GetString()!;
-                if (!Guid.TryParseExact(snapshotId, "N", out _)) throw new InvalidDataException("Invalid snapshot ID.");
-                string path = Path.Combine(ownerSession.StateDirectory, "shared-" + snapshotId + ".json");
-                if (!File.Exists(path)) throw new InvalidOperationException("이 PC에서 공유한 자료를 찾지 못했어. 대상을 다시 공유해줘.");
-                snapshot = JsonSerializer.Deserialize<SharedEditorSnapshot>(File.ReadAllText(path), SharedEditorProtocol.Json)!;
-                if (snapshot.PackId != conversation!.Id) throw new InvalidOperationException("다른 게임팩에서 공유한 자료야.");
-            }
-            request = ownerSession.PrepareSharedTask(task.GetProperty("prompt").GetString()!, task.GetProperty("context").GetString()!, snapshot);
-            journal.RequestId = request.Id; ownerSession.SaveSharedTask(journal);
-            request.Target = Target; request.WritablePacks = sharingPermissions.WritablePacks.Where(p => ownerSession.Index.Packs.Any(x => x.Id == p)).ToList();
-            request.WritableEditorPacks = sharingPermissions.WritableEditorPacks.Where(p => packSources.Any(x => x.Id == p)).ToList();
-            request.AllowProjectCommands = sharingPermissions.ProjectCommands; request.AllowEditorReload = sharingPermissions.EditorReload; ownerSession.Persist();
-            lastRequest = request; streamMessages.Clear(); Message("웹에서 받은 작업", task.GetProperty("prompt").GetString()!); RefreshContext(); SetBusy(true); operation = new();
-            var bridge = new AssistantBridge(ownerSession, action => Dispatcher.Invoke(() => { action(); RefreshContext(); }));
-            using var tools = new AgentWorkspace(ownerSession, request, runner, action => Dispatcher.Invoke(() => { action(); RefreshContext(); }), AgentProgress, CreateEditorPackAgent(request));
-            sharingStatus.Text = "Codex 작업 중 · " + remoteId.Substring(0, 8);
-            reply = await bridge.Send(provider!, request, operation.Token, tools); state = "succeeded";
+                activeWebTask = remoteId; activeWebClaim = journal.ClaimId;
+                if (activeWebTaskCancelled) throw new OperationCanceledException();
+                if (!sharingPermissions.Codex || CurrentAccess?.Enabled != true || !assistantSettings.ConnectionEnabled) throw new InvalidOperationException("이 프로젝트의 Codex 접근이 차단됐어.");
+                if (provider is not IResidentAssistant { IsConnected: true } || !providerWebExecutor)
+                {
+                    SetBusy(false); bool connected = await ConnectCodexAsync(true);
+                    if (activeWebTaskCancelled) throw new OperationCanceledException();
+                    if (!connected) throw new InvalidOperationException("Codex를 연결하지 못했어. 에디터의 로그인·연결 상태를 확인해줘.");
+                }
+                SetBusy(true);
+                if (!SharedEditorConnected || !ReferenceEquals(session, ownerSession)) throw new InvalidOperationException("작업을 시작하기 전에 에디터 연결이 바뀌었어.");
+                // Recheck the existing claim after a potentially slow installation/login handshake.
+                var claimed = await SharedEditorCall("claim", new { taskId = remoteId, claimId = journal.ClaimId });
+                if (activeWebTaskCancelled || claimed.GetProperty("task").GetProperty("cancelRequested").GetBoolean()) throw new OperationCanceledException();
+                SharedEditorSnapshot? snapshot = null;
+                if (task.GetProperty("snapshotId").ValueKind == JsonValueKind.String)
+                {
+                    string snapshotId = task.GetProperty("snapshotId").GetString()!;
+                    if (!Guid.TryParseExact(snapshotId, "N", out _)) throw new InvalidDataException("Invalid snapshot ID.");
+                    string path = Path.Combine(ownerSession.StateDirectory, "shared-" + snapshotId + ".json");
+                    if (!File.Exists(path)) throw new InvalidOperationException("이 PC에서 공유한 자료를 찾지 못했어. 대상을 다시 공유해줘.");
+                    snapshot = JsonSerializer.Deserialize<SharedEditorSnapshot>(File.ReadAllText(path), SharedEditorProtocol.Json)!;
+                    if (snapshot.PackId != conversation!.Id) throw new InvalidOperationException("다른 게임팩에서 공유한 자료야.");
+                }
+                var request = ownerSession.PrepareSharedTask(task.GetProperty("prompt").GetString()!, task.GetProperty("context").GetString()!, snapshot);
+                journal.RequestId = request.Id; ownerSession.SaveSharedTask(journal);
+                request.Target = Target; request.WritablePacks = sharingPermissions.WritablePacks.Where(p => ownerSession.Index.Packs.Any(x => x.Id == p)).ToList();
+                request.WritableEditorPacks = sharingPermissions.WritableEditorPacks.Where(p => packSources.Any(x => x.Id == p)).ToList();
+                request.AllowProjectCommands = sharingPermissions.ProjectCommands; request.AllowEditorReload = sharingPermissions.EditorReload; ownerSession.Persist();
+                lastRequest = request; streamMessages.Clear(); Message("웹에서 받은 작업", task.GetProperty("prompt").GetString()!); RefreshContext(); SetBusy(true); operation = new();
+                var bridge = new AssistantBridge(ownerSession, action => Dispatcher.Invoke(() => { action(); RefreshContext(); }));
+                using var tools = new AgentWorkspace(ownerSession, request, runner, action => Dispatcher.Invoke(() => { action(); RefreshContext(); }), AgentProgress, CreateEditorPackAgent(request));
+                sharingStatus.Text = "Codex 작업 중 · " + remoteId.Substring(0, 8);
+                return await bridge.Send(provider!, request, operation.Token, tools);
+            });
+            sharingStatus.Text = "Codex 결과 전달됨 · " + finished.Completion!.Value.GetProperty("state").GetString();
         }
-        catch (OperationCanceledException) { state = "cancelled"; reply = "작업을 취소했어. 이미 적용한 변경은 에디터의 변경 기록에 남아 있어."; }
-        catch (Exception e) { reply = e.Message; AppendLog("웹 Codex 작업: " + e.Message); }
+        catch (Exception e)
+        {
+            sharingStatus.Text = ownerSession.LoadSharedTask(remoteId)?.Completion is not null ? "결과는 이 PC에 저장됐어 · 전달 재시도 필요: " + e.Message : "Codex 작업 시작 확인 필요: " + e.Message;
+            AppendLog("웹 Codex 작업: " + e.Message);
+        }
         finally
         {
-            if (journal.State == "started")
-            {
-                journal.Completion = MakeSharedCompletion(journal, state, reply, request); journal.State = "completed"; ownerSession.SaveSharedTask(journal);
-                try { await SharedEditorCall("complete", journal.Completion); journal.State = "delivered"; ownerSession.SaveSharedTask(journal); sharingStatus.Text = "Codex 결과 전달됨 · " + state; }
-                catch (Exception e) { sharingStatus.Text = "결과는 이 PC에 저장됐어 · 전달 재시도 필요: " + e.Message; }
-            }
             activeWebTask = activeWebClaim = ""; operation?.Dispose(); operation = null; SetBusy(false); sharingTaskExecuting = false;
+            if (!WebMode && providerWebExecutor) { ResetResidentConnection(); ScheduleAutoConnect(); }
         }
     }
     private async void SharedTaskProgress(AssistantEvent update)

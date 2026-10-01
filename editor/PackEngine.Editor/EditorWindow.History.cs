@@ -117,7 +117,7 @@ public sealed partial class EditorWindow
     });
     private void ResetResidentConnection()
     {
-        provider?.Dispose(); provider = null; models.ItemsSource = null; streamMessages.Clear(); transcript.Children.Clear(); historyMessages.Clear(); messageCursor = ""; lastRequest = null; RefreshContext();
+        provider?.Dispose(); provider = null; providerWebExecutor = false; models.ItemsSource = null; streamMessages.Clear(); transcript.Children.Clear(); historyMessages.Clear(); messageCursor = ""; lastRequest = null; RefreshContext();
         providerLabel.Text = "Codex 미연결"; accountDetails.Text = "연결 상태를 다시 확인해줘."; submit.Content = "문맥 요청 만들기"; conversationTitle.Text = "새 대화";
         if (!assistantSettings.ConnectionEnabled || CurrentAccess?.Enabled != true) { providerLabel.Text = "Codex 접근 차단"; accountDetails.Text = "설정에서 Codex 사용을 허용하면 연결할 수 있어."; }
     }

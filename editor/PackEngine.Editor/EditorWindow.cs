@@ -235,15 +235,16 @@ public sealed partial class EditorWindow : Window
     {
         if (busy) return; var dialog = new OpenFileDialog { Title = "IEditorAssistant 제공자 DLL 연결", Filter = "Assistant DLL|*.dll" };
         if (dialog.ShowDialog(this) != true) return;
-        var next = AssistantBridge.Load(dialog.FileName); provider?.Dispose(); provider = next; providerLabel.Text = provider.Name; submit.Content = "보내기";
+        var next = AssistantBridge.Load(dialog.FileName); provider?.Dispose(); provider = next; providerWebExecutor = false; providerLabel.Text = provider.Name; submit.Content = "보내기";
     });
     private async void Submit()
     {
         if (session is null || busy) return; string text = prompt.Text.Trim(); if (text.Length == 0) return;
         if (conversation?.Configured != true) { ChooseConversationMode(); return; }
-        if (conversation.Mode == "chatgpt") { tabs.SelectedIndex = 6; SetStatus("이 게임팩은 기존 ChatGPT 대화를 사용해. ‘ChatGPT 열기’에서 질문을 보내줘."); return; }
+        if (WebMode) { tabs.SelectedIndex = 6; SetStatus("이 게임팩은 ChatGPT 웹 대화를 사용해. 웹 채팅 입력창에서 질문을 보내줘."); return; }
         try
         {
+            if (providerWebExecutor) ResetResidentConnection();
             if (CurrentAccess is { } current && (!assistantSettings.ConnectionEnabled || !current.Enabled) && provider is not null)
                 throw new InvalidOperationException("이 프로젝트의 Codex 접근이 차단되어 있어.");
             if (CurrentAccess is { } access && assistantSettings.ShouldConnect(access) && (provider is null || provider is IResidentAssistant { IsConnected: false }))
