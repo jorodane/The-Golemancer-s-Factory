@@ -1,4 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><OutputType>Exe</OutputType></PropertyGroup>
   <ItemGroup><ProjectReference Include="../../editor/PackEngine.Workspace/PackEngine.Workspace.csproj" /></ItemGroup>
+  <ItemGroup>
+    <Compile Include="../../editor/Shared/CodexInstallation.cs" Link="CodexInstallation.cs" />
+    <Compile Include="../../editor/Shared/CodexBootstrap.cs" Link="CodexBootstrap.cs" />
+  </ItemGroup>
 </Project>

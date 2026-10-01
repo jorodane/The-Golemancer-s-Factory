@@ -17,10 +17,21 @@ internal sealed class NodeTools(string executable, string npm)
         return null;
     }
 }
-internal sealed class PreparationResult(string executable = "")
+internal sealed class PreparationResult(string executable = "", string reason = "")
 {
     internal string Executable { get; } = executable;
     internal bool NeedsNode => Executable.Length == 0;
+    internal string Reason { get; } = reason;
+}
+internal sealed class CodexConnectionResult(bool connected, string message = "", bool cancelled = false)
+{
+    internal bool Connected { get; } = connected;
+    internal string Message { get; } = message;
+    internal void EnsureConnected()
+    {
+        if (cancelled) throw new OperationCanceledException(Message);
+        if (!Connected) throw new InvalidOperationException(Message);
+    }
 }
 internal sealed class CodexBootstrap
 {
@@ -42,9 +53,10 @@ internal sealed class CodexBootstrap
         string? existing = FindCodex();
         if (existing is not null) { await Verify(existing, false, cancellation).ConfigureAwait(false); return new(existing); }
         NodeTools? node = FindNode();
-        if (node is null) return new();
+        if (node is null) return new(reason: "사용 가능한 Node.js와 npm을 찾지 못했어. Codex를 처음 설치하려면 Node.js LTS를 npm과 함께 설치해줘.");
         string version = (await Run(node.Executable, new[] { "--version" }, cancellation).ConfigureAwait(false)).Trim();
-        if (!System.Version.TryParse(version.TrimStart('v').Split('-')[0], out var parsed) || parsed.Major < 16) return new();
+        if (!System.Version.TryParse(version.TrimStart('v').Split('-')[0], out var parsed) || parsed.Major < 16)
+            return new(reason: "현재 Node.js 버전을 사용할 수 없어 (" + version.Substring(0, Math.Min(160, version.Length)) + "). Node.js LTS를 npm과 함께 설치해줘.");
         string parent = Path.GetDirectoryName(Destination)!; Directory.CreateDirectory(parent);
         using var installationLock = Acquire(Path.Combine(parent, "codex-install.lock"));
         existing = FindCodex();
@@ -97,22 +109,34 @@ internal static class SetupProcess
             WorkingDirectory = Path.GetDirectoryName(file)! };
         info.EnvironmentVariables["PATH"] = string.Join(Path.PathSeparator.ToString(), new[] { Path.GetDirectoryName(file)! }.Concat(CodexInstallation.SearchDirectories()));
         if (environment is not null) foreach (var pair in environment) info.EnvironmentVariables[pair.Key] = pair.Value;
-        using var process = new Process { StartInfo = info }; var log = new StringBuilder(); object sync = new();
-        void Receive(DataReceivedEventArgs e, bool capture)
+        using var process = new Process { StartInfo = info }; var log = new StringBuilder(); var errors = new StringBuilder(); object sync = new();
+        void Receive(DataReceivedEventArgs e, bool error)
         {
             if (e.Data is null) return;
-            if (capture) { lock (sync) { log.AppendLine(e.Data); if (log.Length > 24000) log.Remove(0, log.Length - 16000); } }
+            lock (sync)
+            {
+                var buffer = error ? errors : log; buffer.AppendLine(e.Data);
+                if (buffer.Length > 24000) buffer.Remove(0, buffer.Length - 16000);
+            }
             output(e.Data);
         }
-        process.OutputDataReceived += (_, e) => Receive(e, true); process.ErrorDataReceived += (_, e) => Receive(e, false);
+        process.OutputDataReceived += (_, e) => Receive(e, false); process.ErrorDataReceived += (_, e) => Receive(e, true);
         if (!process.Start()) throw new IOException("준비 프로그램을 실행하지 못했어.");
         process.BeginOutputReadLine(); process.BeginErrorReadLine();
         using var cancel = timeout.Token.Register(() => Stop(process));
         process.WaitForExit();
         cancellation.ThrowIfCancellationRequested();
         if (timeout.IsCancellationRequested) throw new TimeoutException("준비 작업의 대기 시간이 지났어. 네트워크와 설치 상태를 확인한 뒤 다시 시도해줘.");
-        if (process.ExitCode != 0) throw new IOException("준비 작업이 실패했어 (종료 코드 " + process.ExitCode + "). 아래 실행 기록을 확인하고 다시 시도해줘.");
-        lock (sync) return log.ToString();
+        lock (sync)
+        {
+            if (process.ExitCode != 0)
+            {
+                string diagnostic = (errors.Length > 0 ? errors : log).ToString().Trim();
+                diagnostic = diagnostic.Substring(Math.Max(0, diagnostic.Length - 3000));
+                throw new IOException("준비 작업이 실패했어 (종료 코드 " + process.ExitCode + ")." + (diagnostic.Length > 0 ? "\n" + diagnostic : " 실행 기록을 확인하고 다시 시도해줘."));
+            }
+            return log.ToString();
+        }
     }, cancellation);
     internal static void Stop(Process process)
     {

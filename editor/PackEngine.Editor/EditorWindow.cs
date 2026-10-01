@@ -248,7 +248,7 @@ public sealed partial class EditorWindow : Window
             if (CurrentAccess is { } current && (!assistantSettings.ConnectionEnabled || !current.Enabled) && provider is not null)
                 throw new InvalidOperationException("이 프로젝트의 Codex 접근이 차단되어 있어.");
             if (CurrentAccess is { } access && assistantSettings.ShouldConnect(access) && (provider is null || provider is IResidentAssistant { IsConnected: false }))
-                if (!await ConnectCodexAsync()) return;
+                if (!(await ConnectCodexAsync()).Connected) return;
             if (provider is IResidentAssistant && CurrentAccess?.HistoryEnabled == false) transcript.Children.Clear();
             lastRequest = session.PrepareContext(text); CaptureAgentScope(lastRequest); Message("나", text); prompt.Clear(); RefreshContext();
             if (provider is null)

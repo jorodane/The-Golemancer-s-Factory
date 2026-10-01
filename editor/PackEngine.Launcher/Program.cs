@@ -26,7 +26,7 @@ internal sealed class LauncherWindow : Window
     private readonly Button retry = Button("다시 확인"), node = Button("Node.js 설치 페이지"), skip = Button("에디터만 열기"), cancel = Button("취소");
     private LauncherLayout? layout;
     private CancellationTokenSource? operation;
-    private bool busy, closeAfterCancel, openedNodePage;
+    private bool busy, closeAfterCancel;
     internal LauncherWindow(string[] args)
     {
         arguments = args; Title = "PackEngine · Project Studio 시작"; Width = 640; SizeToContent = SizeToContent.Height; MinHeight = 310;
@@ -70,9 +70,8 @@ internal sealed class LauncherWindow : Window
             if (prepared.NeedsNode)
             {
                 status.Text = "Node.js 설치가 필요해";
-                detail.Text = "열린 공식 페이지에서 Node.js LTS를 npm과 함께 설치해줘. 설치가 끝나면 이 창에서 ‘다시 확인’을 눌러줘.";
+                detail.Text = prepared.Reason + " ‘Node.js 설치 페이지’로 공식 설치 프로그램을 받은 뒤 이 창에서 ‘다시 확인’을 눌러줘.";
                 node.Visibility = Visibility.Visible;
-                if (!openedNodePage) { openedNodePage = true; OpenNodePage(); }
             }
             else { Launch(prepared.Executable); }
         }

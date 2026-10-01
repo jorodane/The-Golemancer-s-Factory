@@ -5,6 +5,7 @@ using PackEngine.Installation;
 using PackEngine.Launcher;
 
 if (args.FirstOrDefault() == "--echo") { Console.Error.WriteLine("fixture diagnostic on stderr"); Console.WriteLine(JsonSerializer.Serialize(args.Skip(1))); return; }
+if (args.FirstOrDefault() == "--fail-setup") { Console.WriteLine("fixture stdout"); Console.Error.WriteLine("EXPLICIT_SETUP_FIXTURE: npm network unavailable"); Environment.ExitCode = 23; return; }
 if (args.FirstOrDefault() == "--wait") { await Task.Delay(TimeSpan.FromMinutes(1)); return; }
 int checks = 0;
 void Check(bool condition, string label) { if (!condition) throw new Exception(label); Console.WriteLine("PASS: " + label); checks++; }
@@ -55,11 +56,16 @@ try
         WriteNative(arguments[Array.IndexOf(arguments, "--prefix") + 1]); return Task.FromResult("installed");
     }
     setup.Run = FakeRun;
-    Check((await setup.Prepare(default)).NeedsNode && runs == 0, "missing Node returns an actionable install state without starting npm");
+    var unavailable = await setup.Prepare(default);
+    Check(unavailable.NeedsNode && unavailable.Reason.Contains("Node.js") && unavailable.Reason.Contains("npm") && runs == 0,
+        "missing Node returns its actual reason and installation instruction without starting npm");
     Directory.CreateDirectory(Path.Combine(nodeFolder, "node_modules", "npm", "bin"));
     File.WriteAllText(Path.Combine(nodeFolder, "node.exe"), "fixture");
     Check(NodeTools.Find(new[] { nodeFolder }) is null, "Node without its npm entry point still requests installation");
     File.WriteAllText(Path.Combine(nodeFolder, "node_modules", "npm", "bin", "npm-cli.js"), "fixture"); registeredPath = nodeFolder;
+    var outdated = new CodexBootstrap { FindCodex = () => null, FindNode = () => NodeTools.Find(new[] { nodeFolder }), Run = (_, _, _) => Task.FromResult("v14.0.0") };
+    var unsupported = await outdated.Prepare(default);
+    Check(unsupported.NeedsNode && unsupported.Reason.Contains("v14.0.0"), "an unsupported Node version reports the detected version instead of pretending Node is absent");
     var ready = await setup.Prepare(default);
     Check(!ready.NeedsNode && File.Exists(ready.Executable) && installs == 1, "the same retry observes newly registered Node and publishes only a verified installation");
     setup.FindCodex = () => ready.Executable; setup.FindNode = () => throw new Exception("Node must not be required for a ready native Codex");
@@ -112,6 +118,8 @@ try
     string[] sent = { "path with spaces", "한글 & 100%", "embedded\"quote", "trailing\\", "$(literal)" };
     string echoed = await SetupProcess.Run(dotnet, host.Concat(new[] { "--echo" }).Concat(sent).ToArray(), _ => { }, default);
     Check(JsonSerializer.Deserialize<string[]>(echoed)!.SequenceEqual(sent), "real child-process arguments preserve Unicode, spaces and shell metacharacters literally");
+    try { await SetupProcess.Run(dotnet, host.Concat(new[] { "--fail-setup" }).ToArray(), _ => { }, default); throw new Exception("child failure was accepted"); }
+    catch (IOException e) { Check(e.Message.Contains("23") && e.Message.Contains("EXPLICIT_SETUP_FIXTURE: npm network unavailable"), "a real failed setup child preserves its exit code and stderr reason in the returned error"); }
     using var stop = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
     await Reject(() => SetupProcess.Run(dotnet, host.Concat(new[] { "--wait" }).ToArray(), _ => { }, stop.Token), "cancellation stops a real preparation child process");
 

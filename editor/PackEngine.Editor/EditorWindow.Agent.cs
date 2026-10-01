@@ -118,22 +118,27 @@ public sealed partial class EditorWindow
         panel.Children.Add(Label("로컬 방식을 선택하면 시작 시 자동 연결해. 대화 원본은 게임팩에 저장하고, 로그인은 이 PC의 Codex를 사용해.", 11, MutedInk));
     }
     private async void ConnectCodex() => await ConnectCodexAsync(WebMode && SharedEditorConnected && sharingPermissions.Codex);
-    private async Task<bool> ConnectCodexAsync(bool webExecutor = false)
+    private PackEngine.Installation.CodexConnectionResult CodexConnectionFailed(string reason, bool needsNode = false, bool cancelled = false)
     {
-        if (session is null || busy || chatGptSetupPending) return false;
-        if (conversation is null) return false;
-        if (conversation.Mode != "local" && !(webExecutor && SharedEditorConnected && sharingPermissions.Codex)) { ChooseConversationMode(); return false; }
-        if (CurrentAccess is not { } access || !assistantSettings.ConnectionEnabled || !access.Enabled) { SetStatus("대화·접근 설정에서 이 프로젝트의 Codex 사용을 허용해줘."); return false; }
-        SetBusy(true); operation = new();
+        providerLabel.Text = cancelled ? "연결 취소됨" : "연결 준비 필요 · 다시 시도 가능"; accountDetails.Text = reason;
+        SetStatus(reason); AppendLog("Codex 연결: " + reason); Message("Codex 연결", reason); ShowCodexConnectionNotice(reason, needsNode);
+        return new(false, reason, cancelled);
+    }
+    private async Task<PackEngine.Installation.CodexConnectionResult> ConnectCodexAsync(bool webExecutor = false)
+    {
+        if (session is null || conversation is null) return CodexConnectionFailed("먼저 작업할 게임팩을 열어줘.");
+        if (busy || chatGptSetupPending) return CodexConnectionFailed("진행 중인 작업이나 연결 설정을 마친 뒤 Codex를 다시 연결해줘.");
+        if (conversation.Mode != "local" && !(webExecutor && SharedEditorConnected && sharingPermissions.Codex)) { ChooseConversationMode(); return CodexConnectionFailed("로컬 Codex 대화를 선택하거나 Codex 실행을 허용한 ‘에디터 연결’을 사용해줘."); }
+        if (CurrentAccess is not { } access || !assistantSettings.ConnectionEnabled || !access.Enabled) return CodexConnectionFailed("대화·접근 설정에서 이 프로젝트의 Codex 사용을 허용해줘.");
+        SetBusy(true); codexConnectionNotice.Visibility = Visibility.Collapsed; operation = new();
         try
         {
-            var bootstrap = new PackEngine.Installation.CodexBootstrap { Progress = AppendLog };
+            var bootstrap = new PackEngine.Installation.CodexBootstrap { Progress = CodexPreparationProgress };
             if (codexPath.Text.Trim().Length > 0) bootstrap.FindCodex = () => PackEngine.Installation.CodexInstallation.ResolveExecutable(codexPath.Text.Trim());
             var prepared = await bootstrap.Prepare(operation.Token);
             if (prepared.NeedsNode)
             {
-                OpenUrl(PackEngine.Installation.CodexInstallation.NodeDownloadUrl);
-                SetStatus("Node.js LTS를 npm과 함께 설치한 뒤 ‘Codex 설치 확인·다시 연결’을 눌러줘."); return false;
+                return CodexConnectionFailed(prepared.Reason + " 설치가 끝나면 ‘Codex 다시 연결’을 눌러줘.", needsNode: true);
             }
             string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Providers", "PackEngine.Assistant.Codex.dll");
             var loadedProvider = AssistantBridge.Load(path);
@@ -148,16 +153,25 @@ public sealed partial class EditorWindow
             Directory.CreateDirectory(Path.GetDirectoryName(preferences)!); File.WriteAllText(preferences, codexPath.Text.Trim());
             if (account.Type == "chatgpt") await LoadModels(next, operation.Token);
             SetStatus("Codex 연결됨. " + account.Display);
+            if (account.Type == "chatgpt") codexConnectionNotice.Visibility = Visibility.Collapsed;
+            else ShowCodexConnectionNotice("Codex는 연결됐어. 작업하려면 ‘ChatGPT 로그인’을 눌러 이 PC의 Codex에 로그인해줘.", needsLogin: true);
             try
             {
                 await RefreshThreadList(operation.Token);
                 if (next.ThreadId.Length > 0 && access.HistoryEnabled) await OpenConversation(next.ThreadId, operation.Token);
             }
             catch (Exception e) { historyStatus.Text = e.Message; AppendLog("대화 기록: " + e.Message); }
-            return true;
+            return new(true);
         }
-        catch (Exception e) { provider?.Dispose(); provider = null; providerWebExecutor = false; providerLabel.Text = "연결 실패 · 다시 시도 가능"; accountDetails.Text = e.Message; SetStatus(e.Message); AppendLog(e.Message); return false; }
+        catch (Exception e) { provider?.Dispose(); provider = null; providerWebExecutor = false; return CodexConnectionFailed(e is OperationCanceledException ? "Codex 연결 준비를 취소했어. 다시 연결하면 이어갈 수 있어." : e.Message, cancelled: e is OperationCanceledException); }
         finally { operation?.Dispose(); operation = null; SetBusy(false); }
+    }
+    private void CodexPreparationProgress(string line)
+    {
+        if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(() => CodexPreparationProgress(line))); return; }
+        AppendLog(line);
+        if (activeWebTask.Length > 0) SharedTaskProgress(new() { Kind = "setup", Subject = "Codex", Text = line });
+        if (line.StartsWith("Codex", StringComparison.Ordinal) || line.Contains("준비 완료")) { SetStatus(line); if (sharingTaskExecuting) sharingStatus.Text = line; }
     }
     private async Task LoadModels(IResidentAssistant agent, CancellationToken cancellation)
     {
@@ -180,7 +194,7 @@ public sealed partial class EditorWindow
     {
         if (busy || provider is not IResidentAssistant agent) return;
         SetBusy(true); operation = new();
-        try { var account = await agent.AccountAsync(operation.Token); ShowAccount(account); if (account.Type == "chatgpt") await LoadModels(agent, operation.Token); await RefreshThreadList(operation.Token); }
+        try { var account = await agent.AccountAsync(operation.Token); ShowAccount(account); if (account.Type == "chatgpt") { await LoadModels(agent, operation.Token); codexConnectionNotice.Visibility = Visibility.Collapsed; } else ShowCodexConnectionNotice("작업하려면 ‘ChatGPT 로그인’을 눌러 이 PC의 Codex에 로그인해줘.", needsLogin: true); await RefreshThreadList(operation.Token); }
         catch (Exception e) { SetStatus(e.Message); AppendLog(e.Message); }
         finally { operation?.Dispose(); operation = null; SetBusy(false); }
     }

@@ -64,5 +64,18 @@ internal static class SharedTaskVerification
         var failed = await flaky.Run(taskId, sessionId, _ => throw new InvalidOperationException("fixture: access denied"));
         check(failed.Completion!.Value.GetProperty("state").GetString() == "failed" && failed.Completion.Value.GetProperty("result").GetProperty("reply").GetString() == "fixture: access denied",
             "connection or scope failures return their real error instead of task success");
+
+        taskId = Guid.NewGuid().ToString();
+        var bootstrap = new PackEngine.Installation.CodexBootstrap { FindCodex = () => null, FindNode = () => null };
+        var unavailable = await flaky.Run(taskId, sessionId, async _ =>
+        {
+            var prepared = await bootstrap.Prepare(default);
+            new PackEngine.Installation.CodexConnectionResult(false, prepared.Reason).EnsureConnected();
+            throw new Exception("a missing dependency must never start a model request");
+        });
+        var dependencyResult = unavailable.Completion!.Value;
+        check(dependencyResult.GetProperty("state").GetString() == "failed" && dependencyResult.GetProperty("result").GetProperty("reply").GetString()!.Contains("Node.js")
+            && dependencyResult.GetProperty("result").GetProperty("changes").GetArrayLength() == 0 && dependencyResult.GetProperty("result").GetProperty("operations").GetArrayLength() == 0,
+            "a real bootstrap dependency failure survives connection handling, durable task storage and relay delivery without file operations");
     }
 }

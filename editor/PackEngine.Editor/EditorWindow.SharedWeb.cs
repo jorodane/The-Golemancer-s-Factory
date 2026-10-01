@@ -17,6 +17,7 @@ public sealed partial class EditorWindow
 {
     private readonly WebView2 sharedBrowser = new();
     private readonly TextBlock sharingStatus = Label("에디터를 연결하면 이 대화에서 함께 작업할 수 있어.", 12, MutedInk);
+    private readonly StackPanel codexConnectionNotice = new() { Visibility = Visibility.Collapsed };
     private readonly DispatcherTimer sharingTimer = new() { Interval = TimeSpan.FromSeconds(3) };
     private readonly Dictionary<string, TaskCompletionSource<JsonElement>> sharingCalls = new(StringComparer.Ordinal);
     private readonly List<SharedUiTarget> sharedUiTargets = [];
@@ -43,7 +44,7 @@ public sealed partial class EditorWindow
         row.Children.Add(Action("선택 첨부", () => PreviewSharedContext("ExactlyYogi")));
         row.Children.Add(Action("문서 공유", () => PreviewSharedContext("Document")));
         row.Children.Add(Action("상태 공유", () => PreviewSharedContext("State")));
-        row.Children.Add(Action("연결 중지", StopSharedEditor)); header.Children.Add(row); header.Children.Add(sharingStatus); header.Children.Add(yogiAttachments);
+        row.Children.Add(Action("연결 중지", StopSharedEditor)); header.Children.Add(row); header.Children.Add(sharingStatus); header.Children.Add(codexConnectionNotice); header.Children.Add(yogiAttachments);
         sharingTimer.Tick += async (_, _) => await PollSharedEditor();
         yogiOverlay.PreviewMouseLeftButtonDown += (_, e) =>
         {
@@ -292,7 +293,7 @@ public sealed partial class EditorWindow
         var ownerSession = session; string remoteId = task.GetProperty("id").GetString()!;
         try
         {
-            SetBusy(true);
+            SetBusy(true); codexConnectionNotice.Visibility = Visibility.Collapsed;
             var flow = new SharedEditorTaskRunner(ownerSession, (action, payload) => SharedEditorCall(action, payload));
             var finished = await flow.Run(remoteId, sharingSession, async journal =>
             {
@@ -301,15 +302,21 @@ public sealed partial class EditorWindow
                 if (!sharingPermissions.Codex || CurrentAccess?.Enabled != true || !assistantSettings.ConnectionEnabled) throw new InvalidOperationException("이 프로젝트의 Codex 접근이 차단됐어.");
                 if (provider is not IResidentAssistant { IsConnected: true } || !providerWebExecutor)
                 {
-                    SetBusy(false); bool connected = await ConnectCodexAsync(true);
+                    SetBusy(false); var connected = await ConnectCodexAsync(true);
                     if (activeWebTaskCancelled) throw new OperationCanceledException();
-                    if (!connected) throw new InvalidOperationException("Codex를 연결하지 못했어. 에디터의 로그인·연결 상태를 확인해줘.");
+                    connected.EnsureConnected();
                 }
-                SetBusy(true);
+                SetBusy(true); operation = new();
                 if (!SharedEditorConnected || !ReferenceEquals(session, ownerSession)) throw new InvalidOperationException("작업을 시작하기 전에 에디터 연결이 바뀌었어.");
                 // Recheck the existing claim after a potentially slow installation/login handshake.
                 var claimed = await SharedEditorCall("claim", new { taskId = remoteId, claimId = journal.ClaimId });
                 if (activeWebTaskCancelled || claimed.GetProperty("task").GetProperty("cancelRequested").GetBoolean()) throw new OperationCanceledException();
+                var account = await ((IResidentAssistant)provider!).AccountAsync(operation.Token);
+                if (account.Type != "chatgpt")
+                {
+                    const string reason = "이 PC의 Codex에 ChatGPT 로그인이 필요해. 웹 패널 위의 ‘ChatGPT 로그인’을 눌러 완료한 뒤 새 작업을 요청해줘.";
+                    ShowCodexConnectionNotice(reason, needsLogin: true); throw new InvalidOperationException(reason);
+                }
                 SharedEditorSnapshot? snapshot = null;
                 if (task.GetProperty("snapshotId").ValueKind == JsonValueKind.String)
                 {
@@ -325,13 +332,16 @@ public sealed partial class EditorWindow
                 request.Target = Target; request.WritablePacks = sharingPermissions.WritablePacks.Where(p => ownerSession.Index.Packs.Any(x => x.Id == p)).ToList();
                 request.WritableEditorPacks = sharingPermissions.WritableEditorPacks.Where(p => packSources.Any(x => x.Id == p)).ToList();
                 request.AllowProjectCommands = sharingPermissions.ProjectCommands; request.AllowEditorReload = sharingPermissions.EditorReload; ownerSession.Persist();
-                lastRequest = request; streamMessages.Clear(); Message("웹에서 받은 작업", task.GetProperty("prompt").GetString()!); RefreshContext(); SetBusy(true); operation = new();
+                lastRequest = request; streamMessages.Clear(); Message("웹에서 받은 작업", task.GetProperty("prompt").GetString()!); RefreshContext();
                 var bridge = new AssistantBridge(ownerSession, action => Dispatcher.Invoke(() => { action(); RefreshContext(); }));
                 using var tools = new AgentWorkspace(ownerSession, request, runner, action => Dispatcher.Invoke(() => { action(); RefreshContext(); }), AgentProgress, CreateEditorPackAgent(request));
                 sharingStatus.Text = "Codex 작업 중 · " + remoteId.Substring(0, 8);
                 return await bridge.Send(provider!, request, operation.Token, tools);
             });
-            sharingStatus.Text = "Codex 결과 전달됨 · " + finished.Completion!.Value.GetProperty("state").GetString();
+            var completion = finished.Completion!.Value; string state = completion.GetProperty("state").GetString()!;
+            string reply = completion.GetProperty("result").GetProperty("reply").GetString()!;
+            sharingStatus.Text = "Codex 결과 전달됨 · " + state;
+            if (state == "failed") { SetStatus(reply); Message("웹 Codex 실행 실패", reply); if (codexConnectionNotice.Visibility != Visibility.Visible) ShowCodexConnectionNotice(reply); }
         }
         catch (Exception e)
         {
@@ -343,6 +353,15 @@ public sealed partial class EditorWindow
             activeWebTask = activeWebClaim = ""; operation?.Dispose(); operation = null; SetBusy(false); sharingTaskExecuting = false;
             if (!WebMode && providerWebExecutor) { ResetResidentConnection(); ScheduleAutoConnect(); }
         }
+    }
+    private void ShowCodexConnectionNotice(string reason, bool needsNode = false, bool needsLogin = false)
+    {
+        codexConnectionNotice.Children.Clear(); codexConnectionNotice.Children.Add(new ScrollViewer { Content = Label(reason, 12, AccentInk), MaxHeight = 120, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
+        var actions = new WrapPanel();
+        if (needsNode) actions.Children.Add(Action("Node.js 설치 페이지", () => OpenUrl(PackEngine.Installation.CodexInstallation.NodeDownloadUrl)));
+        if (needsLogin) actions.Children.Add(Action("ChatGPT 로그인", LoginCodex));
+        actions.Children.Add(Action("Codex 다시 연결", ConnectCodex));
+        codexConnectionNotice.Children.Add(actions); codexConnectionNotice.Visibility = Visibility.Visible;
     }
     private async void SharedTaskProgress(AssistantEvent update)
     {
@@ -363,7 +382,7 @@ public sealed partial class EditorWindow
         CancelSharedTask();
         sharingTimer.Stop(); sharingSession = sharingRequest = sharingManifest = sharingAccount = ""; sharingBinding = null; pendingSharedSnapshot = null;
         foreach (var call in sharingCalls.Values.ToArray()) call.TrySetException(new IOException("에디터 공유 연결이 끝났어."));
-        sharingCalls.Clear(); DisarmYogi(); pointedImage = null; sharedUiTargets.Clear();
+        sharingCalls.Clear(); codexConnectionNotice.Visibility = Visibility.Collapsed; DisarmYogi(); pointedImage = null; sharedUiTargets.Clear();
         if (sharedBrowser.CoreWebView2 is not null) sharedBrowser.Visibility = Visibility.Hidden;
     }
     private void CancelSharedTask()
