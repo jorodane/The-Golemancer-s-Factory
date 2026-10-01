@@ -79,7 +79,7 @@ public sealed partial class EditorWindow
     private void OpenChatGpt() => Guard(() =>
     {
         if (conversation?.Mode != "chatgpt") { ChooseConversationMode(); return; }
-        OpenUrl(ProjectConversation.ValidateLink(conversation.Url));
+        NavigateChat(ProjectConversation.ValidateLink(conversation.Url));
     });
     private void CopyChatGptSetup() => Guard(() =>
     {

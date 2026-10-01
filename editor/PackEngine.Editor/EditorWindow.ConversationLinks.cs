@@ -57,6 +57,6 @@ public sealed partial class EditorWindow
         if (conversation is null) return;
         string url = ConversationLinkMetadata.Read(conversation).ProjectUrl;
         if (url.Length == 0) { ShowConversationLinkSetup(); return; }
-        OpenUrl(ConversationLinkMetadata.ValidateUrl(url, true));
+        NavigateChat(ConversationLinkMetadata.ValidateUrl(url, true));
     });
 }

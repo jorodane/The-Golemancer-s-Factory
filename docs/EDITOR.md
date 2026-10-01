@@ -6,9 +6,11 @@
 
 Windows에서 저장소를 Pull한 뒤 루트 **`StartEditor.exe`**를 실행한다. 게임팩에 저장된 대화 방식을 확인하고 체크인된 `editor/Builds/Windows/PackEngine.Editor.exe`로 골레맨서를 연다. 실행에는 기존 게임과 같은 .NET Framework 4.8이 필요하며, 소스 빌드에는 .NET 10 SDK가 필요하다.
 
-다른 프로젝트는 에디터의 **프로젝트 열기**에서 `.packproject`를 선택하거나 `StartEditor.exe "다른 프로젝트 경로"`로 연다. 기존 `Start.bat`은 게임 직접 실행 진입점이다. 에디터 자체를 재빌드할 때는 `BuildEditor.bat`을 사용한다. 필요하면 `PACKENGINE_DOTNET` 환경변수로 SDK 실행 파일 경로를 지정한다.
+다른 프로젝트는 에디터의 **게임팩 열기**에서 `.packproject`를 선택하거나 `StartEditor.exe "다른 프로젝트 경로"`로 연다. 기존 `Start.bat`은 게임 직접 실행 진입점이다. 에디터 자체를 재빌드할 때는 `BuildEditor.bat`을 사용한다. 필요하면 `PACKENGINE_DOTNET` 환경변수로 SDK 실행 파일 경로를 지정한다.
 
-**새 게임팩**은 빈 폴더에 기본 객체팩과 `.packproject`를 만든다. 새 게임팩이나 아직 설정하지 않은 프로젝트를 열면 **로컬 Codex / 기존 ChatGPT 채팅·프로젝트**를 선택한다. **게임팩 대화 방식 선택**에서 언제든 바꿀 수 있다. [설정과 대화 이동](PROJECT_CONVERSATIONS.md)을 따른다. ChatGPT 방식의 도구 연결은 **[ChatGPT 연결](CHATGPT_BRIDGE.md)**에 설명한다. 이 모드는 로컬 Codex 준비를 건너뛰고 **ChatGPT 웹**을 기본으로 연결한다. Windows ChatGPT 앱은 필요 없다. 주소 입력 → 계정 터널 준비 → 권한 선택 → 자동 설치·실행·내부 검사 → 웹 플러그인 승인·실제 호출 확인을 진행한다. 계정 권한과 마지막 승인은 공식 웹 화면에서 확인한다. 읽기·수정·실행 권한, 연결 프로그램 실행, 실제 도구 호출을 구분해 표시한다.
+처음에는 왼쪽 ChatGPT 웹과 오른쪽 게임팩 시작 화면을 보여준다. **새 게임팩**은 빈 폴더에 기본 객체팩과 `.packproject`를 만들며 별도 대화 방식 선택창을 강제로 띄우지 않는다. 웹에서 로그인하고 대화나 프로젝트를 연 뒤 **현재 대화 연결 → 이 게임팩과 연결**을 누른다. PackEngine Links의 로그인 계정과 주소를 확인하면 웹과 게임팩에 함께 저장한다. **작업 도구 펼치기**로 세부 편집·빌드 도구를 연다. 기존 로컬 Codex 게임팩은 원래 방식으로 시작하며 **대화 방식**에서 변경할 수 있다. [웹 연결](CHATGPT_BRIDGE.md)과 [대화 이동](PROJECT_CONVERSATIONS.md)을 따른다.
+
+웹 패널은 Microsoft WebView2를 사용한다. Runtime이 없으면 **웹 실행 구성 요소 설치**에서 동의 후 Microsoft 설치 프로그램을 내려받아 서명을 확인하고 실행한다. 취소·재시도가 가능하다. 웹 로그인과 쿠키는 해당 Windows 사용자의 로컬 WebView 프로필에 남는다. ChatGPT/Sites 로그인 제공자가 내장 브라우저를 거부하는 경우 외부 브라우저로 열 수 있지만 외부 창의 대화를 자동으로 감지하지는 않는다. 실제 Windows GUI·로그인·Runtime 설치는 Linux 검증에 포함되지 않는다.
 
 에디터 안에서 별도 Codex 대화를 사용하려면 오른쪽 **에디터 안에서 Codex 대화**를 펼친다. **[입주 환경과 ‘이거’ 모드](RESIDENT_AGENT.md)**를 따른다. 두 대화 기록은 자동으로 합쳐지지 않는다. **대화·접근** 탭의 수동 참고 메모는 선택 사항이며, 본문 없는 링크는 공유 문맥에서 제외한다.
 
@@ -18,7 +20,7 @@ Node.js/npm이 없으면 시작 창이 [공식 Node.js 설치 페이지](https:/
 
 ## 실제 작업 순서
 
-1. 왼쪽에서 `golemancer.controls`의 `golemancer.purchase` 또는 `golemancer.costButton`을 선택한다. ChatGPT 연결을 허용한 프로젝트는 **ChatGPT 연결** 탭으로 시작한다.
+1. **작업 도구 펼치기**를 누른 뒤 탐색기에서 `golemancer.controls`의 `golemancer.purchase` 또는 `golemancer.costButton`을 선택한다.
 2. 관계 탭에서 부모·사용 대상·의존 관계를 눌러 탐색한다. 탐색 이력으로 돌아갈 수 있다. 계약 탭은 상속이 해석된 최종 정의와 설정별 출처를 보여준다.
 3. 문서 탭에서 `Content/Packs/02.Controls/ui.xml`을 편집한다. 변경 이유를 적고 **변경·영향 미리보기**를 누른다. XML의 속성 단위 변경과 선언상 영향을 받는 화면·팩을 확인한 뒤 적용한다.
 4. 같은 원형의 부모나 형제 정의가 그대로인지 계약을 다시 살핀다. XML 변경은 다음 게임 시작에 로드된다. **실행**으로 프로젝트의 게임 런타임을 연다.

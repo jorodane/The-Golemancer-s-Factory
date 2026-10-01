@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using PackEngine.Installation;
 using PackEngine.Workspace;
 
@@ -82,4 +83,40 @@ Check(!Directory.GetFiles(project.Root, "*", SearchOption.AllDirectories).Any(p 
 string linked = Path.Combine(root, "linked-game"); Directory.CreateSymbolicLink(linked, project.Root);
 Reject(() => ProjectConversation.Load(Path.Combine(linked, "Game.packproject")), "linked project storage cannot silently redirect conversation files");
 #endif
+var started = new DateTime(2026, 10, 1, 12, 0, 0, DateTimeKind.Utc);
+WebConversationConnection Connection() => new(profile.Id, "Game", projectHome, projectChat, started);
+string Receipt(WebConversationConnection connection) => JsonSerializer.Serialize(new {
+    protocol = WebConversationConnection.Protocol, type = "connected", requestId = connection.RequestId, scope = "links_only",
+    account = new { id = "site-scoped-test-user", label = "test@example.test" },
+    link = new { id = Guid.NewGuid().ToString("D"), packId = connection.PackId, name = connection.Name, projectUrl = connection.ProjectUrl, chatUrl = connection.ChatUrl, revision = 1 }
+});
+Check(WebConversationConnection.Observe(projectChat + "?token=discard#fragment") == (projectHome, projectChat), "web navigation captures a nested conversation and its actual parent project without query data");
+Check(WebConversationConnection.Observe(projectHome + "/") == (projectHome, ""), "project pages can connect without manufacturing a conversation ID");
+foreach (string source in new[] { "https://chatgpt.com/", "https://chatgpt.com/g/g-assistant", "https://chatgpt.com/backend-api/conversations", "https://chatgpt.com.evil.test/c/example", "https://chatgpt.com:8443/c/example", "file:///private", "about:blank" })
+    Check(WebConversationConnection.Observe(source) == ("", ""), "unrelated web navigation cannot become a connection: " + source);
+Check(Connection().RequestId != Connection().RequestId, "separate connection attempts have independent cryptographic nonces");
+using (var request = JsonDocument.Parse(Connection().RequestJson))
+    Check(request.RootElement.GetProperty("metadata").EnumerateObject().Count() == 4 && !request.RootElement.GetRawText().Contains(project.Root), "browser handoff contains only reviewed references and portable identity");
+foreach (string source in new[] { "https://evil.test/editor", WebConversationConnection.PageUrl + "/extra", WebConversationConnection.PageUrl.Replace("https:", "http:"), WebConversationConnection.PageUrl.Replace("/editor", ":8443/editor"), "https://chatgpt.com/editor" })
+{
+    var request = Connection(); Reject(() => request.Accept(source, Receipt(request), profile.Id, started), "foreign or wrong-page receipts are rejected: " + source);
+}
+var valid = Connection(); string validReceipt = Receipt(valid);
+var applied = valid.Accept(WebConversationConnection.PageUrl, validReceipt, profile.Id, started.AddMinutes(1));
+Check(applied.AccountLabel == "test@example.test" && applied.ChatUrl == projectChat, "matching origin-bound receipt preserves verified account and exact links");
+Reject(() => valid.Accept(WebConversationConnection.PageUrl, validReceipt, profile.Id, started), "a successfully consumed receipt cannot be replayed");
+foreach (var timestamp in new[] { started.AddMinutes(11), started.AddSeconds(-1) })
+{ var request = Connection(); Reject(() => request.Accept(WebConversationConnection.PageUrl, Receipt(request), profile.Id, timestamp), "expired and future-dated requests are rejected"); }
+var switched = Connection(); Reject(() => switched.Accept(WebConversationConnection.PageUrl, Receipt(switched), Guid.NewGuid().ToString("N"), started), "switching the open game invalidates a pending handoff");
+foreach (string malformed in new[] { "null", "[]", "{}", "not-json", new string('x', 24001) })
+{ var request = Connection(); Reject(() => request.Accept(WebConversationConnection.PageUrl, malformed, profile.Id, started), "malformed or oversized receipts fail closed"); }
+foreach (Action<JsonNode> corrupt in new Action<JsonNode>[] {
+    x => x["requestId"] = new string('0', 64), x => x["scope"] = "files", x => x["account"]!["id"] = "", x => x["account"]!["label"] = "",
+    x => x["link"]!["packId"] = Guid.NewGuid().ToString("N"), x => x["link"]!["name"] = "Another pack", x => x["link"]!["chatUrl"] = "https://chatgpt.com/c/another",
+    x => x["link"]!["projectUrl"] = "", x => x["link"]!["id"] = "invalid", x => x["link"]!["revision"] = 0 })
+{
+    var request = Connection(); var altered = JsonNode.Parse(Receipt(request))!; corrupt(altered);
+    Reject(() => request.Accept(WebConversationConnection.PageUrl, altered.ToJsonString(), profile.Id, started), "modified receipt cannot grant an unintended association");
+    Check(request.Accept(WebConversationConnection.PageUrl, Receipt(request), profile.Id, started).ChatUrl == projectChat, "rejected receipt does not consume the legitimate handoff");
+}
 Console.WriteLine("CONVERSATION_STORAGE_PASS " + checks);

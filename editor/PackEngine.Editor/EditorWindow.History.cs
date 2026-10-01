@@ -101,7 +101,7 @@ public sealed partial class EditorWindow
     private void ScheduleAutoConnect()
     {
         var opened = session;
-        Dispatcher.BeginInvoke(new Action(() => { if (ReferenceEquals(session, opened) && !busy && conversation?.Mode == "local" && CurrentAccess is { } access && assistantSettings.ShouldConnect(access) && provider is null) ConnectCodex(); }));
+        Dispatcher.BeginInvoke(new Action(() => { if (ReferenceEquals(session, opened) && !busy && !WebMode && conversation?.Mode == "local" && CurrentAccess is { } access && assistantSettings.ShouldConnect(access) && provider is null) ConnectCodex(); }));
     }
     private void RefreshAccessControls()
     {

@@ -211,7 +211,9 @@ public sealed partial class EditorWindow
         var shell = packGeneration?.Snapshot.Shell;
         editorBody!.ColumnDefinitions[0].Width = new GridLength(focus ? 0 : EditorNativeSchema.LayoutNumber(shell?.Fields["sidebarWidth"] ?? "250", 0, 600));
         editorBody.ColumnDefinitions[4].Width = new GridLength(EditorNativeSchema.LayoutNumber(shell?.Fields["contextWidth"] ?? "300", 180, 700));
-        editorRoot!.RowDefinitions[2].Height = new GridLength(focus ? 0 : EditorNativeSchema.LayoutNumber(shell?.Fields["logHeight"] ?? "150", 0, 600));
+        detailedLogHeight = new GridLength(focus ? 0 : EditorNativeSchema.LayoutNumber(shell?.Fields["logHeight"] ?? "150", 0, 600));
+        editorRoot!.RowDefinitions[2].Height = detailedLogHeight;
+        ApplyBrowserLayout();
     }
     private void EditorPackProjectChanged()
     {
