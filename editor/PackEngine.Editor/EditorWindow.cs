@@ -77,7 +77,7 @@ public sealed partial class EditorWindow : Window
         var changeActions = new WrapPanel(); changeActions.Children.Add(Action("검토한 변경 적용", () => ApplyChange(false))); changeActions.Children.Add(Action("이 변경 되돌리기", () => ApplyChange(true)));
         changeActions.Children.Add(Action("최근 변경 불러오기", () => Guard(() => { pending = session!.Changes().FirstOrDefault(); ShowChange(); }))); changeHead.Children.Add(changeActions);
         DockPanel.SetDock(changeHead, Dock.Top); changes.Children.Add(changeHead); var affected = new ScrollViewer { Content = impact, Height = 130, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }; DockPanel.SetDock(affected, Dock.Bottom); changes.Children.Add(affected); changes.Children.Add(diff); AddTab("변경", changes);
-        AddHistoryTab(); AddChatGptTab();
+        AddHistoryTab(); AddChatGptTab(); AddEditorPacksTab(root, body);
         var output = new DockPanel { Margin = new Thickness(14, 0, 14, 0) }; var outputHeader = new DockPanel(); outputHeader.Children.Add(Label("실행 · 빌드 기록", 12, MutedInk)); var cancel = Action("작업 취소", () => operation?.Cancel()); cancel.HorizontalAlignment = HorizontalAlignment.Right; outputHeader.Children.Add(cancel); DockPanel.SetDock(outputHeader, Dock.Top); output.Children.Add(outputHeader); output.Children.Add(log); Grid.SetRow(output, 2); root.Children.Add(output);
         status.Margin = new Thickness(18, 8, 18, 8); Grid.SetRow(status, 3); root.Children.Add(status);
         tree.SelectedItemChanged += (_, e) => { if (e.NewValue is TreeViewItem { Tag: string key }) Guard(() => { SelectNode(key); if (!busy && !loading) PointObject(key, "tree"); }); };
@@ -88,7 +88,7 @@ public sealed partial class EditorWindow : Window
         SetupRangePointing();
         draftTimer.Tick += (_, _) => { draftTimer.Stop(); Guard(() => { session?.Persist(); RefreshContext(); }); };
         prompt.PreviewKeyDown += (_, e) => { if (e.Key == Key.Enter && Keyboard.Modifiers.HasFlag(ModifierKeys.Control)) { e.Handled = true; Submit(); } };
-        Closing += (_, e) => { if (busy) { SetStatus("현재 작업을 마치거나 취소한 뒤 닫아줘."); e.Cancel = true; return; } Guard(() => session?.Persist()); };
+        Closing += (_, e) => { if (busy) { SetStatus("현재 작업을 마치거나 취소한 뒤 닫아줘."); e.Cancel = true; return; } if (PackDocumentDirty()) { SetStatus("에디터팩 초안을 저장하거나 저장본으로 되돌린 뒤 닫아줘."); e.Cancel = true; return; } Guard(() => session?.Persist()); };
         Closed += (_, _) => { draftTimer.Stop(); StopChatGptBridge(); runner?.Dispose(); provider?.Dispose(); };
         Message("시작", "일반 대화에는 포인팅을 첨부하지 않아. 대상을 가리키려면 ‘이거’ 모드를 켜고 탐색기·관계도·XML에서 지정해줘. 전송할 때 대상과 문서 버전을 고정해.\n\nAI 제공자를 연결하기 전에는 요청과 문맥을 준비해 Chat에 복사할 수 있어. 제공자를 연결하면 같은 문맥으로 대화를 이어갈 수 있어."); SetBusy(false);
     }
@@ -122,6 +122,8 @@ public sealed partial class EditorWindow : Window
         submit.IsEnabled = !busy && session is not null; editor.IsReadOnly = busy || activeDocument is null || session?.CanEdit(activeDocument.Path) != true;
         targets.IsEnabled = !busy; tree.IsEnabled = !busy; openDocs.IsEnabled = !busy; models.IsEnabled = !busy;
         codexPath.IsEnabled = !busy; SetHistoryBusy(busy); SetChatGptBusy(busy);
+        packDocument.IsReadOnly = busy; packChoice.IsEnabled = !busy; packFiles.IsEnabled = !busy; packReloadPermission.IsEnabled = !busy;
+        if (!busy && pendingEditorPackReload) QueueEditorPackReload();
         if (!busy && pendingAccountRefresh) { pendingAccountRefresh = false; Dispatcher.BeginInvoke(new Action(RefreshCodex)); }
     }
     private async void Work(Func<Task> action)
@@ -144,6 +146,7 @@ public sealed partial class EditorWindow : Window
     {
         if (busy) return;
         if (runner?.GameRunning == true) throw new InvalidOperationException("현재 프로젝트의 게임 창을 닫은 뒤 다른 프로젝트를 열어줘.");
+        if (PackDocumentDirty()) throw new InvalidOperationException("먼저 에디터팩 초안을 저장해줘.");
         session?.Persist();
         var next = new EditorSession(path); var nextConversation = PackEngine.Installation.ProjectConversation.Load(next.Project.Manifest);
         StopChatGptBridge(); runner?.Dispose(); provider?.Dispose(); provider = null; providerLabel.Text = "AI 제공자 미연결"; session = next; conversation = nextConversation;
@@ -153,7 +156,7 @@ public sealed partial class EditorWindow : Window
         targets.ItemsSource = session.Project.Targets.Select(t => t.Id).ToArray(); targets.SelectedItem = runner.PreferredTarget;
         transcript.Children.Clear(); Message("프로젝트", session.Project.Name + "을 열었어. 팩과 문서를 골라서 작업을 시작해.");
         pointingMode.SelectedIndex = 0; allowPackWrites.IsChecked = false; allowProjectCommands.IsChecked = false; models.ItemsSource = null; submit.Content = "문맥 요청 만들기"; RefreshProject(); RebuildDocuments(); SetBusy(false); RefreshPointing();
-        RegisterProject(); ApplyConversationMode();
+        RegisterProject(); ApplyConversationMode(); EditorPackProjectChanged();
         if (!conversation.Configured) ChooseConversationMode();
     });
     private void RefreshProject()
@@ -250,7 +253,7 @@ public sealed partial class EditorWindow : Window
             }
             SetBusy(true); operation = new();
             var bridge = new AssistantBridge(session, action => Dispatcher.Invoke(() => { action(); RefreshContext(); }));
-            using var agentTools = provider is IResidentAssistant ? new AgentWorkspace(session, lastRequest, runner!, action => Dispatcher.Invoke(() => { action(); RefreshContext(); }), AgentProgress) : null;
+            using var agentTools = provider is IResidentAssistant ? new AgentWorkspace(session, lastRequest, runner!, action => Dispatcher.Invoke(() => { action(); RefreshContext(); }), AgentProgress, CreateEditorPackAgent(lastRequest)) : null;
             string answer = await bridge.Send(provider, lastRequest, operation.Token, agentTools);
             if (provider is not IResidentAssistant || streamMessages.Count == 0) Message(provider.Name, answer); RefreshContext();
             if (provider is IResidentAssistant agent && CurrentAccess?.HistoryEnabled == true)
@@ -273,6 +276,7 @@ public sealed partial class EditorWindow : Window
             contexts.Children.Add(Label("최근 요청 · " + lastRequest.Delivery, 13, AccentInk));
             contexts.Children.Add(Label("전송 시점: " + lastRequest.Input.CapturedUtc + "\n포인팅: " + lastRequest.Input.Mode + " · " + lastRequest.Input.Targets.Count + "개", 11, MutedInk));
             foreach (var target in lastRequest.Input.Targets) contexts.Children.Add(Label(target.Key + (target.StartLine > 0 ? " · " + target.StartLine + "–" + target.EndLine + "행" : ""), 11));
+            foreach (var target in lastRequest.EditorInput.Targets) contexts.Children.Add(Label("에디터 · " + target.Key, 11));
             contexts.Children.Add(Label(lastRequest.Context.Sum(c => c.Content.Length).ToString("N0") + " / " + lastRequest.CharacterBudget.ToString("N0") + "자", 11, MutedInk));
             foreach (var item in lastRequest.Context) contexts.Children.Add(Label(item.Path + (item.Partial ? " (일부)" : "") + (item.Draft ? " (미적용 초안)" : "") + (item.DiskChanged ? " (디스크에 외부 변경 있음)" : "") + "\n" + item.Why, 11));
             foreach (var item in lastRequest.SharedChats) contexts.Children.Add(Label("공유 웹 문맥: " + item.Title + "\n본문은 요청할 때만 읽음 · 자동 동기화 없음", 11, MutedInk));

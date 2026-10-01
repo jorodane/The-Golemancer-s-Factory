@@ -45,6 +45,9 @@ public sealed class ContextRequest
     public SemanticInput Input { get; set; } = new();
     public List<DocumentVersion> Documents { get; set; } = [];
     public List<string> WritablePacks { get; set; } = [];
+    public SemanticInput EditorInput { get; set; } = new();
+    public List<string> WritableEditorPacks { get; set; } = [];
+    public bool AllowEditorReload { get; set; }
     public bool AllowProjectCommands { get; set; }
     public string Target { get; set; } = "";
 }

@@ -1,0 +1,15 @@
+<Ui version="1" id="editor.core.ui">
+  <Widget id="editor.element"><Property name="enabled" type="boolean" default="true" /><Property name="visible" type="boolean" default="true" /><Property name="tooltip" type="text" default="" /><Property name="fontSize" type="number" default="13" min="8" max="48" /><Property name="margin" type="number" default="4" min="0" max="64" /><Renderer platform="*" key="editor.text" /></Widget>
+  <Widget id="editor.stack" extends="editor.element"><Property name="orientation" type="text" default="vertical"><Option value="vertical" /><Option value="horizontal" /></Property><Slot name="children" min="0" /><Renderer platform="*" key="editor.stack" /></Widget>
+  <Widget id="editor.text" extends="editor.element"><Property name="text" type="text" default="" /><Renderer platform="*" key="editor.text" /></Widget>
+  <Widget id="editor.button" extends="editor.text"><Event name="activate" payload="none" /><Renderer platform="*" key="editor.button" /></Widget>
+  <Widget id="editor.input" extends="editor.text"><Event name="changed" payload="text" /><Renderer platform="*" key="editor.input" /></Widget>
+  <View id="editor.core.tools"><Node id="tools" widget="editor.stack"><Slot name="children" export="true">
+    <Node id="project" order="0" widget="editor.text"><Bind property="text" source="editor.project" /><Set property="fontSize" value="20" /></Node>
+    <Node id="hint" order="10" widget="editor.text"><Set property="text" value="‘이거’ 모드로 이 패널의 요소를 가리키면 에디터팩의 XML을 AI에게 전달할 수 있어." /></Node>
+    <Node id="refresh" order="20" widget="editor.button"><Set property="text" value="프로젝트 새로고침" /><On event="activate" command="editor.core.refresh" /></Node>
+    <Node id="documents" order="30" widget="editor.button"><Set property="text" value="문서 열기" /><On event="activate" command="editor.core.documents" /></Node>
+    <Node id="focus" order="40" widget="editor.button"><Set property="text" value="편집 영역 넓히기" /><On event="activate" command="editor.core.focus" /></Node>
+    <Node id="restore" order="50" widget="editor.button"><Set property="text" value="기본 배치 복원" /><On event="activate" command="editor.core.restore" /></Node>
+  </Slot></Node></View>
+</Ui>

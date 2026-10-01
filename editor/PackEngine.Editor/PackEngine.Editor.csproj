@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><TargetFramework>net48</TargetFramework><OutputType>WinExe</OutputType><ApplicationManifest>app.manifest</ApplicationManifest></PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="../PackEngine.Workspace/PackEngine.Workspace.csproj" />
+    <ProjectReference Include="../PackEngine.Workspace/PackEngine.Workspace.csproj" /><ProjectReference Include="../PackEngine.EditorPacks/PackEngine.EditorPacks.csproj" />
     <Compile Include="../Shared/EditorStartMode.cs" Link="EditorStartMode.cs" />
     <Compile Include="../Shared/CodexInstallation.cs" Link="CodexInstallation.cs" />
     <Compile Include="../Shared/CodexBootstrap.cs" Link="CodexBootstrap.cs" />

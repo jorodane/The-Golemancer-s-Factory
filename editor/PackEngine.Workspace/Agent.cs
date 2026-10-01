@@ -54,6 +54,7 @@ public interface IAgentWorkspace : IAssistantWorkspace
     IReadOnlyList<object> ToolDefinitions { get; }
     Task<string> CallAsync(string tool, JsonElement arguments, CancellationToken cancellation);
 }
+public interface IEditorPackAccess { Task<string> Call(JsonElement arguments, CancellationToken cancellation); }
 
 /// <summary>All project access is routed through the editor's declared index and the frozen request scope.</summary>
 public sealed class AgentWorkspace : IAgentWorkspace, IDisposable
@@ -70,8 +71,10 @@ public sealed class AgentWorkspace : IAgentWorkspace, IDisposable
     private readonly bool commands;
     private readonly string target;
     private readonly Dictionary<string, SharedChatReference> sharedChats;
-    public AgentWorkspace(EditorSession session, ContextRequest request, ProjectRunner runner, Action<Action> dispatch, Action<AssistantEvent>? progress = null)
+    private readonly IEditorPackAccess? editorPacks;
+    public AgentWorkspace(EditorSession session, ContextRequest request, ProjectRunner runner, Action<Action> dispatch, Action<AssistantEvent>? progress = null, IEditorPackAccess? editorPacks = null)
     {
+        this.editorPacks = editorPacks;
         this.session = session; this.request = request; this.runner = runner; this.dispatch = dispatch; this.progress = progress;
         writable = new(request.WritablePacks, StringComparer.Ordinal); commands = request.AllowProjectCommands; target = request.Target.Length > 0 ? request.Target : runner.PreferredTarget;
         sharedChats = request.SharedChats.Where(c => c.Shared).Select(c => c.Snapshot()).ToDictionary(c => c.Path, StringComparer.Ordinal);
@@ -104,6 +107,7 @@ public sealed class AgentWorkspace : IAgentWorkspace, IDisposable
     public IReadOnlyList<object> ToolDefinitions => Definitions;
     public static IReadOnlyList<object> Definitions { get; } = new[]
     {
+        Spec("packengine_editor", "Inspect/edit the EDITOR's own object packs, separate from game packs. list returns pack IDs/files; inspect(view) returns live inherited UI and origins; read(pack,path) returns a bounded slice and full hash. patch requires a prior read, expectedHash, unique oldText, newText, intent and WritableEditorPacks; apply/undo require this request's changeId and pack. build compiles that pack only. reload needs AllowEditorReload and rejects changes outside this request's writable editor packs. No screenshots or cloud chat access.", "{\"type\":\"object\",\"properties\":{\"operation\":{\"type\":\"string\",\"enum\":[\"list\",\"inspect\",\"read\",\"patch\",\"apply\",\"undo\",\"build\",\"reload\"]},\"pack\":{\"type\":\"string\"},\"path\":{\"type\":\"string\"},\"view\":{\"type\":\"string\"},\"startLine\":{\"type\":\"integer\",\"minimum\":1},\"lineCount\":{\"type\":\"integer\",\"minimum\":1,\"maximum\":160},\"expectedHash\":{\"type\":\"string\"},\"oldText\":{\"type\":\"string\"},\"newText\":{\"type\":\"string\"},\"intent\":{\"type\":\"string\"},\"changeId\":{\"type\":\"string\"}},\"required\":[\"operation\"],\"additionalProperties\":false}"),
         Spec("packengine_find", "Find declared object IDs or source files by text, optionally within one pack. Returns at most 30 metadata entries, no file contents.", "{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"string\"},\"pack\":{\"type\":\"string\"}},\"required\":[\"query\"],\"additionalProperties\":false}"),
         Spec("packengine_inspect", "Inspect one object: definition is the current XML fragment; relations are one-hop references; contract is the resolved SAVED definition with provenance. Drafts are not runtime state. Implementation IDs can remain runtime-unknown.", "{\"type\":\"object\",\"properties\":{\"key\":{\"type\":\"string\"},\"section\":{\"type\":\"string\",\"enum\":[\"definition\",\"relations\",\"contract\"]}},\"required\":[\"key\",\"section\"],\"additionalProperties\":false}"),
         Spec("packengine_read", "Read a bounded source/document slice only when needed. Returns full document hash for conflict-safe edits. Paths must be declared project files or explicitly shared chat: context paths. Shared context is read-only and is not synchronized web history. Does not open a user tab.", "{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\"},\"startLine\":{\"type\":\"integer\",\"minimum\":1},\"lineCount\":{\"type\":\"integer\",\"minimum\":1,\"maximum\":160}},\"required\":[\"path\"],\"additionalProperties\":false}"),
@@ -131,6 +135,9 @@ public sealed class AgentWorkspace : IAgentWorkspace, IDisposable
             object result;
             switch (tool)
             {
+                case "packengine_editor":
+                    if (editorPacks is null) throw new InvalidOperationException("Editor pack access is unavailable in this host.");
+                    string answer = await editorPacks.Call(arguments, cancellation).ConfigureAwait(false); Note(tool, subject, "completed"); return answer;
                 case "packengine_find": result = OnUi(() =>
                 {
                     session.Refresh(); string query = Str(arguments, "query"), pack = Str(arguments, "pack");

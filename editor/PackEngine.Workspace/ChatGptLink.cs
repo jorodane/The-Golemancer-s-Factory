@@ -77,11 +77,13 @@ public sealed class EditorMcpWorkspace : IDisposable
     private readonly Func<string> target;
     private readonly Action<ContextRequest> captured;
     private readonly Action<AssistantEvent> progress;
+    private readonly Action<ContextRequest>? prepareEditor;
+    private readonly Func<ContextRequest, IEditorPackAccess>? editorPacks;
     private readonly SemaphoreSlim gate = new(1, 1);
     private readonly Dictionary<string, Request> requests = new(StringComparer.Ordinal);
     public EditorMcpWorkspace(EditorSession session, ProjectRunner runner, Action<Action> dispatch, Func<ChatGptProjectLink> access, Func<string> target,
-        Action<ContextRequest> captured, Action<AssistantEvent> progress)
-    { this.session = session; this.runner = runner; this.dispatch = dispatch; this.access = access; this.target = target; this.captured = captured; this.progress = progress; }
+        Action<ContextRequest> captured, Action<AssistantEvent> progress, Action<ContextRequest>? prepareEditor = null, Func<ContextRequest, IEditorPackAccess>? editorPacks = null)
+    { this.session = session; this.runner = runner; this.dispatch = dispatch; this.access = access; this.target = target; this.captured = captured; this.progress = progress; this.prepareEditor = prepareEditor; this.editorPacks = editorPacks; }
     private T OnUi<T>(Func<T> action) { T result = default!; dispatch(() => result = action()); return result; }
     public async Task<string> CallAsync(string client, string name, JsonElement arguments, CancellationToken cancellation)
     {
@@ -106,10 +108,11 @@ public sealed class EditorMcpWorkspace : IDisposable
                         (!session.Project.Sources.TryGetValue(p, out var source) || source.Editable)).Distinct(StringComparer.Ordinal).ToList();
                     request.Delivery = "mcp-context-returned"; // Does not claim the model read any additional file or that chat was synchronized.
                     var expires = DateTime.UtcNow.AddMinutes(30);
-                    requests.Add(request.Id, new(client, request, new AgentWorkspace(session, request, runner, dispatch, progress), expires));
+                    prepareEditor?.Invoke(request);
+                    requests.Add(request.Id, new(client, request, new AgentWorkspace(session, request, runner, dispatch, progress, editorPacks?.Invoke(request)), expires));
                     session.SetPointingMode("none"); session.Persist(); captured(request);
                     return EditorSession.Serialize(new { requestId = request.Id, project = new { session.Project.Id, session.Project.Name, session.Project.Identity },
-                        request.Input, request.OpenFiles, request.Documents, request.Context, request.Omitted, request.WritablePacks, request.AllowProjectCommands, request.Target,
+                        request.Input, request.EditorInput, request.OpenFiles, request.Documents, request.Context, request.Omitted, request.WritablePacks, request.WritableEditorPacks, request.AllowEditorReload, request.AllowProjectCommands, request.Target,
                         ExpiresUtc = expires.ToString("O"), CaptureTiming = "when this MCP tool was called, not when the ChatGPT message was submitted" });
                 });
             }

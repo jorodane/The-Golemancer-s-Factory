@@ -111,7 +111,7 @@ public sealed partial class EditorWindow
         if (session is null || runner is null || conversation?.Mode != "chatgpt" || CurrentAccess?.ChatGpt.Enabled != true) { chatGptStatus.Text = "접근 꺼짐 · 기존 ChatGPT 방식을 고르고 이 PC에서 접근을 허용해줘."; return; }
         var currentSession = session; var permission = CurrentAccess.ChatGpt;
         var host = new EditorMcpWorkspace(session, runner, action => Dispatcher.Invoke(action), () => permission, () => Target,
-            request => { lastRequest = request; pointingMode.SelectedIndex = 0; RefreshPointing(); RefreshContext(); }, AgentProgress);
+            request => { lastRequest = request; pointingMode.SelectedIndex = 0; RefreshPointing(); RefreshContext(); }, AgentProgress, CaptureEditorPacks, CreateEditorPackAgent);
         chatGptWorkspace = host;
         try
         {

@@ -22,7 +22,7 @@ public sealed partial class EditorWindow
     private Rectangle? rangeBox;
     private void AddPointingControls(StackPanel composer)
     {
-        var row = new WrapPanel(); row.Children.Add(pointingMode); row.Children.Add(Action("대상 비우기", () => { session?.Pointing.Targets.Clear(); RefreshPointing(); }));
+        var row = new WrapPanel(); row.Children.Add(pointingMode); row.Children.Add(Action("대상 비우기", () => { session?.Pointing.Targets.Clear(); editorPoints.Clear(); packPointLabel.Text = "에디터 요소 포인팅 없음"; RefreshPointing(); }));
         composer.Children.Add(row); composer.Children.Add(new ScrollViewer { Content = pointChips, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled, MaxHeight = 70 });
         composer.Children.Add(Label("단일: 객체 클릭 / 범위: 관계도 드래그·XML 선택. ChatGPT 도구 요청 또는 에디터 전송 시 고정해.", 11, MutedInk));
         pointingMode.SelectionChanged += (_, _) => { session?.SetPointingMode(new[] { "none", "single", "range" }[Math.Max(0, pointingMode.SelectedIndex)]); RefreshPointing(); };
@@ -31,7 +31,8 @@ public sealed partial class EditorWindow
     {
         pointChips.Children.Clear();
         if (session is null || session.Pointing.Mode == "none") { pointChips.Children.Add(Label("포인팅 첨부 없음", 11, MutedInk)); return; }
-        if (session.Pointing.Targets.Count == 0) pointChips.Children.Add(Label("작업 영역에서 대상을 지정해줘.", 11, AccentInk));
+        if (session.Pointing.Targets.Count == 0 && editorPoints.Count == 0) pointChips.Children.Add(Label("작업 영역에서 대상을 지정해줘.", 11, AccentInk));
+        foreach (var point in editorPoints.ToArray()) pointChips.Children.Add(Action("에디터 · " + point.Key + " ×", () => { editorPoints.Remove(point); packPointLabel.Text = string.Join(" · ", editorPoints.Select(p => p.Key)); RefreshPointing(); }));
         foreach (var point in session.Pointing.Targets.ToArray())
         {
             string text = point.Key + (point.StartLine > 0 ? " · " + point.StartLine + "–" + point.EndLine + "행" : "") + " ×";
@@ -41,6 +42,7 @@ public sealed partial class EditorWindow
     private void PointObject(string key, string surface)
     {
         if (session is null || busy || session.Pointing.Mode == "none") return;
+        if (session.Pointing.Mode == "single") { editorPoints.Clear(); packPointLabel.Text = "에디터 요소 포인팅 없음"; }
         session.Point(key, surface); RefreshPointing();
     }
     private void PointXmlRange()
@@ -88,7 +90,7 @@ public sealed partial class EditorWindow
         request.SharedChats = assistantSettings.ConnectionEnabled ? CurrentAccess?.CaptureSharedChats() ?? [] : [];
         request.WritablePacks = allowPackWrites.IsChecked == true ? request.Input.Targets.Select(t => t.Pack).Where(p => p.Length > 0)
             .Where(p => !session.Project.Sources.TryGetValue(p, out var source) || source.Editable).Distinct(StringComparer.Ordinal).ToList() : [];
-        session.Persist(); streamMessages.Clear();
+        CaptureEditorPacks(request); session.Persist(); streamMessages.Clear();
     }
     private void AddResidentControls(StackPanel parent)
     {

@@ -30,7 +30,7 @@ def main():
     responses = {r['id']: r for r in map(json.loads, wire.stdout.splitlines())}
     assert wire.returncode == 0 and not wire.stderr, wire.stderr
     assert responses[1]['result']['protocolVersion'] == '2025-11-25'
-    assert len(responses[2]['result']['tools']) == 10 and responses[3]['result'] == {} and responses[4]['error']['code'] == -32601
+    assert len(responses[2]['result']['tools']) == 11 and responses[3]['result'] == {} and responses[4]['error']['code'] == -32601
     (output / 'stdio.jsonl').write_text(wire.stdout, encoding='utf-8')
     with tempfile.TemporaryDirectory(prefix='packengine-mcp-') as temporary:
         folder = Path(temporary)

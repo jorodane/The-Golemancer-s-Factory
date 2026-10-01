@@ -1,0 +1,1 @@
+<Project Sdk="Microsoft.NET.Sdk"><ItemGroup><ProjectReference Include="../PackEngine.Editor.Contracts/PackEngine.Editor.Contracts.csproj" /><ProjectReference Include="../PackEngine.Workspace/PackEngine.Workspace.csproj" /></ItemGroup></Project>
