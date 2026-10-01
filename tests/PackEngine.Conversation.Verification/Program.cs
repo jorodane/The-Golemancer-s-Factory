@@ -31,6 +31,17 @@ Reject(() => ConversationLinkMetadata.Set(profile, "https://chatgpt.com/c/wrong-
 Reject(() => ConversationLinkMetadata.Set(profile, "", "https://chatgpt.com/g/g-an-assistant"), "custom GPT addresses are not silently accepted as conversations");
 Reject(() => ConversationLinkMetadata.Set(profile, "", ""), "reference-only linking still requires an actual user-provided URL");
 Check(new ChatGptProjectLink().MetadataOnly, "new and legacy device settings default to reference-only access");
+const string projectHome = "https://chatgpt.com/g/g-p-0123456789abcdef0123456789abcdef-sample-game";
+const string projectChat = projectHome + "/c/01234567-89ab-cdef-0123-456789abcdef";
+ConversationLinkMetadata.Set(profile, projectHome + "/?tracking=1#section", projectChat); profile.Save();
+profile = ProjectConversation.Load(project.Manifest);
+Check(profile.ProjectUrl == projectHome && profile.Url == projectChat, "project home URLs with a title slug and their nested conversations survive save and reload");
+ConversationLinkMetadata.Set(profile, projectHome, ""); profile.Save();
+profile = ProjectConversation.Load(project.Manifest);
+Check(ConversationLinkMetadata.Read(profile).ProjectUrl == projectHome && ConversationLinkMetadata.Read(profile).ChatUrl == "", "a project home URL can be the only configured reference");
+Check(JsonDocument.Parse(ConversationLinkMetadata.Export(profile, project.Name)).RootElement.GetProperty("projectUrl").GetString() == projectHome, "project home references can be exported to the plugin without rewriting their route");
+foreach (string url in new[] { projectChat, "https://chatgpt.com/g/g-an-assistant", projectHome + "/settings" })
+    Reject(() => ConversationLinkMetadata.ValidateUrl(url, true), "only project home routes are accepted as project references: " + url);
 var settings = new AssistantSettings(); var access = settings.Register(project);
 access.ChatGpt.Enabled = true; access.ChatGpt.WritablePacks.Add("foundation");
 string id = Guid.NewGuid().ToString("D");

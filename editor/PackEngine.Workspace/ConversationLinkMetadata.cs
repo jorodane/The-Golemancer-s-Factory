@@ -11,8 +11,8 @@ public static class ConversationLinkMetadata
     {
         if (string.IsNullOrWhiteSpace(value)) return "";
         var uri = new Uri(ProjectConversation.ValidateLink(value));
-        string pattern = project ? @"^/g/g-p-[a-zA-Z0-9-]+/project/?$" : @"^(/c/[a-zA-Z0-9-]+|/g/[a-zA-Z0-9-]+/c/[a-zA-Z0-9-]+)/?$";
-        if (!Regex.IsMatch(uri.AbsolutePath, pattern)) throw new InvalidDataException(project ? "ChatGPT 프로젝트를 연 뒤 그 주소를 넣어줘." : "ChatGPT 대화를 연 뒤 그 주소를 넣어줘.");
+        string pattern = project ? @"^/g/g-p-[a-zA-Z0-9-]+(?:/project)?/?$" : @"^(/c/[a-zA-Z0-9-]+|/g/[a-zA-Z0-9-]+/c/[a-zA-Z0-9-]+)/?$";
+        if (!Regex.IsMatch(uri.AbsolutePath, pattern)) throw new InvalidDataException(project ? "프로젝트 주소는 https://chatgpt.com/g/g-p-… 형태로 넣어줘. 대화의 /c/… 주소는 아래 칸에 넣으면 돼." : "ChatGPT 대화를 연 뒤 그 주소를 넣어줘.");
         return uri.GetLeftPart(UriPartial.Path).TrimEnd('/');
     }
     public static (string ProjectUrl, string ChatUrl) Read(ProjectConversation profile)
