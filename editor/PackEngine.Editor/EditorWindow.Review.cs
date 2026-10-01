@@ -22,10 +22,10 @@ public sealed partial class EditorWindow
         }
         catch { review.Cancel(); throw; }
     }
-    private IReadOnlyList<string> ReviewChanges(ChangeReviewBatch review, CancellationToken token)
+    private IReadOnlyList<string> ReviewChanges(ChangeReviewBatch review, CancellationToken token, string title = "Codex 변경안 검토")
     {
         token.ThrowIfCancellationRequested();
-        var dialog = new Window { Owner = this, Title = "Codex 변경안 검토", Width = 1160, Height = 760, MinWidth = 880, MinHeight = 540,
+        var dialog = new Window { Owner = this, Title = title, Width = 1160, Height = 760, MinWidth = 880, MinHeight = 540,
             Background = PanelInk, Foreground = TextInk, WindowStartupLocation = WindowStartupLocation.CenterOwner };
         var root = new DockPanel { Margin = new Thickness(18) }; dialog.Content = root;
         var top = new StackPanel(); top.Children.Add(Label("적용할 변경을 선택해줘.", 22));

@@ -166,12 +166,12 @@ public sealed class EditorPackRuntime : IEditorPackRuntime
         return modules[handlers[definition.Fields["handler"]].Pack].Version;
     }
     public string PackCodeVersion(string pack) => modules.TryGetValue(pack, out var module) ? module.Version : "";
-    public async Task<EditorCommandResult> Execute(EditorInvocation invocation, CancellationToken cancellation)
+    public async Task<EditorCommandResult> Execute(EditorInvocation invocation, CancellationToken cancellation, IEditorProjectData? project = null)
     {
         if (disposed) throw new ObjectDisposedException(nameof(EditorPackRuntime));
         var definition = definitions.PrepareInvocation(invocation);
         var handler = handlers[definition.Fields["handler"]];
-        return await modules[handler.Pack].Generation.ExecuteHandler(handler.Key, invocation, cancellation).ConfigureAwait(false);
+        return await modules[handler.Pack].Generation.ExecuteHandler(handler.Key, invocation, cancellation, project).ConfigureAwait(false);
     }
     public void Dispose()
     {

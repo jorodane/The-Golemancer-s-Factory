@@ -184,11 +184,21 @@ public sealed partial class EditorSession
     private void SaveDraft(ChangeDraft draft) => AtomicWrite(DraftPath(draft.Id), Encoding.UTF8.GetBytes(Serialize(draft)));
     public IReadOnlyList<ChangeDraft> Changes() => Directory.GetFiles(Path.Combine(StateDirectory, "changes"), "*.json")
         .Select(p => JsonSerializer.Deserialize<ChangeDraft>(File.ReadAllText(p), Json)!).OrderByDescending(d => d.CreatedUtc, StringComparer.Ordinal).ToArray();
-    public ChangeDraft Preview(string path, string text, string intent)
+    public ChangeDraft Preview(string path, string text, string intent) => Preview(path, text, intent, true);
+    public ChangeDraft PreviewDetached(string path, string text, string intent) => Preview(path, text, intent, false);
+    private ChangeDraft Preview(string path, string text, string intent, bool openDocument)
     {
         if (string.IsNullOrWhiteSpace(intent)) throw new ArgumentException("Record the intent of this change.");
         if (Encoding.UTF8.GetByteCount(text) > 2_000_000) throw new InvalidDataException("Draft exceeds the 2 MB editor limit.");
-        var doc = Open(path); RequireEditable(doc.Path);
+        OpenDocument doc;
+        if (openDocument) doc = Open(path);
+        else
+        {
+            var snapshot = ReadDocumentSnapshot(path);
+            if (snapshot.Draft || snapshot.DiskChanged) throw new IOException("Reconcile the open document before proposing an external change: " + snapshot.Path);
+            doc = new() { Path = snapshot.Path, Original = snapshot.Text, Text = snapshot.Text, Baseline = snapshot.DiskHash };
+        }
+        RequireEditable(doc.Path);
         byte[] before = ReadBytes(doc.Path);
         if (WorkspaceProject.Hash(before) != doc.Baseline) throw new IOException("File changed outside the editor. Reload and reconcile the draft before applying.");
         Refresh(); Index.ValidateDraft(doc.Path, text);

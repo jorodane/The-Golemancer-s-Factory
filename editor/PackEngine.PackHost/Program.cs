@@ -3,6 +3,7 @@ using System.Text.Json;
 using PackEngine.Editor.Contracts;
 using PackEngine.EditorPacks;
 using PackEngine.Runtime;
+using PackEngine.PackHost;
 
 Console.InputEncoding = new UTF8Encoding(false); Console.OutputEncoding = new UTF8Encoding(false);
 var input = Console.In; var output = Console.Out;
@@ -40,17 +41,18 @@ while ((line = input.ReadLine()) is not null)
         if (line.Length > 1_000_000) throw new InvalidDataException("Request is too large.");
         using var request = JsonDocument.Parse(line); var root = request.RootElement; id = root.GetProperty("Id").GetString()!;
         if (failure is not null) throw new InvalidDataException(failure);
+        using var project = new ProjectDataClient(input, output, id);
         object result = root.GetProperty("Operation").GetString() switch {
             "describe" => catalog!.Snapshot,
-            "execute" => catalog!.Execute(JsonSerializer.Deserialize<EditorInvocation>(root.GetProperty("Body").GetRawText(), EditorPackGeneration.WireJson)!),
-            "executeHandler" => ExecuteHandler(root.GetProperty("Body")),
+            "execute" => catalog!.Execute(JsonSerializer.Deserialize<EditorInvocation>(root.GetProperty("Body").GetRawText(), EditorPackGeneration.WireJson)!, project),
+            "executeHandler" => ExecuteHandler(root.GetProperty("Body"), project),
             _ => throw new InvalidDataException("Unknown worker operation.") };
         output.WriteLine(JsonSerializer.Serialize(new { Id = id, Result = result }, EditorPackGeneration.WireJson)); output.Flush();
     }
     catch (Exception e) { output.WriteLine(JsonSerializer.Serialize(new { Id = id, Error = e.Message }, EditorPackGeneration.WireJson)); output.Flush(); }
 }
-EditorCommandResult ExecuteHandler(JsonElement body)
+EditorCommandResult ExecuteHandler(JsonElement body, IEditorProjectData project)
 {
     var request = JsonSerializer.Deserialize<EditorHandlerInvocation>(body.GetRawText(), EditorPackGeneration.WireJson)!;
-    return catalog!.ExecuteHandler(request.Handler, request.Invocation);
+    return catalog!.ExecuteHandler(request.Handler, request.Invocation, project);
 }

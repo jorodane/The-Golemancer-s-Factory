@@ -26,6 +26,7 @@ public sealed class EditorCommandResult
     public string Message { get; set; } = "";
     public List<EditorEffect> Effects { get; set; } = [];
     public List<EditorWindowAction> Windows { get; set; } = [];
+    public List<EditorDocumentChange> DocumentChanges { get; set; } = [];
 }
 public sealed class EditorWindowAction
 {

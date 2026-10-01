@@ -80,13 +80,13 @@ public sealed class EditorPackGeneration : IEditorPackRuntime
             throw;
         }
     }
-    public async Task<EditorCommandResult> Execute(EditorInvocation invocation, CancellationToken cancellation)
-    { var value = await Call("execute", invocation, cancellation).ConfigureAwait(false); return JsonSerializer.Deserialize<EditorCommandResult>(value.GetRawText(), WireJson)!; }
-    public async Task<EditorCommandResult> ExecuteHandler(string handler, EditorInvocation invocation, CancellationToken cancellation)
-    { var value = await Call("executeHandler", new EditorHandlerInvocation { Handler = handler, Invocation = invocation }, cancellation).ConfigureAwait(false); return JsonSerializer.Deserialize<EditorCommandResult>(value.GetRawText(), WireJson)!; }
+    public async Task<EditorCommandResult> Execute(EditorInvocation invocation, CancellationToken cancellation, IEditorProjectData? project = null)
+    { var value = await Call("execute", invocation, cancellation, project).ConfigureAwait(false); return JsonSerializer.Deserialize<EditorCommandResult>(value.GetRawText(), WireJson)!; }
+    public async Task<EditorCommandResult> ExecuteHandler(string handler, EditorInvocation invocation, CancellationToken cancellation, IEditorProjectData? project = null)
+    { var value = await Call("executeHandler", new EditorHandlerInvocation { Handler = handler, Invocation = invocation }, cancellation, project).ConfigureAwait(false); return JsonSerializer.Deserialize<EditorCommandResult>(value.GetRawText(), WireJson)!; }
     public string CommandVersion(string command) => Snapshot.Fingerprint;
     public string PackCodeVersion(string pack) => Hashes.TryGetValue(pack, out var hash) ? hash : "";
-    private async Task<JsonElement> Call(string operation, object? body, CancellationToken cancellation)
+    private async Task<JsonElement> Call(string operation, object? body, CancellationToken cancellation, IEditorProjectData? project = null)
     {
         await gate.WaitAsync(cancellation).ConfigureAwait(false);
         try
@@ -97,12 +97,31 @@ public sealed class EditorPackGeneration : IEditorPackRuntime
             using var kill = timeout.Token.Register(() => EditorPackSource.Stop(worker));
             await input.WriteLineAsync(JsonSerializer.Serialize(new { Id = id, Operation = operation, Body = body }, WireJson)).ConfigureAwait(false);
             await input.FlushAsync().ConfigureAwait(false);
-            string? line = await worker.StandardOutput.ReadLineAsync().ConfigureAwait(false); timeout.Token.ThrowIfCancellationRequested();
-            if (line is null || line.Length > 4_000_000) throw new IOException("Invalid editor pack response.");
-            using var reply = JsonDocument.Parse(line);
-            if (reply.RootElement.GetProperty("Id").GetString() != id) throw new IOException("Editor pack response ID mismatch.");
-            if (reply.RootElement.TryGetProperty("Error", out var error)) throw new InvalidDataException(error.GetString());
-            return reply.RootElement.GetProperty("Result").Clone();
+            var queries = new HashSet<string>(StringComparer.Ordinal);
+            while (true)
+            {
+                string? line = await worker.StandardOutput.ReadLineAsync().ConfigureAwait(false); timeout.Token.ThrowIfCancellationRequested();
+                if (line is null || line.Length > 4_000_000) throw new IOException("Invalid editor pack response.");
+                using var reply = JsonDocument.Parse(line);
+                if (reply.RootElement.GetProperty("Id").GetString() != id) throw new IOException("Editor pack response ID mismatch.");
+                if (reply.RootElement.TryGetProperty("ProjectRequest", out var queryBody))
+                {
+                    var query = JsonSerializer.Deserialize<EditorProjectQuery>(queryBody.GetRawText(), WireJson) ?? throw new IOException("Invalid project data request.");
+                    if (!Guid.TryParseExact(query.Id, "N", out _) || !queries.Add(query.Id)) throw new IOException("Invalid project data request ID.");
+                    object response;
+                    try
+                    {
+                        if (queries.Count > 64) throw new InvalidOperationException("Read project data at most 64 times per command.");
+                        response = new { ProjectReply = new { query.Id, Result = query.Answer(project ?? throw new InvalidOperationException("Project data is unavailable in this host.")) } };
+                    }
+                    catch (Exception e) { response = new { ProjectReply = new { query.Id, Error = e.Message } }; }
+                    timeout.Token.ThrowIfCancellationRequested();
+                    await input.WriteLineAsync(JsonSerializer.Serialize(response, WireJson)).ConfigureAwait(false);
+                    await input.FlushAsync().ConfigureAwait(false); continue;
+                }
+                if (reply.RootElement.TryGetProperty("Error", out var error)) throw new InvalidDataException(error.GetString());
+                return reply.RootElement.GetProperty("Result").Clone();
+            }
         }
         finally { gate.Release(); }
     }

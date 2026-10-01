@@ -16,5 +16,6 @@ print(result.stdout, flush=True)
 result.check_returncode()
 completed = re.search(r'^EDITOR_PACK_CHECKS=(\d+)$', result.stdout, re.MULTILINE)
 modules = re.search(r'^MODULE_WINDOW_CHECKS=(\d+)$', result.stdout, re.MULTILINE)
-if not completed or int(completed.group(1)) < 53 or not modules or int(modules.group(1)) < 30:
+data = re.search(r'^PROJECT_DATA_CHECKS=(\d+)$', result.stdout, re.MULTILINE)
+if not completed or int(completed.group(1)) < 110 or not modules or int(modules.group(1)) < 30 or not data or int(data.group(1)) < 30:
     raise RuntimeError('Editor pack verification did not reach its completion marker.')

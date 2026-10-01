@@ -90,7 +90,8 @@ public sealed class EditorPackAgent : IEditorPackAccess
         cancellation.ThrowIfCancellationRequested();
         string operation = S(args, "operation"), id = S(args, "pack"), path = S(args, "path");
         object result;
-        if (operation == "list") result = new { Packs = sources.Values.Select(s => new { s.Id, s.Scope, s.Parent, Files = s.Documents(), Active = active()?.Hashes.ContainsKey(s.Id) == true }), Writable = writable, AllowReload = allowReload, ReviewChanges = review is not null, ProposalScope = review is null ? "Frozen writable packs" : "All registered editor packs; actual changes/actions require the host review",
+        if (operation == "api") result = EditorProjectDataApi.Describe();
+        else if (operation == "list") result = new { Packs = sources.Values.Select(s => new { s.Id, s.Scope, s.Parent, Files = s.Documents(), Active = active()?.Hashes.ContainsKey(s.Id) == true }), Writable = writable, AllowReload = allowReload, ReviewChanges = review is not null, ProposalScope = review is null ? "Frozen writable packs" : "All registered editor packs; actual changes/actions require the host review", ProjectDataApi = "Use operation=api for the host's project-data-1 read/proposal contracts and a compilable command example.",
             Modules = (active() as EditorPackRuntime)?.Modules, WindowsAvailable = windows is not null,
             Shell = active()?.Snapshot.Shell, ShellHint = "EditorExtensions/Shell extends a layout ID; sidebarWidth 0..600, contextWidth 180..700, logHeight 0..600; sidebar+context <=1000. Omission inherits. XML-only changes apply on reload." };
         else if (operation == "windows") result = windows?.Invoke() ?? throw new InvalidOperationException("This host does not expose registered windows.");

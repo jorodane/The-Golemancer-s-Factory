@@ -171,8 +171,27 @@ public sealed partial class EditorWindow
         SetBusy(true); operation = new();
         try
         {
-            var result = await generation.Execute(new() { Command = command, Payload = value.Literal, Context = new() { ["project"] = session?.Project.Name ?? "", ["selection"] = session?.State.Selection ?? "" } }, operation.Token);
+            string ownerPack = generation.Snapshot.Commands.Single(c => c.Id == command).Pack;
+            using var project = session is null ? null : new EditorPackProjectData(session, ownerPack, action => Dispatcher.Invoke(action));
+            var result = await generation.Execute(new() { Command = command, Payload = value.Literal, Context = new() { ["project"] = session?.Project.Name ?? "", ["selection"] = session?.State.Selection ?? "" } }, operation.Token, project);
             if (!ReferenceEquals(generation, packGeneration)) return;
+            string reviewOutcome = "";
+            if (result.DocumentChanges.Count > 0)
+            {
+                if (project is null) throw new InvalidOperationException("먼저 프로젝트를 열어줘.");
+                var review = project.CreateReview(result.DocumentChanges);
+                try
+                {
+                    if (review.Items.Count > 0)
+                    {
+                        var selected = ReviewChanges(review, operation.Token, "에디터팩 변경안 검토 · " + ownerPack);
+                        reviewOutcome = await review.Apply(selected, operation.Token);
+                        RefreshProject(); RebuildDocuments(); RefreshContext();
+                    }
+                    else { review.Cancel(); reviewOutcome = "파일 내용이 같아서 저장할 변경이 없어."; }
+                }
+                catch { review.Cancel(); throw; }
+            }
             foreach (var effect in result.Effects)
                 switch (effect.Kind)
                 {
@@ -183,9 +202,9 @@ public sealed partial class EditorWindow
                         ApplyPackShell(effect.Value == "focus"); break;
                     default: throw new InvalidDataException("Unsupported editor host effect: " + effect.Kind);
                 }
-            string ownerPack = generation.Snapshot.Commands.Single(c => c.Id == command).Pack;
             foreach (var action in result.Windows) ManagePackWindow(ownerPack, action);
-            if (result.Message.Length > 0) SetStatus(result.Message);
+            if (reviewOutcome.Length > 0) SetStatus(reviewOutcome);
+            else if (result.Message.Length > 0) SetStatus(result.Message);
         }
         catch (Exception e) { SetStatus(e.Message); AppendLog("에디터팩: " + e.Message); }
         finally { operation.Dispose(); operation = null; SetBusy(false); }
@@ -260,7 +279,7 @@ public sealed partial class EditorWindow
         (authorized, token) => Dispatcher.InvokeAsync(() => ReloadEditorPacks(authorized, token)).Task.Unwrap(), ShowEditorPackChange,
         (tool, subject, result) => Dispatcher.Invoke(() => {
             session?.RecordOperation(request.Id, "editor." + tool, subject, result.Contains("\"pending-review\"") ? "staged" : "completed");
-            if (tool is "list" or "read" or "inspect") session?.RecordEditorPackRead(request.Id, subject, result, WorkspaceProject.HashText(result), result.Contains("\"Partial\": true"));
+            if (tool is "list" or "read" or "inspect" or "api") session?.RecordEditorPackRead(request.Id, subject, result, WorkspaceProject.HashText(result), result.Contains("\"Partial\": true"));
             AppendLog("editor." + tool + " · " + subject); }),
         AppDomain.CurrentDomain.BaseDirectory, PackDotnet, EditorPackHistory,
         (pack, path) => Dispatcher.Invoke(() => PackDocumentDirty(pack, path)), review,

@@ -132,12 +132,15 @@ public sealed class EditorPackCatalog : IEditorPackRegistry
         invocation.Arguments = definition.Fields.Where(p => p.Key.StartsWith("argument.", StringComparison.Ordinal)).ToDictionary(p => p.Key.Substring(9), p => p.Value, StringComparer.Ordinal);
         return definition;
     }
-    public EditorCommandResult Execute(EditorInvocation invocation) => ExecuteHandler(PrepareInvocation(invocation).Fields["handler"], invocation);
-    public EditorCommandResult ExecuteHandler(string key, EditorInvocation invocation)
+    public EditorCommandResult Execute(EditorInvocation invocation, IEditorProjectData? project = null) => ExecuteHandler(PrepareInvocation(invocation).Fields["handler"], invocation, project);
+    public EditorCommandResult ExecuteHandler(string key, EditorInvocation invocation, IEditorProjectData? project = null)
     {
         if (!handlers.TryGetValue(key, out var handler)) throw new InvalidDataException("Unknown editor handler.");
         UiValue.Parse(handler.Payload, invocation.Payload);
-        return handler.Execute(invocation) ?? throw new InvalidDataException("Editor handler returned no result.");
+        var result = handler is IEditorProjectCommand dataCommand
+            ? dataCommand.Execute(invocation, project ?? throw new InvalidOperationException("This command requires the editor host's project data service."))
+            : handler.Execute(invocation);
+        return result ?? throw new InvalidDataException("Editor handler returned no result.");
     }
     public void DescribeHandlers(Func<System.Reflection.Assembly, string> owner)
     {

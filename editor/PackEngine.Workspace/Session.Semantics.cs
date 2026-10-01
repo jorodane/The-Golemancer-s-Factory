@@ -66,11 +66,18 @@ public sealed partial class EditorSession
     }
     internal (string Path, string Text, string Hash, bool Draft, bool DiskChanged) Document(string path)
     {
+        var snapshot = ReadDocumentSnapshot(path);
+        return (snapshot.Path, snapshot.Text, snapshot.DocumentHash, snapshot.Draft, snapshot.DiskChanged);
+    }
+    // Shared host read path: no user-open or assistant-read record is fabricated.
+    public (string Path, string Text, string DocumentHash, string DiskHash, bool Draft, bool DiskChanged) ReadDocumentSnapshot(string path)
+    {
         path = Project.Relative(Project.Resolve(path));
         if (!Index.TextFiles.ContainsKey(path)) throw new InvalidDataException("Only declared project documents are accessible: " + path);
         var open = Documents.SingleOrDefault(d => d.Path == path); byte[] bytes = ReadBytes(path);
         string text = open?.Text ?? Decode(bytes);
-        return (path, text, WorkspaceProject.HashText(text), open?.Dirty ?? false, open is not null && WorkspaceProject.Hash(bytes) != open.Baseline);
+        string diskHash = WorkspaceProject.Hash(bytes);
+        return (path, text, WorkspaceProject.HashText(text), diskHash, open?.Dirty ?? false, open is not null && diskHash != open.Baseline);
     }
     internal static string[] Lines(string text) => text.Replace("\r\n", "\n").Split('\n');
     internal ContextItem Definition(string key, int maximumCharacters = 6000)

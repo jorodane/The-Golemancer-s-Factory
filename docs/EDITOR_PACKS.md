@@ -79,11 +79,48 @@ Window는 `title`, `view`, `autoOpen`을 부분 상속할 수 있다. `Panel`의
 
 임시 창은 이미 등록된 UI 뷰를 재사용하며 DLL 로드/컴파일 없이 등록·열기·닫기·해제한다. 팩 명령은 `EditorCommandResult.Windows`에 `EditorWindowAction`을 반환할 수 있다. Operation은 `register/open/close/unregister`, Id는 창 ID, 등록할 때 View와 Title을 지정한다. register는 임시 정의만 추가하고 open이 실제 화면을 만든다. 기존에 선언한 일반 창은 close 후 다시 열 수 있으며 임시 해제로 삭제할 수 없다.
 
+## 프로젝트 데이터 접근
+
+프로젝트 문서를 다루는 DLL 명령은 `EditorProjectCommand`를 상속하고 `Execute(EditorInvocation, IEditorProjectData)`를 구현한다. 기존 `IEditorPackCommand`는 그대로 작동한다. 공개 타입은 `PackEngine.Editor.Contracts.dll`에 있으며 엔진 코어와 게임 SDK는 변경하지 않는다.
+
+| API | 반환 내용 |
+|---|---|
+| `ListDocuments(pack = "")` | 선언된 문서의 프로젝트 상대 경로, 소유 팩, 종류, 수정 가능 여부. 내용은 읽지 않는다. |
+| `ReadDocument(path, maximumCharacters = 200000)` | 요청한 문서의 분리된 텍스트 스냅샷, 전체 텍스트 해시 `DocumentHash`, 실제 디스크 바이트 해시 `DiskHash`, `Draft`, `DiskChanged`, `Partial`. |
+| `EditorCommandResult.DocumentChanges` | `Path`, `ExpectedHash`, 완전한 교체 `Text`, `Intent`로 구성된 변경안 목록. 호스트가 검토하고 선택된 파일만 저장한다. |
+
+```csharp
+public sealed class ChangeDocument : EditorProjectCommand
+{
+    public override UiValueKind Payload => UiValueKind.Text;
+    public override EditorCommandResult Execute(EditorInvocation invocation, IEditorProjectData project)
+    {
+        var document = project.ReadDocument(invocation.Arguments["path"]);
+        if (!document.Editable || document.Partial || document.Draft || document.DiskChanged)
+            return new() { Message = "문서 전체를 읽고 미저장·외부 변경을 먼저 정리해줘." };
+        return new() { DocumentChanges = [new() {
+            Path = document.Path, ExpectedHash = document.DocumentHash,
+            Text = invocation.Payload, Intent = "사용자가 편집한 문서 반영"
+        }] };
+    }
+}
+```
+
+등록은 기존 `registry.Command(key, command)`를 사용한다. XML의 Command에 맞는 payload와 `path` Argument를 선언한다. 명령을 실행할 때마다 호스트가 현재 프로젝트에 묶인 서비스를 제공하며, worker가 필요한 목록·문서를 역방향 파이프로 요청한다. 프로젝트 전체 내용이나 로컬 절대 경로를 미리 DLL에 전달하지 않는다. 읽기는 문서를 열거나 사용자 초안을 변경하지 않으며, 실제 모듈의 작업 기록을 남긴다. AI가 읽었다는 기록이나 대화 요청을 만들지 않는다.
+
+경로와 문서는 기존 프로젝트 인덱스·상대 경로·심볼릭 링크 검사를 따른다. 계약·프로젝트 설정과 수정 불가능한 팩은 읽기 전용이다. 한 명령에서 조회는 최대 64회, 반환 텍스트는 총 200만 자, 한 문서의 `maximumCharacters`는 1~200만 자이며 기존 파일 크기 제한은 2 MB다. 목록은 최대 5000개다. 더 큰 전체 읽기가 필요하면 상한 안에서 요청 크기를 지정하며, `Partial`인 읽기로 전체 파일 교체를 제안할 수 없다.
+
+변경안은 **같은 명령 호출에서 실제로 읽은 완전하고 깨끗한 문서**의 `DocumentHash`를 요구한다. 파일당 하나, 최대 100개를 반환한다. 호스트는 XML·수정 권한·관찰한 버전을 검사한 뒤 한 검토 창을 연다. 검토 중에 사용자 초안이나 디스크가 바뀌면 다시 검사해서 덮어쓰기를 거부한다. 선택한 파일은 기존 원자적 저장·UTF-8 BOM 보존·되돌리기 경로를 사용하며, 취소하거나 제외한 파일은 쓰지 않는다. 저장 뒤 빌드·게임 실행·DLL 재로딩을 자동으로 수행하지 않는다.
+
+서비스는 명령 호출에만 유효하며 다음 호출에서 재사용할 수 없다. DTO를 보관할 수는 있지만 살아 있는 문서나 세션에 연결된 객체가 아니며, 다음 저장 명령에서는 다시 읽고 원래 편집 기준과 비교해야 한다. 창 닫기·임시 등록 해제는 계속 모듈 로딩과 독립적이다.
+
+AI는 `packengine_editor(operation="api")`로 이 실제 계약과 컴파일 가능한 예제를 조회할 수 있다. 호스트 소스가 게임 프로젝트의 읽기 범위 밖에 있어도 별도 소스 공유가 필요 없다. 이 API는 공통 문서 접근 기반이며 특정 게임의 편집창이나 레시피 해석기를 제공하지 않는다.
+
 ## 현재 UI 제공 범위
 
 첫 어댑터는 WPF 흐름 배치의 `editor.stack`, `editor.text`, `editor.button`, `editor.input`을 제공한다. 명시된 활성·표시·툴팁·글자 크기·여백, 크기 제한, 텍스트, 방향, `activate`/`changed`와 자식 슬롯을 지원한다. 부모 위젯에 없는 속성을 추가하더라도 해당 어댑터가 처리하지 못하면 로딩을 거부한다. anchor/offset/safeArea, 사용자 정의 네이티브 컨트롤·렌더러는 아직 제공하지 않는다.
 
-현재 값 바인딩은 `editor.project`, `editor.selection`이며 장착 시점의 스냅샷이다. 명령의 Context는 호출 시점의 프로젝트 이름·선택 ID다. 호스트 효과는 프로젝트 새로고침, 기존 탭 선택, 집중/기본 배치 전환이다. 임의 WPF 객체 접근이나 임의 파일 실행 효과는 없다. 그 외 독자적인 계산은 팩 DLL에서 수행하고 결과 메시지를 반환할 수 있다.
+현재 값 바인딩은 `editor.project`, `editor.selection`이며 장착 시점의 스냅샷이다. 명령의 Context는 호출 시점의 프로젝트 이름·선택 ID다. 프로젝트 데이터는 위의 호출 단위 API로 요청한다. 호스트 효과는 프로젝트 새로고침, 기존 탭 선택, 집중/기본 배치 전환이다. 임의 WPF 객체 접근이나 임의 파일 실행 효과는 없다. 그 외 독자적인 계산은 팩 DLL에서 수행하고 결과 메시지를 반환할 수 있다.
 
 기존 탐색기·채팅·문서 편집기 전체를 객체팩으로 이관한 버전은 아니다. 새 패널과 기본 작업 도구를 팩으로 구성하고 일부 기존 셸 동작을 공개 계약으로 연결한 첫 호스트다.
 
@@ -93,8 +130,8 @@ Window는 `title`, `view`, `autoOpen`을 부분 상속할 수 있다. `Panel`의
 
 ‘이거’ 모드로 팩 패널의 요소를 클릭하면 명령을 실행하는 대신 객체 ID와 XML 출처를 선택한다. 범위 모드에서는 여러 요소를 클릭해 추가한다. 일반 대화는 화면·hover·최근 선택을 자동 첨부하지 않는다. 전송/MCP 문맥 요청 시 `EditorInput`과 해당 XML의 해시·제한된 내용을 동결한다. `inspect`는 실행 중인 세대의 상속 출처, `read`는 현재 디스크 소스라는 차이를 유지한다.
 
-도구는 `list/inspect/read/patch/apply/undo/build/reload/windows/window`를 제공한다. list는 로드된 모듈 버전도 보고하고, windows는 등록/열림 상태를 조회한다. window는 `action`, `windowId`, `pack`과 등록 시 `view`, `title`을 받는다. AI의 창 동작도 검토 전에는 실행하지 않으며 선택된 빌드→재로드→창 동작 순서로 처리한다. 여러 창 동작은 각각 보관하여 등록과 열기가 덮어써지지 않는다. 수정은 현재 파일을 읽어 얻은 해시와 정확히 한 번 일치하는 문구를 요구하며, 미리보기·저장·빌드·실행 반영을 구분한다. 열린 사용자 초안이나 오래된 해시는 거부한다. 재로딩은 바뀐 모든 팩이 요청의 허용 범위에 있는지 DLL 실행 전에 검사한다. 변경 원본과 결과는 PC의 `PackEngine/EditorPackChanges`에 보존하고, 에디터의 읽기/작업 기록에도 실제 도구 호출을 남긴다. AI가 새 파일을 임의 생성하는 도구는 없으며, 새 팩과 DLL 뼈대는 관리 화면에서 생성한 뒤 AI가 수정한다.
+도구는 `list/api/inspect/read/patch/apply/undo/build/reload/windows/window`를 제공한다. list는 로드된 모듈 버전도 보고하고, windows는 등록/열림 상태를 조회한다. window는 `action`, `windowId`, `pack`과 등록 시 `view`, `title`을 받는다. AI의 창 동작도 검토 전에는 실행하지 않으며 선택된 빌드→재로드→창 동작 순서로 처리한다. 여러 창 동작은 각각 보관하여 등록과 열기가 덮어써지지 않는다. 수정은 현재 파일을 읽어 얻은 해시와 정확히 한 번 일치하는 문구를 요구하며, 미리보기·저장·빌드·실행 반영을 구분한다. 열린 사용자 초안이나 오래된 해시는 거부한다. 재로딩은 바뀐 모든 팩이 요청의 허용 범위에 있는지 DLL 실행 전에 검사한다. 변경 원본과 결과는 PC의 `PackEngine/EditorPackChanges`에 보존하고, 에디터의 읽기/작업 기록에도 실제 도구 호출을 남긴다. AI가 새 파일을 임의 생성하는 도구는 없으며, 새 팩과 DLL 뼈대는 관리 화면에서 생성한 뒤 AI가 수정한다.
 
 ## 검증
 
-`python tools/verify-editor-packs.py --dotnet <SDK의 dotnet>`은 실제 독립 DLL 컴파일/실행, 모듈별 버전 교체·worker 재사용·메모리 상태 유지, XML만 수정한 갱신, 창 등록·열기·닫기·임시 해제, 입력 상태 복원, 선택한 창 동작의 검토, 실패한 컴파일·창 생성 뒤 기존 상태 보존, 부분 상속·추가·출처, 네이티브 계약 사전 검사, 구독 해제, 권한·해시·초안·되돌리기, 프로젝트 팩 해제를 검사한다. 이 검증은 실제 모델 응답이나 Windows 화면 조작을 대신하지 않는다. Windows net48 빌드도 별도로 수행한다.
+`python tools/verify-editor-packs.py --dotnet <SDK의 dotnet>`은 실제 독립 DLL 컴파일/실행, 모듈별 버전 교체·worker 재사용·메모리 상태 유지, XML만 수정한 갱신, 창 등록·열기·닫기·임시 해제, 입력 상태 복원, 선택한 창 동작의 검토, 실패한 컴파일·창 생성 뒤 기존 상태 보존, 부분 상속·추가·출처, 네이티브 계약 사전 검사, 구독 해제, 권한·해시·초안·되돌리기, 프로젝트 팩 해제를 검사한다. 공통 데이터 API의 실제 worker 조회, 변경안 검토·선택·취소, UTF-8 보존·되돌리기, 부분 읽기·읽기 전용·미저장 초안·외부 변경 거부와 계약 예제 컴파일도 검사한다. 이 검증은 실제 모델 응답이나 Windows 화면 조작을 대신하지 않는다. Windows net48 빌드도 별도로 수행한다.
