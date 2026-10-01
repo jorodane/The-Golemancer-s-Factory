@@ -1,6 +1,6 @@
 {
-  "sourceCommit": "a795055ad0891d56af4e877e6e762471c8761f01",
-  "sourceTree": "8b42234510f4fb86461dea109ad3d5dd254ab32e",
+  "sourceCommit": "ff8eaf64a0837618ef239f1e7ba6964623e99b74",
+  "sourceTree": "1e03e2aa109599b91a24ec937f24f8b29cd8f303",
   "target": "net48",
   "ui": "WPF editor with WebView2 and Yogi composer attachments",
   "launcher": "StartEditor.exe",
@@ -17,7 +17,7 @@
   "webApiTests": 19,
   "dotNetWebContractTested": true,
   "residentProtocolChecks": 55,
-  "residentWorkspaceChecks": 62,
+  "residentWorkspaceChecks": 63,
   "officialCliVersion": "codex-cli 0.159.2",
   "officialThreadStartAccepted": true,
   "officialHistoryMethodsAccepted": true,
@@ -29,5 +29,9 @@
   "liveLocalModelTurnsTested": 2,
   "liveSharedHostModelTurnsTested": 1,
   "liveSharedHostTransport": "explicit verification fixture",
-  "authenticatedWindowsWebTaskTested": false
+  "authenticatedWindowsWebTaskTested": false,
+  "launcherChecks": 24,
+  "codexSetupFailureDiagnosticsTested": true,
+  "windowsWebConnectionFailureReturned": true,
+  "windowsWebCodexLoginRequiredObserved": true
 }
