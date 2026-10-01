@@ -59,7 +59,9 @@ var tools = (await peer.Request("tools/list", new { })).GetProperty("result").Ge
 Check(tools.Length == 11 && tools.Where(t => t.GetProperty("name").GetString() is not ("packengine_context" or "packengine_status")).All(t => t.GetProperty("inputSchema").GetProperty("required").EnumerateArray().Any(r => r.GetString() == "requestId")), "MCP exposes bounded semantic tools with explicit request identities");
 Check(tools.Single(t => t.GetProperty("name").GetString() == "packengine_patch").GetProperty("annotations").GetProperty("readOnlyHint").GetBoolean() == false, "write tools are annotated as writes");
 Check((await peer.Tool("packengine_status", new { })).Error, "live editor denial is enforced even when tool discovery succeeds");
-access.Enabled = true; access.TunnelId = "tunnel_PRIVATE_SETTINGS_SENTINEL"; access.ProtectedTunnelKey = "ENCRYPTED_PRIVATE_KEY_SENTINEL";
+access.Enabled = true;
+Check((await peer.Tool("packengine_status", new { })).Error, "metadata-only linking never inherits an old live-editor access grant");
+access.MetadataOnly = false; access.TunnelId = "tunnel_PRIVATE_SETTINGS_SENTINEL"; access.ProtectedTunnelKey = "ENCRYPTED_PRIVATE_KEY_SENTINEL";
 var status = await peer.Tool("packengine_status", new { });
 Check(!status.Error && status.Json.GetProperty("Identity").GetString() == session.Project.Identity && !status.Json.GetProperty("ChatHistoryAccess").GetBoolean(), "status reaches the live project without claiming web history access");
 session.Select(key);

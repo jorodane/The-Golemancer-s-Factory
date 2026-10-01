@@ -31,13 +31,13 @@ public sealed partial class EditorWindow
         Dispatcher.BeginInvoke(new System.Action(() =>
         {
             if (ReferenceEquals(session, opened) && !busy && !chatGptSetupPending && chatGptTunnel is null && CurrentAccess?.ChatGpt is
-                { Enabled: true, ConnectionKind: "web", AutoStartTunnel: true, ProtectedTunnelKey.Length: > 0 }) StartSavedChatGptWeb();
+                { Enabled: true, MetadataOnly: false, ConnectionKind: "web", AutoStartTunnel: true, ProtectedTunnelKey.Length: > 0 }) StartSavedChatGptWeb();
         }));
     }
     private async void StartSavedChatGptWeb()
     {
         if (busy || chatGptSetupPending || session is null || CurrentAccess is not { } access) return;
-        if (conversation?.Mode != "chatgpt" || !access.ChatGpt.Enabled) { SetStatus("먼저 ChatGPT 방식과 이 프로젝트 접근을 허용해줘."); return; }
+        if (conversation?.Mode != "chatgpt" || !access.ChatGpt.Enabled || access.ChatGpt.MetadataOnly) { SetStatus("먼저 ChatGPT 방식과 이 프로젝트 접근을 허용해줘."); return; }
         if (access.ChatGpt.ConnectionKind != "web" || access.ChatGpt.ProtectedTunnelKey.Length == 0) { ShowChatGptSetup(); return; }
         StopChatGptWeb(); chatGptWorkspace?.Revoke();
         var cancel = chatGptWebStart = new CancellationTokenSource(); operation = cancel; SetBusy(true);

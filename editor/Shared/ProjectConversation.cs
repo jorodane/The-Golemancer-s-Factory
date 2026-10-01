@@ -10,6 +10,7 @@ public sealed class ProjectConversation
     public string Id { get; private set; } = Guid.NewGuid().ToString("N");
     public string Mode { get; set; } = "";
     public string Url { get; set; } = "";
+    public string ProjectUrl { get; set; } = "";
     public string Title { get; set; } = "";
     public string Manifest { get; private set; } = "";
     public string DirectoryPath => SafePath(Path.Combine(Path.GetDirectoryName(Manifest)!, ".packengine", Path.GetFileName(Manifest)));
@@ -43,18 +44,20 @@ public sealed class ProjectConversation
             throw new InvalidDataException("지원하지 않는 게임팩 대화 설정이야.");
         result.Id = id; result.Mode = (string?)xml.Attribute("mode") ?? "";
         result.Url = (string?)xml.Element("Url") ?? ""; result.Title = (string?)xml.Element("Title") ?? "";
+        result.ProjectUrl = (string?)xml.Element("ProjectUrl") ?? "";
         result.Validate(); return result;
     }
     private void Validate()
     {
         if (!Configured || Title.Length > 160) throw new InvalidDataException("대화 방식과 160자 이내의 이름을 선택해줘.");
         if (Mode == "chatgpt" || Url.Length > 0) Url = ValidateLink(Url);
+        if (ProjectUrl.Length > 0) ProjectUrl = ValidateLink(ProjectUrl);
     }
     public void Save()
     {
         Validate(); Directory.CreateDirectory(DirectoryPath);
         var xml = new XDocument(new XElement("ProjectConversation", new XAttribute("version", "1"), new XAttribute("id", Id),
-            new XAttribute("mode", Mode), new XElement("Title", Title.Trim()), new XElement("Url", Url)));
+            new XAttribute("mode", Mode), new XElement("Title", Title.Trim()), new XElement("Url", Url), new XElement("ProjectUrl", ProjectUrl)));
         string target = FilePath, temporary = target + "." + Guid.NewGuid().ToString("N") + ".tmp";
         try
         {

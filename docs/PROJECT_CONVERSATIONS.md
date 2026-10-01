@@ -46,3 +46,8 @@ python tools/verify-conversations.py --dotnet /path/to/dotnet --codex /path/to/n
 ```
 
 새 게임팩, 선택 유지, 폴더 이동, 접근 권한 분리, 기록 충돌, 손상 파일, 취소·연결 끊김을 검사한다. 통신 fixture는 테스트 전용이며 제품에 포함하지 않는다. 별도로 공식 Codex에서 생성한 기록을 옮기고 기존 PC 저장소를 삭제한 뒤 실제 제공자에서 복원·조회하고 공식 재개까지 확인한다. 이 검사는 로그인이나 모델 추론을 하지 않는다. Windows UI 조작, 서로 다른 물리적 Windows PC, 클라우드 동기화 서비스, 로그인 후 실제 모델의 이어지는 응답은 이 환경에서 시험하지 않았다.
+
+
+## 게임팩과 ChatGPT 주소 연결
+
+기본 ChatGPT 선택은 프로젝트 주소와 대표 대화 주소를 저장한다. 둘 중 하나만 있어도 된다. `conversation.xml`의 `id`가 플러그인 등록의 이동 가능한 게임팩 식별자이며, `ProjectUrl`에 프로젝트 주소를, `Url`에 대표 대화 또는 프로젝트 바로가기를 저장한다. `Title`은 기존 설정 호환성을 위해 보존한다. 주소 설정은 파일 접근·모델 실행 권한을 부여하지 않는다. 웹 연결 목록은 [CHATGPT_BRIDGE.md](CHATGPT_BRIDGE.md)의 PackEngine Links에서 별도로 관리한다.

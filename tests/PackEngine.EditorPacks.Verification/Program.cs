@@ -122,7 +122,7 @@ try
     await Reject(() => { EditorPackChange.Validate("pack.xml", pluginManifest.Replace("ui.xml", "../secret.xml"), plugin.Id); return Task.CompletedTask; }, "manifest edits cannot introduce escaping paths");
     var editorSession = new EditorSession(Path.Combine(repository, "Golemancer/Golemancer.packproject"), Path.Combine(temporary, "McpState"));
     using var projectRunner = new ProjectRunner(editorSession, dotnet);
-    using var mcp = new EditorMcpWorkspace(editorSession, projectRunner, action => action(), () => new() { Enabled = true }, () => projectRunner.PreferredTarget, _ => { }, _ => { },
+    using var mcp = new EditorMcpWorkspace(editorSession, projectRunner, action => action(), () => new() { Enabled = true, MetadataOnly = false }, () => projectRunner.PreferredTarget, _ => { }, _ => { },
         prepared => { prepared.WritableEditorPacks = [child.Id]; prepared.EditorInput = new() { Mode = "single", Targets = [new() { Key = "view:test.project.view/refresh", Pack = child.Id, File = "ui.xml" }] }; },
         prepared => new EditorPackAgent(new[] { core, child }, prepared, () => together, (_, _) => Task.CompletedTask, _ => { }, (_, _, _) => { }, "", dotnet, Path.Combine(temporary, "McpChanges")));
     string client = Guid.NewGuid().ToString("N");

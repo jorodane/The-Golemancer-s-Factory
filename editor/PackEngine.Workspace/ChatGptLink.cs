@@ -6,6 +6,7 @@ namespace PackEngine.Workspace;
 /// <summary>Local, user-owned access configuration. A URL is a bookmark, never authentication.</summary>
 public sealed class ChatGptProjectLink
 {
+    public bool MetadataOnly { get; set; } = true;
     public bool Enabled { get; set; }
     public string Url { get; set; } = "";
     public List<string> WritablePacks { get; set; } = [];
@@ -98,7 +99,7 @@ public sealed class EditorMcpWorkspace : IDisposable
         try
         {
             cancellation.ThrowIfCancellationRequested();
-            OnUi(() => { if (!access().Enabled) throw new InvalidOperationException("ChatGPT access is disabled in the editor."); return true; });
+            OnUi(() => { if (!access().Enabled || access().MetadataOnly) throw new InvalidOperationException("Live editor access is disabled. Reference-only linking does not grant file or tool access."); return true; });
             foreach (string id in requests.Where(p => p.Value.Expires <= DateTime.UtcNow).Select(p => p.Key).ToArray()) End(id, "expired");
             if (name == "packengine_status") return OnUi(() => EditorSession.Serialize(new { session.Project.Id, session.Project.Name, session.Project.Identity,
                 PackCount = session.Index.Packs.Count, WritablePacks = access().WritablePacks.ToArray(), access().AllowProjectCommands, Target = target(), ReachableUtc = DateTime.UtcNow.ToString("O"), ChatHistoryAccess = false }));

@@ -20,6 +20,17 @@ Check(ProjectConversation.Load(project.Manifest).Url == profile.Url, "an existin
 foreach (string url in new[] { "https://chatgpt.com/", "file:///tmp/x", "https://chatgpt.com.evil.test/c/x", "https://user@chatgpt.com/c/x", "https://chatgpt.com:8443/c/x" })
     Reject(() => ProjectConversation.ValidateLink(url), "connection choice rejects unrelated or unsafe URL: " + url);
 Check(ProjectConversation.ValidateLink("https://chatgpt.com/c/example") == "https://chatgpt.com/c/example", "existing chats are accepted");
+Check(ConversationLinkMetadata.Read(profile).ProjectUrl == profile.Url, "legacy project bookmark is recovered without requiring a chat URL");
+ConversationLinkMetadata.Set(profile, "https://chatgpt.com/g/g-p-example/project?tracking=1", "https://chatgpt.com/c/example-chat#section"); profile.Save();
+profile = ProjectConversation.Load(project.Manifest);
+Check(profile.ProjectUrl == "https://chatgpt.com/g/g-p-example/project" && profile.Url == "https://chatgpt.com/c/example-chat", "project and representative chat references survive reload and discard tracking fragments");
+var referenceJson = JsonDocument.Parse(ConversationLinkMetadata.Export(profile, project.Name)).RootElement;
+Check(referenceJson.EnumerateObject().Count() == 4 && referenceJson.GetProperty("packId").GetString() == profile.Id && !referenceJson.GetRawText().Contains(project.Root), "plugin export contains only name, portable ID and two URLs, with no local paths or content");
+Check(new Uri(ConversationLinkMetadata.RegistrationUrl(profile, project.Name)).Query.Length == 0, "registration passes reviewed references in a URL fragment rather than a server query");
+Reject(() => ConversationLinkMetadata.Set(profile, "https://chatgpt.com/c/wrong-kind", ""), "chat URLs cannot masquerade as project references");
+Reject(() => ConversationLinkMetadata.Set(profile, "", "https://chatgpt.com/g/g-an-assistant"), "custom GPT addresses are not silently accepted as conversations");
+Reject(() => ConversationLinkMetadata.Set(profile, "", ""), "reference-only linking still requires an actual user-provided URL");
+Check(new ChatGptProjectLink().MetadataOnly, "new and legacy device settings default to reference-only access");
 var settings = new AssistantSettings(); var access = settings.Register(project);
 access.ChatGpt.Enabled = true; access.ChatGpt.WritablePacks.Add("foundation");
 string id = Guid.NewGuid().ToString("D");
@@ -42,6 +53,7 @@ string moved = Path.Combine(root, "another-device", "RenamedFolder"); Directory.
 foreach (string file in Directory.GetFiles(project.Root, "*", SearchOption.AllDirectories))
 { string path = Path.Combine(moved, file.Substring(project.Root.Length + 1)); Directory.CreateDirectory(Path.GetDirectoryName(path)!); File.Copy(file, path); }
 var movedProject = WorkspaceProject.Open(Path.Combine(moved, "Game.packproject")); var movedProfile = ProjectConversation.Load(movedProject.Manifest);
+Check(ConversationLinkMetadata.Export(movedProfile, project.Name) == ConversationLinkMetadata.Export(profile, project.Name), "moving a game preserves the exact registry identity and URLs");
 Check(movedProfile.Id == profile.Id && movedProject.Identity != project.Identity, "portable identity survives a different absolute project directory");
 var newAccess = settings.Register(movedProject);
 Check(!newAccess.ChatGpt.Enabled && newAccess.ChatGpt.WritablePacks.Count == 0, "project copying does not import device access grants");

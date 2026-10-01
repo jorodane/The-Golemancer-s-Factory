@@ -115,7 +115,7 @@ public sealed partial class EditorWindow
                 string exe = await setup.Prepare(install, stop.Token); stop.Token.ThrowIfCancellationRequested();
                 var updated = ProjectConversation.Load(project.Manifest); updated.Mode = "chatgpt"; updated.Url = link; updated.Save(); conversation = updated;
                 StopChatGptBridge(); ResetResidentConnection();
-                access.ChatGpt.Url = link; access.ChatGpt.Enabled = true; access.ChatGpt.WritablePacks = writable; access.ChatGpt.AllowProjectCommands = commands;
+                access.ChatGpt.Url = link; access.ChatGpt.MetadataOnly = false; access.ChatGpt.Enabled = true; access.ChatGpt.WritablePacks = writable; access.ChatGpt.AllowProjectCommands = commands;
                 access.ChatGpt.ConnectionKind = "web"; access.ChatGpt.TunnelId = id;
                 access.ChatGpt.ProtectedTunnelKey = storeKey ? ProtectTunnelKey(secret, project.Identity) : ""; access.ChatGpt.AutoStartTunnel = false;
                 SaveSettings(); ApplyConversationMode(); Report("PC 내부 연결 검사 중");
