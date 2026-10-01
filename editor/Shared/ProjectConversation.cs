@@ -8,7 +8,7 @@ namespace PackEngine.Installation;
 public sealed class ProjectConversation
 {
     public string Id { get; private set; } = Guid.NewGuid().ToString("N");
-    public string Mode { get; set; } = "";
+    public string Mode { get; set; } = "chatgpt";
     public string Url { get; set; } = "";
     public string ProjectUrl { get; set; } = "";
     public string Title { get; set; } = "";
@@ -50,7 +50,7 @@ public sealed class ProjectConversation
     private void Validate()
     {
         if (!Configured || Title.Length > 160) throw new InvalidDataException("대화 방식과 160자 이내의 이름을 선택해줘.");
-        if (Mode == "chatgpt" || Url.Length > 0) Url = ValidateLink(Url);
+        if (Url.Length > 0) Url = ValidateLink(Url);
         if (ProjectUrl.Length > 0) ProjectUrl = ValidateLink(ProjectUrl);
     }
     public void Save()

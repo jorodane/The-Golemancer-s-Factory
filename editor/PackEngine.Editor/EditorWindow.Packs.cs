@@ -18,9 +18,8 @@ public sealed partial class EditorWindow
     private readonly ComboBox packChoice = new() { MinWidth = 240, Margin = new Thickness(4) }, packScope = new() { MinWidth = 160, Margin = new Thickness(4) }, packFiles = new() { MinWidth = 180, Margin = new Thickness(4) };
     private readonly TextBox packId = Input(), packDocument = Input(true), packDiff = ReadBox();
     private readonly TextBlock packStatus = Label("에디터팩 준비 중"), packPointLabel = Label("에디터 요소 포인팅 없음", 11);
-    private readonly CheckBox packReloadPermission = new() { Content = "AI가 수정한 에디터팩 적용 허용", Foreground = TextInk, Margin = new Thickness(4) };
     private readonly List<EditorPackSource> packSources = [];
-    private readonly HashSet<string> enabledPackFolders = new(StringComparer.OrdinalIgnoreCase), writableEditorPacks = new(StringComparer.Ordinal);
+    private readonly HashSet<string> enabledPackFolders = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<SemanticTarget> editorPoints = [];
     private readonly List<(TabItem Tab, UiMountedView View)> packViews = [];
     private EditorPackGeneration? packGeneration;
@@ -45,7 +44,7 @@ public sealed partial class EditorWindow
         page.Children.Add(Label("에디터 객체팩", 20));
         page.Children.Add(Label("체크한 팩을 ‘선택한 팩 적용’으로 로드해. 프로젝트 전용 팩은 프로젝트를 닫을 때 해제돼. DLL 팩은 로컬 프로그램 권한으로 실행돼.", 12, MutedInk));
         var toolbar = new WrapPanel(); toolbar.Children.Add(Action("팩 목록 새로고침", () => Guard(() => { if (!busy) DiscoverEditorPacks(); })));
-        toolbar.Children.Add(Action("선택한 팩 적용", () => PackWork(() => ReloadEditorPacks(null, operation!.Token)))); page.Children.Add(toolbar); page.Children.Add(packStatus); page.Children.Add(packRows); page.Children.Add(packReloadPermission); page.Children.Add(packPointLabel);
+        toolbar.Children.Add(Action("선택한 팩 적용", () => PackWork(() => ReloadEditorPacks(null, operation!.Token)))); page.Children.Add(toolbar); page.Children.Add(packStatus); page.Children.Add(packRows); page.Children.Add(packPointLabel);
         packScope.ItemsSource = new[] { "프로젝트 전용", "공용 플러그인", "기본 제공 / 코어" }; packScope.SelectedIndex = 0; packId.ToolTip = "예: my.editor.tools";
         page.Children.Add(Label("새 팩 ID", 12)); page.Children.Add(packId); page.Children.Add(packScope);
         var create = new WrapPanel(); create.Children.Add(Action("새 독립 패널 팩", () => CreateEditorPack(false))); create.Children.Add(Action("선택한 팩의 패널 상속", () => CreateEditorPack(true))); page.Children.Add(create);
@@ -60,7 +59,6 @@ public sealed partial class EditorWindow
         changes.Children.Add(Action("저장본 다시 읽기", () => Guard(() => { if (busy || packOpenId.Length == 0) return; packOriginal = packSources.Single(p => p.Id == packOpenId).Read(packOpenPath); packDocument.Text = packOriginal; })));
         packDiff.Height = 150; page.Children.Add(packDiff); AddTab("에디터팩", new ScrollViewer { Content = page, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
         packChoice.SelectionChanged += (_, _) => Guard(SelectEditorPack); packFiles.SelectionChanged += (_, _) => Guard(OpenEditorPackDocument);
-        packReloadPermission.Click += (_, _) => { if (!busy) chatGptWorkspace?.Revoke(); };
         pointingMode.SelectionChanged += (_, _) => { editorPoints.Clear(); packPointLabel.Text = "에디터 요소 포인팅 없음"; };
         Loaded += (_, _) => { pendingEditorPackReload = true; QueueEditorPackReload(); };
         Closed += (_, _) => StopEditorPacks();
@@ -71,15 +69,13 @@ public sealed partial class EditorWindow
         var found = EditorPackSource.Discover(corePackRoot, "core").Concat(EditorPackSource.Discover(SharedPackRoot, "plugin"))
             .Concat(ProjectPackRoot.Length == 0 ? [] : EditorPackSource.Discover(ProjectPackRoot, "project")).ToArray();
         if (found.Select(p => p.Id).Distinct(StringComparer.Ordinal).Count() != found.Length) throw new InvalidDataException("범위 간에 중복된 에디터팩 ID가 있어.");
-        packSources.Clear(); packSources.AddRange(found); packRows.Children.Clear(); writableEditorPacks.IntersectWith(found.Select(s => s.Id));
+        packSources.Clear(); packSources.AddRange(found); packRows.Children.Clear();
         foreach (var source in packSources)
         {
             if (!packDefaultsLoaded && source.Scope == "core" && source.Id == "editor.core.tools") enabledPackFolders.Add(source.Folder);
             var row = new WrapPanel(); var enabled = new CheckBox { Content = source.ToString(), IsChecked = enabledPackFolders.Contains(source.Folder), Foreground = TextInk, Margin = new Thickness(4) };
             enabled.Click += (_, _) => { if (busy) { enabled.IsChecked = enabledPackFolders.Contains(source.Folder); return; } if (enabled.IsChecked == true) enabledPackFolders.Add(source.Folder); else enabledPackFolders.Remove(source.Folder); chatGptWorkspace?.Revoke(); };
-            var write = new CheckBox { Content = "AI 수정 허용", IsChecked = writableEditorPacks.Contains(source.Id), Foreground = MutedInk, Margin = new Thickness(12, 4, 4, 4) };
-            write.Click += (_, _) => { if (busy) { write.IsChecked = writableEditorPacks.Contains(source.Id); return; } if (write.IsChecked == true) writableEditorPacks.Add(source.Id); else writableEditorPacks.Remove(source.Id); chatGptWorkspace?.Revoke(); };
-            row.Children.Add(enabled); row.Children.Add(write); packRows.Children.Add(row);
+            row.Children.Add(enabled); packRows.Children.Add(row);
         }
         packDefaultsLoaded = true;
         packLoading = true; try { packChoice.ItemsSource = null; packChoice.ItemsSource = packSources.ToArray(); if (packSources.Count > 0) packChoice.SelectedIndex = 0; } finally { packLoading = false; }
@@ -138,7 +134,7 @@ public sealed partial class EditorWindow
     {
         if (busy) return; SetBusy(true); operation = new();
         try { await action(); } catch (Exception e) { packStatus.Text = "적용 실패 · " + e.Message; AppendLog(packStatus.Text); }
-        finally { operation.Dispose(); operation = null; SetBusy(false); if (connectAfter && session is not null) { ScheduleAutoConnect(); ScheduleChatGptWeb(); } }
+        finally { operation.Dispose(); operation = null; SetBusy(false); if (connectAfter && session is not null) ScheduleAutoConnect(); }
     }
     private async Task ReloadEditorPacks(IReadOnlyCollection<string>? authorized, CancellationToken cancellation)
     {
@@ -217,7 +213,7 @@ public sealed partial class EditorWindow
     }
     private void EditorPackProjectChanged()
     {
-        StopEditorPacks(); writableEditorPacks.Clear(); packReloadPermission.IsChecked = false;
+        StopEditorPacks();
         packOpenId = ""; packOriginal = ""; packDocument.Text = "";
         pendingEditorPackReload = true; QueueEditorPackReload();
     }
@@ -243,7 +239,7 @@ public sealed partial class EditorWindow
     }
     private void CaptureEditorPacks(ContextRequest request)
     {
-        request.WritableEditorPacks = writableEditorPacks.ToList(); request.AllowEditorReload = packReloadPermission.IsChecked == true;
+        request.WritableEditorPacks = request.ReviewChanges ? packSources.Select(p => p.Id).ToList() : []; request.AllowEditorReload = false;
         request.EditorInput = new() { Mode = session?.Pointing.Mode ?? "none", CapturedUtc = DateTime.UtcNow.ToString("O") };
         if (request.EditorInput.Mode == "none") return;
         foreach (var point in editorPoints)
@@ -266,12 +262,13 @@ public sealed partial class EditorWindow
                 Partial = length < text.Length, Why = "에디터 요소: " + point.Key + " · packengine_editor inspect/read로 상속과 구현을 조회해." });
         }
     }
-    private IEditorPackAccess CreateEditorPackAgent(ContextRequest request) => new EditorPackAgent(packSources.ToArray(), request, () => packGeneration,
+    private IEditorPackAccess CreateEditorPackAgent(ContextRequest request) => CreateEditorPackAgent(request, null);
+    private IEditorPackAccess CreateEditorPackAgent(ContextRequest request, ChangeReviewBatch? review) => new EditorPackAgent(packSources.ToArray(), request, () => packGeneration,
         (authorized, token) => Dispatcher.InvokeAsync(() => ReloadEditorPacks(authorized, token)).Task.Unwrap(), ShowEditorPackChange,
         (tool, subject, result) => Dispatcher.Invoke(() => {
-            session?.RecordOperation(request.Id, "editor." + tool, subject, "completed");
+            session?.RecordOperation(request.Id, "editor." + tool, subject, result.Contains("\"pending-review\"") ? "staged" : "completed");
             if (tool is "list" or "read" or "inspect") session?.RecordEditorPackRead(request.Id, subject, result, WorkspaceProject.HashText(result), result.Contains("\"Partial\": true"));
             AppendLog("editor." + tool + " · " + subject); }),
         AppDomain.CurrentDomain.BaseDirectory, PackDotnet, EditorPackHistory,
-        (pack, path) => Dispatcher.Invoke(() => PackDocumentDirty(pack, path)));
+        (pack, path) => Dispatcher.Invoke(() => PackDocumentDirty(pack, path)), review);
 }

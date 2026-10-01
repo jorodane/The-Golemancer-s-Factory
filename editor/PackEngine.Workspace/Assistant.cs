@@ -23,12 +23,19 @@ public sealed class AssistantBridge(EditorSession session, Action<Action> dispat
         if (entries.Length != 1) throw new InvalidDataException("An assistant provider needs exactly one IEditorAssistant implementation.");
         return (IEditorAssistant)Activator.CreateInstance(entries[0])!;
     }
-    public async Task<string> Send(IEditorAssistant provider, ContextRequest request, CancellationToken cancellation, IAssistantWorkspace? workspace = null)
+    public async Task<string> Send(IEditorAssistant provider, ContextRequest request, CancellationToken cancellation, IAssistantWorkspace? workspace = null,
+        Func<string, CancellationToken, Task<string>>? finish = null)
     {
         request.Delivery = "sent:" + provider.Name; session.Persist();
         try
         {
             string reply = await provider.ReplyAsync(request, workspace ?? new Reader(session, request.Id, dispatch), cancellation).ConfigureAwait(false);
+            if (request.ReviewChanges && workspace is AgentWorkspace { Review: { } review } && review.Items.Count > 0)
+            {
+                dispatch(() => { request.Delivery = "awaiting-review:" + provider.Name; session.Persist(); });
+                if (finish is null) throw new InvalidOperationException("The host must review pending changes before completing this task.");
+                reply = await finish(reply, cancellation).ConfigureAwait(false);
+            }
             dispatch(() => { request.Reply = reply; request.Delivery = "completed:" + provider.Name; session.Persist(); }); return reply;
         }
         catch (OperationCanceledException) { dispatch(() => { request.Delivery = "cancelled:" + provider.Name; session.Persist(); }); throw; }

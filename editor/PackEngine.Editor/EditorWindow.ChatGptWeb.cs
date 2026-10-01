@@ -25,15 +25,6 @@ public sealed partial class EditorWindow
         chatGptWebStatus.Text = "웹 연결 중지됨 · 연결 설정 또는 ‘웹 연결 시작’에서 준비해줘.";
         chatGptExternalConfirmed = false; chatGptConnectionChanged?.Invoke();
     }
-    private void ScheduleChatGptWeb()
-    {
-        var opened = session;
-        Dispatcher.BeginInvoke(new System.Action(() =>
-        {
-            if (ReferenceEquals(session, opened) && !busy && !chatGptSetupPending && chatGptTunnel is null && CurrentAccess?.ChatGpt is
-                { Enabled: true, MetadataOnly: false, ConnectionKind: "web", AutoStartTunnel: true, ProtectedTunnelKey.Length: > 0 }) StartSavedChatGptWeb();
-        }));
-    }
     private async void StartSavedChatGptWeb()
     {
         if (busy || chatGptSetupPending || session is null || CurrentAccess is not { } access) return;

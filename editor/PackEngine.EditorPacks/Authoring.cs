@@ -69,14 +69,16 @@ public sealed class EditorPackAgent : IEditorPackAccess
     private readonly string sdk, dotnet, history;
     private readonly bool allowReload;
     private readonly Func<string, string, bool> dirty;
+    private readonly ChangeReviewBatch? review;
     public EditorPackAgent(IEnumerable<EditorPackSource> sources, ContextRequest request, Func<EditorPackGeneration?> active,
         Func<IReadOnlyCollection<string>, CancellationToken, Task> reload, Action<EditorPackChange> preview, Action<string, string, string> record,
-        string sdk, string dotnet, string history, Func<string, string, bool>? dirty = null)
+        string sdk, string dotnet, string history, Func<string, string, bool>? dirty = null, ChangeReviewBatch? review = null)
     {
         this.sources = sources.ToDictionary(s => s.Id, StringComparer.Ordinal); writable = new(request.WritableEditorPacks, StringComparer.Ordinal);
         allowReload = request.AllowEditorReload; this.active = active; this.reload = reload; this.preview = preview; this.record = record;
         this.sdk = sdk; this.dotnet = dotnet; this.history = history;
         this.dirty = dirty ?? ((_, _) => false);
+        this.review = review;
     }
     private static string S(JsonElement args, string key) => args.TryGetProperty(key, out var value) ? value.GetString() ?? "" : "";
     public async Task<string> Call(JsonElement args, CancellationToken cancellation)
@@ -84,8 +86,18 @@ public sealed class EditorPackAgent : IEditorPackAccess
         cancellation.ThrowIfCancellationRequested();
         string operation = S(args, "operation"), id = S(args, "pack"), path = S(args, "path");
         object result;
-        if (operation == "list") result = new { Packs = sources.Values.Select(s => new { s.Id, s.Scope, s.Parent, Files = s.Documents(), Active = active()?.Hashes.ContainsKey(s.Id) == true }), Writable = writable, AllowReload = allowReload,
+        if (operation == "list") result = new { Packs = sources.Values.Select(s => new { s.Id, s.Scope, s.Parent, Files = s.Documents(), Active = active()?.Hashes.ContainsKey(s.Id) == true }), Writable = writable, AllowReload = allowReload, ReviewChanges = review is not null, ProposalScope = review is null ? "Frozen writable packs" : "All registered editor packs; actual changes/actions require the host review",
             Shell = active()?.Snapshot.Shell, ShellHint = "EditorExtensions/Shell extends a layout ID; sidebarWidth 0..600, contextWidth 180..700, logHeight 0..600; sidebar+context <=1000. Omission inherits. XML-only changes apply on reload." };
+        else if (operation == "reload" && review is not null)
+        {
+            string queued = review.Queue("editor", "에디터 적용", "reload", "editor.reload", "reviewed-editor-packs", "선택한 에디터팩을 실행 중인 에디터에 적용", () => { }, async token =>
+            {
+                var selected = review.Items.Where(i => i.Kind == "editor" && i.IsFile && i.State == "applied").Select(i => i.Pack).Distinct(StringComparer.Ordinal).ToArray();
+                if (selected.Length == 0) return "선택한 에디터 파일 변경이 없어 재로딩을 생략했어.";
+                await reload(selected, token).ConfigureAwait(false); return "선택한 에디터팩 재로딩 완료";
+            });
+            result = new { ReviewId = queued, Reloaded = false, State = "pending-review" };
+        }
         else if (operation == "reload")
         {
             if (!allowReload) throw new InvalidOperationException("Enable editor pack reload for this request.");
@@ -95,7 +107,7 @@ public sealed class EditorPackAgent : IEditorPackAccess
         {
             if (!sources.TryGetValue(id, out var source)) throw new InvalidDataException("Unknown editor pack in this request.");
             if (operation is "patch" or "apply" or "undo" or "build")
-                if (!writable.Contains(id)) throw new InvalidOperationException("This request does not authorize changing editor pack " + id);
+                if (review is null && !writable.Contains(id)) throw new InvalidOperationException("This request does not authorize changing editor pack " + id);
             if (operation == "patch")
                 if (dirty(id, path)) throw new IOException("This editor pack has an unsaved user buffer. Reconcile it first.");
             switch (operation)
@@ -104,27 +116,43 @@ public sealed class EditorPackAgent : IEditorPackAccess
                     string view = S(args, "view"); var live = active() ?? throw new InvalidOperationException("No active editor packs.");
                     result = new { LiveSnapshot = live.Snapshot.Fingerprint, Definition = live.Catalog.InspectView(view), Hint = "Origins identify parent/child XML; use read for current source. Live snapshot can differ from edited files." }; break;
                 case "read":
-                    string text = source.Read(path), hash = WorkspaceProject.HashText(text); reads[id + "/" + path] = hash;
+                    var staged = review?.File("editor", id, path); string text = staged?.After ?? source.Read(path), hash = WorkspaceProject.HashText(text); reads[id + "/" + path] = hash;
                     int start = args.TryGetProperty("startLine", out var a) ? a.GetInt32() : 1, count = args.TryGetProperty("lineCount", out var b) ? b.GetInt32() : 80;
                     var lines = text.Replace("\r\n", "\n").Split('\n'); if (start < 1 || start > lines.Length || count < 1 || count > 160) throw new ArgumentException("Invalid source slice.");
                     string slice = string.Join("\n", lines.Skip(start - 1).Take(count));
-                    result = new { Pack = id, Path = path, Hash = hash, Content = slice.Substring(0, Math.Min(slice.Length, 12000)), TotalLines = lines.Length, Partial = start > 1 || start - 1 + count < lines.Length || slice.Length > 12000 }; break;
+                    result = new { Pack = id, Path = path, Hash = hash, Content = slice.Substring(0, Math.Min(slice.Length, 12000)), TotalLines = lines.Length, PendingReview = staged is not null, Partial = start > 1 || start - 1 + count < lines.Length || slice.Length > 12000 }; break;
                 case "patch":
-                    string before = source.Read(path), expected = S(args, "expectedHash"), oldText = S(args, "oldText"), newText = S(args, "newText");
+                    var previous = review?.File("editor", id, path); string baseline = source.Read(path), before = previous?.After ?? baseline, expected = S(args, "expectedHash"), oldText = S(args, "oldText"), newText = S(args, "newText");
+                    if (previous is not null && previous.Before != baseline) throw new IOException("The real editor file changed while proposals were being prepared.");
                     if (!reads.TryGetValue(id + "/" + path, out var read) || read != expected || WorkspaceProject.HashText(before) != expected) throw new IOException("Read the current editor pack document before patching.");
                     int offset = oldText.Length == 0 ? -1 : before.IndexOf(oldText, StringComparison.Ordinal);
                     if (offset < 0 || before.IndexOf(oldText, offset + oldText.Length, StringComparison.Ordinal) >= 0) throw new InvalidDataException("oldText must match exactly once.");
-                    var change = new EditorPackChange { Pack = id, Folder = source.Folder, Path = path, Intent = S(args, "intent"), Before = before, After = before.Substring(0, offset) + newText + before.Substring(offset + oldText.Length) };
+                    var change = new EditorPackChange { Pack = id, Folder = source.Folder, Path = path, Intent = S(args, "intent"), Before = baseline, After = before.Substring(0, offset) + newText + before.Substring(offset + oldText.Length) };
                     EditorPackChange.Validate(path, change.After, id); changes.Add(change.Id, change); preview(change);
+                    if (review is not null) review.Stage(new() { Id = change.Id, Kind = "editor", Pack = id, Path = path, Intent = change.Intent, Before = change.Before, After = change.After,
+                        BeforeHash = change.BeforeHash, AfterHash = change.AfterHash, Tool = "editor.apply", Subject = id + "/" + path },
+                        () => { if (dirty(id, change.Path) || source.Read(change.Path) != change.Before) throw new IOException("Review conflict in editor pack " + id + "/" + change.Path); EditorPackChange.Validate(change.Path, change.After, id); },
+                        () => { change.Apply(history); preview(change); }, () => { change.Apply(history, true); preview(change); }, () => WorkspaceProject.HashText(source.Read(change.Path)));
                     result = new { ChangeId = change.Id, change.Pack, change.Path, change.BeforeHash, change.AfterHash, Applied = false }; break;
                 case "apply": case "undo":
                     if (!changes.TryGetValue(S(args, "changeId"), out var selected) || selected.Pack != id) throw new InvalidOperationException("Only this request's editor pack previews can be applied.");
+                    if (review is not null)
+                    {
+                        if (operation == "undo") throw new InvalidOperationException("Pending proposals have not been applied. Exclude them in the review window.");
+                        review.Require(selected.Id); result = new { selected.Id, Applied = false, Reloaded = false, State = "pending-review" }; break;
+                    }
                     path = selected.Path;
                     if (dirty(id, path)) throw new IOException("This editor pack has an unsaved user buffer. Reconcile it first.");
                     selected.Apply(history, operation == "undo"); preview(selected); result = new { selected.Id, selected.State, Reloaded = false }; break;
                 case "build":
                     path = "";
                     if (dirty(id, path)) throw new IOException("This editor pack has an unsaved user buffer. Reconcile it first.");
+                    if (review is not null)
+                    {
+                        string queued = review.Queue("editor", id, "build", "editor.build", id, "에디터팩 DLL 빌드", () => { if (dirty(id, "")) throw new IOException("Resolve unsaved editor buffers first."); },
+                            async token => { await source.Build(dotnet, sdk, token).ConfigureAwait(false); return "에디터팩 실제 빌드 완료"; });
+                        result = new { ReviewId = queued, Built = false, State = "pending-review" }; break;
+                    }
                     await source.Build(dotnet, sdk, cancellation).ConfigureAwait(false); result = new { Built = true, Reloaded = false }; break;
                 default: throw new ArgumentException("Unknown editor pack operation.");
             }

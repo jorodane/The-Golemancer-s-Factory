@@ -12,8 +12,6 @@ public sealed partial class EditorWindow
 {
     private readonly ComboBox pointingMode = new() { ItemsSource = new[] { "일반 대화", "이거 · 단일 객체", "이거 · 범위" }, SelectedIndex = 0, MinWidth = 135, Margin = new Thickness(3) };
     private readonly StackPanel pointChips = new() { Orientation = Orientation.Horizontal };
-    private readonly CheckBox allowPackWrites = new() { Content = "지정한 팩 수정·빌드", Foreground = TextInk, Margin = new Thickness(6) };
-    private readonly CheckBox allowProjectCommands = new() { Content = "프로젝트 실행·검증", Foreground = TextInk, Margin = new Thickness(6) };
     private readonly TextBox codexPath = Input();
     private readonly ComboBox models = new() { Margin = new Thickness(3), MinWidth = 150 };
     private readonly Dictionary<string, TextBlock> streamMessages = new(StringComparer.Ordinal);
@@ -87,26 +85,25 @@ public sealed partial class EditorWindow
     private void CaptureAgentScope(ContextRequest request)
     {
         if (session is null) return;
-        request.Target = Target; request.AllowProjectCommands = allowProjectCommands.IsChecked == true;
+        request.Target = Target; request.AllowProjectCommands = false;
+        request.ReviewChanges = true;
         request.SharedChats = assistantSettings.ConnectionEnabled ? CurrentAccess?.CaptureSharedChats() ?? [] : [];
-        request.WritablePacks = allowPackWrites.IsChecked == true ? request.Input.Targets.Select(t => t.Pack).Where(p => p.Length > 0)
-            .Where(p => !session.Project.Sources.TryGetValue(p, out var source) || source.Editable).Distinct(StringComparer.Ordinal).ToList() : [];
+        request.WritablePacks = session.Index.Packs.Where(p => !session.Project.Sources.TryGetValue(p.Id, out var source) || source.Editable).Select(p => p.Id).ToList();
         CaptureEditorPacks(request); session.Persist(); streamMessages.Clear();
     }
     private void AddResidentControls(StackPanel parent)
     {
         parent.Children.Add(conversationModeLabel);
-        parent.Children.Add(Action("게임팩 대화 방식 선택", ChooseConversationMode));
+        var modes = new WrapPanel(); modes.Children.Add(Action("ChatGPT 대화", UseEmbeddedChat)); modes.Children.Add(Action("로컬 Codex 대화", UseLocalChat)); parent.Children.Add(modes);
         parent.Children.Add(Action("대화 저장 폴더", OpenConversationFolder));
         parent.Children.Add(Action("ChatGPT 열기", OpenChatGpt));
-        parent.Children.Add(Action("ChatGPT 연결·작업 범위", () => tabs.SelectedIndex = 6));
+        parent.Children.Add(Action("에디터 연결", () => tabs.SelectedIndex = 6));
         var panel = new StackPanel(); parent.Children.Add(new Expander { Header = "에디터 안에서 Codex 대화", Foreground = TextInk, Margin = new Thickness(4), Content = panel });
         panel.Children.Add(Label("Codex 작업 세션", 13, AccentInk));
         codexPath.ToolTip = "선택 사항: 네이티브 codex.exe 경로. 비워 두면 StartEditor가 준비한 설치 위치나 PATH에서 찾아.";
         codexPath.MaxWidth = 250;
         var advanced = new StackPanel(); advanced.Children.Add(Label("Codex 실행 경로 · 비워 두면 자동 탐색", 11, MutedInk)); advanced.Children.Add(codexPath);
         advanced.Children.Add(Action("Codex 설치 확인·다시 연결", ConnectCodex));
-        advanced.Children.Add(Action("다른 AI 제공자 연결…", ConnectProvider));
         panel.Children.Add(new Expander { Header = "고급 연결 설정", Foreground = TextInk, Margin = new Thickness(4), Content = advanced });
         string preferences = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PackEngine", "codex-path.txt");
         if (File.Exists(preferences)) codexPath.Text = File.ReadAllText(preferences).Trim();
@@ -117,7 +114,7 @@ public sealed partial class EditorWindow
         models.SelectionChanged += (_, _) => { if (provider is IResidentAssistant agent && models.SelectedItem is AssistantModel model) agent.Model = model.Id; };
         panel.Children.Add(Label("로컬 방식을 선택하면 시작 시 자동 연결해. 대화 원본은 게임팩에 저장하고, 로그인은 이 PC의 Codex를 사용해.", 11, MutedInk));
     }
-    private async void ConnectCodex() => await ConnectCodexAsync(WebMode && SharedEditorConnected && sharingPermissions.Codex);
+    private async void ConnectCodex() => await ConnectCodexAsync(WebMode);
     private PackEngine.Installation.CodexConnectionResult CodexConnectionFailed(string reason, bool needsNode = false, bool cancelled = false)
     {
         providerLabel.Text = cancelled ? "연결 취소됨" : "연결 준비 필요 · 다시 시도 가능"; accountDetails.Text = reason;
@@ -128,7 +125,6 @@ public sealed partial class EditorWindow
     {
         if (session is null || conversation is null) return CodexConnectionFailed("먼저 작업할 게임팩을 열어줘.");
         if (busy || chatGptSetupPending) return CodexConnectionFailed("진행 중인 작업이나 연결 설정을 마친 뒤 Codex를 다시 연결해줘.");
-        if (conversation.Mode != "local" && !(webExecutor && SharedEditorConnected && sharingPermissions.Codex)) { ChooseConversationMode(); return CodexConnectionFailed("로컬 Codex 대화를 선택하거나 Codex 실행을 허용한 ‘에디터 연결’을 사용해줘."); }
         if (CurrentAccess is not { } access || !assistantSettings.ConnectionEnabled || !access.Enabled) return CodexConnectionFailed("대화·접근 설정에서 이 프로젝트의 Codex 사용을 허용해줘.");
         SetBusy(true); codexConnectionNotice.Visibility = Visibility.Collapsed; operation = new();
         try
@@ -157,8 +153,7 @@ public sealed partial class EditorWindow
             else ShowCodexConnectionNotice("Codex는 연결됐어. 작업하려면 ‘ChatGPT 로그인’을 눌러 이 PC의 Codex에 로그인해줘.", needsLogin: true);
             try
             {
-                await RefreshThreadList(operation.Token);
-                if (next.ThreadId.Length > 0 && access.HistoryEnabled) await OpenConversation(next.ThreadId, operation.Token);
+                if (!webExecutor) { await RefreshThreadList(operation.Token); if (next.ThreadId.Length > 0 && access.HistoryEnabled) await OpenConversation(next.ThreadId, operation.Token); }
             }
             catch (Exception e) { historyStatus.Text = e.Message; AppendLog("대화 기록: " + e.Message); }
             return new(true);

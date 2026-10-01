@@ -21,6 +21,7 @@ public sealed partial class EditorWindow : Window
     private readonly Canvas graph = new() { Background = BackgroundInk, Width = 1000, Height = 800 };
     private readonly List<Button> actionButtons = [];
     private readonly Button submit;
+    private readonly StackPanel localComposer = new();
     private readonly DispatcherTimer draftTimer = new() { Interval = TimeSpan.FromMilliseconds(450) };
     private EditorSession? session;
     private ProjectRunner? runner;
@@ -59,9 +60,8 @@ public sealed partial class EditorWindow : Window
         AddPointingControls(contextHead); AddResidentControls(contextHead);
         contextView.Children.Add(new ScrollViewer { Content = contexts, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }); Grid.SetColumn(contextView, 4); body.Children.Add(contextView);
         var chat = new DockPanel { Margin = new Thickness(16) }; AddConversationHeader(chat);
-        var composer = new StackPanel(); var permissions = new WrapPanel(); permissions.Children.Add(allowPackWrites); permissions.Children.Add(allowProjectCommands); composer.Children.Add(permissions); prompt.Height = 90; composer.Children.Add(prompt);
-        var sendRow = new WrapPanel(); submit = Action("문맥 요청 만들기", Submit); sendRow.Children.Add(submit);
-        sendRow.Children.Add(Action("요청 복사", () => Guard(() => { if (lastRequest is null) throw new InvalidOperationException("먼저 요청을 만들어줘."); session!.ExportContext(lastRequest); Clipboard.SetText(EditorSession.Serialize(lastRequest)); SetStatus("프롬프트와 실제 포함 문맥을 복사했어."); RefreshContext(); })));
+        var composer = localComposer; composer.Children.Add(Label("Codex는 변경안을 모아서 검토를 요청해. 선택한 내용만 적용해.", 12, MutedInk)); prompt.Height = 90; composer.Children.Add(prompt);
+        var sendRow = new WrapPanel(); submit = Action("보내기", Submit); sendRow.Children.Add(submit);
         composer.Children.Add(sendRow); DockPanel.SetDock(composer, Dock.Bottom); chat.Children.Add(composer);
         chat.Children.Add(new ScrollViewer { Content = transcript, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }); AddTab("대화", chat);
         var relationship = new DockPanel(); var trailView = new ScrollViewer { Content = trail, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled, Height = 40 }; DockPanel.SetDock(trailView, Dock.Top); relationship.Children.Add(trailView);
@@ -126,7 +126,7 @@ public sealed partial class EditorWindow : Window
         targets.IsEnabled = !busy; tree.IsEnabled = !busy; openDocs.IsEnabled = !busy; models.IsEnabled = !busy;
         codexPath.IsEnabled = !busy; SetHistoryBusy(busy); SetChatGptBusy(busy);
         RefreshBrowserAddress();
-        packDocument.IsReadOnly = busy; packChoice.IsEnabled = !busy; packFiles.IsEnabled = !busy; packReloadPermission.IsEnabled = !busy;
+        packDocument.IsReadOnly = busy; packChoice.IsEnabled = !busy; packFiles.IsEnabled = !busy;
         if (!busy && pendingEditorPackReload) QueueEditorPackReload();
         if (!busy && pendingAccountRefresh) { pendingAccountRefresh = false; Dispatcher.BeginInvoke(new Action(RefreshCodex)); }
     }
@@ -153,13 +153,14 @@ public sealed partial class EditorWindow : Window
         if (PackDocumentDirty()) throw new InvalidOperationException("먼저 에디터팩 초안을 저장해줘.");
         session?.Persist(); TryStopSharedEditorBeforeSwitch(); ClearSharedEditor();
         var next = new EditorSession(path); var nextConversation = PackEngine.Installation.ProjectConversation.Load(next.Project.Manifest);
+        nextConversation.Save();
         StopChatGptBridge(); runner?.Dispose(); provider?.Dispose(); provider = null; providerLabel.Text = "AI 제공자 미연결"; session = next; conversation = nextConversation;
         runner = new(session, Environment.GetEnvironmentVariable("PACKENGINE_DOTNET") ?? "dotnet"); runner.Output += AppendLog;
         activeDocument = null; pending = null; lastRequest = null;
         Title = "PackEngine — " + session.Project.Name; projectLabel.Text = session.Project.Name;
         targets.ItemsSource = session.Project.Targets.Select(t => t.Id).ToArray(); targets.SelectedItem = runner.PreferredTarget;
         transcript.Children.Clear(); Message("프로젝트", session.Project.Name + "을 열었어. 팩과 문서를 골라서 작업을 시작해.");
-        pointingMode.SelectedIndex = 0; allowPackWrites.IsChecked = false; allowProjectCommands.IsChecked = false; models.ItemsSource = null; submit.Content = "문맥 요청 만들기"; RefreshProject(); RebuildDocuments(); SetBusy(false); RefreshPointing();
+        pointingMode.SelectedIndex = 0; models.ItemsSource = null; submit.Content = "보내기"; RefreshProject(); RebuildDocuments(); SetBusy(false); RefreshPointing();
         preferWeb = false; RegisterProject(); RefreshWebProject(); ApplyConversationMode(); EditorPackProjectChanged();
     });
     private void RefreshProject()
@@ -240,29 +241,28 @@ public sealed partial class EditorWindow : Window
     private async void Submit()
     {
         if (session is null || busy) return; string text = prompt.Text.Trim(); if (text.Length == 0) return;
-        if (conversation?.Configured != true) { ChooseConversationMode(); return; }
+        if (conversation is null) return;
         if (WebMode) { tabs.SelectedIndex = 6; SetStatus("이 게임팩은 ChatGPT 웹 대화를 사용해. 웹 채팅 입력창에서 질문을 보내줘."); return; }
         try
         {
             if (providerWebExecutor) ResetResidentConnection();
             if (CurrentAccess is { } current && (!assistantSettings.ConnectionEnabled || !current.Enabled) && provider is not null)
                 throw new InvalidOperationException("이 프로젝트의 Codex 접근이 차단되어 있어.");
-            if (CurrentAccess is { } access && assistantSettings.ShouldConnect(access) && (provider is null || provider is IResidentAssistant { IsConnected: false }))
+            if (provider is null || provider is IResidentAssistant { IsConnected: false })
                 if (!(await ConnectCodexAsync()).Connected) return;
             if (provider is IResidentAssistant && CurrentAccess?.HistoryEnabled == false) transcript.Children.Clear();
             lastRequest = session.PrepareContext(text); CaptureAgentScope(lastRequest); Message("나", text); prompt.Clear(); RefreshContext();
-            if (provider is null)
-            {
-                session.ExportContext(lastRequest); Message("문맥 준비", lastRequest.Context.Count + "개 지정 구간을 요청에 담았어. 열린 문서 목록은 내용과 구분돼. ‘요청 복사’로 Chat에 전달하거나 Codex를 연결해줘."); RefreshContext(); return;
-            }
             SetBusy(true); operation = new();
             var bridge = new AssistantBridge(session, action => Dispatcher.Invoke(() => { action(); RefreshContext(); }));
-            using var agentTools = provider is IResidentAssistant ? new AgentWorkspace(session, lastRequest, runner!, action => Dispatcher.Invoke(() => { action(); RefreshContext(); }), AgentProgress, CreateEditorPackAgent(lastRequest)) : null;
-            string answer = await bridge.Send(provider, lastRequest, operation.Token, agentTools);
-            if (provider is not IResidentAssistant || streamMessages.Count == 0) Message(provider.Name, answer); RefreshContext();
+            var review = new ChangeReviewBatch(session, lastRequest, action => Dispatcher.Invoke(action));
+            using var agentTools = provider is IResidentAssistant ? new AgentWorkspace(session, lastRequest, runner!, action => Dispatcher.Invoke(() => { action(); RefreshContext(); }), AgentProgress, CreateEditorPackAgent(lastRequest, review), review) : null;
+            string answer;
+            try { answer = await bridge.Send(provider!, lastRequest, operation.Token, agentTools, (reply, token) => FinishReviewedChanges(review, reply, token)); }
+            finally { review.Cancel(); }
+            if (provider is not IResidentAssistant || streamMessages.Count == 0) Message(provider!.Name, answer); RefreshContext();
             if (provider is IResidentAssistant agent && CurrentAccess?.HistoryEnabled == true)
             {
-                try { await RefreshThreadList(operation.Token); await OpenConversation(agent.ThreadId, operation.Token); }
+                try { await RefreshThreadList(operation.Token); await OpenConversation(agent.ThreadId, operation.Token); if (lastRequest?.ReviewOutcome.Length > 0) Message("검토 결과", answer); }
                 catch (Exception e) { AppendLog("대화는 저장됐지만 목록 갱신을 완료하지 못했어: " + e.Message); }
             }
         }

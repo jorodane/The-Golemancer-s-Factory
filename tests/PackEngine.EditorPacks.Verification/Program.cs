@@ -121,6 +121,7 @@ try
     await Reject(() => { EditorPackChange.Validate("pack.xml", pluginManifest.Replace("test.shared", "renamed.pack"), plugin.Id); return Task.CompletedTask; }, "installed pack identities cannot be renamed by a patch");
     await Reject(() => { EditorPackChange.Validate("pack.xml", pluginManifest.Replace("ui.xml", "../secret.xml"), plugin.Id); return Task.CompletedTask; }, "manifest edits cannot introduce escaping paths");
     var editorSession = new EditorSession(Path.Combine(repository, "Golemancer/Golemancer.packproject"), Path.Combine(temporary, "McpState"));
+    await ReviewVerification.Run(editorSession, core, child, together, Path.Combine(temporary, "ReviewHistory"), Check);
     using var projectRunner = new ProjectRunner(editorSession, dotnet);
     using var mcp = new EditorMcpWorkspace(editorSession, projectRunner, action => action(), () => new() { Enabled = true, MetadataOnly = false }, () => projectRunner.PreferredTarget, _ => { }, _ => { },
         prepared => { prepared.WritableEditorPacks = [child.Id]; prepared.EditorInput = new() { Mode = "single", Targets = [new() { Key = "view:test.project.view/refresh", Pack = child.Id, File = "ui.xml" }] }; },

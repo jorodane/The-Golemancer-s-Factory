@@ -18,37 +18,13 @@ public sealed partial class EditorWindow
         if (dialog.ShowDialog(this) != true) return;
         OpenProject(NewProject.Create(dialog.FileName).Manifest);
     });
-    private void ChooseConversationMode() => Guard(() =>
+    private void ChooseConversationMode() => UseEmbeddedChat();
+    private void UseLocalChat() => Guard(() =>
     {
-        if (busy || session is null || conversation is null || CurrentAccess is not { } access) return;
-        var profile = conversation;
-        var dialog = new Window { Owner = this, Title = session.Project.Name + " · 대화 방식", Width = 610, SizeToContent = SizeToContent.Height,
-            ResizeMode = ResizeMode.NoResize, Background = PanelInk, Foreground = TextInk, WindowStartupLocation = WindowStartupLocation.CenterOwner };
-        var panel = new StackPanel { Margin = new Thickness(22) }; dialog.Content = panel;
-        panel.Children.Add(Label("이 게임팩에서 어떻게 대화할까?", 20));
-        var local = new RadioButton { Content = "로컬 Codex 대화", Foreground = TextInk, Margin = new Thickness(4, 16, 4, 6), IsChecked = !WebMode, GroupName = "conversation" };
-        var linked = new RadioButton { Content = "ChatGPT 웹 대화", Foreground = TextInk, Margin = new Thickness(4, 16, 4, 6), IsChecked = WebMode, GroupName = "conversation" };
-        panel.Children.Add(local); panel.Children.Add(Label("에디터 안에서 대화해. Codex 대화 원본을 게임팩 내부에 저장하고, 폴더를 옮긴 PC에서 불러와 이어갈 수 있어.", 12, MutedInk));
-        panel.Children.Add(linked); panel.Children.Add(Label("왼쪽 웹 패널에서 로그인하고 대화해. Yogi로 자료를 첨부하고, 로컬 Codex에게 작업을 맡기려면 ‘에디터 연결’을 눌러줘.", 12, MutedInk));
-        panel.Children.Add(Label("선택은 게임팩과 함께 저장돼. 다른 기기에서는 Codex 로그인이나 ChatGPT 도구 연결을 준비해줘. 저장 폴더를 옮기면 기록도 이동하고, 기기 간 자동 동기화는 별도로 설정해야 해.", 12, MutedInk));
-        var error = Label("", 12, AccentInk); panel.Children.Add(error);
-        bool setupChatGpt = false;
-        var choose = Action("이 방식으로 사용", () =>
-        {
-            try
-            {
-                string mode = linked.IsChecked == true ? "chatgpt" : "local";
-                if (mode == "chatgpt") { setupChatGpt = true; dialog.DialogResult = true; return; }
-                var updated = ProjectConversation.Load(session.Project.Manifest);
-                updated.Mode = mode; updated.Save(); conversation = updated;
-                StopChatGptBridge(); ResetResidentConnection();
-                SaveSettings(); dialog.DialogResult = true;
-            }
-            catch (Exception e) { error.Text = e.Message; }
-        }); panel.Children.Add(choose);
-        void RefreshChoice() => choose.Content = linked.IsChecked == true ? "웹 대화 열기" : "이 방식으로 사용";
-        local.Checked += (_, _) => RefreshChoice(); linked.Checked += (_, _) => RefreshChoice(); RefreshChoice();
-        if (dialog.ShowDialog() == true) { if (setupChatGpt) UseEmbeddedChat(); else { CancelWebConnection(); preferWeb = false; ApplyConversationMode(); } }
+        if (busy || conversation is null) return;
+        conversation.Mode = "local"; conversation.Save(); preferWeb = false;
+        StopChatGptBridge(); ResetResidentConnection(); CancelWebConnection();
+        ApplyConversationMode(); RefreshWebProject();
     });
     private void ApplyConversationMode()
     {

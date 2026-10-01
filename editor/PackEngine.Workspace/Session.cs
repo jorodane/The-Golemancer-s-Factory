@@ -22,6 +22,8 @@ public sealed class ContextItem
     public bool Partial { get; set; }
     public bool Draft { get; set; }
     public bool DiskChanged { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public bool PendingReview { get; set; }
     public string DocumentHash { get; set; } = "";
     public string Selector { get; set; } = "";
     public int StartLine { get; set; } = 1;
@@ -49,6 +51,9 @@ public sealed class ContextRequest
     public List<string> WritableEditorPacks { get; set; } = [];
     public bool AllowEditorReload { get; set; }
     public bool AllowProjectCommands { get; set; }
+    public bool ReviewChanges { get; set; }
+    public string ReviewOutcome { get; set; } = "";
+    public List<ReviewedChange> ReviewedChanges { get; set; } = [];
     public string Target { get; set; } = "";
     public List<SharedUiTarget> UiTargets { get; set; } = [];
     public List<SharedEditorImage> Images { get; set; } = [];
@@ -207,6 +212,16 @@ public sealed partial class EditorSession
         if (WorkspaceProject.Hash(ReadBytes(draft.File)) != expected) throw new IOException("Change conflict: the file has changed since this draft. Nothing was overwritten.");
         AtomicWrite(full, data); draft.State = undo ? "undone" : "applied"; SaveDraft(draft);
         if (Documents.Any(d => d.Path == draft.File)) Reload(draft.File); Refresh(); Persist();
+    }
+    public void ValidateChange(string id)
+    {
+        var draft = LoadDraft(id); RequireEditable(draft.File);
+        if (draft.Project != Project.Identity || draft.State != "draft") throw new InvalidOperationException("This change is no longer pending.");
+        if (Documents.Any(d => d.Path == draft.File && d.Dirty)) throw new IOException("Resolve the unsaved user buffer before applying: " + draft.File);
+        if (WorkspaceProject.Hash(ReadBytes(draft.File)) != draft.BeforeHash) throw new IOException("Review conflict. Nothing was overwritten: " + draft.File);
+        byte[] after = Convert.FromBase64String(draft.AfterBytes);
+        if (WorkspaceProject.Hash(after) != draft.AfterHash) throw new InvalidDataException("Change checksum mismatch.");
+        Refresh(); Index.ValidateDraft(draft.File, Decode(after));
     }
     private static List<SemanticChange> Difference(string before, string after, bool xml)
     {

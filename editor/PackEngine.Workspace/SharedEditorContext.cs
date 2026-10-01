@@ -9,6 +9,7 @@ namespace PackEngine.Workspace;
 public sealed class SharedEditorPermissions
 {
     public bool Codex { get; set; }
+    public bool ReviewChanges { get; set; }
     public List<string> WritablePacks { get; set; } = [];
     public List<string> WritableEditorPacks { get; set; } = [];
     public bool ProjectCommands { get; set; }
@@ -73,7 +74,7 @@ public static class SharedEditorProtocol
     public static bool IsPage(string value) => Uri.TryCreate(value, UriKind.Absolute, out var uri) && uri.Scheme == "https" && uri.Host == "packengine-links.jorodane.chatgpt.site" && uri.IsDefaultPort && uri.UserInfo.Length == 0 && uri.AbsolutePath.TrimEnd('/') == "/editor-bridge" && uri.Fragment.Length == 0;
     public static string NewNonce() { var bytes = new byte[32]; using var random = RandomNumberGenerator.Create(); random.GetBytes(bytes); return string.Concat(bytes.Select(b => b.ToString("x2"))); }
     public static SharedEditorSnapshot Freeze(SharedEditorSnapshot snapshot) => JsonSerializer.Deserialize<SharedEditorSnapshot>(Serialize(snapshot), Json)!;
-    public static bool SamePermissions(SharedEditorPermissions a, SharedEditorPermissions b) => a.Codex == b.Codex && a.ProjectCommands == b.ProjectCommands && a.EditorReload == b.EditorReload &&
+    public static bool SamePermissions(SharedEditorPermissions a, SharedEditorPermissions b) => a.Codex == b.Codex && a.ReviewChanges == b.ReviewChanges && a.ProjectCommands == b.ProjectCommands && a.EditorReload == b.EditorReload &&
         a.WritablePacks.OrderBy(p => p, StringComparer.Ordinal).SequenceEqual(b.WritablePacks.OrderBy(p => p, StringComparer.Ordinal)) &&
         a.WritableEditorPacks.OrderBy(p => p, StringComparer.Ordinal).SequenceEqual(b.WritableEditorPacks.OrderBy(p => p, StringComparer.Ordinal));
 }

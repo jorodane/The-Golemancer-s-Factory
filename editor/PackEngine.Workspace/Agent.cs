@@ -72,11 +72,13 @@ public sealed class AgentWorkspace : IAgentWorkspace, IDisposable
     private readonly string target;
     private readonly Dictionary<string, SharedChatReference> sharedChats;
     private readonly IEditorPackAccess? editorPacks;
-    public AgentWorkspace(EditorSession session, ContextRequest request, ProjectRunner runner, Action<Action> dispatch, Action<AssistantEvent>? progress = null, IEditorPackAccess? editorPacks = null)
+    public ChangeReviewBatch? Review { get; }
+    public AgentWorkspace(EditorSession session, ContextRequest request, ProjectRunner runner, Action<Action> dispatch, Action<AssistantEvent>? progress = null, IEditorPackAccess? editorPacks = null, ChangeReviewBatch? review = null)
     {
         this.editorPacks = editorPacks;
         this.session = session; this.request = request; this.runner = runner; this.dispatch = dispatch; this.progress = progress;
         writable = new(request.WritablePacks, StringComparer.Ordinal); commands = request.AllowProjectCommands; target = request.Target.Length > 0 ? request.Target : runner.PreferredTarget;
+        Review = request.ReviewChanges ? review ?? new(session, request, dispatch) : null;
         sharedChats = request.SharedChats.Where(c => c.Shared).Select(c => c.Snapshot()).ToDictionary(c => c.Path, StringComparer.Ordinal);
         foreach (var item in request.Context.Where(c => c.DocumentHash.Length > 0)) readVersions[item.Path] = item.DocumentHash;
     }
@@ -103,7 +105,7 @@ public sealed class AgentWorkspace : IAgentWorkspace, IDisposable
     private static string Str(JsonElement a, string key, string fallback = "") => a.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString()! : fallback;
     private static int Num(JsonElement a, string key, int fallback) => a.TryGetProperty(key, out var v) && v.TryGetInt32(out int n) ? n : fallback;
     private static object Spec(string name, string description, string schema)
-    { using var json = JsonDocument.Parse(schema); return new { type = "function", name, description, inputSchema = json.RootElement.Clone() }; }
+    { using var json = JsonDocument.Parse(schema); return new { type = "function", name, description = description + " When ReviewChanges is true, edits/actions are proposals: patch accumulates a private overlay, apply queues it without writing, and build/project/editor reload queue actions. One human review after the model turn applies selected items. Do not claim queued work was applied or built.", inputSchema = json.RootElement.Clone() }; }
     public IReadOnlyList<object> ToolDefinitions => Definitions;
     public static IReadOnlyList<object> Definitions { get; } = new[]
     {
@@ -117,7 +119,7 @@ public sealed class AgentWorkspace : IAgentWorkspace, IDisposable
         Spec("packengine_project", "Run the project's declared verify, smoke or launch command. Requires AllowProjectCommands on the request. Returns actual exit result/log; launch is not proof of visual correctness.", "{\"type\":\"object\",\"properties\":{\"operation\":{\"type\":\"string\",\"enum\":[\"verify\",\"smoke\",\"run\"]}},\"required\":[\"operation\"],\"additionalProperties\":false}")
     };
     private void RequirePack(string pack)
-    { if (pack.Length == 0 || !writable.Contains(pack)) throw new InvalidOperationException("This request does not authorize editing/building pack '" + pack + "'. Ask the user to add that pack to the request scope."); }
+    { if (pack.Length == 0 || (Review is null ? !writable.Contains(pack) : !session.Index.Packs.Any(p => p.Id == pack) || session.Project.Sources.TryGetValue(pack, out var source) && !source.Editable)) throw new InvalidOperationException("This request does not authorize editing/building pack '" + pack + "'."); }
     private void RequireFile(string path)
     {
         if (!session.Index.Nodes.TryGetValue("file:" + path, out var file)) throw new InvalidDataException("Unknown declared file.");
@@ -137,7 +139,7 @@ public sealed class AgentWorkspace : IAgentWorkspace, IDisposable
             {
                 case "packengine_editor":
                     if (editorPacks is null) throw new InvalidOperationException("Editor pack access is unavailable in this host.");
-                    string answer = await editorPacks.Call(arguments, cancellation).ConfigureAwait(false); Note(tool, subject, "completed"); return answer;
+                    string answer = await editorPacks.Call(arguments, cancellation).ConfigureAwait(false); Note(tool, subject, Review is not null && Str(arguments, "operation") is "patch" or "apply" or "build" or "reload" ? "staged" : "completed"); return answer;
                 case "packengine_find": result = OnUi(() =>
                 {
                     session.Refresh(); string query = Str(arguments, "query"), pack = Str(arguments, "pack");
@@ -151,6 +153,8 @@ public sealed class AgentWorkspace : IAgentWorkspace, IDisposable
                     if (!session.Index.Nodes.ContainsKey(key)) throw new InvalidDataException("Unknown object ID.");
                     if (section == "definition")
                     {
+                        var node = session.Index.Nodes[key]; var staged = Review?.File("game", node.Pack, node.File);
+                        if (staged is not null) return (object)ReadOverlay(node.File, staged, 1, 160);
                         var item = session.Definition(key, 10000);
                         if (item.DocumentHash.Length > 0) readVersions[item.Path] = item.DocumentHash;
                         session.RecordRead(request.Id, item.Path + "#" + item.Selector, item.Content, item.DocumentHash.Length > 0 ? item.DocumentHash : item.Hash, item.Partial); return (object)item;
@@ -164,27 +168,47 @@ public sealed class AgentWorkspace : IAgentWorkspace, IDisposable
                 }); break;
                 case "packengine_read": result = OnUi(() =>
                 { string path = Str(arguments, "path"); if (path.StartsWith("chat:", StringComparison.Ordinal)) return ReadSharedChat(path, Num(arguments, "startLine", 1), Num(arguments, "lineCount", 80));
-                    var item = session.ReadSlice(request.Id, path, Num(arguments, "startLine", 1), Num(arguments, "lineCount", 80)); readVersions[item.Path] = item.DocumentHash; return item; }); break;
+                    path = session.Project.Relative(session.Project.Resolve(path));
+                    var staged = session.Index.Nodes.TryGetValue("file:" + path, out var node) ? Review?.File("game", node.Pack, path) : null;
+                    var item = staged is not null ? ReadOverlay(path, staged, Num(arguments, "startLine", 1), Num(arguments, "lineCount", 80)) : session.ReadSlice(request.Id, path, Num(arguments, "startLine", 1), Num(arguments, "lineCount", 80)); readVersions[item.Path] = item.DocumentHash; return item; }); break;
                 case "packengine_patch": result = OnUi(() =>
                 {
                     string path = session.Project.Relative(session.Project.Resolve(Str(arguments, "path"))); RequireFile(path);
                     var doc = session.Document(path); string expected = Str(arguments, "expectedHash");
-                    if (!readVersions.TryGetValue(path, out string? read) || read != expected || doc.Hash != expected || doc.DiskChanged) throw new IOException("Version conflict. Read the current file before proposing a change.");
+                    var staged = Review?.File("game", session.Index.Nodes["file:" + path].Pack, path); string current = staged?.After ?? doc.Text;
+                    if (!readVersions.TryGetValue(path, out string? read) || read != expected || WorkspaceProject.HashText(current) != expected || doc.DiskChanged) throw new IOException("Version conflict. Read the current file before proposing a change.");
+                    if (staged is not null && WorkspaceProject.HashText(doc.Text) != WorkspaceProject.HashText(staged.Before)) throw new IOException("The real file changed while proposals were being prepared.");
                     string oldText = Str(arguments, "oldText"), replacement = Str(arguments, "newText");
-                    int offset = oldText.Length == 0 ? -1 : doc.Text.IndexOf(oldText, StringComparison.Ordinal);
-                    if (offset < 0 || doc.Text.IndexOf(oldText, offset + oldText.Length, StringComparison.Ordinal) >= 0) throw new InvalidDataException("oldText must match exactly once; use enough surrounding text.");
-                    var draft = session.Preview(path, doc.Text.Substring(0, offset) + replacement + doc.Text.Substring(offset + oldText.Length), Str(arguments, "intent")); changes.Add(draft.Id);
+                    int offset = oldText.Length == 0 ? -1 : current.IndexOf(oldText, StringComparison.Ordinal);
+                    if (offset < 0 || current.IndexOf(oldText, offset + oldText.Length, StringComparison.Ordinal) >= 0) throw new InvalidDataException("oldText must match exactly once; use enough surrounding text.");
+                    var draft = session.Preview(path, current.Substring(0, offset) + replacement + current.Substring(offset + oldText.Length), Str(arguments, "intent")); changes.Add(draft.Id);
+                    if (Review is not null) Review.Stage(new() { Id = draft.Id, Kind = "game", Pack = session.Index.Nodes["file:" + path].Pack, Path = path, Intent = draft.Intent,
+                        Before = Encoding.UTF8.GetString(Convert.FromBase64String(draft.BeforeBytes)).TrimStart('\uFEFF'), After = current.Substring(0, offset) + replacement + current.Substring(offset + oldText.Length),
+                        BeforeHash = draft.BeforeHash, AfterHash = draft.AfterHash, Tool = "packengine_apply", Subject = draft.Id },
+                        () => session.ValidateChange(draft.Id), () => session.Apply(draft.Id), () => session.Apply(draft.Id, true), () => WorkspaceProject.Hash(System.IO.File.ReadAllBytes(session.Project.Resolve(draft.File))));
                     progress?.Invoke(new() { Kind = "preview", Subject = draft.Id, Text = draft.Intent });
                     return new { ChangeId = draft.Id, draft.File, draft.Intent, draft.BeforeHash, draft.AfterHash, Changes = draft.Changes.Take(30).ToArray(), Impact = draft.Impact.Take(40).ToArray(), Applied = false };
                 }); break;
                 case "packengine_apply": result = OnUi(() =>
                 {
                     string id = Str(arguments, "changeId"); if (!changes.Contains(id)) throw new InvalidOperationException("Only this request's previews can be applied by its agent.");
+                    if (Review is not null) { var staged = Review.Require(id); return (object)new { ChangeId = id, File = staged.Path, Applied = false, State = "pending-review", Hint = "The user will review all proposed changes together after this turn." }; }
                     var draft = session.LoadDraft(id); RequireFile(draft.File); session.Apply(id); readVersions[draft.File] = session.Document(draft.File).Hash;
                     progress?.Invoke(new() { Kind = "applied", Subject = id, Text = draft.File });
                     return new { ChangeId = id, draft.File, Applied = true, DocumentHash = readVersions[draft.File] };
                 }); break;
                 case "packengine_build": case "packengine_project":
+                    if (Review is not null)
+                    {
+                        string pack = Str(arguments, "pack"), op = tool == "packengine_build" ? "build" : Str(arguments, "operation");
+                        if (tool == "packengine_project" && op is not ("verify" or "smoke" or "run")) throw new ArgumentException("Unknown project operation.");
+                        OnUi(() => { if (tool == "packengine_build") RequirePack(pack); return true; });
+                        string id = Review.Queue(tool == "packengine_build" ? "game" : "project", pack, op, tool, pack.Length > 0 ? pack : op,
+                            (tool == "packengine_build" ? "팩 빌드" : "프로젝트 " + op) + " · " + target,
+                            () => { if (session.Documents.Any(d => d.Dirty)) throw new IOException("Resolve unsaved buffers before approved actions."); },
+                            token => RunCommand(tool, pack, op, token));
+                        result = new { ReviewId = id, Completed = false, State = "pending-review" }; break;
+                    }
                     OnUi(() => { session.Refresh(); if (tool == "packengine_build") RequirePack(Str(arguments, "pack")); else if (!commands) throw new InvalidOperationException("Project commands were not enabled for this request.");
                         if (session.Documents.Any(d => d.Dirty)) throw new IOException("Resolve unsaved editor buffers before building or running."); return true; });
                     var output = new StringBuilder(); var sync = new object();
@@ -206,10 +230,32 @@ public sealed class AgentWorkspace : IAgentWorkspace, IDisposable
                     break;
                 default: throw new InvalidDataException("Unknown editor tool: " + tool);
             }
-            cancellation.ThrowIfCancellationRequested(); Note(tool, subject, "completed"); return EditorSession.Serialize(result);
+            cancellation.ThrowIfCancellationRequested(); Note(tool, subject, Review is not null && tool is ("packengine_patch" or "packengine_apply" or "packengine_build" or "packengine_project") ? "staged" : "completed"); return EditorSession.Serialize(result);
         }
         catch (Exception e) { Note(tool, subject, e is OperationCanceledException ? "cancelled" : "failed", e.Message); throw; }
         finally { gate.Release(); }
+    }
+    private ContextItem ReadOverlay(string path, ReviewItem staged, int start, int count)
+    {
+        if (start < 1 || count < 1 || count > 160) throw new ArgumentException("Invalid source slice.");
+        string[] lines = EditorSession.Lines(staged.After); string text = string.Join("\n", lines.Skip(start - 1).Take(count));
+        string hash = WorkspaceProject.HashText(staged.After); bool partial = start > 1 || start - 1 + count < lines.Length || text.Length > 12000;
+        text = text.Substring(0, Math.Min(12000, text.Length)); readVersions[path] = hash; session.RecordRead(request.Id, "proposal:" + path, text, hash, partial);
+        return new() { Path = path, Content = text, Hash = WorkspaceProject.HashText(text), DocumentHash = hash, TotalLines = lines.Length, StartLine = start, Partial = partial, PendingReview = true, Why = "검토 전 임시 변경안 · 실제 파일은 바뀌지 않음" };
+    }
+    private async Task<string> RunCommand(string tool, string pack, string operation, CancellationToken token)
+    {
+        var output = new StringBuilder(); var sync = new object();
+        void Log(string line) { lock (sync) { output.AppendLine(line); if (output.Length > 16000) output.Remove(0, output.Length - 12000); } }
+        runner.Output += Log;
+        try
+        {
+            if (tool == "packengine_build") await runner.BuildPack(pack, target, token).ConfigureAwait(false);
+            else if (operation == "run") OnUi(() => { runner.Launch(target); return true; });
+            else await runner.Verify(target, operation == "smoke", token).ConfigureAwait(false);
+            lock (sync) return "실제 실행 완료 · " + target + "\n" + output;
+        }
+        finally { runner.Output -= Log; }
     }
     public void Dispose() => gate.Dispose();
 }

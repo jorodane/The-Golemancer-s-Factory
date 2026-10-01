@@ -55,7 +55,7 @@ public sealed partial class EditorWindow
         var workspace = new DockPanel(); Grid.SetColumn(workspace, 2); webLayout.Children.Add(workspace);
         var workspaceHeader = new WrapPanel { Margin = new Thickness(8) };
         detailsButton = Action("작업 도구 펼치기", () => { detailedWorkspace = !detailedWorkspace; ApplyBrowserLayout(); }); workspaceHeader.Children.Add(detailsButton);
-        workspaceHeader.Children.Add(Action("대화 방식", () => { if (session is null) { SetStatus("먼저 게임팩을 만들거나 열어줘."); return; } ChooseConversationMode(); }));
+        workspaceHeader.Children.Add(Action("ChatGPT 대화", UseEmbeddedChat)); workspaceHeader.Children.Add(Action("로컬 Codex 대화", UseLocalChat));
         DockPanel.SetDock(workspaceHeader, Dock.Top); workspace.Children.Add(workspaceHeader);
         var main = new Grid(); main.Children.Add(body); welcomeView.Content = welcome; main.Children.Add(welcomeView); workspace.Children.Add(main); AddSharingControls(header, main);
         ShowBrowserFallback("웹 대화를 준비하고 있어.", false);
@@ -67,6 +67,8 @@ public sealed partial class EditorWindow
     {
         if (webLayout is null || nativeBody is null) return;
         bool web = WebMode, detailed = detailedWorkspace || !web;
+        localComposer.Visibility = web ? Visibility.Collapsed : Visibility.Visible;
+        if (tabs.Items.Count > 0 && tabs.Items[0] is TabItem localTab) localTab.Visibility = web ? Visibility.Collapsed : Visibility.Visible;
         webLayout.Children[0].Visibility = web ? Visibility.Visible : Visibility.Collapsed;
         webLayout.Children[1].Visibility = web ? Visibility.Visible : Visibility.Collapsed;
         webLayout.ColumnDefinitions[0].MinWidth = web ? 420 : 0;
@@ -196,10 +198,12 @@ public sealed partial class EditorWindow
     }
     private void UseEmbeddedChat()
     {
+        if (busy || conversation is null) return;
+        bool wasWeb = WebMode;
         if (conversation is not null) { conversation.Mode = "chatgpt"; conversation.Save(); }
-        preferWeb = true; ResetResidentConnection(); ApplyBrowserLayout();
+        preferWeb = true; if (!wasWeb) ResetResidentConnection(); StopChatGptBridge(); RefreshWebProject(); ApplyConversationMode();
         var urls = conversation is null ? (ProjectUrl: "", ChatUrl: "") : ConversationLinkMetadata.Read(conversation);
-        NavigateChat(urls.ChatUrl.Length > 0 ? urls.ChatUrl : urls.ProjectUrl.Length > 0 ? urls.ProjectUrl : "https://chatgpt.com/");
+        if (!wasWeb || browser.Source is null) NavigateChat(urls.ChatUrl.Length > 0 ? urls.ChatUrl : urls.ProjectUrl.Length > 0 ? urls.ProjectUrl : "https://chatgpt.com/");
     }
     private async void BeginWebConnection()
     {

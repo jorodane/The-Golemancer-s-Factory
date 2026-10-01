@@ -37,7 +37,8 @@ public sealed class SharedEditorTaskRunner(EditorSession session, Func<string, o
         var request = session.State.Requests.FirstOrDefault(r => r.Id == journal.RequestId);
         var operations = session.State.Operations.Where(o => request is not null && o.Request == request.Id).ToArray();
         var ids = new HashSet<string>(operations.Where(o => o.Tool == "packengine_apply" && o.Status == "completed").Select(o => o.Subject), StringComparer.Ordinal);
-        var applied = session.Changes().Where(c => ids.Contains(c.Id)).Take(100).Select(c => new { file = c.File, state = c.State, beforeHash = c.BeforeHash, afterHash = c.AfterHash }).ToArray();
+        var applied = request?.ReviewChanges == true ? request.ReviewedChanges.Take(100).Select(c => new { file = c.File, state = c.State, beforeHash = c.BeforeHash, afterHash = c.AfterHash }).ToArray()
+            : session.Changes().Where(c => ids.Contains(c.Id)).Take(100).Select(c => new { file = c.File, state = c.State, beforeHash = c.BeforeHash, afterHash = c.AfterHash }).ToArray();
         var recent = operations.Skip(Math.Max(0, operations.Length - 100)).Select(o => new { tool = o.Tool, subject = o.Subject.Substring(0, Math.Min(400, o.Subject.Length)), status = o.Status }).ToArray();
         return JsonSerializer.SerializeToElement(new { taskId = journal.TaskId, claimId = journal.ClaimId, state, result = new { reply = reply.Substring(0, Math.Min(20000, reply.Length)), partial = reply.Length > 20000 || state == "interrupted", changes = applied, operations = recent } }, SharedEditorProtocol.Json);
     }

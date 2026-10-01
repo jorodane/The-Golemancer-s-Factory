@@ -11,7 +11,9 @@ void Reject(Action action, string name)
 { try { action(); } catch (Exception e) when (e is IOException or InvalidDataException or ArgumentException) { Check(true, name); return; } throw new Exception(name); }
 var project = NewProject.Create(Path.Combine(root, "game", "Game.packproject"));
 var profile = ProjectConversation.Load(project.Manifest);
-Check(!profile.Configured && !File.Exists(profile.FilePath), "opening a new game does not select a provider or execute commands");
+Check(profile.Configured && profile.Mode == "chatgpt" && profile.Url.Length == 0 && !File.Exists(profile.FilePath), "new games default to the web conversation without a URL or command execution");
+profile.Save();
+Check(ProjectConversation.Load(project.Manifest).Id == profile.Id && ProjectConversation.Load(project.Manifest).Url.Length == 0, "URL-free web mode preserves its portable identity across reloads");
 Check(new WorkspaceIndex(project).Packs.Count == 1 && project.Targets.All(t => t.Build.Count + t.Run.Count + t.Verify.Count == 0), "new game scaffold indexes a generic object pack and contains no executable commands");
 Reject(() => NewProject.Create(project.Manifest), "new game creation never overwrites existing project files");
 profile.Mode = "local"; profile.Save();

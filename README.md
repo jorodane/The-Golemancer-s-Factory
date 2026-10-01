@@ -3,7 +3,7 @@
 게임 작업은 **[Golemancer](Golemancer)** 폴더 안에서 진행한다. 게임 소스·모듈·XML·이미지·Windows 실행 파일·Android/Linux/iOS 호스트·게임 계약·고정 엔진 SDK가 모두 들어 있다. 이 폴더만 복사해 실행하고 개발할 수 있다.
 
 - 실행: 루트 `Start.bat` 또는 `Golemancer/Start.bat`.
-- 엔진 에디터: 루트 **`StartEditor.exe`**. 왼쪽 **ChatGPT 웹 패널**에서 로그인하고, 오른쪽에서 게임팩을 만들거나 연다. 대화나 프로젝트를 연 뒤 **현재 대화 연결 → 이 게임팩과 연결**을 누르면 PackEngine Links와 게임팩에 연결 정보가 저장된다. 세부 편집·빌드 도구는 **작업 도구 펼치기**, 기존 로컬 Codex는 **대화 방식**에서 선택한다. [에디터 사용법](docs/EDITOR.md) · [웹 로그인과 연결 범위](docs/CHATGPT_BRIDGE.md) · [여러 기기에서 이어가기](docs/PROJECT_CONVERSATIONS.md).
+- 엔진 에디터: 루트 **`StartEditor.exe`**. 왼쪽 **ChatGPT 웹 패널**에서 로그인하고, 오른쪽에서 게임팩을 만들거나 연다. **에디터 연결**은 대화 주소나 수정할 팩을 미리 고르지 않아도 된다. Codex가 변경안을 모으면 팩 목록과 세부 변경을 한 창에서 검토하고 선택한 내용만 적용한다. **로컬 Codex 대화**도 같은 흐름을 사용한다. 세부 편집·빌드 도구는 **작업 도구 펼치기**로 연다. [에디터 사용법](docs/EDITOR.md) · [변경안 검토와 웹 작업](docs/SHARED_EDITOR.md) · [여러 기기에서 이어가기](docs/PROJECT_CONVERSATIONS.md).
 - 게임 빌드: `Golemancer/Build.bat`. 게임팩만 빌드: `Golemancer/BuildPacks.bat`.
 - Linux: `Golemancer/BuildLinux.sh`, `Golemancer/StartLinux.sh`. iPhone: [Mac 빌드 절차](Golemancer/docs/IOS.md).
 - [플랫폼 공통점 분석](Golemancer/docs/PLATFORMS.md).

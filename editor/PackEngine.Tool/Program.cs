@@ -49,7 +49,7 @@ try
                     resident.Progress += update => { if (update.Kind == "delta") Console.Error.Write(update.Text); else Console.Error.WriteLine(update.Kind + " · " + update.Text); };
                     ProjectConversation? profile = null;
                     if (args.Contains("--project-conversations"))
-                    { profile = ProjectConversation.Load(session.Project.Manifest); if (!profile.Configured) { profile.Mode = "local"; profile.Save(); } }
+                    { profile = ProjectConversation.Load(session.Project.Manifest); if (!profile.Configured || !File.Exists(profile.FilePath)) { profile.Mode = "local"; profile.Save(); } }
                     var account = await resident.ConnectAsync(new() { Executable = Option("--codex") ?? "", ProjectIdentity = session.Project.Identity, StateDirectory = session.StateDirectory,
                         ConversationDirectory = profile?.ConversationsPath ?? "", ConversationProject = profile?.Id ?? "",
                         AccessEnabled = !args.Contains("--deny-access"), HistoryEnabled = !args.Contains("--no-history"), BlockedThreads = (Option("--deny-thread") ?? "").Split(';') }, cancellation.Token);

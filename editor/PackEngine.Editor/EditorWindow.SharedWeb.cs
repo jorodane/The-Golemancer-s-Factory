@@ -175,35 +175,18 @@ public sealed partial class EditorWindow
         {
             SharedEditorBinding? previous = null;
             if (File.Exists(SharingBindingPath)) previous = JsonSerializer.Deserialize<SharedEditorBinding>(File.ReadAllText(SharingBindingPath), SharedEditorProtocol.Json);
-            var dialog = new Window { Owner = this, Title = "에디터 연결 · 작업 범위", Width = 560, Height = 600, Background = PanelInk, Foreground = TextInk, WindowStartupLocation = WindowStartupLocation.CenterOwner };
-            var panel = new DockPanel { Margin = new Thickness(18) }; dialog.Content = panel;
-            var content = new StackPanel();
-            content.Children.Add(Label(session.Project.Name, 20)); content.Children.Add(Label("공유 버튼으로 보낸 자료를 대화에서 확인하고, 허용한 작업을 로컬 Codex가 처리해.", 14, MutedInk));
-            var codex = Setting("웹에서 요청한 작업을 Codex로 실행"); codex.IsChecked = previous?.Permissions.Codex ?? true; content.Children.Add(codex);
-            content.Children.Add(Label("수정·빌드할 게임 객체팩", 15, AccentInk));
-            var packs = new Dictionary<string, CheckBox>(StringComparer.Ordinal);
-            foreach (var pack in session.Index.Packs.Where(p => !session.Project.Sources.TryGetValue(p.Id, out var source) || source.Editable))
-            { var check = Setting(pack.Id); check.IsChecked = previous?.Permissions.WritablePacks.Contains(pack.Id) ?? (allowPackWrites.IsChecked == true && session.Pointing.Targets.Any(t => session.Index.Nodes.TryGetValue(t.Key, out var node) && node.Pack == pack.Id)); packs.Add(pack.Id, check); content.Children.Add(check); }
-            content.Children.Add(Label("수정할 에디터 객체팩", 15, AccentInk));
-            var editorPacks = new Dictionary<string, CheckBox>(StringComparer.Ordinal);
-            foreach (var pack in packSources) { var check = Setting(pack.Id); check.IsChecked = previous?.Permissions.WritableEditorPacks.Contains(pack.Id) ?? writableEditorPacks.Contains(pack.Id); editorPacks.Add(pack.Id, check); content.Children.Add(check); }
-            var commands = Setting("프로젝트 실행·검증 허용"); commands.IsChecked = previous?.Permissions.ProjectCommands ?? allowProjectCommands.IsChecked == true; content.Children.Add(commands);
-            var reload = Setting("수정한 에디터팩 적용 허용"); reload.IsChecked = previous?.Permissions.EditorReload ?? packReloadPermission.IsChecked == true; content.Children.Add(reload);
-            var accept = new WrapPanel(); accept.Children.Add(Action("계속", () => dialog.DialogResult = true)); DockPanel.SetDock(accept, Dock.Bottom); panel.Children.Add(accept);
-            panel.Children.Add(new ScrollViewer { Content = content, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
-            if (dialog.ShowDialog() != true) { pendingSharedSnapshot = null; return; }
-            var grant = new SharedEditorPermissions { Codex = codex.IsChecked == true, WritablePacks = packs.Where(p => p.Value.IsChecked == true).Select(p => p.Key).ToList(), WritableEditorPacks = editorPacks.Where(p => p.Value.IsChecked == true).Select(p => p.Key).ToList(), ProjectCommands = commands.IsChecked == true, EditorReload = reload.IsChecked == true };
+            var grant = new SharedEditorPermissions { Codex = true, ReviewChanges = true };
             if (grant.Codex && (CurrentAccess?.Enabled != true || !assistantSettings.ConnectionEnabled)) throw new InvalidOperationException("이 프로젝트의 Codex 사용이 꺼져 있어. ‘대화·접근’에서 허용한 뒤 다시 연결해줘.");
             var waitingSnapshot = pendingSharedSnapshot; ClearSharedEditor(); pendingSharedSnapshot = waitingSnapshot; sharingPermissions = grant; sharingManifest = session.Project.Manifest;
             bool reuse = previous is not null && previous.PackId == conversation.Id && DateTime.TryParse(previous.ExpiresAt, out var expires) && expires.ToUniversalTime() > DateTime.UtcNow && SharedEditorProtocol.SamePermissions(previous.Permissions, grant);
             sharingRequest = reuse ? previous!.RequestId : SharedEditorProtocol.NewNonce();
             sharingBinding = new() { PackId = conversation.Id, RequestId = sharingRequest, Permissions = grant };
-            preferWeb = true; ApplyBrowserLayout(); if (webEnvironment is null) await InitializeBrowser();
+            conversation.Mode = "chatgpt"; conversation.Save(); preferWeb = true; ApplyConversationMode(); if (webEnvironment is null) await InitializeBrowser();
             if (webEnvironment is null || webDisposed) return;
             await sharedBrowser.EnsureCoreWebView2Async(webEnvironment);
             if (!sharingConfigured) { ConfigureBrowser(sharedBrowser, true); sharedBrowser.CoreWebView2.WebMessageReceived += SharedEditorMessage; sharedBrowser.CoreWebView2.NavigationStarting += (_, _) => { if (SharedEditorConnected) { sharingStatus.Text = "공유 페이지 이동으로 연결이 끊겼어. 다시 연결해줘."; ClearSharedEditor(); } }; sharingConfigured = true; }
             sharedBrowser.Visibility = Visibility.Visible; browser.Visibility = Visibility.Collapsed; connectionBrowser.Visibility = Visibility.Collapsed; returnToChat!.Visibility = Visibility.Visible;
-            sharedBrowser.CoreWebView2.Navigate(SharedEditorProtocol.Page); sharingStatus.Text = "로그인 계정과 허용 범위를 확인해줘.";
+            sharedBrowser.CoreWebView2.Navigate(SharedEditorProtocol.Page); sharingStatus.Text = "연결할 계정을 확인해줘. 실제 변경은 작업 후 검토창에서 선택할 수 있어.";
         }
         catch (Exception e) { SetStatus(e.Message); sharingStatus.Text = e.Message; }
     }
@@ -332,11 +315,14 @@ public sealed partial class EditorWindow
                 request.Target = Target; request.WritablePacks = sharingPermissions.WritablePacks.Where(p => ownerSession.Index.Packs.Any(x => x.Id == p)).ToList();
                 request.WritableEditorPacks = sharingPermissions.WritableEditorPacks.Where(p => packSources.Any(x => x.Id == p)).ToList();
                 request.AllowProjectCommands = sharingPermissions.ProjectCommands; request.AllowEditorReload = sharingPermissions.EditorReload; ownerSession.Persist();
+                request.ReviewChanges = true;
                 lastRequest = request; streamMessages.Clear(); Message("웹에서 받은 작업", task.GetProperty("prompt").GetString()!); RefreshContext();
                 var bridge = new AssistantBridge(ownerSession, action => Dispatcher.Invoke(() => { action(); RefreshContext(); }));
-                using var tools = new AgentWorkspace(ownerSession, request, runner, action => Dispatcher.Invoke(() => { action(); RefreshContext(); }), AgentProgress, CreateEditorPackAgent(request));
+                var review = new ChangeReviewBatch(ownerSession, request, action => Dispatcher.Invoke(action));
+                using var tools = new AgentWorkspace(ownerSession, request, runner, action => Dispatcher.Invoke(() => { action(); RefreshContext(); }), AgentProgress, CreateEditorPackAgent(request, review), review);
                 sharingStatus.Text = "Codex 작업 중 · " + remoteId.Substring(0, 8);
-                return await bridge.Send(provider!, request, operation.Token, tools);
+                try { return await bridge.Send(provider!, request, operation.Token, tools, (reply, token) => FinishReviewedChanges(review, reply, token)); }
+                finally { review.Cancel(); }
             });
             var completion = finished.Completion!.Value; string state = completion.GetProperty("state").GetString()!;
             string reply = completion.GetProperty("result").GetProperty("reply").GetString()!;
