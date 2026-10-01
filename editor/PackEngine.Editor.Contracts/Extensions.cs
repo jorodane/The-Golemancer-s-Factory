@@ -25,4 +25,12 @@ public sealed class EditorCommandResult
 {
     public string Message { get; set; } = "";
     public List<EditorEffect> Effects { get; set; } = [];
+    public List<EditorWindowAction> Windows { get; set; } = [];
+}
+public sealed class EditorWindowAction
+{
+    public string Operation { get; set; } = "";
+    public string Id { get; set; } = "";
+    public string View { get; set; } = "";
+    public string Title { get; set; } = "";
 }

@@ -26,6 +26,9 @@ try
         catalog.Snapshot.Fingerprint = cooked.Fingerprint;
     }
     catalog.Complete();
+    catalog.DescribeHandlers(assembly => Directory.GetFiles(args[0], "pack.xml", SearchOption.AllDirectories)
+        .Where(path => assembly.Location.StartsWith(Path.GetDirectoryName(path)! + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+        .Select(path => (string)PackCompiler.ReadXml(path).Root!.Attribute("id")!).Single());
 }
 catch (Exception e) { failure = e.ToString(); }
 string? line;
@@ -40,8 +43,14 @@ while ((line = input.ReadLine()) is not null)
         object result = root.GetProperty("Operation").GetString() switch {
             "describe" => catalog!.Snapshot,
             "execute" => catalog!.Execute(JsonSerializer.Deserialize<EditorInvocation>(root.GetProperty("Body").GetRawText(), EditorPackGeneration.WireJson)!),
+            "executeHandler" => ExecuteHandler(root.GetProperty("Body")),
             _ => throw new InvalidDataException("Unknown worker operation.") };
         output.WriteLine(JsonSerializer.Serialize(new { Id = id, Result = result }, EditorPackGeneration.WireJson)); output.Flush();
     }
     catch (Exception e) { output.WriteLine(JsonSerializer.Serialize(new { Id = id, Error = e.Message }, EditorPackGeneration.WireJson)); output.Flush(); }
+}
+EditorCommandResult ExecuteHandler(JsonElement body)
+{
+    var request = JsonSerializer.Deserialize<EditorHandlerInvocation>(body.GetRawText(), EditorPackGeneration.WireJson)!;
+    return catalog!.ExecuteHandler(request.Handler, request.Invocation);
 }

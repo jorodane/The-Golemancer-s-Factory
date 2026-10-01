@@ -8,6 +8,7 @@ namespace PackEngine.Editor;
 
 internal sealed class EditorPackBackend(Action<string> point, Func<bool> pointing) : IUiBackend
 {
+    private readonly Dictionary<string, Element> elements = new(StringComparer.Ordinal);
     public string Platform => "windows";
     public bool Supports(string renderer, UiWidgetDefinition contract) => EditorNativeSchema.Supports(renderer, contract);
     public IUiElement Create(string renderer, string nodeId, UiLayout layout)
@@ -29,7 +30,34 @@ internal sealed class EditorPackBackend(Action<string> point, Func<bool> pointin
             if (!pointing() || renderer == "editor.stack") return; point(nodeId); e.Handled = true;
         };
         control.PreviewMouseLeftButtonDown += preview;
-        return new Element(control, () => { control.MouseLeftButtonDown -= capture; control.PreviewMouseLeftButtonDown -= preview; });
+        var element = new Element(control, () => { elements.Remove(nodeId); control.MouseLeftButtonDown -= capture; control.PreviewMouseLeftButtonDown -= preview; });
+        elements.Add(nodeId, element); return element;
+    }
+    public EditorWindowState Capture()
+    {
+        var state = new EditorWindowState();
+        foreach (var item in elements.Where(p => p.Value.Control is TextBox))
+        {
+            var text = (TextBox)item.Value.Control;
+            state.Values["input:" + item.Key] = text.Text;
+            state.Values["selection:" + item.Key] = text.SelectionStart.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            state.Values["selectionLength:" + item.Key] = text.SelectionLength.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
+        return state;
+    }
+    public void Restore(EditorWindowState state)
+    {
+        foreach (var item in elements.Where(p => p.Value.Control is TextBox))
+        {
+            if (state.Values.TryGetValue("input:" + item.Key, out var value)) item.Value.Set("text", UiValue.Text(value));
+            if (state.Values.TryGetValue("selection:" + item.Key, out var position) && int.TryParse(position, out var caret))
+            {
+                var text = (TextBox)item.Value.Control;
+                int start = Math.Max(0, Math.Min(caret, text.Text.Length));
+                int length = state.Values.TryGetValue("selectionLength:" + item.Key, out var selection) && int.TryParse(selection, out var saved) ? Math.Max(0, Math.Min(saved, text.Text.Length - start)) : 0;
+                text.Select(start, length);
+            }
+        }
     }
     internal sealed class Element(FrameworkElement control, Action cleanup) : IUiElement
     {

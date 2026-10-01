@@ -21,8 +21,7 @@ public sealed partial class EditorWindow
     private readonly List<EditorPackSource> packSources = [];
     private readonly HashSet<string> enabledPackFolders = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<SemanticTarget> editorPoints = [];
-    private readonly List<(TabItem Tab, UiMountedView View)> packViews = [];
-    private EditorPackGeneration? packGeneration;
+    private EditorPackRuntime? packGeneration;
     private EditorPackChange? packChange;
     private Grid? editorBody, editorRoot;
     private string corePackRoot = "", packOriginal = "", packOpenPath = "", packOpenId = "";
@@ -48,6 +47,10 @@ public sealed partial class EditorWindow
         packScope.ItemsSource = new[] { "프로젝트 전용", "공용 플러그인", "기본 제공 / 코어" }; packScope.SelectedIndex = 0; packId.ToolTip = "예: my.editor.tools";
         page.Children.Add(Label("새 팩 ID", 12)); page.Children.Add(packId); page.Children.Add(packScope);
         var create = new WrapPanel(); create.Children.Add(Action("새 독립 패널 팩", () => CreateEditorPack(false))); create.Children.Add(Action("선택한 팩의 패널 상속", () => CreateEditorPack(true))); page.Children.Add(create);
+        var windows = new WrapPanel(); windows.Children.Add(packWindowChoice);
+        windows.Children.Add(Action("등록된 창 열기", () => OpenPackWindow(false)));
+        windows.Children.Add(Action("임시 테스트 창", () => OpenPackWindow(true)));
+        windows.Children.Add(Action("임시 창 해제", RemoveTemporaryPackWindow)); page.Children.Add(windows);
         page.Children.Add(packChoice);
         var editing = new WrapPanel(); editing.Children.Add(Action("팩 가리키기", () => Guard(() => { if (packChoice.SelectedItem is EditorPackSource s) PointEditorPack(s.Id, "pack.xml", "pack:" + s.Id); })));
         editing.Children.Add(Action("DLL 구현 추가", () => Guard(() => { if (busy || packChoice.SelectedItem is not EditorPackSource s) return; EditorPackTemplates.AddImplementation(s); SelectEditorPack(); })));
@@ -140,7 +143,7 @@ public sealed partial class EditorWindow
     {
         if (PackDocumentDirty()) throw new InvalidOperationException("에디터팩 초안을 먼저 저장해줘.");
         var selected = packSources.Where(p => enabledPackFolders.Contains(p.Folder)).ToArray();
-        EditorPackGeneration? candidate = null; var mounted = new List<(TabItem Tab, UiMountedView View)>();
+        EditorPackRuntime? candidate = null;
         try
         {
             void Authorize(IReadOnlyDictionary<string, string> hashes)
@@ -150,31 +153,19 @@ public sealed partial class EditorWindow
                 var changed = before.Keys.Concat(hashes.Keys).Distinct(StringComparer.Ordinal).Where(id => !before.TryGetValue(id, out var old) || !hashes.TryGetValue(id, out var next) || old != next);
                 if (changed.Any(id => !authorized.Contains(id))) throw new InvalidOperationException("요청에서 허용하지 않은 에디터팩도 바뀌었어. 해당 팩의 수정 범위를 확인해줘.");
             }
-            candidate = await EditorPackGeneration.Prepare(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "PackEngine.PackHost.exe"), PackDotnet, selected, cancellation, Authorize);
-            var generation = candidate;
-            var context = EditorNativeSchema.Context(candidate.Snapshot, (id, value) => ExecuteEditorCommand(generation, id, value), session?.Project.Name ?? "프로젝트를 열어줘", session?.State.Selection ?? "");
-            foreach (var panel in candidate.Snapshot.Panels.OrderBy(p => p.Fields.TryGetValue("order", out var order) ? int.Parse(order, CultureInfo.InvariantCulture) : 0).ThenBy(p => p.Id, StringComparer.Ordinal))
-            {
-                string view = panel.Fields["view"];
-                var backend = new EditorPackBackend(node => Guard(() => PointEditorNode(view, node)), () => session?.Pointing.Mode is "single" or "range");
-                var mount = candidate.Catalog.Mount(view, context, backend);
-                mounted.Add((new TabItem { Tag = panel.Fields["slot"], Header = panel.Fields["title"], Foreground = Brush("#17202B"), Padding = new Thickness(12, 7, 12, 7), Content = new ScrollViewer { Content = ((EditorPackBackend.Element)mount.Root).Control, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } }, mount));
-            }
-            cancellation.ThrowIfCancellationRequested();
-            var previous = packGeneration;
+            candidate = await EditorPackRuntime.Prepare(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "PackEngine.PackHost.exe"), PackDotnet, selected, cancellation, packGeneration, Authorize);
+            var previous = packGeneration; var next = candidate;
             string? selectedSlot = (tabs.SelectedItem as TabItem)?.Tag as string;
-            foreach (var item in packViews) { tabs.Items.Remove(item.Tab); item.View.Dispose(); }
-            packViews.Clear(); packViews.AddRange(mounted); foreach (var item in mounted) tabs.Items.Add(item.Tab);
-            packGeneration = candidate; candidate = null; previous?.Dispose();
-            ApplyPackShell(false);
-            if (selectedSlot is not null && mounted.FirstOrDefault(p => (string)p.Tab.Tag == selectedSlot).Tab is { } selectedTab) tabs.SelectedItem = selectedTab;
+            packWindows.Refresh(next, definition => CreatePackWindow(next, definition));
+            packGeneration = next; candidate = null; previous?.Dispose();
+            ApplyPackShell(false); RefreshPackWindowChoices();
+            if (selectedSlot is not null && tabs.Items.OfType<TabItem>().FirstOrDefault(t => t.Tag as string == selectedSlot) is { } selectedTab) tabs.SelectedItem = selectedTab;
             Directory.CreateDirectory(Path.GetDirectoryName(EditorPackSettings)!); File.WriteAllText(EditorPackSettings, JsonSerializer.Serialize(enabledPackFolders.ToArray()));
-            packStatus.Text = "에디터팩 " + selected.Length + "개 적용 · 패널 " + mounted.Count + "개 · 에디터 재시작 없음";
+            packStatus.Text = "에디터팩 " + selected.Length + "개 적용 · 등록된 창 " + packWindows.Definitions.Count + "개 · 열린 창 " + packWindows.OpenIds.Count + "개";
         }
-        catch { foreach (var item in mounted) if (!packViews.Contains(item)) item.View.Dispose(); throw; }
         finally { candidate?.Dispose(); }
     }
-    private async void ExecuteEditorCommand(EditorPackGeneration generation, string command, UiValue value)
+    private async void ExecuteEditorCommand(IEditorPackRuntime generation, string command, UiValue value)
     {
         if (busy || !ReferenceEquals(generation, packGeneration)) return;
         SetBusy(true); operation = new();
@@ -192,6 +183,8 @@ public sealed partial class EditorWindow
                         ApplyPackShell(effect.Value == "focus"); break;
                     default: throw new InvalidDataException("Unsupported editor host effect: " + effect.Kind);
                 }
+            string ownerPack = generation.Snapshot.Commands.Single(c => c.Id == command).Pack;
+            foreach (var action in result.Windows) ManagePackWindow(ownerPack, action);
             if (result.Message.Length > 0) SetStatus(result.Message);
         }
         catch (Exception e) { SetStatus(e.Message); AppendLog("에디터팩: " + e.Message); }
@@ -199,7 +192,7 @@ public sealed partial class EditorWindow
     }
     private void StopEditorPacks()
     {
-        foreach (var item in packViews) { tabs.Items.Remove(item.Tab); item.View.Dispose(); } packViews.Clear(); packGeneration?.Dispose(); packGeneration = null; editorPoints.Clear();
+        packWindows.Dispose(); packGeneration?.Dispose(); packGeneration = null; editorPoints.Clear(); RefreshPackWindowChoices();
         ApplyPackShell(false);
     }
     private void ApplyPackShell(bool focus)
@@ -270,5 +263,7 @@ public sealed partial class EditorWindow
             if (tool is "list" or "read" or "inspect") session?.RecordEditorPackRead(request.Id, subject, result, WorkspaceProject.HashText(result), result.Contains("\"Partial\": true"));
             AppendLog("editor." + tool + " · " + subject); }),
         AppDomain.CurrentDomain.BaseDirectory, PackDotnet, EditorPackHistory,
-        (pack, path) => Dispatcher.Invoke(() => PackDocumentDirty(pack, path)), review);
+        (pack, path) => Dispatcher.Invoke(() => PackDocumentDirty(pack, path)), review,
+        () => Dispatcher.Invoke(() => (object)packWindows.Definitions.Select(d => new { Definition = d, Open = packWindows.OpenIds.Contains(d.Id) }).ToArray()),
+        (pack, action) => Dispatcher.Invoke(() => ManagePackWindow(pack, action)));
 }

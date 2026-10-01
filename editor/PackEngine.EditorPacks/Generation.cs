@@ -7,7 +7,7 @@ using PackEngine.Workspace;
 
 namespace PackEngine.EditorPacks;
 
-public sealed class EditorPackGeneration : IDisposable
+public sealed class EditorPackGeneration : IEditorPackRuntime
 {
     public static readonly JsonSerializerOptions WireJson = new(EditorSession.Json) { WriteIndented = false };
     private readonly Process worker;
@@ -19,6 +19,7 @@ public sealed class EditorPackGeneration : IDisposable
     public UiCatalog Catalog { get; private set; } = null!;
     public IReadOnlyDictionary<string, string> Hashes { get; private set; } = null!;
     public int ProcessId => worker.Id;
+    public bool IsAlive => !disposed && !worker.HasExited;
     private EditorPackGeneration(Process worker, string directory)
     {
         this.worker = worker; this.directory = directory;
@@ -81,6 +82,10 @@ public sealed class EditorPackGeneration : IDisposable
     }
     public async Task<EditorCommandResult> Execute(EditorInvocation invocation, CancellationToken cancellation)
     { var value = await Call("execute", invocation, cancellation).ConfigureAwait(false); return JsonSerializer.Deserialize<EditorCommandResult>(value.GetRawText(), WireJson)!; }
+    public async Task<EditorCommandResult> ExecuteHandler(string handler, EditorInvocation invocation, CancellationToken cancellation)
+    { var value = await Call("executeHandler", new EditorHandlerInvocation { Handler = handler, Invocation = invocation }, cancellation).ConfigureAwait(false); return JsonSerializer.Deserialize<EditorCommandResult>(value.GetRawText(), WireJson)!; }
+    public string CommandVersion(string command) => Snapshot.Fingerprint;
+    public string PackCodeVersion(string pack) => Hashes.TryGetValue(pack, out var hash) ? hash : "";
     private async Task<JsonElement> Call(string operation, object? body, CancellationToken cancellation)
     {
         await gate.WaitAsync(cancellation).ConfigureAwait(false);

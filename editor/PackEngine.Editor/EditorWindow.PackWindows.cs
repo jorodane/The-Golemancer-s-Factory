@@ -1,0 +1,137 @@
+using System.Globalization;
+using System.Windows;
+using System.Windows.Controls;
+using PackEngine.EditorPacks;
+using PackEngine.Editor.Contracts;
+using PackEngine.Runtime.UI;
+
+namespace PackEngine.Editor;
+
+public sealed partial class EditorWindow
+{
+    private readonly EditorWindowRegistry packWindows = new();
+    private readonly ComboBox packWindowChoice = new() { MinWidth = 220, DisplayMemberPath = "Title", Margin = new Thickness(4) };
+    private IEditorWindowInstance CreatePackWindow(IEditorPackRuntime runtime, EditorWindowDefinition definition)
+    {
+        var context = EditorNativeSchema.Context(runtime.Snapshot, (id, value) =>
+        {
+            if (packGeneration is { } current) ExecuteEditorCommand(current, id, value);
+        }, session?.Project.Name ?? "프로젝트를 열어줘", session?.State.Selection ?? "");
+        var backend = new EditorPackBackend(node => Guard(() => PointEditorNode(definition.View, node)), () => session?.Pointing.Mode is "single" or "range");
+        var view = runtime.Catalog.Mount(definition.View, context, backend);
+        try { return new PackWindowInstance(this, definition, backend, view); }
+        catch { view.Dispose(); throw; }
+    }
+    private void RefreshPackWindowChoices()
+    {
+        string? selected = (packWindowChoice.SelectedItem as EditorWindowDefinition)?.Id;
+        packWindowChoice.ItemsSource = packWindows.Definitions.OrderBy(d => d.Title, StringComparer.Ordinal).ToArray();
+        packWindowChoice.SelectedItem = packWindows.Definitions.FirstOrDefault(d => d.Id == selected);
+        if (packWindowChoice.SelectedIndex < 0 && packWindowChoice.Items.Count > 0) packWindowChoice.SelectedIndex = 0;
+    }
+    private void OpenPackWindow(bool temporary) => Guard(() =>
+    {
+        if (busy || packWindowChoice.SelectedItem is not EditorWindowDefinition definition) return;
+        if (temporary)
+            definition = packWindows.RegisterTemporary("editor.test." + Guid.NewGuid().ToString("N"), definition.Pack, definition.View, definition.Title + " · 테스트");
+        try { packWindows.Open(definition.Id); }
+        catch { if (temporary) packWindows.UnregisterTemporary(definition.Id); throw; }
+        RefreshPackWindowChoices(); packWindowChoice.SelectedItem = packWindows.Definitions.Single(d => d.Id == definition.Id);
+    });
+    private void RemoveTemporaryPackWindow() => Guard(() =>
+    {
+        if (busy || packWindowChoice.SelectedItem is not EditorWindowDefinition definition) return;
+        if (!definition.Temporary) { SetStatus("해제할 임시 테스트 창을 선택해줘."); return; }
+        packWindows.UnregisterTemporary(definition.Id); RefreshPackWindowChoices();
+    });
+    private object ManagePackWindow(string pack, EditorWindowAction action)
+    {
+        if (packGeneration is null || !packGeneration.Hashes.ContainsKey(pack)) throw new InvalidOperationException("먼저 에디터팩을 로드해줘.");
+        if (action.Operation == "register") packWindows.RegisterTemporary(action.Id, pack, action.View, action.Title);
+        else
+        {
+            var definition = packWindows.Definitions.SingleOrDefault(d => d.Id == action.Id && d.Pack == pack)
+                ?? throw new InvalidOperationException("이 팩에 등록된 창이 없어.");
+            switch (action.Operation)
+            {
+                case "open": packWindows.Open(definition.Id); break;
+                case "close": packWindows.Close(definition.Id); break;
+                case "unregister": packWindows.UnregisterTemporary(definition.Id); break;
+                default: throw new InvalidDataException("알 수 없는 창 동작이야.");
+            }
+        }
+        RefreshPackWindowChoices(); return new { action.Id, action.Operation, Completed = true };
+    }
+
+    private sealed class PackWindowInstance : IEditorWindowInstance
+    {
+        private readonly EditorWindow owner;
+        private readonly EditorWindowDefinition definition;
+        private readonly EditorPackBackend backend;
+        private readonly UiMountedView view;
+        private readonly ScrollViewer scroll;
+        private readonly Window? window;
+        private readonly TabItem? tab;
+        private bool active, disposed, nativeClosed, restoreScroll;
+        private double offset;
+        public PackWindowInstance(EditorWindow owner, EditorWindowDefinition definition, EditorPackBackend backend, UiMountedView view)
+        {
+            this.owner = owner; this.definition = definition; this.backend = backend; this.view = view;
+            scroll = new() { Content = ((EditorPackBackend.Element)view.Root).Control, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
+            scroll.Loaded += ScrollLoaded;
+            if (definition.Placement == "panel")
+            {
+                var header = new StackPanel { Orientation = Orientation.Horizontal };
+                header.Children.Add(new TextBlock { Text = definition.Title, Margin = new Thickness(0, 0, 6, 0) });
+                var close = new Button { Content = "×", ToolTip = "창 닫기", Padding = new Thickness(4, 0, 4, 0) };
+                close.Click += (_, _) => { owner.packWindows.Close(definition.Id); owner.RefreshPackWindowChoices(); };
+                header.Children.Add(close);
+                tab = new() { Tag = definition.Slot, Header = header, Foreground = Brush("#17202B"), Padding = new Thickness(12, 7, 12, 7), Content = scroll };
+            }
+            else
+            {
+                window = new() { Owner = owner, Title = definition.Title, Content = scroll, Width = 760, Height = 520, MinWidth = 320, MinHeight = 200,
+                    Background = Brush("#11171F"), WindowStartupLocation = WindowStartupLocation.CenterOwner };
+                window.Closed += WindowClosed;
+            }
+        }
+        private void ScrollLoaded(object sender, RoutedEventArgs e)
+        { if (restoreScroll) { restoreScroll = false; scroll.ScrollToVerticalOffset(offset); } }
+        private void WindowClosed(object? sender, EventArgs e)
+        { nativeClosed = true; owner.packWindows.Close(definition.Id); owner.RefreshPackWindowChoices(); }
+        public EditorWindowState Capture()
+        {
+            var state = backend.Capture(); state.Values["$scroll"] = scroll.VerticalOffset.ToString(CultureInfo.InvariantCulture);
+            if (window is not null)
+                foreach (var item in new[] { ("$left", window.Left), ("$top", window.Top), ("$width", window.Width), ("$height", window.Height) })
+                    state.Values[item.Item1] = item.Item2.ToString(CultureInfo.InvariantCulture);
+            return state;
+        }
+        public void Restore(EditorWindowState state)
+        {
+            backend.Restore(state);
+            bool Number(string key, out double value)
+            { value = 0; return state.Values.TryGetValue(key, out var text) && double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value) && !double.IsNaN(value) && !double.IsInfinity(value); }
+            if (Number("$scroll", out var saved)) { offset = Math.Max(0, saved); restoreScroll = true; }
+            if (window is null) return;
+            if (Number("$width", out var width)) window.Width = Math.Max(window.MinWidth, width);
+            if (Number("$height", out var height)) window.Height = Math.Max(window.MinHeight, height);
+            if (Number("$left", out var left) && Number("$top", out var top)) { window.WindowStartupLocation = WindowStartupLocation.Manual; window.Left = left; window.Top = top; }
+        }
+        public void Activate()
+        {
+            if (active) return; active = true;
+            if (tab is not null) owner.tabs.Items.Add(tab); else window!.Show();
+        }
+        public void Focus()
+        { if (tab is not null) owner.tabs.SelectedItem = tab; else window!.Activate(); }
+        public void Dispose()
+        {
+            if (disposed) return; disposed = true;
+            scroll.Loaded -= ScrollLoaded;
+            if (tab is not null) { owner.tabs.Items.Remove(tab); tab.Content = null; }
+            if (window is not null) { window.Closed -= WindowClosed; if (!nativeClosed) window.Close(); window.Content = null; }
+            scroll.Content = null; view.Dispose();
+        }
+    }
+}

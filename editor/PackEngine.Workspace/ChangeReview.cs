@@ -21,6 +21,7 @@ public sealed class ReviewItem
     public string BeforeHash { get; set; } = "";
     public string AfterHash { get; set; } = "";
     public string Operation { get; set; } = "";
+    public int Sequence { get; set; }
     public string Tool { get; set; } = "";
     public string Subject { get; set; } = "";
     public string Detail { get; set; } = "";
@@ -59,13 +60,14 @@ public sealed class ChangeReviewBatch
             throw new IOException("A cumulative proposal must retain its original reviewed baseline.");
         work[key] = new(item, validate, apply, undo, null, currentHash); Save();
     }
-    public string Queue(string kind, string pack, string operation, string tool, string subject, string detail, Action validate, Func<CancellationToken, Task<string>> run)
+    public string Queue(string kind, string pack, string operation, string tool, string subject, string detail, Action validate, Func<CancellationToken, Task<string>> run, string? actionKey = null)
     {
         if (closed) throw new InvalidOperationException("This review is already closed.");
-        string key = Key(kind, pack, "action:" + operation);
+        string key = Key(kind, pack, "action:" + operation + (actionKey is null ? "" : ":" + actionKey));
         if (!work.ContainsKey(key) && work.Count >= 100) throw new InvalidOperationException("Review up to 100 changes/actions per request.");
         string id = work.TryGetValue(key, out var previous) ? previous.Item.Id : Guid.NewGuid().ToString("N");
-        work[key] = new(new() { Id = id, Kind = kind, Pack = pack, Operation = operation, Tool = tool, Subject = subject, Intent = detail }, validate, null, null, run);
+        int sequence = previous?.Item.Sequence ?? work.Count;
+        work[key] = new(new() { Id = id, Kind = kind, Pack = pack, Operation = operation, Sequence = sequence, Tool = tool, Subject = subject, Intent = detail }, validate, null, null, run);
         Save(); return id;
     }
     public ReviewItem Require(string id) => work.Values.FirstOrDefault(w => w.Item.Id == id)?.Item
@@ -128,7 +130,8 @@ public sealed class ChangeReviewBatch
                 Save(); throw;
             }
         });
-        foreach (var entry in work.Values.Where(w => !w.Item.IsFile && selected.Contains(w.Item.Id)).OrderBy(w => w.Item.Operation == "reload" ? 1 : 0))
+        foreach (var entry in work.Values.Where(w => !w.Item.IsFile && selected.Contains(w.Item.Id))
+            .OrderBy(w => w.Item.Operation == "reload" ? 1 : w.Item.Operation == "window" ? 2 : 0).ThenBy(w => w.Item.Sequence))
         {
             try
             {

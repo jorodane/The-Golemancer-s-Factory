@@ -3,6 +3,7 @@
 import argparse
 from pathlib import Path
 import subprocess
+import re
 
 root = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser(description=__doc__)
@@ -13,5 +14,7 @@ for project in ['editor/PackEngine.PackHost/PackEngine.PackHost.csproj', 'editor
 result = subprocess.run([args.dotnet, str(root / 'tests/PackEngine.EditorPacks.Verification/bin/Release/net10.0/PackEngine.EditorPacks.Verification.dll'), str(root), args.dotnet], cwd=root, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 print(result.stdout, flush=True)
 result.check_returncode()
-if 'EDITOR_PACK_CHECKS=53' not in result.stdout:
+completed = re.search(r'^EDITOR_PACK_CHECKS=(\d+)$', result.stdout, re.MULTILINE)
+modules = re.search(r'^MODULE_WINDOW_CHECKS=(\d+)$', result.stdout, re.MULTILINE)
+if not completed or int(completed.group(1)) < 53 or not modules or int(modules.group(1)) < 30:
     raise RuntimeError('Editor pack verification did not reach its completion marker.')

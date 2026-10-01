@@ -120,6 +120,7 @@ try
     await Reject(async () => { using var bad = await Load(core, child, plugin); }, "shared plugins cannot depend on one project's editor packs"); Write(plugin, "pack.xml", pluginManifest);
     await Reject(() => { EditorPackChange.Validate("pack.xml", pluginManifest.Replace("test.shared", "renamed.pack"), plugin.Id); return Task.CompletedTask; }, "installed pack identities cannot be renamed by a patch");
     await Reject(() => { EditorPackChange.Validate("pack.xml", pluginManifest.Replace("ui.xml", "../secret.xml"), plugin.Id); return Task.CompletedTask; }, "manifest edits cannot introduce escaping paths");
+    await ModuleWindowsVerification.Run(repository, dotnet, worker, core, child, plugin, Check);
     var editorSession = new EditorSession(Path.Combine(repository, "Golemancer/Golemancer.packproject"), Path.Combine(temporary, "McpState"));
     await ReviewVerification.Run(editorSession, core, child, together, Path.Combine(temporary, "ReviewHistory"), Check);
     using var projectRunner = new ProjectRunner(editorSession, dotnet);

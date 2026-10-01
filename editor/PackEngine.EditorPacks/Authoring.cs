@@ -62,7 +62,7 @@ public sealed class EditorPackAgent : IEditorPackAccess
     private readonly HashSet<string> writable;
     private readonly Dictionary<string, string> reads = new(StringComparer.Ordinal);
     private readonly Dictionary<string, EditorPackChange> changes = new(StringComparer.Ordinal);
-    private readonly Func<EditorPackGeneration?> active;
+    private readonly Func<IEditorPackRuntime?> active;
     private readonly Func<IReadOnlyCollection<string>, CancellationToken, Task> reload;
     private readonly Action<EditorPackChange> preview;
     private readonly Action<string, string, string> record;
@@ -70,15 +70,19 @@ public sealed class EditorPackAgent : IEditorPackAccess
     private readonly bool allowReload;
     private readonly Func<string, string, bool> dirty;
     private readonly ChangeReviewBatch? review;
-    public EditorPackAgent(IEnumerable<EditorPackSource> sources, ContextRequest request, Func<EditorPackGeneration?> active,
+    private readonly Func<object>? windows;
+    private readonly Func<string, PackEngine.Editor.Contracts.EditorWindowAction, object>? window;
+    public EditorPackAgent(IEnumerable<EditorPackSource> sources, ContextRequest request, Func<IEditorPackRuntime?> active,
         Func<IReadOnlyCollection<string>, CancellationToken, Task> reload, Action<EditorPackChange> preview, Action<string, string, string> record,
-        string sdk, string dotnet, string history, Func<string, string, bool>? dirty = null, ChangeReviewBatch? review = null)
+        string sdk, string dotnet, string history, Func<string, string, bool>? dirty = null, ChangeReviewBatch? review = null,
+        Func<object>? windows = null, Func<string, PackEngine.Editor.Contracts.EditorWindowAction, object>? window = null)
     {
         this.sources = sources.ToDictionary(s => s.Id, StringComparer.Ordinal); writable = new(request.WritableEditorPacks, StringComparer.Ordinal);
         allowReload = request.AllowEditorReload; this.active = active; this.reload = reload; this.preview = preview; this.record = record;
         this.sdk = sdk; this.dotnet = dotnet; this.history = history;
         this.dirty = dirty ?? ((_, _) => false);
         this.review = review;
+        this.windows = windows; this.window = window;
     }
     private static string S(JsonElement args, string key) => args.TryGetProperty(key, out var value) ? value.GetString() ?? "" : "";
     public async Task<string> Call(JsonElement args, CancellationToken cancellation)
@@ -87,7 +91,9 @@ public sealed class EditorPackAgent : IEditorPackAccess
         string operation = S(args, "operation"), id = S(args, "pack"), path = S(args, "path");
         object result;
         if (operation == "list") result = new { Packs = sources.Values.Select(s => new { s.Id, s.Scope, s.Parent, Files = s.Documents(), Active = active()?.Hashes.ContainsKey(s.Id) == true }), Writable = writable, AllowReload = allowReload, ReviewChanges = review is not null, ProposalScope = review is null ? "Frozen writable packs" : "All registered editor packs; actual changes/actions require the host review",
+            Modules = (active() as EditorPackRuntime)?.Modules, WindowsAvailable = windows is not null,
             Shell = active()?.Snapshot.Shell, ShellHint = "EditorExtensions/Shell extends a layout ID; sidebarWidth 0..600, contextWidth 180..700, logHeight 0..600; sidebar+context <=1000. Omission inherits. XML-only changes apply on reload." };
+        else if (operation == "windows") result = windows?.Invoke() ?? throw new InvalidOperationException("This host does not expose registered windows.");
         else if (operation == "reload" && review is not null)
         {
             string queued = review.Queue("editor", "에디터 적용", "reload", "editor.reload", "reviewed-editor-packs", "선택한 에디터팩을 실행 중인 에디터에 적용", () => { }, async token =>
@@ -106,12 +112,25 @@ public sealed class EditorPackAgent : IEditorPackAccess
         else
         {
             if (!sources.TryGetValue(id, out var source)) throw new InvalidDataException("Unknown editor pack in this request.");
-            if (operation is "patch" or "apply" or "undo" or "build")
+            if (operation is "patch" or "apply" or "undo" or "build" or "window")
                 if (review is null && !writable.Contains(id)) throw new InvalidOperationException("This request does not authorize changing editor pack " + id);
             if (operation == "patch")
                 if (dirty(id, path)) throw new IOException("This editor pack has an unsaved user buffer. Reconcile it first.");
             switch (operation)
             {
+                case "window":
+                    if (window is null) throw new InvalidOperationException("This host does not expose window management.");
+                    var action = new PackEngine.Editor.Contracts.EditorWindowAction { Operation = S(args, "action"), Id = S(args, "windowId"), View = S(args, "view"), Title = S(args, "title") };
+                    if (action.Operation is not ("register" or "open" or "close" or "unregister")) throw new InvalidDataException("Unknown window action.");
+                    EditorPackNames.Check(action.Id);
+                    if (review is not null)
+                    {
+                        string queued = review.Queue("editor", id, "window", "editor.window", action.Id + "." + action.Operation, "창 " + action.Operation + " · " + action.Id,
+                            () => { }, _ => Task.FromResult(EditorSession.Serialize(window(id, action))), Guid.NewGuid().ToString("N"));
+                        result = new { ReviewId = queued, Completed = false, State = "pending-review" };
+                    }
+                    else { if (!allowReload) throw new InvalidOperationException("Enable editor execution for window actions."); result = window(id, action); }
+                    break;
                 case "inspect":
                     string view = S(args, "view"); var live = active() ?? throw new InvalidOperationException("No active editor packs.");
                     result = new { LiveSnapshot = live.Snapshot.Fingerprint, Definition = live.Catalog.InspectView(view), Hint = "Origins identify parent/child XML; use read for current source. Live snapshot can differ from edited files." }; break;
