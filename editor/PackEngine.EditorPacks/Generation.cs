@@ -11,6 +11,7 @@ public sealed class EditorPackGeneration : IDisposable
 {
     public static readonly JsonSerializerOptions WireJson = new(EditorSession.Json) { WriteIndented = false };
     private readonly Process worker;
+    private readonly StreamWriter input;
     private readonly string directory;
     private readonly SemaphoreSlim gate = new(1, 1);
     private bool disposed;
@@ -18,7 +19,12 @@ public sealed class EditorPackGeneration : IDisposable
     public UiCatalog Catalog { get; private set; } = null!;
     public IReadOnlyDictionary<string, string> Hashes { get; private set; } = null!;
     public int ProcessId => worker.Id;
-    private EditorPackGeneration(Process worker, string directory) { this.worker = worker; this.directory = directory; }
+    private EditorPackGeneration(Process worker, string directory)
+    {
+        this.worker = worker; this.directory = directory;
+        // net48's default stdin writer can use the Windows console code page; the protocol is always UTF-8.
+        input = new StreamWriter(worker.StandardInput.BaseStream, new UTF8Encoding(false), 4096, true) { AutoFlush = true };
+    }
     public static async Task<EditorPackGeneration> Prepare(string executable, string dotnet, IReadOnlyList<EditorPackSource> sources, CancellationToken cancellation, Action<IReadOnlyDictionary<string, string>>? authorize = null)
     {
         if (sources.Select(s => s.Id).Distinct(StringComparer.Ordinal).Count() != sources.Count) throw new InvalidDataException("Duplicate editor pack IDs across scopes.");
@@ -84,8 +90,8 @@ public sealed class EditorPackGeneration : IDisposable
             string id = Guid.NewGuid().ToString("N");
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellation); timeout.CancelAfter(TimeSpan.FromSeconds(20));
             using var kill = timeout.Token.Register(() => EditorPackSource.Stop(worker));
-            await worker.StandardInput.WriteLineAsync(JsonSerializer.Serialize(new { Id = id, Operation = operation, Body = body }, WireJson)).ConfigureAwait(false);
-            await worker.StandardInput.FlushAsync().ConfigureAwait(false);
+            await input.WriteLineAsync(JsonSerializer.Serialize(new { Id = id, Operation = operation, Body = body }, WireJson)).ConfigureAwait(false);
+            await input.FlushAsync().ConfigureAwait(false);
             string? line = await worker.StandardOutput.ReadLineAsync().ConfigureAwait(false); timeout.Token.ThrowIfCancellationRequested();
             if (line is null || line.Length > 4_000_000) throw new IOException("Invalid editor pack response.");
             using var reply = JsonDocument.Parse(line);
@@ -99,6 +105,6 @@ public sealed class EditorPackGeneration : IDisposable
     {
         if (disposed) return; disposed = true;
         EditorPackSource.Stop(worker); try { worker.WaitForExit(3000); } catch (InvalidOperationException) { }
-        worker.Dispose(); try { Directory.Delete(directory, true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        try { input.Dispose(); } catch (IOException) { } worker.Dispose(); try { Directory.Delete(directory, true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
     }
 }

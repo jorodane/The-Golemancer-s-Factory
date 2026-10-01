@@ -13,5 +13,5 @@ for project in ['editor/PackEngine.PackHost/PackEngine.PackHost.csproj', 'editor
 result = subprocess.run([args.dotnet, str(root / 'tests/PackEngine.EditorPacks.Verification/bin/Release/net10.0/PackEngine.EditorPacks.Verification.dll'), str(root), args.dotnet], cwd=root, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 print(result.stdout, flush=True)
 result.check_returncode()
-if 'EDITOR_PACK_CHECKS=46' not in result.stdout:
+if 'EDITOR_PACK_CHECKS=48' not in result.stdout:
     raise RuntimeError('Editor pack verification did not reach its completion marker.')

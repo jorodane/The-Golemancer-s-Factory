@@ -16,6 +16,7 @@ async Task<EditorPackGeneration> Load(params EditorPackSource[] sources) { var g
 void Write(EditorPackSource source, string path, string value) => File.WriteAllText(source.PathFor(path), value);
 async Task<string> Run(EditorPackGeneration g, string command) => (await g.Execute(new() { Command = command }, default)).Message;
 async Task<JsonElement> Tool(EditorPackAgent agent, object arguments) { using var input = JsonDocument.Parse(EditorSession.Serialize(arguments)); using var output = JsonDocument.Parse(await agent.Call(input.RootElement, default)); return output.RootElement.Clone(); }
+JsonElement Arguments(object value) { using var data = JsonDocument.Parse(EditorSession.Serialize(value)); return data.RootElement.Clone(); }
 try
 {
     string coreRoot = Path.Combine(temporary, "Core"), coreFolder = Path.Combine(coreRoot, "CoreTools"); Directory.CreateDirectory(coreFolder);
@@ -119,6 +120,17 @@ try
     await Reject(async () => { using var bad = await Load(core, child, plugin); }, "shared plugins cannot depend on one project's editor packs"); Write(plugin, "pack.xml", pluginManifest);
     await Reject(() => { EditorPackChange.Validate("pack.xml", pluginManifest.Replace("test.shared", "renamed.pack"), plugin.Id); return Task.CompletedTask; }, "installed pack identities cannot be renamed by a patch");
     await Reject(() => { EditorPackChange.Validate("pack.xml", pluginManifest.Replace("ui.xml", "../secret.xml"), plugin.Id); return Task.CompletedTask; }, "manifest edits cannot introduce escaping paths");
+    var editorSession = new EditorSession(Path.Combine(repository, "Golemancer/Golemancer.packproject"), Path.Combine(temporary, "McpState"));
+    using var projectRunner = new ProjectRunner(editorSession, dotnet);
+    using var mcp = new EditorMcpWorkspace(editorSession, projectRunner, action => action(), () => new() { Enabled = true }, () => projectRunner.PreferredTarget, _ => { }, _ => { },
+        prepared => { prepared.WritableEditorPacks = [child.Id]; prepared.EditorInput = new() { Mode = "single", Targets = [new() { Key = "view:test.project.view/refresh", Pack = child.Id, File = "ui.xml" }] }; },
+        prepared => new EditorPackAgent(new[] { core, child }, prepared, () => together, (_, _) => Task.CompletedTask, _ => { }, (_, _, _) => { }, "", dotnet, Path.Combine(temporary, "McpChanges")));
+    string client = Guid.NewGuid().ToString("N");
+    using var mcpContext = JsonDocument.Parse(await mcp.CallAsync(client, "packengine_context", Arguments(new { intent = "Inspect the editor button" }), default));
+    string requestId = mcpContext.RootElement.GetProperty("requestId").GetString()!;
+    Check(mcpContext.RootElement.GetProperty("WritableEditorPacks")[0].GetString() == child.Id && mcpContext.RootElement.GetProperty("EditorInput").GetProperty("Targets")[0].GetProperty("Pack").GetString() == child.Id, "MCP context captures separate editor pointing and editor pack scope");
+    using var mcpRead = JsonDocument.Parse(await mcp.CallAsync(client, "packengine_editor", Arguments(new { requestId, operation = "read", pack = child.Id, path = "ui.xml" }), default));
+    Check(mcpRead.RootElement.GetProperty("Hash").GetString() == WorkspaceProject.HashText(child.Read("ui.xml")) && editorSession.State.Operations.Any(p => p.Tool == "packengine_editor" && p.Status == "completed"), "real MCP workspace routes editor pack tools through the request-bound access object");
     Console.WriteLine("EDITOR_PACK_CHECKS=" + checks);
 }
 finally { foreach (var generation in generations) generation.Dispose(); try { Directory.Delete(temporary, true); } catch (IOException) { } }

@@ -83,3 +83,10 @@ dotnet tests/PackEngine.Launcher.Verification/bin/Release/net10.0/PackEngine.Lau
 동일 소스에서 저장소 검사 22개, 이식·제공자 통합 검사 31개, 시작 준비 검사 22개를 통과했다. 기존 resident 52개 + workspace 33개, MCP 37개 + 실행 파일 프로토콜 4개, 에디터 워크플로 20개, 전체 캠페인 540개와 Linux 30개 및 30프레임 smoke도 통과했다. 동기화 충돌로 마지막 대화를 열지 못해도 새 대화로 넘어갈 수 있음을 검사했다.
 
 Windows WPF/net48 빌드는 오류·경고 없이 통과했다. 실제 Windows UI, 물리적 두 PC 사이의 이동, 클라우드 동기화 서비스, 로그인 후 모델의 이어지는 답변은 미검증이다. 스크립트는 `TestResults/conversations/report.json`에 실제 공식 CLI 검사 여부를 별도 기록한다. 런타임·새 UI는 [대화 사용법](PROJECT_CONVERSATIONS.md)을 따른다.
+
+## 에디터 객체팩 동적 장착 (2026-10-01)
+
+- 실제 별도 DLL/worker 기반 검사 48개 통과: 부분 상속, 설정 출처, Shell 배치, 동적 DLL 교체, 이전 프로세스 종료, 실패 복구, private DLL 구분, 프로젝트/공용 범위, 미리보기·해시·초안·되돌리기·MCP 에디터팩 라우팅. `tools/verify-editor-packs.py`로 재현한다.
+- 기존 에디터 작업 흐름 20개, 전체 게임 캠페인 540개, Linux 검증 30개와 실제 30프레임 실행 통과. 고정 SDK 및 Windows 게임 엔진 파일 해시 보존 확인.
+- MCP 37개와 실행 파일 프로토콜 4개, Codex 전송 fixture 49개와 작업 모델 33개 통과. 실제 모델 대화·ChatGPT 플러그인 연결·보안 터널·Windows GUI 조작은 이 검증에 포함하지 않는다. 이 Linux 환경에서는 named pipe 검증을 실행하지 못해 익명 스트림과 실제 stdio 실행 파일을 검사했다.
+- Windows net48 에디터/계약/worker/기본 팩 빌드를 확인한다. 기존 탐색기·채팅·문서 전체의 객체팩 이관이나 사용자 정의 네이티브 렌더러는 이번 범위가 아니다.
