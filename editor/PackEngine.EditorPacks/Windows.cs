@@ -33,6 +33,12 @@ public interface IEditorWindowInstance : IDisposable
     void Focus();
 }
 
+public interface IEditorLiveWindowInstance : IEditorWindowInstance
+{
+    EditorViewEditSnapshot CaptureViewEdits();
+    void UpdateView(EditorPreparedView view, EditorViewEditSnapshot? edits);
+}
+
 public sealed class EditorWindowRegistry : IDisposable
 {
     private Dictionary<string, EditorWindowDefinition> definitions = new(StringComparer.Ordinal);
@@ -129,15 +135,27 @@ public sealed class EditorWindowRegistry : IDisposable
         if (!instances.TryGetValue(id, out var instance)) return;
         states[id] = instance.Capture(); instances.Remove(id); instance.Dispose();
     }
-    public void ReplaceView(string id, string pack, Func<EditorWindowDefinition, IEditorWindowInstance> create)
+    public Dictionary<string, EditorViewEditSnapshot> CaptureViewEdits() => instances
+        .Where(p => p.Value is IEditorLiveWindowInstance)
+        .ToDictionary(p => p.Key, p => ((IEditorLiveWindowInstance)p.Value).CaptureViewEdits(), StringComparer.Ordinal);
+
+    public void UpdateView(string id, string pack, EditorPreparedView view, EditorViewEditSnapshot? edits = null)
     {
         if (!definitions.TryGetValue(id, out var definition) || definition.Pack != pack) throw new InvalidOperationException("A command can only update its own registered window.");
-        instances.TryGetValue(id, out var previous);
-        var saved = previous?.Capture() ?? (states.TryGetValue(id, out var state) ? state : null);
-        var candidate = create(definition);
-        try { if (saved is not null) candidate.Restore(saved); candidate.Activate(); }
+        if (instances.TryGetValue(id, out var existing))
+        {
+            if (existing is not IEditorLiveWindowInstance live) throw new NotSupportedException("This host does not support retained view updates.");
+            live.UpdateView(view, edits); return;
+        }
+        var candidate = factory!(definition);
+        try
+        {
+            if (candidate is not IEditorLiveWindowInstance live) throw new NotSupportedException("This host does not support retained view updates.");
+            if (states.TryGetValue(id, out var saved)) candidate.Restore(saved);
+            live.UpdateView(view, null); candidate.Activate();
+        }
         catch { candidate.Dispose(); throw; }
-        instances[id] = candidate; previous?.Dispose();
+        instances.Add(id, candidate);
     }
     public void UnregisterTemporary(string id)
     {

@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using PackEngine.EditorPacks;
 using PackEngine.Editor.Contracts;
 using PackEngine.Runtime.UI;
@@ -11,15 +12,16 @@ public sealed partial class EditorWindow
 {
     private readonly EditorWindowRegistry packWindows = new();
     private readonly ComboBox packWindowChoice = new() { MinWidth = 220, DisplayMemberPath = "Title", Margin = new Thickness(4) };
-    private IEditorWindowInstance CreatePackWindow(IEditorPackRuntime runtime, EditorWindowDefinition definition, UiCatalog? transient = null)
+    private IEditorWindowInstance CreatePackWindow(IEditorPackRuntime runtime, EditorWindowDefinition definition)
     {
         var context = EditorNativeSchema.Context(runtime.Snapshot, (id, value) =>
         {
             if (packGeneration is { } current) ExecuteEditorCommand(current, id, value);
         }, session?.Project.Name ?? "프로젝트를 열어줘", session?.State.Selection ?? "");
-        var backend = new EditorPackBackend(node => Guard(() => { if (transient is null) PointEditorNode(definition.View, node); else PointEditorPack(definition.Pack, "pack.xml", "runtime-view:" + definition.View); }), () => session?.Pointing.Mode is "single" or "range");
-        var view = (transient ?? runtime.Catalog).Mount(definition.View, context, backend);
-        try { return new PackWindowInstance(this, definition, backend, view); }
+        string? transient = null;
+        var backend = new EditorPackBackend(node => Guard(() => { if (transient is null) PointEditorNode(definition.View, node); else PointEditorPack(definition.Pack, "pack.xml", "runtime-view:" + transient); }), () => session?.Pointing.Mode is "single" or "range");
+        var view = new EditorLiveView(runtime.Catalog, definition.View, context, backend);
+        try { return new PackWindowInstance(this, definition, backend, view, context, id => transient = id); }
         catch { view.Dispose(); throw; }
     }
     private void RefreshPackWindowChoices()
@@ -51,20 +53,22 @@ public sealed partial class EditorWindow
         RefreshPackWindowChoices(); return new { action.Id, action.Operation, Completed = true };
     }
 
-    private sealed class PackWindowInstance : IEditorWindowInstance
+    private sealed class PackWindowInstance : IEditorLiveWindowInstance
     {
         private readonly EditorWindow owner;
         private readonly EditorWindowDefinition definition;
         private readonly EditorPackBackend backend;
-        private readonly UiMountedView view;
+        private readonly EditorLiveView view;
+        private readonly UiContext context;
+        private readonly Action<string> updated;
         private readonly ScrollViewer scroll;
         private readonly Window? window;
         private readonly TabItem? tab;
         private bool active, disposed, nativeClosed, restoreScroll;
         private double offset;
-        public PackWindowInstance(EditorWindow owner, EditorWindowDefinition definition, EditorPackBackend backend, UiMountedView view)
+        public PackWindowInstance(EditorWindow owner, EditorWindowDefinition definition, EditorPackBackend backend, EditorLiveView view, UiContext context, Action<string> updated)
         {
-            this.owner = owner; this.definition = definition; this.backend = backend; this.view = view;
+            this.owner = owner; this.definition = definition; this.backend = backend; this.view = view; this.context = context; this.updated = updated;
             scroll = new() { Content = ((EditorPackBackend.Element)view.Root).Control, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
             scroll.Loaded += ScrollLoaded;
             if (definition.Placement == "panel")
@@ -88,6 +92,21 @@ public sealed partial class EditorWindow
         { if (restoreScroll) { restoreScroll = false; scroll.ScrollToVerticalOffset(offset); } }
         private void WindowClosed(object? sender, EventArgs e)
         { nativeClosed = true; owner.packWindows.Close(definition.Id); owner.RefreshPackWindowChoices(); }
+        public EditorViewEditSnapshot CaptureViewEdits() => view.CaptureEdits();
+        public void UpdateView(EditorPreparedView next, EditorViewEditSnapshot? edits)
+        {
+            double vertical = scroll.VerticalOffset, horizontal = scroll.HorizontalOffset;
+            var focused = Keyboard.FocusedElement as FrameworkElement;
+            bool ownedFocus = scroll.IsKeyboardFocusWithin;
+            view.Update(next.Catalog, next.View, context, edits);
+            var root = ((EditorPackBackend.Element)view.Root).Control;
+            if (!ReferenceEquals(scroll.Content, root)) scroll.Content = root;
+            updated(next.View);
+            scroll.UpdateLayout();
+            // Reordering can detach a retained control; do not steal focus from another window.
+            if (ownedFocus && focused is not null && focused.IsVisible && root.IsAncestorOf(focused) && !focused.IsKeyboardFocusWithin) focused.Focus();
+            scroll.ScrollToHorizontalOffset(horizontal); scroll.ScrollToVerticalOffset(vertical);
+        }
         public EditorWindowState Capture()
         {
             var state = backend.Capture(); state.Values["$scroll"] = scroll.VerticalOffset.ToString(CultureInfo.InvariantCulture);

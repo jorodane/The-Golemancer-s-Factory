@@ -8,22 +8,24 @@ using AView = Android.Views.View;
 
 namespace PackEngine.Editor.Android;
 
-internal sealed class AndroidPackWindow : IEditorWindowInstance
+internal sealed class AndroidPackWindow : IEditorLiveWindowInstance
 {
     private readonly MainActivity activity;
     private readonly EditorWindowDefinition definition;
     private readonly AndroidPackBackend backend;
-    private readonly UiMountedView mounted;
+    private readonly EditorLiveView mounted;
+    private readonly UiContext context;
     private readonly LinearLayout page;
     private AlertDialog? dialog;
     private bool disposed;
+    private int viewVersion;
     public string Id => definition.Id;
     public AndroidPackWindow(MainActivity activity, EditorWindowDefinition definition, IEditorPackRuntime runtime)
     {
         this.activity = activity; this.definition = definition;
         backend = new(activity);
-        var context = EditorNativeSchema.Context(runtime.Snapshot, (command, value) => activity.Dispatch(command, value), "모바일 에디터팩 작업공간", "");
-        mounted = runtime.Catalog.Mount(definition.View, context, backend);
+        context = EditorNativeSchema.Context(runtime.Snapshot, (command, value) => activity.Dispatch(command, value), "모바일 에디터팩 작업공간", "");
+        mounted = new EditorLiveView(runtime.Catalog, definition.View, context, backend);
         page = new(activity) { Orientation = Orientation.Vertical };
         page.AddView(new TextView(activity) { Text = definition.Title, TextSize = 20 });
         page.AddView(((AndroidPackBackend.Element)mounted.Root).Control);
@@ -31,6 +33,22 @@ internal sealed class AndroidPackWindow : IEditorWindowInstance
     }
     public EditorWindowState Capture() => backend.Capture();
     public void Restore(EditorWindowState state) => backend.Restore(state);
+    public EditorViewEditSnapshot CaptureViewEdits() => mounted.CaptureEdits();
+    public void UpdateView(EditorPreparedView next, EditorViewEditSnapshot? edits)
+    {
+        var focus = page.FindFocus();
+        ScrollView? scroll = null;
+        for (var parent = page.Parent; parent is not null; parent = parent.Parent)
+            if (parent is ScrollView found) { scroll = found; break; }
+        int x = scroll?.ScrollX ?? 0, y = scroll?.ScrollY ?? 0;
+        var before = ((AndroidPackBackend.Element)mounted.Root).Control;
+        mounted.Update(next.Catalog, next.View, context, edits);
+        var root = ((AndroidPackBackend.Element)mounted.Root).Control;
+        if (!ReferenceEquals(before, root)) { page.RemoveView(before); page.AddView(root, 1); }
+        if (focus is not null && focus.IsShown && focus.IsAttachedToWindow && !focus.HasFocus) focus.RequestFocus();
+        int version = ++viewVersion;
+        scroll?.Post(() => { if (!disposed && version == viewVersion) scroll.ScrollTo(x, y); });
+    }
     public void Activate()
     {
         activity.LiveWindows.Add(this);

@@ -26,6 +26,7 @@ try
     var core = EditorPackSource.Discover(coreRoot, "core").Single();
     Check(core.Documents().Contains("Commands.cs"), "source discovery indexes declared code without executing it");
     var first = await Load(core); Check(first.Snapshot.Panels.Single().Id == "editor.core.tools", "real external core DLL and native UI contract load");
+    LiveViewVerification.Run(repository, first, Check);
     Check((await first.Execute(new() { Command = "editor.core.focus" }, default)).Effects.Single().Value == "focus", "inherited command dispatch executes pack implementation");
 
     var child = EditorPackTemplates.Create(Path.Combine(temporary, "Project", "EditorPacks"), "project", "test.project", first.Snapshot.Panels.Single());

@@ -6,6 +6,13 @@ namespace PackEngine.EditorPacks;
 // The WPF adapter and headless preflight use this same capability contract.
 public static class EditorNativeSchema
 {
+    public static UiValue DefaultValue(string property) => property switch
+    {
+        "enabled" or "visible" => UiValue.Boolean(true),
+        "fontSize" => UiValue.Number(13), "margin" or "count" => UiValue.Number(0),
+        "orientation" => UiValue.Text("vertical"), "tint" => UiValue.Text("#293B4D"),
+        _ => UiValue.Text("")
+    };
     public static double LayoutNumber(string value, double min, double max)
     { double number = UiVector2.Finite(value); return number >= min && number <= max ? number : throw new InvalidDataException("Editor layout value is outside its supported range."); }
     public static bool Supports(string renderer, UiWidgetDefinition widget, string platform = "windows")

@@ -80,26 +80,34 @@ public sealed partial class MainActivity : Activity
         catch { next.Dispose(); throw; }
         var previous = runtime; runtime = next; previous?.Dispose();
     }
-    internal async void Dispatch(string command, UiValue value) => await WorkAsync(async () =>
+    internal async void Dispatch(string command, UiValue value)
     {
-        if (runtime is null) throw new InvalidOperationException("에디터팩을 먼저 로드해줘.");
-        string owner = runtime.Snapshot.Commands.Single(c => c.Id == command).Pack;
-        var result = await runtime.Execute(new() { Command = command, Payload = value.Literal ?? "" }, lifetime.Token);
-        foreach (var effect in result.Effects)
+        var generation = runtime; var edits = windows.CaptureViewEdits();
+        await WorkAsync(async () =>
         {
-            if (effect.Kind == "refresh") await Reload();
-            else if (effect.Kind == "tab" && effect.Value == "documents") Documents();
-            else if (effect.Kind == "layout") toolbar.Visibility = effect.Value == "focus" ? ViewStates.Gone : ViewStates.Visible;
-            else throw new NotSupportedException("이 Android 호스트가 지원하지 않는 효과야: " + effect.Kind);
-        }
-        foreach (var action in result.Windows)
-        {
-            windows.Apply(owner, action);
-            if (action.Operation == "unregister") SavedStates.Remove(action.Id);
-        }
-        if (result.DocumentChanges.Count > 0) throw new NotSupportedException("프로젝트 문서 변경 명령에는 프로젝트를 연 호스트가 필요해.");
-        if (result.Message.Length > 0) Report(result.Message);
-    });
+            if (generation is null || !ReferenceEquals(generation, runtime)) return;
+            string owner = generation.Snapshot.Commands.Single(c => c.Id == command).Pack;
+            var result = await generation.Execute(new() { Command = command, Payload = value.Literal ?? "" }, lifetime.Token);
+            var prepared = result.View is null ? null : EditorDynamicViews.Prepare(generation, owner, result.View, "android");
+            if (result.DocumentChanges.Count > 0 || result.PickObject is not null) throw new NotSupportedException("이 에디터팩 명령의 프로젝트 데이터 동작은 Android 호스트에서 지원하지 않아.");
+            foreach (var effect in result.Effects)
+            {
+                if (effect.Kind == "refresh") await Reload();
+                else if (effect.Kind == "tab" && effect.Value == "documents") Documents();
+                else if (effect.Kind == "layout") toolbar.Visibility = effect.Value == "focus" ? ViewStates.Gone : ViewStates.Visible;
+                else throw new NotSupportedException("이 Android 호스트가 지원하지 않는 효과야: " + effect.Kind);
+            }
+            if (!ReferenceEquals(generation, runtime)) return;
+            foreach (var action in result.Windows)
+            {
+                windows.Apply(owner, action);
+                if (action.Operation == "unregister") SavedStates.Remove(action.Id);
+            }
+            if (result.View is { } update)
+                windows.UpdateView(update.WindowId, owner, prepared!, edits.TryGetValue(update.WindowId, out var saved) ? saved : null);
+            if (result.Message.Length > 0) Report(result.Message);
+        });
+    }
     private void Documents()
     {
         try

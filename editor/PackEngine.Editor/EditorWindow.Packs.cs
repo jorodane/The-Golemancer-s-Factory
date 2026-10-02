@@ -180,9 +180,28 @@ public sealed partial class EditorWindow
         }
         finally { candidate?.Dispose(); }
     }
+    private sealed record PackCommandRequest(IEditorPackRuntime Generation, string Command, UiValue Value, Dictionary<string, EditorViewEditSnapshot> Edits);
+    private readonly Queue<PackCommandRequest> pendingPackCommands = new();
+    private bool executingPackCommand;
     private async void ExecuteEditorCommand(IEditorPackRuntime generation, string command, UiValue value)
     {
-        if (busy || !ReferenceEquals(generation, packGeneration)) return;
+        if (!ReferenceEquals(generation, packGeneration) || busy && !executingPackCommand) return;
+        pendingPackCommands.Enqueue(new(generation, command, value, packWindows.CaptureViewEdits()));
+        if (executingPackCommand) return;
+        executingPackCommand = true;
+        try
+        {
+            while (pendingPackCommands.Count > 0)
+            {
+                var request = pendingPackCommands.Dequeue();
+                if (ReferenceEquals(request.Generation, packGeneration)) await ExecuteEditorCommandCore(request);
+            }
+        }
+        finally { executingPackCommand = false; pendingPackCommands.Clear(); }
+    }
+    private async Task ExecuteEditorCommandCore(PackCommandRequest request)
+    {
+        var generation = request.Generation; string command = request.Command; var value = request.Value;
         string nextCommand = "", nextPayload = "";
         SetBusy(true); operation = new();
         try
@@ -222,7 +241,7 @@ public sealed partial class EditorWindow
                 }
             foreach (var action in result.Windows) ManagePackWindow(ownerPack, action);
             if (result.View is { } update)
-                packWindows.ReplaceView(update.WindowId, ownerPack, definition => CreatePackWindow(generation, definition with { View = preparedView!.View }, preparedView.Catalog));
+                packWindows.UpdateView(update.WindowId, ownerPack, preparedView!, request.Edits.TryGetValue(update.WindowId, out var edits) ? edits : null);
             if (result.PickObject is { } picker)
             {
                 if (project is null) throw new InvalidOperationException("먼저 프로젝트를 열어줘.");

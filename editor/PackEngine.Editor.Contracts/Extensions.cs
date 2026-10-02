@@ -30,7 +30,9 @@ public sealed class EditorCommandResult
     public EditorViewUpdate? View { get; set; }
     public EditorObjectPicker? PickObject { get; set; }
 }
-// Transient presentation, owned by one registered window of the command's pack.
+// Complete transient definition, owned by one registered window of the command's pack.
+// Hosts reconcile stable (node ID, widget, renderer) identities in the existing window.
+// Keep IDs independent of row order/values and supply pack-owned drafts when nodes return.
 public sealed class EditorViewUpdate
 {
     public string WindowId { get; set; } = "";
