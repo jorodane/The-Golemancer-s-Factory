@@ -146,7 +146,7 @@ public sealed partial class EditorPackAgent
             ValidateDeclarations(source, bundle.Files.Paths.Select(p => new TextFileProposal { Path = p, Text = bundle.Files.Read(p)! }), bundle.Files.Read("pack.xml") ?? source.Read("pack.xml"));
         }
         Validate();
-        review!.Stage(new() { Id = bundle.Files.Id, Kind = "editor", Pack = source.Id, Path = "(파일 묶음)", Intent = bundle.Intent, Before = bundle.Files.Before, After = bundle.Files.After,
+        review!.Stage(new() { Id = bundle.Files.Id, Kind = "editor", Pack = source.Id, Path = "(파일 묶음)", Files = bundle.Files.Changes("editor:" + source.Id + "/"), Intent = bundle.Intent, Before = bundle.Files.Before, After = bundle.Files.After,
             BeforeHash = WorkspaceProject.HashText(bundle.Files.Before), AfterHash = WorkspaceProject.HashText(bundle.Files.After), Tool = "editor.create", Subject = source.Id }, Validate,
             () => { bundle.Files.Apply(history); try { if (bundle.NewPack) registration?.Invoke(source, true); } catch { bundle.Files.Undo(); throw; } },
             () => { bundle.Files.Undo(); if (bundle.NewPack) registration?.Invoke(source, false); },

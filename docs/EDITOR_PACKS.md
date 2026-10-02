@@ -120,7 +120,9 @@ AI는 `packengine_editor(operation="api")`로 이 실제 계약과 컴파일 가
 
 ## 현재 UI 제공 범위
 
-첫 어댑터는 WPF 흐름 배치의 `editor.stack`, `editor.text`, `editor.button`, `editor.input`을 제공한다. 명시된 활성·표시·툴팁·글자 크기·여백, 크기 제한, 텍스트, 방향, `activate`/`changed`와 자식 슬롯을 지원한다. 부모 위젯에 없는 속성을 추가하더라도 해당 어댑터가 처리하지 못하면 로딩을 거부한다. anchor/offset/safeArea, 사용자 정의 네이티브 컨트롤·렌더러는 아직 제공하지 않는다.
+WPF는 `editor.stack`, `editor.text`, `editor.button`, `editor.input`, `editor.wrap`, `editor.slot`을 제공한다. `wrap`은 줄바꿈 흐름 배치, `slot`은 bitmap `data:` 이미지 또는 글리프, 색, 수량, 툴팁, 선택용 Text payload를 표시한다. 버튼으로 뒤쪽 `+` 슬롯을 구성할 수 있다. 외부 이미지 URL은 허용하지 않는다. 기존 활성·표시·글자 크기·여백, 크기 제한, `activate`/`changed`도 지원한다. 새 wrap/slot은 Windows용이며 Android에서는 미지원으로 보고한다. 사용자 정의 네이티브 컨트롤·렌더러는 아직 제공하지 않는다.
+
+선택적 `IEditorProjectCatalog`는 `ListObjects`, `ListAssets`, `ReadAsset`을 제공한다. 객체 종류와 아이템·레시피 의미는 소비자 색인 규칙에 남는다. bitmap 읽기는 팩의 `<Asset path="…"/>` 또는 소비자 `<IndexRules><Asset select="XPath" attribute="image"/></IndexRules>`가 선언한 경로만 허용한다. 기존 `IEditorProjectData` 계약은 유지한다. 팩 DLL은 `EditorCommandResult.PickObject`와 자기 소유 Text 명령으로 객체 선택을 요청하거나, `View`로 자기 팩의 `<pack>.dynamic.*` 뷰를 자기 창에 적용할 수 있다. 동적 뷰는 원본 XML을 저장하지 않으며 DLL 재로드 시 선언된 화면을 다시 사용한다.
 
 현재 값 바인딩은 `editor.project`, `editor.selection`이며 장착 시점의 스냅샷이다. 명령의 Context는 호출 시점의 프로젝트 이름·선택 ID다. 프로젝트 데이터는 위의 호출 단위 API로 요청한다. 호스트 효과는 프로젝트 새로고침, 기존 탭 선택, 집중/기본 배치 전환이다. 임의 WPF 객체 접근이나 임의 파일 실행 효과는 없다. 그 외 독자적인 계산은 팩 DLL에서 수행하고 결과 메시지를 반환할 수 있다.
 
@@ -132,7 +134,9 @@ AI는 `packengine_editor(operation="api")`로 이 실제 계약과 컴파일 가
 
 ‘이거’ 모드로 팩 패널의 요소를 클릭하면 명령을 실행하는 대신 객체 ID와 XML 출처를 선택한다. 범위 모드에서는 여러 요소를 클릭해 추가한다. 일반 대화는 화면·hover·최근 선택을 자동 첨부하지 않는다. 전송/MCP 문맥 요청 시 `EditorInput`과 해당 XML의 해시·제한된 내용을 동결한다. `inspect`는 실행 중인 세대의 상속 출처, `read`는 현재 디스크 소스라는 차이를 유지한다.
 
-도구는 `list/api/inspect/read/patch/apply/undo/build/reload/windows/window`를 제공한다. list는 로드된 모듈 버전도 보고하고, windows는 등록/열림 상태를 조회한다. window는 `action`, `windowId`, `pack`과 등록 시 `view`, `title`을 받는다. AI의 창 동작도 검토 전에는 실행하지 않으며 선택된 빌드→재로드→창 동작 순서로 처리한다. 여러 창 동작은 각각 보관하여 등록과 열기가 덮어써지지 않는다. 수정은 현재 파일을 읽어 얻은 해시와 정확히 한 번 일치하는 문구를 요구하며, 미리보기·저장·빌드·실행 반영을 구분한다. 열린 사용자 초안이나 오래된 해시는 거부한다. 재로딩은 바뀐 모든 팩이 요청의 허용 범위에 있는지 DLL 실행 전에 검사한다. 변경 원본과 결과는 PC의 `PackEngine/EditorPackChanges`에 보존하고, 에디터의 읽기/작업 기록에도 실제 도구 호출을 남긴다. AI가 새 파일을 임의 생성하는 도구는 없으며, 새 팩과 DLL 뼈대는 관리 화면에서 생성한 뒤 AI가 수정한다.
+도구는 `list/api/find/inspect/read/create/new_pack/patch/apply/undo/build/reload/windows/window`를 제공한다. 일반 `packengine_find/inspect/read/patch`도 `editor:<pack>/<file>#<object>` 키를 처리한다. `inspect`는 팩 계약·소스와 명시적인 live view 검사를 구별한다. list는 로드된 모듈 버전도 보고하고 windows는 등록/열림 상태를 조회한다. window는 `action`, `windowId`, `pack`과 등록 시 `view`, `title`을 받는다. AI의 창 동작도 검토 전에는 실행하지 않으며 선택된 빌드→재로드→창 동작 순서로 처리한다. 열린 초안이나 오래된 해시는 거부한다. 실제 빌드·실행 반영 결과는 작업 기록에 남기며 닫은 창 때문에 DLL을 내리지 않는다.
+
+`packengine_create(domain="editor")` 또는 `packengine_editor`의 `create/new_pack`은 새 XML/C# 파일·팩과 필요한 `pack.xml`, `editor.xml`, 프로젝트 등록을 한 파일 묶음으로 미리보기 한다. 새 경로는 `expectedHash="absent"`, 기존 등록 파일은 먼저 읽은 해시가 필요하다. 프로젝트/공용 plugin 범위만 생성하며 같은 요청에서 같은 팩의 묶음 하나를 read/patch로 다듬는다. 새 팩은 `implementation=true`로 실제 DLL 뼈대도 포함할 수 있다. 적용 전에 모든 경로·해시·사용자 초안·등록을 검사하고 중간 저장 실패 시 이미 쓴 파일을 복구한다. 외부에서 다시 수정된 파일은 덮어써 복구하지 않고 복구 데이터를 보존한다. 취소한 변경안은 파일을 만들지 않는다. 결과에는 실제 변경 파일별 해시가 남는다.
 
 ## 검증
 

@@ -93,7 +93,8 @@ public sealed partial class EditorWindow
                     resolve = relative => session.Project.Resolve(session.Project.Relative(PackEngine.Runtime.PackCompiler.SafePath(folder, relative)));
                     dirty = () => session.Documents.Any(d => d.Path == source.Manifest && d.Dirty);
                 }
-                if (review.File(kind, pack, kind == "editor" ? "pack.xml" : session.Project.Relative(manifest)) is not null || review.Items.Any(i => i.Kind == kind && i.Pack == pack && i.PreviewImage.Length > 0)) throw new IOException("Image registration changes pack.xml; review other manifest/resource proposals first.");
+                string manifestKey = kind == "editor" ? "editor:" + pack + "/pack.xml" : session.Project.Relative(manifest);
+                if (review.File(kind, pack, kind == "editor" ? "pack.xml" : session.Project.Relative(manifest)) is not null || review.Items.Any(i => i.Kind == kind && i.Pack == pack && (i.PreviewImage.Length > 0 || i.Files.Any(f => f.File == manifestKey)))) throw new IOException("Image registration changes pack.xml; review other manifest/resource proposals first.");
                 var change = new GeneratedAssetChange(manifest, pathInPack, File.ReadAllBytes(file), resolve);
                 string id = change.Stage(review, kind, pack, S(args, "intent"), file, dirty, () => session.Refresh());
                 return EditorSession.Serialize(new { ChangeId = id, ArtifactId = artifact, Pack = pack, Path = pathInPack, State = "pending-review", SavedToPack = false, Atomic = true });

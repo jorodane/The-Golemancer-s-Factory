@@ -27,6 +27,7 @@ public sealed class ReviewItem
     public string Detail { get; set; } = "";
     public string State { get; set; } = "pending";
     public string PreviewImage { get; set; } = "";
+    public List<ReviewedChange> Files { get; set; } = [];
     public bool IsFile => Operation.Length == 0;
     public string Group => Kind + ":" + Pack;
 }
@@ -50,6 +51,7 @@ public sealed class ChangeReviewBatch
     public IReadOnlyList<ReviewItem> Items => work.Values.Select(w => w.Item).ToArray();
     public ChangeReviewBatch(EditorSession session, ContextRequest request, Action<Action> dispatch)
     { this.session = session; this.request = request; this.dispatch = dispatch; }
+    public string ProjectRelative(string path) => session.Project.Relative(path);
     private static string Key(string kind, string pack, string path) => kind + ":" + pack + "/" + path;
     public ReviewItem? File(string kind, string pack, string path) => work.TryGetValue(Key(kind, pack, path), out var value) ? value.Item : null;
     public void Stage(ReviewItem item, Action validate, Action apply, Action undo, Func<string>? currentHash = null)
@@ -102,8 +104,8 @@ public sealed class ChangeReviewBatch
             void RecordApplied(Work entry)
             {
                 entry.Item.State = "applied"; applied.Add(entry);
-                request.ReviewedChanges.Add(new() { File = entry.Item.Kind == "editor" ? "editor:" + entry.Item.Pack + "/" + entry.Item.Path : entry.Item.Path,
-                    BeforeHash = entry.Item.BeforeHash, AfterHash = entry.Item.AfterHash });
+                var files = entry.Item.Files.Count > 0 ? entry.Item.Files : new List<ReviewedChange> { new() { File = entry.Item.Kind == "editor" ? "editor:" + entry.Item.Pack + "/" + entry.Item.Path : entry.Item.Path, BeforeHash = entry.Item.BeforeHash, AfterHash = entry.Item.AfterHash } };
+                foreach (var file in files) request.ReviewedChanges.Add(new() { File = file.File, BeforeHash = file.BeforeHash, AfterHash = file.AfterHash });
             }
             try
             {
@@ -124,7 +126,12 @@ public sealed class ChangeReviewBatch
                 }
                 foreach (var entry in applied.AsEnumerable().Reverse())
                 {
-                    try { entry.Undo!(); entry.Item.State = "rolled-back"; request.ReviewedChanges.Last(c => c.File == (entry.Item.Kind == "editor" ? "editor:" + entry.Item.Pack + "/" + entry.Item.Path : entry.Item.Path)).State = "undone"; }
+                    try
+                    {
+                        entry.Undo!(); entry.Item.State = "rolled-back";
+                        var paths = entry.Item.Files.Count > 0 ? entry.Item.Files.Select(f => f.File) : new[] { entry.Item.Kind == "editor" ? "editor:" + entry.Item.Pack + "/" + entry.Item.Path : entry.Item.Path };
+                        foreach (string path in paths) request.ReviewedChanges.Last(c => c.File == path).State = "undone";
+                    }
                     catch (Exception e) { entry.Item.Detail = "복구 확인 필요: " + e.Message; }
                 }
                 foreach (var entry in work.Values.Where(w => w.Item.State == "pending")) entry.Item.State = "cancelled";

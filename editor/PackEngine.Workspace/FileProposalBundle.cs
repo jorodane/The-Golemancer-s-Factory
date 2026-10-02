@@ -21,6 +21,8 @@ public sealed class FileProposalBundle
     public string Id { get; } = Guid.NewGuid().ToString("N");
     public bool Applied { get; private set; }
     public IReadOnlyList<string> Paths => entries.Select(e => e.Path).ToArray();
+    public List<ReviewedChange> Changes(string prefix = "") => entries.Select(e => new ReviewedChange
+    { File = prefix + e.Path, BeforeHash = e.Before is null ? Absent : WorkspaceProject.HashText(e.BeforeText), AfterHash = WorkspaceProject.HashText(e.After) }).ToList();
     public string Before => string.Join("\n\n", entries.Select(e => "[" + e.Path + "]\n" + (e.Before is null ? "(new file)" : e.BeforeText)));
     public string After => string.Join("\n\n", entries.Select(e => "[" + e.Path + "]\n" + e.After));
     public FileProposalBundle(IEnumerable<TextFileProposal> files, Func<string, string> resolve)
@@ -51,11 +53,13 @@ public sealed class FileProposalBundle
     {
         if (Applied) throw new InvalidOperationException("This file bundle was already applied.");
         foreach (var entry in entries)
-        {
-            string full = resolve(entry.Path);
-            if (Directory.Exists(full) || (entry.Before is null ? File.Exists(full) : !File.Exists(full) || !File.ReadAllBytes(full).SequenceEqual(entry.Before)))
-                throw new IOException("Review conflict or path collision: " + entry.Path);
-        }
+            ValidateEntry(entry);
+    }
+    private void ValidateEntry(Entry entry)
+    {
+        string full = resolve(entry.Path);
+        if (Directory.Exists(full) || (entry.Before is null ? File.Exists(full) : !File.Exists(full) || !File.ReadAllBytes(full).SequenceEqual(entry.Before)))
+            throw new IOException("Review conflict or path collision: " + entry.Path);
     }
     public void Apply(string history)
     {
@@ -67,6 +71,7 @@ public sealed class FileProposalBundle
         {
             foreach (var entry in entries)
             {
+                ValidateEntry(entry);
                 string full = resolve(entry.Path), directory = System.IO.Path.GetDirectoryName(full)!;
                 for (string? missing = directory; missing is not null && !Directory.Exists(missing); missing = System.IO.Path.GetDirectoryName(missing))
                     if (!directories.Contains(missing)) directories.Add(missing);
@@ -95,7 +100,11 @@ public sealed class FileProposalBundle
     }
     private void Rollback(IEnumerable<Entry> written)
     {
-        foreach (var entry in written.Reverse())
+        var restore = written.ToArray();
+        foreach (var entry in restore)
+            if (!File.Exists(resolve(entry.Path)) || !File.ReadAllBytes(resolve(entry.Path)).SequenceEqual(new UTF8Encoding(false).GetBytes(entry.After)))
+                throw new IOException("A written bundle file changed externally; recovery data was preserved: " + entry.Path);
+        foreach (var entry in restore.AsEnumerable().Reverse())
         {
             string full = resolve(entry.Path);
             if (entry.Before is null) File.Delete(full); else EditorSession.AtomicWrite(full, entry.Before);

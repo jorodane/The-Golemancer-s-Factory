@@ -177,6 +177,7 @@ public sealed partial class EditorWindow
             var result = await generation.Execute(new() { Command = command, Payload = value.Literal, Context = new() { ["project"] = session?.Project.Name ?? "", ["selection"] = session?.State.Selection ?? "" } }, operation.Token, project);
             if (!ReferenceEquals(generation, packGeneration)) return;
             var preparedView = result.View is null ? null : EditorDynamicViews.Prepare(generation, ownerPack, result.View);
+            var pickerObjects = result.PickObject is null ? null : project?.ListObjects(result.PickObject.Kind, result.PickObject.Pack) ?? throw new InvalidOperationException("먼저 프로젝트를 열어줘.");
             string reviewOutcome = "";
             if (result.DocumentChanges.Count > 0)
             {
@@ -211,7 +212,7 @@ public sealed partial class EditorWindow
             {
                 if (project is null) throw new InvalidOperationException("먼저 프로젝트를 열어줘.");
                 var callback = generation.Snapshot.Commands.SingleOrDefault(c => c.Id == picker.Command && c.Pack == ownerPack && string.Equals(c.Fields["payload"], "Text", StringComparison.OrdinalIgnoreCase)) ?? throw new InvalidDataException("Declare an owned Text command for the selection callback.");
-                if (ChooseCatalogObject(project, picker) is { } selected) { nextCommand = callback.Id; nextPayload = selected.Key; }
+                if (ChooseCatalogObject(pickerObjects!, picker) is { } selected) { nextCommand = callback.Id; nextPayload = selected.Key; }
             }
             if (reviewOutcome.Length > 0) SetStatus(reviewOutcome);
             else if (result.Message.Length > 0) SetStatus(result.Message);
@@ -220,9 +221,8 @@ public sealed partial class EditorWindow
         finally { operation.Dispose(); operation = null; SetBusy(false); }
         if (nextCommand.Length > 0) ExecuteEditorCommand(generation, nextCommand, UiValue.Text(nextPayload));
     }
-    private EditorProjectObject? ChooseCatalogObject(IEditorProjectCatalog project, EditorObjectPicker picker)
+    private EditorProjectObject? ChooseCatalogObject(IReadOnlyList<EditorProjectObject> objects, EditorObjectPicker picker)
     {
-        var objects = project.ListObjects(picker.Kind, picker.Pack);
         var dialog = new Window { Owner = this, Title = picker.Title, Width = 560, Height = 520, MinWidth = 320, MinHeight = 240, Background = PanelInk, Foreground = TextInk, WindowStartupLocation = WindowStartupLocation.CenterOwner };
         var root = new DockPanel { Margin = new Thickness(12) }; dialog.Content = root; var filter = Input(); DockPanel.SetDock(filter, Dock.Top); root.Children.Add(filter);
         var list = new ListBox { Background = BackgroundInk, Foreground = TextInk, DisplayMemberPath = "Title" }; EditorProjectObject? choice = null;

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Xml;
 using System.Xml.Linq;
+using System.Xml.XPath;
 
 namespace PackEngine.Workspace;
 
@@ -8,6 +9,44 @@ public sealed partial class AgentWorkspace
 {
     private readonly Dictionary<string, string> editorChanges = new(StringComparer.Ordinal);
     private readonly Dictionary<string, FileProposalBundle> gameBundles = new(StringComparer.Ordinal);
+    private IEnumerable<(WorkspaceNode Node, string Definition)> GameDraftNodes()
+    {
+        XElement? schema = session.Project.Schema.Length == 0 ? null : ProposalXml(File.ReadAllText(session.Project.Resolve(session.Project.Schema))).Root;
+        foreach (var pair in gameBundles)
+        {
+            string id = pair.Key;
+            string manifest = pair.Value.Paths.FirstOrDefault(p => System.IO.Path.GetFileName(p) == "pack.xml") ?? session.Index.Packs.Single(p => p.Id == id).Manifest;
+            string declaration = pair.Value.Read(manifest) ?? File.ReadAllText(session.Project.Resolve(manifest));
+            yield return (new() { Key = "pack:" + id, Id = id, Title = id, Kind = "pack", Pack = id, File = manifest, Status = "proposed" }, declaration);
+            foreach (string path in pair.Value.Paths.Where(p => p != session.Project.Relative(session.Project.Manifest)))
+            {
+                string text = pair.Value.Read(path)!;
+                yield return (new() { Key = "file:" + path, Id = path, Title = path, Kind = "file", Pack = id, File = path, Status = "proposed" }, text);
+                if (!path.EndsWith(".xml", StringComparison.Ordinal) || path == manifest) continue;
+                var xml = ProposalXml(text);
+                var definitions = new List<(string Kind, string Id, string Title, XElement Element)>();
+                if (xml.Root?.Name == "Ui")
+                    foreach (var element in xml.Root.Elements().Where(e => e.Name == "View" || e.Name == "Widget"))
+                        definitions.Add((element.Name == "View" ? "view" : "widget", WorkspaceProject.Required(element, "id"), WorkspaceProject.Required(element, "id"), element));
+                else if (schema is not null)
+                    foreach (var rule in schema.Elements("Symbol"))
+                        foreach (var element in xml.XPathSelectElements(WorkspaceProject.Required(rule, "select")))
+                            if (element.Attribute(WorkspaceProject.Required(rule, "id")) is { } key)
+                                definitions.Add((WorkspaceProject.Required(rule, "kind"), key.Value, (string?)element.Attribute((string?)rule.Attribute("title") ?? "id") ?? key.Value, element));
+                foreach (var item in definitions)
+                    yield return (new() { Key = item.Kind + ":" + item.Id, Id = item.Id, Title = item.Title, Kind = item.Kind, Pack = id, File = path, Status = "proposed" }, item.Element.ToString());
+            }
+        }
+    }
+    private bool TryInspectGameDraft(JsonElement args, out object result)
+    {
+        var draft = GameDraftNodes().LastOrDefault(d => d.Node.Key == Str(args, "key")); result = null!;
+        if (draft.Node is null) return false;
+        string text = draft.Definition, content = text.Substring(0, Math.Min(12000, text.Length));
+        session.RecordRead(request.Id, "draft:" + draft.Node.Key, content, WorkspaceProject.HashText(text), text.Length > content.Length);
+        result = new { Key = draft.Node.Key, Node = draft.Node, Section = Str(args, "section"), Content = content, Partial = text.Length > content.Length, SavedDefinitions = false,
+            Hint = "Proposed declaration only. Runtime contracts and relations are verified after reviewed apply/build; read the file to refine this proposal." }; return true;
+    }
     private async Task<string> EditorCall(JsonElement arguments, CancellationToken token)
     {
         if (editorPacks is null) throw new InvalidOperationException("Editor pack access is unavailable in this host.");
@@ -92,9 +131,12 @@ public sealed partial class AgentWorkspace
             }
             foreach (string path in bundle.Paths.Where(p => p.EndsWith(".cs", StringComparison.Ordinal)))
                 if (!(newPack ? bundle.Paths.Where(p => p.EndsWith(".csproj", StringComparison.Ordinal)) : session.Project.Sources.TryGetValue(id, out var source) ? source.Projects : []).Any(p => session.Project.Resolve(path).StartsWith(System.IO.Path.GetDirectoryName(session.Project.Resolve(p))! + System.IO.Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))) throw new InvalidDataException("Declare a build project for the new C# file.");
+            if (!newPack)
+                foreach (string path in bundle.Paths.Where(p => p.EndsWith(".csproj", StringComparison.Ordinal)))
+                    if (!session.Project.Sources.TryGetValue(id, out var declared) || !declared.Projects.Contains(path)) throw new InvalidDataException("Register the build project in the consumer project before creating its sources.");
         }
         Validate();
-        Review!.Stage(new() { Id = bundle.Id, Kind = "game", Pack = id, Path = "(파일 묶음)", Intent = intent, Before = bundle.Before, After = bundle.After, BeforeHash = WorkspaceProject.HashText(bundle.Before), AfterHash = WorkspaceProject.HashText(bundle.After), Tool = "packengine_create", Subject = id }, Validate,
+        Review!.Stage(new() { Id = bundle.Id, Kind = "game", Pack = id, Path = "(파일 묶음)", Files = bundle.Changes(), Intent = intent, Before = bundle.Before, After = bundle.After, BeforeHash = WorkspaceProject.HashText(bundle.Before), AfterHash = WorkspaceProject.HashText(bundle.After), Tool = "packengine_create", Subject = id }, Validate,
             () => { bundle.Apply(System.IO.Path.Combine(session.StateDirectory, "changes")); RefreshSources(); },
             () => { bundle.Undo(); RefreshSources(); }, () => bundle.Applied ? WorkspaceProject.HashText(bundle.After) : FileProposalBundle.Absent);
     }

@@ -159,7 +159,9 @@ public sealed partial class AgentWorkspace : IAgentWorkspace, IDisposable
                 case "packengine_find": result = OnUi(() =>
                 {
                     session.Refresh(); string query = Str(arguments, "query"), pack = Str(arguments, "pack");
-                    var found = session.Index.Nodes.Values.Where(n => (pack.Length == 0 || n.Pack == pack) && (n.Key + " " + n.Title + " " + n.File).IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0).ToArray();
+                    var nodes = session.Index.Nodes.Values.ToDictionary(n => n.Key, StringComparer.Ordinal);
+                    foreach (var draft in GameDraftNodes()) nodes[draft.Node.Key] = draft.Node;
+                    var found = nodes.Values.Where(n => (pack.Length == 0 || n.Pack == pack) && (n.Key + " " + n.Title + " " + n.File).IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0).ToArray();
                     object value = new { Matches = found.Take(30).ToArray(), Total = found.Length, Partial = found.Length > 30 };
                     string content = EditorSession.Serialize(value); session.RecordRead(request.Id, "index:" + query, content, WorkspaceProject.HashText(content)); return value;
                 });
@@ -173,6 +175,8 @@ public sealed partial class AgentWorkspace : IAgentWorkspace, IDisposable
                     }
                     break;
                 case "packengine_inspect":
+                    object? draftInspection = OnUi(() => TryInspectGameDraft(arguments, out var value) ? value : null);
+                    if (draftInspection is not null) { result = draftInspection; break; }
                     if (editorPacks is not null && !OnUi(() => session.Index.Nodes.ContainsKey(Str(arguments, "key")))) return await RoutedEditorCall("inspect", Str(arguments, "key"), arguments, cancellation).ConfigureAwait(false);
                     result = OnUi(() =>
                 {

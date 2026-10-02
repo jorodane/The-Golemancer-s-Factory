@@ -54,10 +54,14 @@ try
         new TextFileProposal { Path = newFolder + "/pack.xml", Text = "<ObjectPack id=\"author.data\" version=\"1.0.0\" contracts=\"2\"><Data path=\"entries.xml\" /></ObjectPack>" },
         new TextFileProposal { Path = newFolder + "/entries.xml", Text = "<Entries><Entry id=\"new\" /></Entries>" } } });
     string gameId = game.GetProperty("ChangeId").GetString()!;
+    var pendingFind = await Call(gameHost, "packengine_find", new { query = "author.data" });
+    var pendingInspect = await Call(gameHost, "packengine_inspect", new { key = "pack:author.data", section = "contract" });
+    Check(pendingFind.GetProperty("Matches").GetArrayLength() == 3 && !pendingInspect.GetProperty("SavedDefinitions").GetBoolean(), "new game pack/file discovery and inspection expose pending declarations without claiming saved runtime state");
     Check(!Directory.Exists(project.Resolve(newFolder)) && gameHost.Review!.Items.Single().After.Contains("Game.packproject"), "game pack preview includes XML files and the project registration without writing");
     var proposed = await Call(gameHost, "packengine_read", new { path = newFolder + "/entries.xml" });
     Check(proposed.GetProperty("PendingReview").GetBoolean(), "generated game documents can be read before they exist on disk");
     await gameHost.Review!.Apply(new[] { gameId }, default);
+    Check(gameRequest.ReviewedChanges.Count == 3 && gameRequest.ReviewedChanges.All(c => c.File != "(파일 묶음)" && c.AfterHash.Length == 64), "review results identify every actual created file and project registration with its final hash");
     Check(session.Index.Packs.Any(p => p.Id == "author.data") && session.Project.Sources.ContainsKey("author.data"), "new game pack and its source registration become available after review");
     var cancelledRequest = session.PrepareContext("cancel fixture"); cancelledRequest.ReviewChanges = true;
     using (var cancelled = new AgentWorkspace(session, cancelledRequest, runner, a => a()))
@@ -78,7 +82,7 @@ try
 
     var catalog = new EditorPackProjectData(session, "author.child");
     Check(catalog.ListObjects("pack").Any(o => o.Id == "author.data"), "generic catalog returns declared object metadata independently of game types");
-    byte[] png = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aHioAAAAASUVORK5CYII=");
+    byte[] png = TestPng.Create();
     string foundation = session.Index.Packs.Single(p => p.Id == "foundation").Manifest;
     var imageReview = new ChangeReviewBatch(session, new() { Id = "image-fixture", ReviewChanges = true }, a => a());
     string foundationFolder = Path.GetDirectoryName(project.Resolve(foundation))!;
@@ -89,6 +93,23 @@ try
     var declaredAsset = catalog.ListAssets("foundation").Single(); var image = catalog.ReadAsset(declaredAsset.Path);
     Check(image.DataUrl.EndsWith(Convert.ToBase64String(png)) && image.Hash == WorkspaceProject.Hash(png), "declared bitmap reads return real bytes/hash for slot icons");
     await Reject(() => Task.FromResult(catalog.ReadAsset(project.Relative(Path.Combine(foundationFolder, "undeclared.png")))), "image queries cannot read undeclared resources");
+    string code = child.Read("Commands.cs");
+    code = code.Replace("=> registry.Command(\"author.child.message\", new Message());", "{ registry.Command(\"author.child.message\", new Message()); registry.Command(\"author.child.catalog\", new CatalogProbe()); }");
+    code += "\npublic sealed class CatalogProbe : EditorProjectCommand { public override UiValueKind Payload => UiValueKind.None; public override EditorCommandResult Execute(EditorInvocation invocation, IEditorProjectData project) { var catalog = (IEditorProjectCatalog)project; var objects = catalog.ListObjects(\"pack\"); var asset = catalog.ListAssets(\"foundation\").Single(); var bitmap = catalog.ReadAsset(asset.Path); return new() { Message = objects.Count + \"|\" + bitmap.Hash }; } }\n";
+    File.WriteAllText(child.PathFor("Commands.cs"), code);
+    var registration = System.Xml.Linq.XDocument.Parse(child.Read("editor.xml")); registration.Root!.Add(new System.Xml.Linq.XElement("Command", new System.Xml.Linq.XAttribute("id", "author.child.catalog"), new System.Xml.Linq.XAttribute("handler", "author.child.catalog"), new System.Xml.Linq.XAttribute("payload", "None"))); registration.Save(child.PathFor("editor.xml"));
+    await child.Build(dotnet, AppDomain.CurrentDomain.BaseDirectory, default);
+    string coreBin = Path.Combine(repository, "editor/Packs/CoreTools/Bin/net10.0"); Directory.CreateDirectory(core.PathFor("Bin/net10.0"));
+    foreach (string file in Directory.GetFiles(coreBin, "*.dll")) File.Copy(file, core.PathFor("Bin/net10.0/" + Path.GetFileName(file)), true);
+    using (var runtime = await EditorPackRuntime.Prepare(Path.Combine(repository, "editor/PackEngine.PackHost/bin/Release/net10.0/PackEngine.PackHost.dll"), dotnet, new[] { core, child }, default))
+    using (var dataService = new EditorPackProjectData(session, child.Id))
+    {
+        var result = await runtime.Execute(new() { Command = "author.child.catalog" }, default, dataService);
+        Check(result.Message.EndsWith("|" + WorkspaceProject.Hash(png)), "a real independent DLL obtains objects and bitmap bytes through the worker's reverse project RPC");
+        var updated = EditorDynamicViews.Prepare(runtime, child.Id, new() { WindowId = "panel.author.child", Xml = "<Ui version=\"1\" id=\"author.child.dynamic.preview\"><View id=\"author.child.dynamic.preview\"><Node id=\"plus\" widget=\"editor.slot\"><Set property=\"glyph\" value=\"+\" /></Node></View></Ui>" });
+        Check(updated.View == "author.child.dynamic.preview", "transient owned slot views preflight against the actual loaded widget/command catalog");
+        await Reject(() => { EditorDynamicViews.Prepare(runtime, child.Id, new() { Xml = "<Ui version=\"1\" id=\"other.dynamic.view\"><View id=\"other.dynamic.view\"><Node id=\"bad\" widget=\"editor.text\" /></View></Ui>" }); return Task.CompletedTask; }, "transient presentation cannot declare another pack's view namespace");
+    }
 
     var coreDocument = UiXml.Read(new StringReader(core.Read("ui.xml"))); var dynamic = UiXml.Read(new StringReader("<Ui version=\"1\" id=\"author.child.dynamic.icons\"><View id=\"author.child.dynamic.icons\"><Node id=\"slots\" widget=\"editor.wrap\"><Slot name=\"children\"><Node id=\"icon\" widget=\"editor.slot\"><Set property=\"count\" value=\"3\" /><Set property=\"glyph\" value=\"✦\" /><Set property=\"tooltip\" value=\"Named item\" /></Node><Node id=\"plus\" widget=\"editor.slot\"><Set property=\"glyph\" value=\"+\" /></Node></Slot></Node></View></Ui>"));
     var ui = new UiCatalog(new[] { coreDocument, dynamic }); var context = EditorNativeSchema.Context(new(), (_, _) => { }, "", "");
@@ -122,6 +143,27 @@ try
 }
 finally { try { Directory.Delete(root, true); } catch (IOException) { } }
 
+static class TestPng
+{
+    // Construct a one-pixel fixture at runtime; no image file or encoded image blob is published.
+    public static byte[] Create()
+    {
+        using var output = new MemoryStream();
+        output.Write(new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 });
+        void UInt(uint value) { output.WriteByte((byte)(value >> 24)); output.WriteByte((byte)(value >> 16)); output.WriteByte((byte)(value >> 8)); output.WriteByte((byte)value); }
+        void Chunk(string type, byte[] data)
+        {
+            var name = Encoding.ASCII.GetBytes(type); UInt((uint)data.Length); output.Write(name); output.Write(data);
+            uint crc = 0xffffffff;
+            foreach (byte b in name.Concat(data)) { crc ^= b; for (int i = 0; i < 8; i++) crc = (crc >> 1) ^ ((crc & 1) == 0 ? 0u : 0xedb88320u); }
+            UInt(crc ^ 0xffffffff);
+        }
+        var header = new byte[13]; header[3] = header[7] = 1; header[8] = 8; header[9] = 6; Chunk("IHDR", header);
+        using var pixels = new MemoryStream();
+        using (var zlib = new System.IO.Compression.ZLibStream(pixels, System.IO.Compression.CompressionLevel.Fastest, true)) zlib.Write(new byte[] { 0, 255, 255, 255, 255 });
+        Chunk("IDAT", pixels.ToArray()); Chunk("IEND", []); return output.ToArray();
+    }
+}
 sealed class ImageFixture(byte[] png, HttpStatusCode status = HttpStatusCode.OK) : HttpMessageHandler
 {
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token)

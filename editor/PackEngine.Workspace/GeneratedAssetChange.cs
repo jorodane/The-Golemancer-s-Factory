@@ -31,7 +31,10 @@ public sealed class GeneratedAssetChange
     {
         string id = Guid.NewGuid().ToString("N");
         string displayBefore = Encoding.UTF8.GetString(before).TrimStart('\uFEFF'), displayAfter = after + "\n\n[" + relative + "]\nPNG " + image.Length + " bytes · SHA256 " + WorkspaceProject.Hash(image);
+        string manifestPath = kind == "editor" ? "editor:" + pack + "/pack.xml" : review.ProjectRelative(manifest);
+        string imagePath = kind == "editor" ? "editor:" + pack + "/" + relative : review.ProjectRelative(target);
         review.Stage(new() { Id = id, Kind = kind, Pack = pack, Path = "(이미지 + pack.xml)", Intent = intent, Before = displayBefore, After = displayAfter,
+            Files = [new() { File = manifestPath, BeforeHash = WorkspaceProject.HashText(displayBefore), AfterHash = WorkspaceProject.HashText(after) }, new() { File = imagePath, BeforeHash = FileProposalBundle.Absent, AfterHash = WorkspaceProject.Hash(image) }],
             BeforeHash = WorkspaceProject.HashText(displayBefore), AfterHash = WorkspaceProject.HashText(displayAfter), PreviewImage = preview, Tool = "packengine_image", Subject = pack + "/" + relative },
             () => { if (dirty()) throw new IOException("Reconcile the pack manifest's unsaved buffer first."); Validate(); },
             () =>
