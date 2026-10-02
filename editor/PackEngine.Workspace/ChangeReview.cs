@@ -40,7 +40,7 @@ public sealed class ReviewItem
 }
 
 /// <summary>A request-local overlay. No proposal or queued action mutates project files before the host's review.</summary>
-public sealed class ChangeReviewBatch
+public sealed partial class ChangeReviewBatch
 {
     private sealed class Work(ReviewItem item, Action validate, Action? apply, Action? undo, Func<CancellationToken, Task<string>>? run, Func<string>? currentHash = null)
     {
@@ -153,7 +153,7 @@ public sealed class ChangeReviewBatch
     public void Cancel()
     {
         if (closed) return;
-        closed = true; foreach (var entry in work.Values.Where(w => w.Item.State == "pending")) entry.Item.State = "cancelled"; dispatch(() => session.Collaboration.Finish(request.Id, Items, "cancelled")); Save();
+        closed = true; foreach (var draft in roomDrafts.Values.Where(d => d.State == "draft")) draft.State = "cancelled"; foreach (var entry in work.Values.Where(w => w.Item.State == "pending")) entry.Item.State = "cancelled"; dispatch(() => session.Collaboration.Finish(request.Id, Items, "cancelled")); Save();
     }
     public Task<string> Apply(IReadOnlyCollection<string> selected, CancellationToken cancellation) => Apply(selected, cancellation, null);
     public async Task<string> Apply(IReadOnlyCollection<string> selected, CancellationToken cancellation,
@@ -163,7 +163,7 @@ public sealed class ChangeReviewBatch
         dispatch(() =>
         {
             ValidateSelection(selected); cancellation.ThrowIfCancellationRequested(); closed = true;
-            foreach (var entry in work.Values.Where(w => !selected.Contains(w.Item.Id))) entry.Item.State = "excluded";
+            foreach (var entry in work.Values.Where(w => !selected.Contains(w.Item.Id))) { entry.Item.State = "excluded"; if (roomDrafts.TryGetValue(entry.Item.Id, out var draft)) draft.State = "excluded"; }
             var applied = new List<Work>();
             Work? applying = null;
             void RecordApplied(Work entry)

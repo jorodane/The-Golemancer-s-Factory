@@ -69,10 +69,14 @@ public sealed partial class EditorWindow : Window
         var document = new DockPanel { Margin = new Thickness(12) };
         var documentHead = new StackPanel(); documentHead.Children.Add(openDocs);
         var docButtons = new WrapPanel(); docButtons.Children.Add(Action("문서 닫기", () => Guard(() => { if (busy || activeDocument is null) return; session!.Close(activeDocument.Path); activeDocument = null; RebuildDocuments(); RefreshContext(); })));
+        docButtons.Children.Add(Action("초안 저장", SaveActiveRoom)); docButtons.Children.Add(Action("확정", ConfirmActiveRoom));
+        docButtons.Children.Add(Action("구조 / 전체 문서", () => { wholeDocument = !wholeDocument; RefreshRoomDocument(); }));
+        docButtons.Children.Add(Action("Room 채팅", () => OpenPublicChat(true))); docButtons.Children.Add(Action("인계 초안", ShowRoomHandoffs));
+        documentHead.Children.Add(roomCaption);
         docButtons.Children.Add(Action("디스크에서 다시 읽기", ReloadDocument)); documentHead.Children.Add(docButtons);
         documentHead.Children.Add(Label("변경 이유", 12, MutedInk)); documentHead.Children.Add(intent);
         documentHead.Children.Add(Action("변경·영향 미리보기", PreviewDocument)); DockPanel.SetDock(documentHead, Dock.Top); document.Children.Add(documentHead);
-        editor.FontFamily = new FontFamily("Consolas"); editor.FontSize = 13; editor.HorizontalScrollBarVisibility = ScrollBarVisibility.Auto; editor.VerticalScrollBarVisibility = ScrollBarVisibility.Auto; editor.AcceptsTab = true; document.Children.Add(editor); AddTab("문서", document);
+        editor.FontFamily = new FontFamily("Consolas"); editor.FontSize = 13; editor.HorizontalScrollBarVisibility = ScrollBarVisibility.Auto; editor.VerticalScrollBarVisibility = ScrollBarVisibility.Auto; editor.AcceptsTab = true; document.Children.Add(BuildRoomDocument()); AddTab("문서", document);
         AddTab("계약", contract);
         var changes = new DockPanel { Margin = new Thickness(12) }; var changeHead = new StackPanel();
         changeHead.Children.Add(Label("한 문서의 변경을 검토하고 적용해.", 15)); changeHead.Children.Add(Label("영향은 선언된 정적 관계 기준이야. DLL 내부 동작은 프로젝트 검증으로 확인해.", 11, MutedInk));
@@ -85,12 +89,12 @@ public sealed partial class EditorWindow : Window
         tree.SelectedItemChanged += (_, e) => { if (e.NewValue is TreeViewItem { Tag: string key }) Guard(() => { SelectNode(key); if (!busy && !loading) PointObject(key, "tree"); }); };
         search.TextChanged += (_, _) => RebuildTree();
         openDocs.SelectionChanged += (_, _) => { if (!loading && openDocs.SelectedItem is string path) ShowDocument(path); };
-        editor.TextChanged += (_, _) => { if (!loading && activeDocument is not null) { activeDocument.Text = editor.Text; draftTimer.Stop(); draftTimer.Start(); SetStatus(activeDocument.Dirty ? "미적용 초안 · 변경 미리보기에서 검토한 뒤 적용해." : "문서가 디스크와 같아."); } };
+        editor.TextChanged += (_, _) => { if (!loading && activeDocument is not null) { session!.UpdateWorkingCopy("human", activeDocument.Path, WorkspaceProject.HashText(activeDocument.Text), editor.Text); draftTimer.Stop(); draftTimer.Start(); SetStatus(activeDocument.Dirty ? "미적용 초안 · 변경 미리보기에서 검토한 뒤 적용해." : "문서가 디스크와 같아."); } };
         editor.SelectionChanged += (_, _) => PointXmlRange();
         SetupRangePointing();
-        draftTimer.Tick += (_, _) => { draftTimer.Stop(); Guard(() => { session?.Persist(); RefreshContext(); }); };
+        draftTimer.Tick += (_, _) => { draftTimer.Stop(); Guard(() => { if (session is not null && activeDocument is not null) session.SaveRoom("human", activeDocument.Path, activeMember); RefreshRoomCaption(); RefreshContext(); }); };
         prompt.PreviewKeyDown += (_, e) => { if (e.Key == Key.Enter && Keyboard.Modifiers.HasFlag(ModifierKeys.Control)) { e.Handled = true; Submit(); } };
-        Closing += (_, e) => { if (busy || WorkersRunning || PendingReviews || manualReviewActive) { SetStatus("현재 작업을 마치거나 취소한 뒤 닫아줘."); e.Cancel = true; return; } if (PackDocumentDirty()) { SetStatus("에디터팩 초안을 저장하거나 저장본으로 되돌린 뒤 닫아줘."); e.Cancel = true; return; } Guard(() => session?.Persist()); };
+        Closing += (_, e) => { if (busy || WorkersRunning || publicMentions.Count > 0 || PendingReviews || manualReviewActive) { SetStatus("현재 작업을 마치거나 취소한 뒤 닫아줘."); e.Cancel = true; return; } if (PackDocumentDirty()) Guard(() => UpdatePackRoomDraft(true)); Guard(() => session?.Persist()); };
         Closed += (_, _) => { draftTimer.Stop(); StopChatGptBridge(); runner?.Dispose(); provider?.Dispose(); foreach (var worker in workers) worker.Assistant?.Dispose(); };
         AddBrowserWorkspace(root, body, output, builds);
         Message("시작", "일반 대화에는 포인팅을 첨부하지 않아. 대상을 가리키려면 ‘이거’ 모드를 켜고 탐색기·관계도·XML에서 지정해줘. 전송할 때 대상과 문서 버전을 고정해."); SetBusy(false);
@@ -173,9 +177,9 @@ public sealed partial class EditorWindow : Window
     }
     public void OpenProject(string path) => Guard(() =>
     {
-        if (busy || WorkersRunning || PendingReviews || manualReviewActive) { SetStatus("작업자의 요청을 마치거나 취소한 뒤 프로젝트를 바꿔줘."); return; }
+        if (busy || WorkersRunning || publicMentions.Count > 0 || PendingReviews || manualReviewActive) { SetStatus("작업자의 요청을 마치거나 취소한 뒤 프로젝트를 바꿔줘."); return; }
         if (runner?.GameRunning == true) throw new InvalidOperationException("현재 프로젝트의 게임 창을 닫은 뒤 다른 프로젝트를 열어줘.");
-        if (PackDocumentDirty()) throw new InvalidOperationException("먼저 에디터팩 초안을 저장해줘.");
+        if (PackDocumentDirty()) UpdatePackRoomDraft(true);
         session?.Persist(); TryStopSharedEditorBeforeSwitch(); ClearSharedEditor();
         var next = new EditorSession(path); var nextConversation = PackEngine.Installation.ProjectConversation.Load(next.Project.Manifest);
         nextConversation.SaveLocal();
@@ -232,7 +236,7 @@ public sealed partial class EditorWindow : Window
     }
     private void ShowDocument(string path)
     {
-        if (session is null) return; activeDocument = session.Documents.Single(d => d.Path == path); loading = true; editor.Text = activeDocument.Text; loading = false; SetBusy(busy);
+        if (session is null) return; activeDocument = session.Documents.Single(d => d.Path == path); loading = true; editor.Text = activeDocument.Text; loading = false; SetBusy(busy); RefreshRoomDocument();
     }
     private void ReloadDocument() => Guard(() =>
     {

@@ -39,5 +39,23 @@ internal static class ReviewVerification
             check(completion.GetProperty("result").GetProperty("changes")[0].GetProperty("file").GetString() == "editor:" + child.Id + "/ui.xml", "web results include actual editor file changes with their pack identity");
         }
         finally { File.WriteAllText(child.PathFor("ui.xml"), original); File.WriteAllText(core.PathFor("pack.xml"), coreOriginal); review.Cancel(); }
+        var roomRequest = session.PrepareContext("editor room fixture"); roomRequest.ReviewChanges = true;
+        var roomReview = new ChangeReviewBatch(session, roomRequest, a => a());
+        string shared = original.Replace("Project refresh", "Human refresh");
+        var humanDraft = new RoomDraft { ParticipantId = "human", Path = "editor:" + child.Id + "/ui.xml", BaseText = original, Text = shared };
+        session.Collaboration.Room(humanDraft.Path).Drafts.Add(humanDraft);
+        var roomAgent = new EditorPackAgent(new[] { child }, roomRequest, () => active, (_, _) => Task.CompletedTask, _ => { }, (_, _, _) => { }, "", "", history,
+            (_, _) => shared != child.Read("ui.xml"), roomReview)
+        { WorkingCopy = (_, _) => shared, UpdateWorkingCopy = (_, _, disk, working) => { shared = working; humanDraft.BaseText = disk; humanDraft.Text = working; } };
+        try
+        {
+            using var read = JsonDocument.Parse(await roomAgent.Call(JsonSerializer.SerializeToElement(new { operation = "read", pack = child.Id, path = "ui.xml" }), default));
+            using var changed = JsonDocument.Parse(await roomAgent.Call(JsonSerializer.SerializeToElement(new { operation = "patch", pack = child.Id, path = "ui.xml", expectedHash = read.RootElement.GetProperty("Hash").GetString(), oldText = "value=\"Extra\"", newText = "value=\"AI extra\"", intent = "editor room independent label" }), default));
+            check(!roomReview.NeedsHandoff && child.Read("ui.xml") == original, "real editor-pack agent stages against a shared human working copy without publishing it");
+            await roomReview.Apply(new[] { changed.RootElement.GetProperty("ChangeId").GetString()! }, default);
+            check(child.Read("ui.xml").Contains("AI extra") && child.Read("ui.xml").Contains("Project refresh") && shared.Contains("Human refresh") && shared.Contains("AI extra"), "real editor-pack callbacks publish only the AI label and keep the human label draft");
+        }
+        finally { File.WriteAllText(child.PathFor("ui.xml"), original); humanDraft.State = "clean"; roomReview.Cancel(); }
+
     }
 }

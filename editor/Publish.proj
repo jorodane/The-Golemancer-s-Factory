@@ -23,13 +23,13 @@
     <Copy SourceFiles="@(Runtime)" DestinationFolder="$(EditorPublishDir)" SkipUnchangedFiles="true" />
     <Error Condition="'@(WebLoader)' == ''" Text="Build the WebView2 native loaders before publishing." />
     <Copy SourceFiles="@(WebLoader)" DestinationFiles="@(WebLoader->'$(EditorPublishDir)runtimes/%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
-    <Copy SourceFiles="$(MSBuildThisFileDirectory)ThirdParty/WebView2-LICENSE.txt" DestinationFolder="$(EditorPublishDir)Licenses" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(MSBuildThisFileDirectory)ThirdParty/WebView2-LICENSE.txt;$(MSBuildThisFileDirectory)ThirdParty/Roslyn-LICENSE.txt;$(MSBuildThisFileDirectory)ThirdParty/Roslyn-ThirdPartyNotices.rtf" DestinationFolder="$(EditorPublishDir)Licenses" SkipUnchangedFiles="true" />
     <MakeDir Directories="$(EditorPublishDir)Providers" />
     <Copy SourceFiles="$(MSBuildThisFileDirectory)PackEngine.Assistant.Command/bin/Release/net48/PackEngine.Assistant.Command.dll" DestinationFolder="$(EditorPublishDir)Providers" />
     <Copy SourceFiles="$(MSBuildThisFileDirectory)PackEngine.Assistant.Codex/bin/Release/net48/PackEngine.Assistant.Codex.dll" DestinationFolder="$(EditorPublishDir)Providers" />
     <ItemGroup>
       <Published Include="$(EditorPublishDir)*.exe;$(EditorPublishDir)*.dll;$(EditorPublishDir)*.config;$(EditorPublishDir)Providers/*.dll;$(MSBuildThisFileDirectory)Packs/CoreTools/Bin/net48/*.dll;$(MSBuildThisFileDirectory)Packs/CoreTools/*.xml;$(MSBuildThisFileDirectory)../StartEditor.exe;$(MSBuildThisFileDirectory)../StartEditor.exe.config" />
-      <Published Include="$(EditorPublishDir)runtimes/**/WebView2Loader.dll;$(EditorPublishDir)Licenses/*.txt" />
+      <Published Include="$(EditorPublishDir)runtimes/**/WebView2Loader.dll;$(EditorPublishDir)Licenses/*.txt;$(EditorPublishDir)Licenses/*.rtf" />
       <Published Include="$(MSBuildThisFileDirectory)examples/MobileLab/Bin/net48/*.dll;$(MSBuildThisFileDirectory)examples/MobileLab/*.xml" />
       <Published Update="@(Published)">
         <RelativePath>$([MSBuild]::MakeRelative('$(EditorPublishDir)', '%(Published.FullPath)'))</RelativePath>

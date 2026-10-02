@@ -81,7 +81,7 @@ public static class ChangeDifference
             }
             catch (Exception e) when (e is XmlException or InvalidOperationException or ArgumentException) { }
         }
-        return TextChanges(path, before, after);
+        return SemanticDocument.Compare(path, before, after) ?? TextChanges(path, before, after);
     }
     private static bool Equivalent(string a, string b)
     {
@@ -120,6 +120,7 @@ public static class ChangeDifference
     {
         if (!string.Equals(a.Path, b.Path, StringComparison.OrdinalIgnoreCase)) return false;
         if (a.Kind != b.Kind) return true;
+        if (a.Kind == "csharp") return SemanticDocument.ScopeOverlap(a.Target, b.Target);
         if (a.Kind == "xml") return a.Target == b.Target || a.Target.StartsWith(b.Target + "/", StringComparison.Ordinal) || b.Target.StartsWith(a.Target + "/", StringComparison.Ordinal);
         int an = a.Before?.Length ?? 0, bn = b.Before?.Length ?? 0;
         if (an == 0 || bn == 0) return a.Offset <= b.Offset + bn && b.Offset <= a.Offset + an;
@@ -146,7 +147,7 @@ public static class ChangeDifference
             }
             return (doc.Declaration is null ? "" : doc.Declaration + (baseline.Contains("\r\n") ? "\r\n" : "\n")) + doc.ToString(SaveOptions.DisableFormatting | SaveOptions.OmitDuplicateNamespaces);
         }
-        if (ops.Any(o => o.Kind != "text")) throw new IOException("Cannot mix XML and text operations on one baseline.");
+        if (ops.Any(o => o.Kind != "text" && o.Kind != "csharp")) throw new IOException("Cannot mix XML and text operations on one baseline.");
         string result = baseline;
         foreach (var op in ops.OrderByDescending(o => o.Offset))
         {

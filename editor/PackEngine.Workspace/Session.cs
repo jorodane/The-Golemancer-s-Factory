@@ -118,13 +118,13 @@ public sealed partial class EditorSession
         string path = Path.Combine(StateDirectory, "session.json");
         State = File.Exists(path) ? JsonSerializer.Deserialize<EditorState>(File.ReadAllText(path), Json) ?? new() : new();
         if (State.Version != 1) throw new InvalidDataException("Unsupported editor state version.");
+        Collaboration = new(StateDirectory);
         foreach (string file in State.OpenFiles.ToArray()) if (Index.TextFiles.ContainsKey(file) && File.Exists(Project.Resolve(file)))
         {
             var doc = Open(file, false); var draft = State.Drafts.SingleOrDefault(d => d.Path == file);
             if (draft is not null) { doc.Text = draft.Text; doc.Original = draft.Original; doc.Baseline = draft.Baseline; }
         }
         State.OpenFiles = Documents.Select(d => d.Path).ToList();
-        Collaboration = new(StateDirectory);
     }
     public void Persist()
     { State.Drafts = Documents.Where(d => d.Dirty).ToList(); AtomicWrite(Path.Combine(StateDirectory, "session.json"), Encoding.UTF8.GetBytes(Serialize(State))); }
@@ -157,18 +157,24 @@ public sealed partial class EditorSession
         byte[] bytes = ReadBytes(path);
         string text = Decode(bytes);
         var doc = new OpenDocument { Path = path, Baseline = WorkspaceProject.Hash(bytes), Text = text, Original = text };
+        var saved = Collaboration.Room(path).Drafts.FirstOrDefault(d => d.ParticipantId == "human" && d.RequestId.Length == 0 && d.State == "draft");
+        if (saved is not null) { doc.Text = saved.Text; doc.Original = saved.BaseText; if (saved.BaseText != text) doc.Baseline = WorkspaceProject.HashText(saved.BaseText); }
+        if (Collaboration.Room(path).CheckpointText.Length == 0) Collaboration.Room(path).CheckpointText = doc.Text;
         Documents.Add(doc); State.OpenFiles = Documents.Select(d => d.Path).ToList(); if (persist) Persist(); return doc;
     }
     public void Close(string path)
     {
         var doc = Documents.Single(d => d.Path == path);
-        if (doc.Dirty) throw new InvalidOperationException("Apply or discard this document's draft before closing.");
+        if (doc.Dirty) SaveRoom("human", path);
+        if (Collaboration.Presence("human").Room == path) Collaboration.Leave("human");
         Documents.Remove(doc); State.OpenFiles = Documents.Select(d => d.Path).ToList(); Persist();
     }
     public void Reload(string path)
     {
         var doc = Documents.Single(d => d.Path == path); byte[] bytes = ReadBytes(path);
         doc.Original = doc.Text = Decode(bytes); doc.Baseline = WorkspaceProject.Hash(bytes);
+        foreach (var draft in Collaboration.Room(path).Drafts.Where(d => d.ParticipantId == "human" && d.RequestId.Length == 0)) { draft.BaseText = draft.Text = doc.Text; draft.State = "clean"; }
+        Collaboration.Room(path).CheckpointText = doc.Text;
     }
     public void Refresh() { Index = new(Project); }
     private byte[] ReadBytes(string path)

@@ -68,6 +68,8 @@ public sealed partial class EditorPackAgent : IEditorPackAccess
     private readonly bool allowReload;
     private readonly Func<string, string, bool> dirty;
     private readonly ChangeReviewBatch? review;
+    public Func<string, string, string?>? WorkingCopy { get; set; }
+    public Action<string, string, string, string>? UpdateWorkingCopy { get; set; }
     private readonly Func<object>? windows;
     private readonly Func<string, PackEngine.Editor.Contracts.EditorWindowAction, object>? window;
     public EditorPackAgent(IEnumerable<EditorPackSource> sources, ContextRequest request, Func<IEditorPackRuntime?> active,
@@ -118,7 +120,7 @@ public sealed partial class EditorPackAgent : IEditorPackAccess
             if (operation is "patch" or "apply" or "undo" or "build" or "window")
                 if (review is null && !writable.Contains(id)) throw new InvalidOperationException("This request does not authorize changing editor pack " + id);
             if (operation == "patch")
-                if (dirty(id, path)) throw new IOException("This editor pack has an unsaved user buffer. Reconcile it first.");
+                if (WorkingCopy is null && dirty(id, path)) throw new IOException("This editor pack has an unsaved user buffer. Reconcile it first.");
             switch (operation)
             {
                 case "window":
@@ -144,13 +146,23 @@ public sealed partial class EditorPackAgent : IEditorPackAccess
                     result = new { Pack = id, Path = "editor:" + id + "/" + path, Hash = hash, DocumentHash = hash, Content = slice.Substring(0, Math.Min(slice.Length, 12000)), TotalLines = lines.Length, PendingReview = staged is not null || bundles.ContainsKey(id), Partial = start > 1 || start - 1 + count < lines.Length || slice.Length > 12000 }; break;
                 case "patch":
                     if (bundles.TryGetValue(id, out var bundle) && bundle.Files.Paths.Contains(path)) { result = PatchBundle(source, bundle, args); break; }
-                    var previous = review?.File("editor", id, path); string baseline = source.Read(path), before = previous?.After ?? baseline, expected = S(args, "expectedHash"), oldText = S(args, "oldText"), newText = S(args, "newText");
+                    var previous = review?.File("editor", id, path); string baseline = WorkingCopy?.Invoke(id, path) ?? source.Read(path), before = previous?.After ?? baseline, expected = S(args, "expectedHash"), oldText = S(args, "oldText"), newText = S(args, "newText");
                     if (previous is not null && previous.Before != baseline) throw new IOException("The real editor file changed while proposals were being prepared.");
                     if (!reads.TryGetValue(id + "/" + path, out var read) || read != expected || WorkspaceProject.HashText(before) != expected) throw new IOException("Read the current editor pack document before patching.");
                     int offset = oldText.Length == 0 ? -1 : before.IndexOf(oldText, StringComparison.Ordinal);
                     if (offset < 0 || before.IndexOf(oldText, offset + oldText.Length, StringComparison.Ordinal) >= 0) throw new InvalidDataException("oldText must match exactly once.");
                     var change = new EditorPackChange { Pack = id, Folder = source.Folder, Path = path, Intent = S(args, "intent"), Before = baseline, After = before.Substring(0, offset) + newText + before.Substring(offset + oldText.Length) };
                     EditorPackChange.Validate(path, change.After, id); changes.Add(change.Id, change); preview(change);
+                    if (review is not null && WorkingCopy is not null && UpdateWorkingCopy is not null)
+                    {
+                        review.StageExternalRoom(new() { Id = change.Id, Kind = "editor", Pack = id, Path = path, Intent = change.Intent, Before = change.Before, After = change.After,
+                            BeforeHash = change.BeforeHash, AfterHash = change.AfterHash, Tool = "editor.apply", Subject = id + "/" + path },
+                            () => source.Read(path), () => WorkingCopy(id, path) ?? source.Read(path), next => EditorPackChange.Validate(path, next, id),
+                            (disk, shared) => { change.Before = source.Read(path); change.After = disk; change.Apply(history); preview(change); UpdateWorkingCopy(id, path, disk, shared); },
+                            shared => { change.Apply(history, true); preview(change); UpdateWorkingCopy(id, path, change.Before, shared); });
+                    }
+                    else
+                    {
                     if (review is not null) review.Stage(new() { Id = change.Id, Kind = "editor", Pack = id, Path = path, Intent = change.Intent, Before = change.Before, After = change.After,
                         BeforeHash = change.BeforeHash, AfterHash = change.AfterHash, Tool = "editor.apply", Subject = id + "/" + path },
                         () => { if (dirty(id, change.Path) || source.Read(change.Path) != change.Before) throw new IOException("Review conflict in editor pack " + id + "/" + change.Path); EditorPackChange.Validate(change.Path, change.After, id); },
@@ -159,6 +171,7 @@ public sealed partial class EditorPackAgent : IEditorPackAccess
                         () => { if (dirty(id, path)) throw new IOException("Resolve the unsaved editor buffer first."); return source.Read(path); },
                         next => { EditorPackChange.Validate(path, next, id); change.Before = source.Read(path); change.After = next;
                             return new() { Before = change.Before, After = change.After, BeforeHash = change.BeforeHash, AfterHash = change.AfterHash }; });
+                    }
                     result = new { ChangeId = change.Id, change.Pack, change.Path, change.BeforeHash, change.AfterHash, Applied = false }; break;
                 case "apply": case "undo":
                     if (bundles.TryGetValue(id, out var created) && created.Files.Id == S(args, "changeId"))

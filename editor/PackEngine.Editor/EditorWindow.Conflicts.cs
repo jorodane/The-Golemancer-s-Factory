@@ -12,7 +12,7 @@ public sealed partial class EditorWindow
     {
         activeReviews[review.Request.Id] = review;
         var hub = review.Collaboration;
-        var own = hub.Publish(review.Request.Id);
+        var own = hub.Publish(review.Request.Id, false);
         foreach (var item in review.Items.Where(i => i.SelectableOperations).ToArray())
         {
             token.ThrowIfCancellationRequested();
@@ -40,7 +40,7 @@ public sealed partial class EditorWindow
             {
                 var changed = other.Items.FirstOrDefault(i => i.CanonicalPath == item.CanonicalPath && i.Before == baseline);
                 if (changed is null || !item.Differences.Any(a => changed.Differences.Any(b => ChangeDifference.Overlaps(a, b) && !ChangeDifference.Same(a, b)))) continue;
-                var set = hub.Publish(other.Request.Id);
+                var set = hub.Publish(other.Request.Id, false);
                 candidates.Add((new ChangeSet { ChangeSetId = set.ChangeSetId, Author = set.Author, Intent = changed.Intent, Operations = changed.Differences, Origin = set.Origin }, changed.After));
             }
             if (candidates.Count < 2) continue;
@@ -70,7 +70,7 @@ public sealed partial class EditorWindow
             }
             foreach (var participant in conflict.Participants) WorkerResolutionLink(participant, resolution.ResolutionId);
         }
-        hub.Capture(review.Request.Id, review.Items); hub.Publish(review.Request.Id);
+        hub.Capture(review.Request.Id, review.Items); hub.Publish(review.Request.Id, false);
     }
     private async Task<string> ChooseResolution(ConflictSet conflict, IReadOnlyList<(ChangeSet Set, string Text)> candidates, CancellationToken token)
     {

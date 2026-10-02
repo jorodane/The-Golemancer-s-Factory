@@ -60,9 +60,13 @@ public sealed partial class EditorWindow
             PackWork(() => RunBuildWithRetry("에디터팩 빌드 · " + source.Id, () => source.Build(PackDotnet, AppDomain.CurrentDomain.BaseDirectory, operation!.Token), operation!.Token));
         }));
         editing.Children.Add(Action("팩 폴더 열기", () => Guard(() => { if (packChoice.SelectedItem is EditorPackSource s) System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(s.Folder) { UseShellExecute = true }); })));
-        page.Children.Add(editing); page.Children.Add(packFiles); packDocument.Height = 260; packDocument.FontFamily = new System.Windows.Media.FontFamily("Consolas"); packDocument.VerticalScrollBarVisibility = ScrollBarVisibility.Auto; packDocument.AcceptsTab = true; page.Children.Add(packDocument);
-        var changes = new WrapPanel(); changes.Children.Add(Action("에디터팩 변경 미리보기", PreviewEditorPack));
-        changes.Children.Add(Action("검토한 변경 저장", () => ApplyEditorPack(false))); changes.Children.Add(Action("이 변경 되돌리기", () => ApplyEditorPack(true))); page.Children.Add(changes);
+        page.Children.Add(editing); page.Children.Add(packFiles); packDocument.Height = 260; packDocument.FontFamily = new System.Windows.Media.FontFamily("Consolas"); packDocument.VerticalScrollBarVisibility = ScrollBarVisibility.Auto; packDocument.AcceptsTab = true; page.Children.Add(packMembers); page.Children.Add(packMemberForm); page.Children.Add(packDocument);
+        packMembers.SelectionChanged += (_, _) => ShowPackMember();
+        packDocument.TextChanged += (_, _) => { if (!packLoading) UpdatePackRoomDraft(false); };
+        var changes = new WrapPanel(); changes.Children.Add(Action("Room 채팅", () => OpenPublicChat(true, roomPath: PackRoomPath))); changes.Children.Add(Action("에디터팩 변경 미리보기", PreviewEditorPack));
+        changes.Children.Add(Action("초안 저장", () => Guard(() => UpdatePackRoomDraft(true))));
+        changes.Children.Add(Action("구조 / 전체 문서", () => { packWholeDocument = !packWholeDocument; RefreshPackStructure(); }));
+        changes.Children.Add(Action("검토한 변경 확정", () => ApplyEditorPack(false))); changes.Children.Add(Action("이 변경 되돌리기", () => ApplyEditorPack(true))); page.Children.Add(changes);
         changes.Children.Add(Action("저장본 다시 읽기", () => Guard(() => { if (busy || packOpenId.Length == 0) return; packOriginal = packSources.Single(p => p.Id == packOpenId).Read(packOpenPath); packDocument.Text = packOriginal; })));
         packDiff.Height = 150; page.Children.Add(packDiff); AddTab("에디터팩", new ScrollViewer { Content = page, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
         packChoice.SelectionChanged += (_, _) => Guard(SelectEditorPack); packFiles.SelectionChanged += (_, _) => Guard(OpenEditorPackDocument);
@@ -93,20 +97,23 @@ public sealed partial class EditorWindow
     private void SelectEditorPack()
     {
         if (packLoading) return;
-        if (PackDocumentDirty()) { packLoading = true; try { packChoice.SelectedItem = packSources.Single(p => p.Id == packOpenId); } finally { packLoading = false; } throw new InvalidOperationException("열린 에디터팩 초안이 있어. 먼저 저장해줘."); }
+        if (PackDocumentDirty()) UpdatePackRoomDraft(true);
         packFiles.ItemsSource = (packChoice.SelectedItem as EditorPackSource)?.Documents(); packFiles.SelectedIndex = 0;
     }
     private void OpenEditorPackDocument()
     {
         if (packLoading || packChoice.SelectedItem is not EditorPackSource source || packFiles.SelectedItem is not string path) return;
-        if (PackDocumentDirty()) { packLoading = true; try { packFiles.SelectedItem = packOpenPath; } finally { packLoading = false; } throw new InvalidOperationException("에디터팩 초안을 먼저 저장해줘."); }
-        packOpenId = source.Id; packOpenPath = path; packOriginal = source.Read(path); packDocument.Text = packOriginal;
+        if (PackDocumentDirty()) UpdatePackRoomDraft(true);
+        packLoading = true; packOpenId = source.Id; packOpenPath = path; packOriginal = source.Read(path);
+        var saved = session?.Collaboration.Room(PackRoomPath).Drafts.FirstOrDefault(d => d.ParticipantId == "human" && d.RequestId.Length == 0 && d.State == "draft");
+        packDocument.Text = saved?.Text ?? packOriginal; if (saved is not null) packOriginal = saved.BaseText;
+        packLoading = false; RefreshPackStructure();
     }
     private void PreviewEditorPack() => Guard(() =>
     {
         if (busy || packOpenId.Length == 0) return; var source = packSources.Single(s => s.Id == packOpenId);
         if (source.Read(packOpenPath) != packOriginal) throw new IOException("원본이 바뀌었어. 현재 문서를 다시 읽어줘.");
-        EditorPackChange.Validate(packOpenPath, packDocument.Text, source.Id);
+        SemanticDocument.Validate(packOpenPath, packDocument.Text); EditorPackChange.Validate(packOpenPath, packDocument.Text, source.Id);
         ShowEditorPackChange(new() { Pack = source.Id, Folder = source.Folder, Path = packOpenPath, Intent = "사용자 에디터팩 수정", Before = packOriginal, After = packDocument.Text });
     });
     private void ShowEditorPackChange(EditorPackChange change)
@@ -323,5 +330,6 @@ public sealed partial class EditorWindow
             DiscoverEditorPacks();
             Directory.CreateDirectory(Path.GetDirectoryName(EditorPackSettings)!);
             EditorSession.AtomicWrite(EditorPackSettings, System.Text.Encoding.UTF8.GetBytes(JsonSerializer.Serialize(enabledPackFolders.ToArray())));
-        }));
+        })) { WorkingCopy = (pack, path) => Dispatcher.Invoke(() => ExternalWorkingCopy(pack, path)),
+            UpdateWorkingCopy = (pack, path, published, shared) => Dispatcher.Invoke(() => UpdateExternalWorkingCopy(pack, path, published, shared)) };
 }

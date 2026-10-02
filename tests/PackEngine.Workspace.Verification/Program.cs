@@ -129,4 +129,5 @@ await SharedTaskVerification.Run(session, runner, Check);
 await ReviewVerification.Run(session, runner, Check);
 await ReviewRetryVerification.Run(session, runner, Check);
 await CollaborationVerification.Run(session, runner, Check);
+await RoomVerification.Run(session, runner, Check);
 Console.WriteLine("RESIDENT_WORKSPACE_PASS " + checks);

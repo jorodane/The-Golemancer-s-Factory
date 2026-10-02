@@ -14,6 +14,9 @@ public sealed class Participant
     public ParticipantKind Kind { get; set; }
     public ParticipantPermission Permissions { get; set; } = ParticipantPermission.Talk | ParticipantPermission.Work;
     public string Model { get; set; } = "";
+    public string OwnerId { get; set; } = "human";
+    public bool AutoConfirm { get; set; }
+    public string PublicTask { get; set; } = "";
     public double X { get; set; } = 24;
     public double Y { get; set; } = 24;
 }
@@ -32,6 +35,7 @@ public sealed class IncomingChange
 }
 public sealed class WorkContext
 {
+    public List<SemanticNotice> SemanticEvents { get; set; } = [];
     public string RequestId { get; set; } = "";
     public string ParticipantId { get; set; } = "";
     public long BaseRevision { get; set; }
@@ -56,6 +60,7 @@ public sealed class ChangeSet
     public string Origin { get; set; } = "";
     public string ResolutionId { get; set; } = "";
     public string ValidationResult { get; set; } = "not-run";
+    public bool Announced { get; set; }
     public string State { get; set; } = "proposed";
 }
 public sealed class ResolutionEntry
@@ -81,7 +86,12 @@ public sealed class ConflictSet
 }
 public sealed class CollaborationState
 {
-    public int Version { get; set; } = 1;
+    public List<DocumentRoom> Rooms { get; set; } = [];
+    public List<ParticipantPresence> Presence { get; set; } = [];
+    public List<ParticipantView> Views { get; set; } = [];
+    public List<CollaborationMessage> Messages { get; set; } = [];
+    public List<ContextHandoff> Handoffs { get; set; } = [];
+    public int Version { get; set; } = 2;
     public long Revision { get; set; }
     public List<Participant> Participants { get; set; } = [];
     public List<WorkContext> Work { get; set; } = [];
@@ -90,7 +100,7 @@ public sealed class CollaborationState
 }
 
 /// <summary>Owned by the host dispatcher. No file/scope reservations; proposals never write project files.</summary>
-public sealed class CollaborationWorkspace
+public sealed partial class CollaborationWorkspace
 {
     private readonly string path;
     public CollaborationState State { get; }
@@ -99,9 +109,12 @@ public sealed class CollaborationWorkspace
     {
         path = Path.Combine(directory, "collaboration.json");
         State = File.Exists(path) ? JsonSerializer.Deserialize<CollaborationState>(File.ReadAllText(path), EditorSession.Json) ?? new() : new();
-        if (State.Version != 1) throw new InvalidDataException("Unsupported collaboration state.");
+        if (State.Version is not 1 and not 2) throw new InvalidDataException("Unsupported collaboration state.");
+        State.Version = 2;
         // Persisted intentions are evidence, not permission to restart paid inference or execute old proposals.
         foreach (var work in State.Work.Where(w => w.State is "working" or "review")) work.State = "interrupted";
+        foreach (var presence in State.Presence) presence.Connected = false;
+        foreach (var room in State.Rooms) { room.Participants.Clear(); foreach (var draft in room.Drafts.Where(d => d.State == "draft" && d.RequestId.Length > 0)) draft.State = "handoff"; }
         Register("human", "나", ParticipantKind.Human, ParticipantPermission.Talk | ParticipantPermission.Work | ParticipantPermission.Apply);
         Register("editor", "Editor Pack", ParticipantKind.EditorPack, ParticipantPermission.Talk | ParticipantPermission.Work);
     }
@@ -128,9 +141,10 @@ public sealed class CollaborationWorkspace
     public void Reference(string request, string path, ReferenceRelation relation, string target = "")
     {
         var work = Work(request); Require(work.ParticipantId, ParticipantPermission.Work);
+        Move(work.ParticipantId, path, target, relation == ReferenceRelation.ModifyIntent ? "editing" : "reading");
         var previous = work.ReferenceSet.FirstOrDefault(r => r.Path == path && r.Target == target);
         if (previous is null) work.ReferenceSet.Add(new() { Path = path, Target = target, Relation = relation }); else previous.Relation = relation;
-        foreach (var pending in State.Changes.Where(c => c.State == "proposed")) Broadcast(pending);
+        foreach (var pending in State.Changes.Where(c => c.State == "proposed" && c.Announced)) Broadcast(pending);
         Save();
     }
     public void Capture(string request, IEnumerable<ReviewItem> items)
@@ -139,22 +153,23 @@ public sealed class CollaborationWorkspace
         context.WorkingChanges = items.Where(i => i.IsFile).SelectMany(i => i.CollaborationOperations).ToList();
         foreach (var op in context.WorkingChanges)
             if (!context.ReferenceSet.Any(r => r.Path == op.Path && r.Relation == ReferenceRelation.ModifyIntent)) context.ReferenceSet.Add(new() { Path = op.Path, Relation = ReferenceRelation.ModifyIntent });
-        foreach (var pending in State.Changes.Where(c => c.State == "proposed")) Broadcast(pending);
+        foreach (var pending in State.Changes.Where(c => c.State == "proposed" && c.Announced)) Broadcast(pending);
         Save();
     }
-    public ChangeSet Publish(string request)
+    public ChangeSet Publish(string request) => Publish(request, true);
+    public ChangeSet Publish(string request, bool broadcast)
     {
         var work = Work(request); Require(work.ParticipantId, ParticipantPermission.Work);
         if (work.FinalChangeSet.Length > 0)
         {
             var prior = State.Changes.Single(c => c.ChangeSetId == work.FinalChangeSet);
-            if (prior.Operations.Select(o => o.Id).SequenceEqual(work.WorkingChanges.Select(o => o.Id))) return prior;
+            if (prior.Operations.Select(o => o.Id).SequenceEqual(work.WorkingChanges.Select(o => o.Id))) { if (broadcast && !prior.Announced) { prior.Announced = true; Broadcast(prior); Save(); } return prior; }
             if (!work.AcceptedChanges.Contains(prior.ChangeSetId)) work.AcceptedChanges.Add(prior.ChangeSetId);
             prior.State = "superseded";
         }
         var change = new ChangeSet { Author = work.ParticipantId, Intent = work.CurrentTask, BaseRevision = work.BaseRevision, Operations = work.WorkingChanges.ToList(), ParentChanges = work.AcceptedChanges.ToList() };
         change.Origin = change.ChangeSetId; State.Changes.Add(change); work.FinalChangeSet = change.ChangeSetId; work.State = "review";
-        Broadcast(change); Save(); return change;
+        change.Announced = broadcast; if (broadcast) Broadcast(change); Save(); return change;
     }
     private void Broadcast(ChangeSet change)
     {
@@ -171,7 +186,15 @@ public sealed class CollaborationWorkspace
         var work = Work(request); Require(work.ParticipantId, ParticipantPermission.Work);
         var incoming = work.IncomingChanges.Single(i => i.ChangeSetId == changeId);
         var change = State.Changes.Single(c => c.ChangeSetId == changeId);
-        if (response is ChangeResponse.TAKEOVER or ChangeResponse.YIELD) throw new InvalidOperationException("Scoped handoff is not enabled in this first protocol version.");
+        if (response == ChangeResponse.TAKEOVER && !State.Handoffs.Any(h => h.To == work.ParticipantId && h.From == change.Author && h.State == "accepted"))
+            throw new InvalidOperationException("TAKEOVER requires an explicitly offered and accepted handoff.");
+        if (response == ChangeResponse.YIELD)
+        {
+            if (string.IsNullOrWhiteSpace(reason)) throw new ArgumentException("Record the response reason.");
+            incoming.Response = response; incoming.Reason = reason; work.State = "handoff";
+            foreach (var draft in State.Rooms.SelectMany(r => r.Drafts).Where(d => d.RequestId == request && d.State == "draft")) draft.State = "handoff";
+            Save(); return incoming;
+        }
         if (string.IsNullOrWhiteSpace(reason)) throw new ArgumentException("Record the response reason.");
         bool overlap = work.WorkingChanges.Any(a => change.Operations.Any(b => ChangeDifference.Overlaps(a, b) && !ChangeDifference.Same(a, b)));
         if (response == ChangeResponse.PASS && (overlap || change.ValidationResult == "failed")) throw new InvalidOperationException("PASS contradicted by changed targets or failed validation. Re-evaluate ADAPT/OBJECT.");

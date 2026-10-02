@@ -14,7 +14,7 @@ public sealed partial class EditorPackAgent
     private string[] Documents(EditorPackSource source) => (File.Exists(source.PathFor("pack.xml")) ? source.Documents() : [])
         .Concat(bundles.TryGetValue(source.Id, out var bundle) ? bundle.Files.Paths : []).Distinct(StringComparer.Ordinal).OrderBy(p => p, StringComparer.Ordinal).ToArray();
     private string ReadText(EditorPackSource source, string path) => bundles.TryGetValue(source.Id, out var bundle) && bundle.Files.Read(path) is { } text ? text
-        : review?.File("editor", source.Id, path)?.After ?? source.Read(path);
+        : review?.File("editor", source.Id, path)?.After ?? WorkingCopy?.Invoke(source.Id, path) ?? source.Read(path);
     private static XDocument Xml(string text)
     {
         using var reader = XmlReader.Create(new StringReader(text), new() { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null, MaxCharactersInDocument = 2_000_000 });

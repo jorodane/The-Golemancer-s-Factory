@@ -11,6 +11,11 @@ public sealed partial class AgentWorkspace
         switch (Str(args, "operation"))
         {
             case "state": return CollaborationContext();
+            case "leave": hub.Leave(work.ParticipantId); return new { Left = true, Published = false };
+            case "handoff":
+                return hub.OfferHandoff(work.ParticipantId, work.ParticipantId, Str(args, "participant"), Str(args, "goal"), Str(args, "completed"), Str(args, "working"), Str(args, "constraints"),
+                    hub.State.Rooms.SelectMany(r => r.Drafts).Where(d => d.RequestId == request.Id && d.State is "draft" or "handoff").Select(d => d.Id));
+            case "accept_handoff": hub.AcceptHandoff(work.ParticipantId, Str(args, "sessionId")); return new { Accepted = true };
             case "reference":
                 string path = Str(args, "path");
                 if (path.StartsWith("editor:", StringComparison.Ordinal))
@@ -35,7 +40,9 @@ public sealed partial class AgentWorkspace
     {
         if (Review is null) return new { Enabled = false };
         var hub = session.Collaboration; var work = hub.Work(request.Id);
-        return new { work.ParticipantId, work.BaseRevision, work.ResolutionConstraints, References = work.ReferenceSet,
+        return new { work.ParticipantId, work.BaseRevision, work.ResolutionConstraints, work.SemanticEvents,
+            Presence = hub.State.Presence,
+            Handoffs = hub.State.Handoffs.Where(h => h.To == work.ParticipantId || h.From == work.ParticipantId).ToArray(), References = work.ReferenceSet,
             Resolutions = hub.State.Conflicts.Where(c => c.Participants.Contains(work.ParticipantId)).Select(c => new { c.Id, c.Target, c.State, c.Decision, c.ResultingChangeSet,
                 Base = c.BaseSnapshot.Substring(0, Math.Min(12000, c.BaseSnapshot.Length)), c.Log,
                 Candidates = c.Candidates.Select(v => new { v.Author, v.Intent, v.ValidationResult, Changes = v.Operations.Select(o => new { o.Path, o.Target, Preview = o.Preview.Substring(0, Math.Min(4000, o.Preview.Length)) }) }) }).ToArray(),

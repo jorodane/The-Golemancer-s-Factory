@@ -151,8 +151,11 @@ public sealed partial class EditorSession
     {
         var work = Collaboration.State.Work.FirstOrDefault(w => w.RequestId == request);
         string reference = path.Split('#')[0];
-        if (work is not null && !work.ReferenceSet.Any(r => r.Path == reference) && (Index.TextFiles.ContainsKey(reference) || reference.StartsWith("editor:", StringComparison.Ordinal)))
-            Collaboration.Reference(request, reference, ReferenceRelation.Read);
+        if (work is not null && (Index.TextFiles.ContainsKey(reference) || reference.StartsWith("editor:", StringComparison.Ordinal)))
+        {
+            var prior = work.ReferenceSet.FirstOrDefault(r => r.Path == reference);
+            Collaboration.Reference(request, reference, prior?.Relation ?? ReferenceRelation.Read, prior?.Target ?? "");
+        }
         State.Reads.Add(new() { Request = request, Path = path, Hash = hash, Characters = text.Length, Partial = partial, TimeUtc = DateTime.UtcNow.ToString("O") });
         if (State.Reads.Count > 200) State.Reads.RemoveAt(0); Persist();
     }

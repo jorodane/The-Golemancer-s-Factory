@@ -13,6 +13,7 @@ public sealed partial class EditorWindow
         {
             var reviewTask = await Dispatcher.InvokeAsync(() => ReviewChanges(review, token));
             var selected = await reviewTask;
+            if (review.IsHandoff) return review.Request.ReviewOutcome;
             string outcome = await review.Apply(selected, token, (item, error, cancellation) => AwaitBuildRetry(item.Intent, error, cancellation));
             await Dispatcher.InvokeAsync(() => { RefreshProject(); RebuildDocuments(); RefreshContext(); Message("검토 결과", outcome); });
             return outcome + "\n" + string.Join("\n", review.Items.Select(i => i.State + " · " + i.Pack + "/" + (i.IsFile ? i.Path : i.Operation) + " · " + i.Intent + (i.Detail.Length > 0 ? "\n" + i.Detail : "")));
@@ -37,6 +38,7 @@ public sealed partial class EditorWindow
     private async Task<IReadOnlyList<string>> ReviewChanges(ChangeReviewBatch review, CancellationToken token, string title = "에디터 AI 변경안 검토")
     {
         token.ThrowIfCancellationRequested();
+        if (review.NeedsHandoff) { review.DeferAsHandoff(); return Array.Empty<string>(); }
         await PrepareCollaborationReview(review, token);
         var dialog = new Window { Owner = this, Title = title, Width = 1080, Height = 760, MinWidth = 780, MinHeight = 520,
             Background = PanelInk, Foreground = TextInk, WindowStartupLocation = WindowStartupLocation.CenterOwner };
@@ -107,6 +109,7 @@ public sealed partial class EditorWindow
             try
             {
                 token.ThrowIfCancellationRequested(); review.Collaboration.Require("human", ParticipantPermission.Apply);
+                if (review.NeedsHandoff) { review.DeferAsHandoff(); done.TrySetResult(Array.Empty<string>()); dialog.Close(); return; }
                 foreach (var item in review.Items.Where(i => selected.Contains(i.Id) && i.SelectableOperations)) review.SelectOperations(item.Id, hunks[item.Id].ToArray());
                 review.ValidateSelection(selected.ToArray()); done.TrySetResult(selected.ToArray()); dialog.Close();
             }
