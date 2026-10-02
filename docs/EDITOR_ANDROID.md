@@ -4,7 +4,23 @@
 
 ## Windows에서 APK 빌드
 
-저장소 전체 소스를 받은 뒤 루트에서 실행한다. .NET 10 **SDK**, Android workload, JDK 21와 Android SDK가 필요하다. Windows 에디터 실행에 필요한 .NET Framework/Runtime과 빌드용 SDK는 별개다. 기존 Visual Studio Android 환경을 사용하거나 다음 순서로 설치한다.
+저장소 전체 소스를 받은 뒤 루트에서 실행한다. .NET 10 **SDK**, Android workload, JDK 21와 Android SDK가 필요하다. Windows 에디터 실행에 필요한 .NET Framework/Runtime과 빌드용 SDK는 별개다.
+
+### Android Studio가 이미 설치되어 있다면
+
+Android Studio의 기존 Android SDK와 내장 JDK를 우선 재사용한다. .NET 10 SDK와 `android` workload가 준비된 상태에서 `BuildEditorAndroid.bat`를 실행하면 환경 변수, 기본 SDK 경로, Android Studio 설치 위치를 검사하고 선택한 도구의 경로와 JDK 버전을 화면·로그에 표시한다. 기본 Android SDK는 `%LOCALAPPDATA%\Android\Sdk`, Android Studio의 내장 JDK는 설치 폴더의 `jbr`에서 찾는다. Windows에서는 설치 등록 정보와 PATH에 등록된 Studio 실행 파일도 확인한다.
+
+내장 JDK는 **21 버전**이어야 한다. 이전 Android Studio의 JDK 17 등은 해당 버전을 표시하고 JDK 21 경로를 안내한다. `JAVA_HOME`이 이전 버전을 가리키더라도 자동 탐지 모드에서는 사용 가능한 Studio의 JDK 21을 찾는다. 명시적으로 준 `-AndroidSdk`·`-JavaSdk`는 우선 사용하며 다른 경로로 자동 교체하지 않는다.
+
+SDK를 별도 위치로 옮겼거나 Studio를 사용자 지정 폴더에 설치했다면 **Tools → SDK Manager → Android SDK Location**에서 기존 SDK 경로를 확인하고 다음과 같이 지정한다.
+
+```powershell
+.\BuildEditorAndroid.bat -AndroidSdk "D:\Android\Sdk" -JavaSdk "D:\Apps\Android Studio\jbr"
+```
+
+예시 경로는 실제 설치 위치로 바꾼다. 필요한 Android 플랫폼·Build-Tools가 없으면 기존 SDK의 **SDK Manager**에서 추가한다. .NET SDK/workload는 별도로 필요하며 Android Studio의 APK 빌드 버튼 대신 이 프로젝트의 빌드 스크립트를 사용한다. Studio의 SDK Manager와 에뮬레이터는 그대로 사용할 수 있다.
+
+### 처음 개발 도구를 준비한다면
 
 먼저 .NET 10 SDK를 설치한다. PowerShell에서 실행하거나 [Microsoft 다운로드 페이지](https://dotnet.microsoft.com/ko-kr/download/dotnet/10.0)의 **SDK / Windows** 설치 프로그램을 사용한다.
 

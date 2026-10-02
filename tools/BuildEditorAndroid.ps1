@@ -63,6 +63,13 @@ try {
     }
     Write-Host 'Android 에디터 빌드 환경을 확인하고 있어.'
     if ($logPath) { Write-Host "로그: $logPath" }
+    . (Join-Path $PSScriptRoot 'AndroidBuildEnvironment.ps1')
+    $existingTools = Resolve-AndroidBuildEnvironment -RequestedSdk $AndroidSdk -RequestedJava $JavaSdk -SdkExplicit $PSBoundParameters.ContainsKey('AndroidSdk') -JavaExplicit $PSBoundParameters.ContainsKey('JavaSdk')
+    $AndroidSdk = $existingTools.SdkPath
+    $JavaSdk = $existingTools.JavaPath
+    if ($existingTools.StudioRoots.Count -gt 0) { Write-Host ('기존 Android Studio: ' + ($existingTools.StudioRoots -join ', ')) }
+    if ($AndroidSdk) { Write-Host "Android SDK: $AndroidSdk [$($existingTools.SdkOrigin)]" }
+    if ($JavaSdk -and $existingTools.JavaVersion) { Write-Host "Java SDK: $JavaSdk [$($existingTools.JavaOrigin), $($existingTools.JavaVersion.Text)]" }
     $requiredSdk = (Get-Content (Join-Path $projectRoot 'global.json') -Raw | ConvertFrom-Json).sdk.version
     if (!(Get-Command $DotNet -ErrorAction SilentlyContinue)) {
         Show-SdkInstallation
@@ -97,12 +104,27 @@ try {
         throw 'Android workload 설치가 필요해.'
     }
     Write-Host 'Android workload: 확인 완료'
+    if (!$InstallDependencies) {
+        if (!$AndroidSdk -or !(Test-Path -LiteralPath $AndroidSdk -PathType Container)) {
+            Show-AndroidBuildStudioGuidance
+            throw 'Android SDK 경로를 찾지 못했어. SDK Manager의 기존 경로를 지정해줘.'
+        }
+        if (!$JavaSdk -or !$existingTools.JavaVersion -or $existingTools.JavaVersion.Major -ne 21) {
+            foreach ($found in $existingTools.IncompatibleJava) { Write-Host "확인한 다른 JDK: $found" }
+            if ($JavaSdk) { Write-Host "지정한 JDK 경로: $JavaSdk" }
+            Show-AndroidBuildStudioGuidance
+            throw 'JDK 21 경로를 찾지 못했어. 기존 JDK 21 경로를 지정해줘.'
+        }
+    }
     $common = @('-p:EngineTargetFramework=net10.0', '-p:UseSharedCompilation=false', '-m:1', '--disable-build-servers', '--nologo', '-v:minimal')
     $sdk = @()
     if ($AndroidSdk) { $sdk += '-p:AndroidSdkDirectory=' + [IO.Path]::GetFullPath($AndroidSdk) }
     if ($JavaSdk) { $sdk += '-p:JavaSdkDirectory=' + [IO.Path]::GetFullPath($JavaSdk) }
     if ($InstallDependencies) {
-        if (!$AcceptAndroidSdkLicenses -or !$AndroidSdk -or !$JavaSdk) { throw 'For dependency installation specify -AndroidSdk, -JavaSdk and -AcceptAndroidSdkLicenses. See docs/EDITOR_ANDROID.md.' }
+        if (!$AcceptAndroidSdkLicenses -or !$AndroidSdk -or !$JavaSdk) {
+            Show-AndroidBuildStudioGuidance
+            throw '의존성 설치에는 -AndroidSdk, -JavaSdk와 -AcceptAndroidSdkLicenses가 필요해. 기존 경로를 사용할 수 있어.'
+        }
         Invoke-DotNet -Arguments (@('build', $project, '-t:InstallAndroidDependencies', '-p:AcceptAndroidSdkLicenses=true') + $common + $sdk)
     }
     # The sample ZIP carries both host binaries; XML and implementation source are shared.
