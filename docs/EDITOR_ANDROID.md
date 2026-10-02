@@ -4,7 +4,15 @@
 
 ## Windows에서 APK 빌드
 
-저장소 전체 소스를 받은 뒤 루트에서 실행한다. .NET 10 **SDK**, Android workload, JDK 21와 Android SDK가 필요하다. 기존 Visual Studio Android 환경을 사용하거나 다음 순서로 설치한다.
+저장소 전체 소스를 받은 뒤 루트에서 실행한다. .NET 10 **SDK**, Android workload, JDK 21와 Android SDK가 필요하다. Windows 에디터 실행에 필요한 .NET Framework/Runtime과 빌드용 SDK는 별개다. 기존 Visual Studio Android 환경을 사용하거나 다음 순서로 설치한다.
+
+먼저 .NET 10 SDK를 설치한다. PowerShell에서 실행하거나 [Microsoft 다운로드 페이지](https://dotnet.microsoft.com/ko-kr/download/dotnet/10.0)의 **SDK / Windows** 설치 프로그램을 사용한다.
+
+```powershell
+winget install --id Microsoft.DotNet.SDK.10 --exact
+```
+
+설치 후 PowerShell을 새로 열고 저장소 폴더로 이동한다. `dotnet --list-sdks`에서 `10.0.xxx`가 보여야 한다. `global.json`은 `10.0.100`을 기준으로 호환되는 이후 .NET 10 feature band도 허용하므로 정확히 `10.0.100`만 설치할 필요는 없다. 이어서 Android 도구와 의존성을 설치한다.
 
 ```powershell
 dotnet workload install android
@@ -18,6 +26,16 @@ dotnet workload install android
 ```
 
 `ANDROID_HOME`과 `JAVA_HOME`이 설정되어 있으면 `.\BuildEditorAndroid.bat`만 실행해도 된다. 기본 대상은 실제 휴대폰용 `arm64`, 구성은 `Release`다. x64 에뮬레이터는 `-Architecture x64`, 디버그 빌드는 `-Configuration Debug`를 지정한다. 설치 경로에는 공백·한글을 피하는 편이 좋다. 설치 절차는 [Microsoft 공식 안내](https://learn.microsoft.com/ko-kr/dotnet/android/getting-started/installation/dependencies)를 따른다.
+
+### 빌드 결과와 오류 확인
+
+`BuildEditorAndroid.bat`는 성공·실패 모두 결과를 표시한 뒤 키 입력을 기다린다. SDK가 없거나 `global.json`과 맞지 않으면 SDK 목록과 설치 방법을, Android workload가 없으면 해당 설치 명령을 보여준다. 실제 설치는 사용자가 설치 명령을 실행할 때 진행된다. `-InstallDependencies`는 .NET SDK/workload 설치 이후 Android SDK·JDK를 설치하는 옵션이다.
+
+전체 출력은 `%LOCALAPPDATA%\PackEngine\Logs\AndroidBuild\build-날짜-시각-프로세스번호.log`에 보존하며 화면 마지막에 정확한 경로를 표시한다. 프로젝트 안에 로그를 만들지 않는다. PowerShell 실행 자체가 실패하거나 매개변수를 잘못 넣은 경우에도 배치 창은 오류를 보여주고 기다린다. 자동화나 이미 열린 터미널에서 대기가 필요 없으면 `-NoPause`를 추가한다.
+
+```powershell
+.\BuildEditorAndroid.bat -NoPause -AndroidSdk C:\Android\sdk -JavaSdk C:\Android\jdk
+```
 
 생성물:
 
