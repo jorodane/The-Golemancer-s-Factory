@@ -5,6 +5,7 @@ set "DOTNET_CLI_TELEMETRY_OPTOUT=1"
 set "POWERSHELL_TELEMETRY_OPTOUT=1"
 set "editor_android_no_pause="
 for %%A in (%*) do if /I "%%~A"=="-NoPause" set "editor_android_no_pause=1"
+for %%A in (%*) do if /I "%%~A"=="-NonInteractive" set "editor_android_no_pause=1"
 cd /d "%~dp0"
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0tools\BuildEditorAndroid.ps1" %*
 set "editor_android_exit=%errorlevel%"

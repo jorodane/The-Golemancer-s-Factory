@@ -34,6 +34,14 @@ function Get-AndroidBuildJavaVersion([string]$Directory) {
     return $null
 }
 
+function Get-AndroidBuildDefaultToolPath([ValidateSet('AndroidSdk', 'JavaSdk')][string]$Tool) {
+    $localData = $env:LOCALAPPDATA
+    if (!$localData) { $localData = [Environment]::GetFolderPath([Environment+SpecialFolder]::LocalApplicationData) }
+    if (!$localData) { throw '사용자 도구 설치 폴더를 찾지 못했어. 경로를 직접 지정해줘.' }
+    if ($Tool -eq 'AndroidSdk') { return Join-Path $localData 'Android/Sdk' }
+    return Join-Path $localData 'PackEngine/BuildTools/jdk-21'
+}
+
 function Resolve-AndroidBuildEnvironment {
     param([string]$RequestedSdk, [string]$RequestedJava, [bool]$SdkExplicit, [bool]$JavaExplicit)
     $studioRoots = @(Get-AndroidBuildStudioRoots)
@@ -50,6 +58,7 @@ function Resolve-AndroidBuildEnvironment {
             $sdkCandidates += [pscustomobject]@{ Path = (Join-Path $userProfile 'Android/Sdk'); Origin = '기존 Android SDK' }
             $sdkCandidates += [pscustomobject]@{ Path = (Join-Path $userProfile 'Library/Android/sdk'); Origin = '기존 Android SDK' }
         }
+        $sdkCandidates += [pscustomobject]@{ Path = (Get-AndroidBuildDefaultToolPath AndroidSdk); Origin = '사용자 Android SDK' }
     }
     $sdk = $null
     foreach ($candidate in $sdkCandidates) {
@@ -60,6 +69,7 @@ function Resolve-AndroidBuildEnvironment {
     if (!$JavaExplicit) {
         foreach ($studio in $studioRoots) { $javaCandidates += [pscustomobject]@{ Path = (Join-Path $studio 'jbr'); Origin = 'Android Studio 내장 JDK' } }
         if ($env:STUDIO_JDK) { $javaCandidates += [pscustomobject]@{ Path = $env:STUDIO_JDK; Origin = 'STUDIO_JDK' } }
+        $javaCandidates += [pscustomobject]@{ Path = (Get-AndroidBuildDefaultToolPath JavaSdk); Origin = '사용자 빌드용 JDK' }
     }
     $java = $null
     $javaVersion = $null

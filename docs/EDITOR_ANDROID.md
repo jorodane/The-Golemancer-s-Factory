@@ -10,7 +10,7 @@
 
 Android Studio의 기존 Android SDK와 내장 JDK를 우선 재사용한다. .NET 10 SDK와 `android` workload가 준비된 상태에서 `BuildEditorAndroid.bat`를 실행하면 환경 변수, 기본 SDK 경로, Android Studio 설치 위치를 검사하고 선택한 도구의 경로와 JDK 버전을 화면·로그에 표시한다. 기본 Android SDK는 `%LOCALAPPDATA%\Android\Sdk`, Android Studio의 내장 JDK는 설치 폴더의 `jbr`에서 찾는다. Windows에서는 설치 등록 정보와 PATH에 등록된 Studio 실행 파일도 확인한다.
 
-내장 JDK는 **21 버전**이어야 한다. 이전 Android Studio의 JDK 17 등은 해당 버전을 표시하고 JDK 21 경로를 안내한다. `JAVA_HOME`이 이전 버전을 가리키더라도 자동 탐지 모드에서는 사용 가능한 Studio의 JDK 21을 찾는다. 명시적으로 준 `-AndroidSdk`·`-JavaSdk`는 우선 사용하며 다른 경로로 자동 교체하지 않는다.
+내장 JDK는 **21 버전**이어야 한다. 이전 Android Studio의 JDK 17 등은 해당 버전을 표시하고 JDK 21 경로를 안내한다. `JAVA_HOME`이 이전 버전을 가리키더라도 자동 탐지 모드에서는 사용 가능한 Studio의 JDK 21을 찾는다. 명시적으로 준 `-AndroidSdk`·`-JavaSdk`는 우선 사용하며, 대화형 설정에서 사용자가 경로를 입력하거나 새 설치 위치에 동의한 경우에만 바꾼다.
 
 SDK를 별도 위치로 옮겼거나 Studio를 사용자 지정 폴더에 설치했다면 **Tools → SDK Manager → Android SDK Location**에서 기존 SDK 경로를 확인하고 다음과 같이 지정한다.
 
@@ -18,7 +18,11 @@ SDK를 별도 위치로 옮겼거나 Studio를 사용자 지정 폴더에 설치
 .\BuildEditorAndroid.bat -AndroidSdk "D:\Android\Sdk" -JavaSdk "D:\Apps\Android Studio\jbr"
 ```
 
-예시 경로는 실제 설치 위치로 바꾼다. 필요한 Android 플랫폼·Build-Tools가 없으면 기존 SDK의 **SDK Manager**에서 추가한다. .NET SDK/workload는 별도로 필요하며 Android Studio의 APK 빌드 버튼 대신 이 프로젝트의 빌드 스크립트를 사용한다. Studio의 SDK Manager와 에뮬레이터는 그대로 사용할 수 있다.
+예시 경로는 실제 설치 위치로 바꾼다. 배치 파일을 보통처럼 실행하면 경로를 찾지 못했을 때 **이 창에서 기존 경로를 지정할지** 묻는다. `y`를 선택하면 경로를 붙여넣을 수 있고 잘못된 경로나 JDK 버전은 다시 확인한다. 명령어를 고쳐서 재실행할 필요가 없다.
+
+프로젝트에 필요한 Android 플랫폼·Build-Tools 등이 부족하면 사용할 SDK·JDK 위치와 구성 요소를 보여주고 **설치한 뒤 빌드를 계속할지** 묻는다. Android SDK 라이선스 동의를 포함해 `y`를 선택한 경우에만 `InstallAndroidDependencies`를 실행하고 설치 결과를 확인한 뒤 APK 빌드를 이어간다. 기본 선택은 거부이며 Enter 또는 `n`은 설치를 진행하지 않는다. 기존 JDK 21은 재사용한다. 새 JDK가 필요하면 `%LOCALAPPDATA%\PackEngine\BuildTools\jdk-21`에 설치하고 다음 실행부터 자동 탐지한다. 기존 Studio의 `jbr`나 이전 JDK는 자동 설치로 덮어쓰지 않는다. SDK 기본 설치 위치는 `%LOCALAPPDATA%\Android\Sdk`다.
+
+SDK 구성 요소는 기존 SDK의 **SDK Manager**에서 직접 추가할 수도 있다. .NET SDK/workload는 별도로 필요하며 Android Studio의 APK 빌드 버튼 대신 이 프로젝트의 빌드 스크립트를 사용한다. Studio의 SDK Manager와 에뮬레이터는 그대로 사용할 수 있다.
 
 ### 처음 개발 도구를 준비한다면
 
@@ -45,9 +49,9 @@ dotnet workload install android
 
 ### 빌드 결과와 오류 확인
 
-`BuildEditorAndroid.bat`는 성공·실패 모두 결과를 표시한 뒤 키 입력을 기다린다. SDK가 없거나 `global.json`과 맞지 않으면 SDK 목록과 설치 방법을, Android workload가 없으면 해당 설치 명령을 보여준다. 실제 설치는 사용자가 설치 명령을 실행할 때 진행된다. `-InstallDependencies`는 .NET SDK/workload 설치 이후 Android SDK·JDK를 설치하는 옵션이다.
+`BuildEditorAndroid.bat`는 성공·실패 모두 결과를 표시한 뒤 키 입력을 기다린다. .NET SDK가 없거나 `global.json`과 맞지 않으면 SDK 목록과 설치 방법을, Android workload가 없으면 해당 설치 명령을 보여준다. .NET SDK/workload 설치는 사용자가 해당 명령을 실행할 때 진행된다. 그 이후 Android SDK·JDK는 대화형 설치 제안에 동의하거나 `-InstallDependencies -AcceptAndroidSdkLicenses`를 함께 지정한 경우에 설치한다. 설치 오류나 설치 후 누락이 있으면 APK 빌드를 진행하지 않고 로그를 남긴다.
 
-전체 출력은 `%LOCALAPPDATA%\PackEngine\Logs\AndroidBuild\build-날짜-시각-프로세스번호.log`에 보존하며 화면 마지막에 정확한 경로를 표시한다. 프로젝트 안에 로그를 만들지 않는다. PowerShell 실행 자체가 실패하거나 매개변수를 잘못 넣은 경우에도 배치 창은 오류를 보여주고 기다린다. 자동화나 이미 열린 터미널에서 대기가 필요 없으면 `-NoPause`를 추가한다.
+전체 출력은 `%LOCALAPPDATA%\PackEngine\Logs\AndroidBuild\build-날짜-시각-프로세스번호.log`에 보존하며 화면 마지막에 정확한 경로를 표시한다. 프로젝트 안에 로그를 만들지 않는다. PowerShell 실행 자체가 실패하거나 매개변수를 잘못 넣은 경우에도 배치 창은 오류를 보여주고 기다린다. 자동화 실행은 `-NonInteractive` 또는 `-NoPause`로 설정 질문과 마지막 키 입력 대기를 생략한다. 표준 입력이 리디렉션된 경우에도 설정 질문을 하지 않는다. 이 모드에서는 경로가 없거나 도구가 부족하면 안내 후 실패하고, 두 설치 옵션을 명시한 경우에만 설치한다.
 
 ```powershell
 .\BuildEditorAndroid.bat -NoPause -AndroidSdk C:\Android\sdk -JavaSdk C:\Android\jdk
