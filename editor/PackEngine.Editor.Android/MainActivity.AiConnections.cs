@@ -27,6 +27,7 @@ public sealed partial class MainActivity
     private void AddAiToolbar(LinearLayout layout)
     {
         var menu = new LinearLayout(this) { Orientation = Orientation.Horizontal }; var strip = new HorizontalScrollView(this); strip.AddView(menu); layout.AddView(strip); aiToolbar = strip; strip.Visibility = ViewStates.Gone;
+        menu.AddView(AiAction("AI 목록", ToggleMobileDirectory));
         editorAiButton = new(this); editorAiButton.Click += (_, _) => EditorAiMenu(); menu.AddView(editorAiButton);
         var packs = new Button(this) { Text = "팩 열기" }; packs.Click += (_, _) => ChooseInstalledPack(); menu.AddView(packs);
         welcome = new(this) { Orientation = Orientation.Vertical };
@@ -43,7 +44,7 @@ public sealed partial class MainActivity
     }
     private void SaveAiConnections() { aiConnections.Save(AiSettingsPath); RefreshAiHome(); }
     private Button AiAction(string title, Action action)
-    { var button = new Button(this) { Text = title }; button.Click += (_, _) => action(); return button; }
+    { var button = new Button(this) { Text = title }; button.Click += (_, _) => { try { action(); } catch (Exception e) { Report(e.Message); } }; return button; }
     private void RefreshAiHome() => RefreshMobileHome();
     private void EditorAiMenu()
     {
@@ -127,12 +128,14 @@ public sealed partial class MainActivity
     private void OpenEditorAiChat() { var worker = CreateMobileWorker(); if (worker is not null) OpenMobileWorker(worker); }
     private void OnAiUi(Action action)
     {
+        lifetime.Token.ThrowIfCancellationRequested();
         if (Looper.MyLooper() == Looper.MainLooper) { action(); return; }
         var done = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         RunOnUiThread(() => { try { action(); done.SetResult(true); } catch (Exception e) { done.SetException(e); } }); done.Task.GetAwaiter().GetResult();
     }
     private Task OnAiUiAsync(Func<Task> action)
     {
+        if (lifetime.IsCancellationRequested) return Task.FromCanceled(lifetime.Token);
         var done = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         RunOnUiThread(async () => { try { await action(); done.TrySetResult(true); } catch (Exception e) { done.TrySetException(e); } }); return done.Task;
     }

@@ -76,6 +76,8 @@ try
     Reject(() => SharedTextMerge.Merge("abc", "axc", "ayc"), "overlapping edits preserve conflict instead of overwriting");
     Check(SharedTextMerge.Merge("a", "a(", "a") == "a(", "human typing can synchronize incomplete syntax");
 
+    await MobileStudioVerification.Run(temp, Check);
+
     if (args.Contains("--network"))
     {
         using var host = new ProjectPeerHost("fixture-project", IPAddress.Loopback); using var cancel = new CancellationTokenSource(TimeSpan.FromSeconds(25));

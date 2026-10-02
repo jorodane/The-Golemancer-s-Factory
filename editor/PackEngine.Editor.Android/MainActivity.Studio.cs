@@ -54,9 +54,10 @@ public sealed partial class MainActivity
     private void SaveMobileDirectory() => mobileDirectory.Save(Path.Combine(root, "ai-directory.json"));
     private void RefreshMobileHome()
     {
-        editorAiButton.Text = "AI 관리"; welcome.RemoveAllViews(); welcome.Visibility = ViewStates.Visible;
+        editorAiButton.Text = "AI 관리"; welcome.RemoveAllViews(); welcome.Visibility = ViewStates.Visible; mobileProjectChat = null; peerStatus = null;
         aiToolbar.Visibility = mobileSidebar.Visibility = aiConnections.SetupCompleted ? ViewStates.Visible : ViewStates.Gone;
-        mobileTools.Visibility = aiConnections.SetupCompleted && aiConnections.SelectedPack.Length > 0 ? ViewStates.Visible : ViewStates.Gone;
+        mobileTools.Visibility = aiConnections.SetupCompleted && aiConnections.SelectedPack.Length > 0 && !MobileProject ? ViewStates.Visible : ViewStates.Gone;
+        AdjustMobileLayout();
         if (!aiConnections.SetupCompleted)
         {
             welcome.AddView(new TextView(this) { Text = "작업할 AI 에이전트를 연결해.", TextSize = 24 });
@@ -70,9 +71,26 @@ public sealed partial class MainActivity
         {
             welcome.AddView(new TextView(this) { Text = "프로젝트 · 팩 선택", TextSize = 24 });
             foreach (var source in Sources()) welcome.AddView(AiAction(source.Id, () => Work(async () => { SwitchMobileProject(source.Id); aiConnections.SelectedPack = source.Id; await Reload(); SaveAiConnections(); })));
+            foreach (string manifest in MobileProjects())
+            {
+                try { var project = WorkspaceProject.Open(manifest); welcome.AddView(AiAction(project.Name, () => OpenMobileProject(manifest))); }
+                catch (Exception e) { Report(e.Message); }
+            }
+            welcome.AddView(AiAction("프로젝트 문서 ZIP 가져오기", ImportProjectPicker));
             welcome.AddView(AiAction("팩 ZIP 가져오기", ImportPicker)); return;
         }
-        welcome.AddView(new TextView(this) { Text = aiConnections.SelectedPack + " · 프로젝트 채팅", TextSize = 20 });
+        welcome.AddView(new TextView(this) { Text = (MobileProject ? studioSession.Project.Name : aiConnections.SelectedPack) + " · 프로젝트 채팅", TextSize = 20 });
+        if (MobileProject)
+        {
+            welcome.AddView(AiAction("프로젝트 문서", MobileProjectDocuments));
+            welcome.AddView(AiAction("인계받은 문서 초안", MobileProjectHandoffs));
+            welcome.AddView(AiAction("함께 편집 · 연결", ShowMobilePeerConnection));
+            peerStatus = new TextView(this); welcome.AddView(peerStatus); UpdatePeerStatus();
+            welcome.AddView(AiAction("호스트 확정본 검토", ReviewPeerPublications));
+            welcome.AddView(AiAction("동시 수정 비교", () => { foreach (var pair in blockedRemote.ToArray()) ResolvePeerDraft(pair.Key, pair.Value); }));
+            welcome.AddView(AiAction("프로젝트 문서 ZIP 내보내기", ExportMobileProject));
+        }
+        welcome.AddView(AiAction("충돌 협의 기록", MobileResolutionHistory));
         mobileProjectChat = new TextView(this) { TextSize = 14 }; mobileProjectChat.SetTextIsSelectable(true); welcome.AddView(mobileProjectChat);
         var input = new EditText(this) { Hint = "프로젝트에 말하기 · @작업자 호출", InputType = InputTypes.ClassText | InputTypes.TextFlagMultiLine }; welcome.AddView(input);
         welcome.AddView(AiAction("보내기", async () =>
@@ -81,15 +99,7 @@ public sealed partial class MainActivity
             {
                 if (string.IsNullOrWhiteSpace(input.Text)) return;
                 var message = studioSession.Collaboration.Post("human", input.Text.Trim(), "project"); input.Text = "";
-                foreach (string id in message.Mentions)
-                {
-                    var worker = mobileWorkers.FirstOrDefault(w => w.Participant.Id == id); if (worker is null) continue;
-                    var profile = mobileDirectory.Agent(worker.Participant.AgentId); using var ai = new ApiAssistant(); ai.Configure(profile.Connection, aiCredentials.Read(profile.CredentialKey.Length > 0 ? profile.CredentialKey : profile.Connection.Provider));
-                    await ai.ConnectAsync(AndroidAiOptions(), lifetime.Token);
-                    var context = studioSession.Collaboration.PublicContext(id, "project", "");
-                    string answer = await ai.ReplyAsync(new() { Id = Guid.NewGuid().ToString("N"), Project = studioSession.Project.Identity, ParticipantId = id, Prompt = "공개 문맥만으로 답해. 개인 기억·대화는 참조하지 마.\n" + EditorSession.Serialize(context) + "\n" + message.Text }, new PublicConversationAccess(context), lifetime.Token);
-                    studioSession.Collaboration.Post(id, answer, "project", parentId: message.Id);
-                }
+                await ReplyMobileMentions(message);
             }
             catch (Exception e) { Report(e.Message); }
         }));
@@ -98,39 +108,48 @@ public sealed partial class MainActivity
     private void RefreshMobileManagement()
     {
         mobileManagement.RemoveAllViews(); mobileManagement.AddView(new TextView(this) { Text = "AI 관리", TextSize = 20 });
-        mobileManagement.AddView(AiAction("프로젝트 목록", () => { if (aiWorking) return; foreach (var window in LiveWindows.ToArray()) CloseWindow(window.Id); aiConnections.SelectedPack = ""; SaveAiConnections(); }));
+        mobileManagement.AddView(AiAction("프로젝트 목록", () => { RequireMobileIdle(); StopMobilePeers(); documentDialog?.Dismiss(); foreach (var window in LiveWindows.ToArray()) CloseWindow(window.Id); aiConnections.SelectedPack = ""; mobileProjectManifest = ""; mobileDirectoryExpanded = false; SaveAiConnections(); }));
         mobileManagement.AddView(AiAction("+ 에이전트", ShowEditorAiSetup));
         foreach (var agent in mobileDirectory.Agents) mobileManagement.AddView(AiAction(agent.ToString(), () => ManageMobileAgent(agent)));
         mobileManagement.AddView(AiAction("+ 도우미", () => MobileName("도우미 이름", name => { mobileDirectory.CreateHelper(mobileDirectory.SelectedAgentId, name); SaveMobileDirectory(); RefreshMobileManagement(); })));
-        foreach (var helper in mobileDirectory.Helpers) mobileManagement.AddView(AiAction(helper.Name, () => { try { OpenMobileHelper(helper); } catch (Exception e) { Report(e.Message); } }));
-        var expression = new CheckBox(this) { Text = "성격·관계 표현", Checked = mobileDirectory.CharacterExpression };
-        expression.CheckedChange += (_, args) => { mobileDirectory.CharacterExpression = mobileDirectory.PersonalityInference = mobileDirectory.RelationshipExpression = args.IsChecked; SaveMobileDirectory(); }; mobileManagement.AddView(expression);
+        foreach (var helper in mobileDirectory.Helpers)
+        {
+            var row = new LinearLayout(this) { Orientation = Orientation.Horizontal };
+            if (File.Exists(helper.AvatarPath)) { var avatar = new ImageView(this); avatar.SetImageURI(global::Android.Net.Uri.FromFile(new Java.IO.File(helper.AvatarPath))); row.AddView(avatar, new LinearLayout.LayoutParams(Dp(40), Dp(40))); }
+            row.AddView(AiAction(helper.Name, () => OpenMobileHelper(helper))); mobileManagement.AddView(row);
+        }
+        void Option(string title, bool enabled, Action<bool> set)
+        {
+            var choice = new CheckBox(this) { Text = title, Checked = enabled };
+            choice.CheckedChange += (_, args) => { set(args.IsChecked); SaveMobileDirectory(); }; mobileManagement.AddView(choice);
+        }
+        Option("성격 추론", mobileDirectory.PersonalityInference, value => mobileDirectory.PersonalityInference = value);
+        Option("캐릭터 말투", mobileDirectory.CharacterExpression, value => mobileDirectory.CharacterExpression = value);
+        Option("관계 표현", mobileDirectory.RelationshipExpression, value => mobileDirectory.RelationshipExpression = value);
         if (aiConnections.SelectedPack.Length > 0)
         {
             mobileManagement.AddView(new TextView(this) { Text = "프로젝트 참여자", TextSize = 17 });
             mobileManagement.AddView(AiAction("+ 작업자", () => { var worker = CreateMobileWorker(); if (worker is not null) OpenMobileWorker(worker); }));
             mobileManagement.AddView(new TextView(this) { Text = "나" });
-            foreach (var worker in mobileWorkers) mobileManagement.AddView(AiAction(worker.Participant.Name, () => OpenMobileWorker(worker)));
+            foreach (var worker in mobileWorkers) mobileManagement.AddView(AiAction(worker.Participant.Name + (studioSession.Collaboration.Unread("human", worker.Participant.Id).Count > 0 ? " ●" : ""), () => OpenMobileWorker(worker)));
+            foreach (var participant in studioSession.Collaboration.State.Participants.Where(p => p.Id != "human" && p.OwnerId != "human"))
+                mobileManagement.AddView(new TextView(this) { Text = participant.Name + (studioSession.Collaboration.Presence(participant.Id).Connected ? " · 연결됨" : " · 오프라인") });
         }
     }
     private void RefreshMobilePresence()
     {
         if (studioSession is null || IsDestroyed) return;
-        RunOnUiThread(() => { DispatchMobileIncidents(); if (mobileProjectChat is not null) mobileProjectChat.Text = string.Join("\n\n", studioSession.Collaboration.State.Messages.Where(m => m.Channel == "project").Select(m => studioSession.Collaboration.State.Participants.FirstOrDefault(p => p.Id == m.Author)?.Name + "\n" + m.Text)); });
+        RunOnUiThread(() => { DispatchMobileIncidents(); if (aiConnections.SetupCompleted) RefreshMobileManagement(); if (mobileProjectChat is not null) mobileProjectChat.Text = string.Join("\n\n", studioSession.Collaboration.State.Messages.Where(m => m.Channel == "project").Select(m => studioSession.Collaboration.State.Participants.FirstOrDefault(p => p.Id == m.Author)?.Name + "\n" + m.Text)); });
     }
     private void SwitchMobileProject(string id)
     {
-        if (aiWorking) throw new InvalidOperationException("현재 작업을 마친 뒤 프로젝트를 바꿔줘.");
-        foreach (var worker in mobileWorkers) worker.Assistant?.Dispose(); mobileWorkers.Clear();
-        studioSession.Persist(); studioSession.Collaboration.Changed -= RefreshMobilePresence; studioRunner.Dispose();
-        studioSession = new(StandaloneEditorWorkspace.Prepare(Path.Combine(root, "Projects", WorkspaceProject.HashText(id)), "android", "net10.0")); studioRunner = new(studioSession, "dotnet");
-        ObserveMobileIncidents(); studioSession.Collaboration.Changed += RefreshMobilePresence;
-        foreach (var participant in studioSession.Collaboration.State.Participants.Where(p => p.Kind == ParticipantKind.AI && p.OwnerId == "human")) LoadMobileWorker(participant);
+        ReplaceMobileSession(StandaloneEditorWorkspace.Prepare(Path.Combine(root, "Projects", WorkspaceProject.HashText(id)), "android", "net10.0"), false);
     }
     private MobileWorker? CreateMobileWorker(AiHelper? helper = null)
     {
         try
         {
+            if (aiConnections.SelectedPack.Length == 0) throw new InvalidOperationException("먼저 프로젝트를 열어줘.");
             string agentId = helper?.AgentId ?? mobileDirectory.SelectedAgentId; var agent = mobileDirectory.Agent(agentId);
             if (!agent.Connection.IsApi) throw new InvalidOperationException("Android에서는 API 에이전트를 선택해줘.");
             var old = helper is null ? null : mobileWorkers.FirstOrDefault(w => w.Participant.HelperId == helper.Id); if (old is not null) return old;
@@ -152,6 +171,7 @@ public sealed partial class MainActivity
     }
     private void OpenMobileWorker(MobileWorker worker)
     {
+        studioSession.Collaboration.Acknowledge("human", worker.Participant.Id, studioSession.Collaboration.Unread("human", worker.Participant.Id).Select(m => m.Id)); RefreshMobileManagement();
         var layout = new LinearLayout(this) { Orientation = Orientation.Vertical }; var text = new TextView(this) { Text = string.Join("\n\n", worker.Turns.Select(t => t.Role + "\n" + t.Text)), TextSize = 15 }; text.SetTextIsSelectable(true); worker.Transcript = text;
         var scroll = new ScrollView(this); scroll.AddView(text); layout.AddView(scroll, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, 0, 1));
         var prompt = new EditText(this) { Hint = "이 작업자에게 말하기", InputType = InputTypes.ClassText | InputTypes.TextFlagMultiLine }; layout.AddView(prompt);
@@ -180,12 +200,12 @@ public sealed partial class MainActivity
                 worker.Assistant = new(); worker.Assistant.Configure(profile.Connection, aiCredentials.Read(profile.CredentialKey.Length > 0 ? profile.CredentialKey : profile.Connection.Provider));
                 await worker.Assistant.ConnectAsync(new() { ProjectIdentity = owner.Project.Identity, StateDirectory = Path.Combine(owner.StateDirectory, "participants", worker.Participant.Id), AccessEnabled = true, HistoryEnabled = true }, token);
             }
-            var request = owner.PrepareContext(prompt); request.ParticipantId = worker.Participant.Id; request.ReviewChanges = true; request.Target = "editor"; request.PrivateIdentity = mobileDirectory.PrivateContext(worker.Participant.HelperId, owner.Project.Identity);
+            var request = owner.PrepareContext(prompt); request.ParticipantId = worker.Participant.Id; request.ReviewChanges = true; request.Target = MobileProject ? owner.Project.DefaultTarget : "editor"; request.AllowProjectCommands = false; if (MobileProject) request.WritablePacks = owner.Index.Packs.Where(p => !owner.Project.Sources.TryGetValue(p.Id, out var source) || source.Editable).Select(p => p.Id).ToList(); request.PrivateIdentity = mobileDirectory.PrivateContext(worker.Participant.HelperId, owner.Project.Identity);
             request.PrivateIdentity += "\n이 작업자의 최근 비공개 경험:\n" + EditorSession.Serialize(worker.Turns.TakeLast(12).Select(t => new { t.Role, Text = t.Text.Substring(0, Math.Min(1600, t.Text.Length)) }));
-            review = new(owner, request, OnAiUi);
-            var packs = new EditorPackAgent(ActiveSources(), request, () => runtime, async (_, _) => await OnAiUiAsync(Reload), change => lastChange = change,
+            review = new(owner, request, OnAiUi); mobileReviews.Register(review);
+            var packs = MobileProject ? null : new EditorPackAgent(ActiveSources(), request, () => runtime, async (_, _) => await OnAiUiAsync(Reload), change => lastChange = change,
                 (tool, subject, result) => OnAiUi(() => owner.RecordOperation(request.Id, "editor." + tool, subject, "staged")), root, "dotnet", Path.Combine(root, "History"), review: review);
-            using var tools = new AgentWorkspace(owner, request, studioRunner, OnAiUi, editorPacks: new AndroidEditorPackAccess(packs), review: review);
+            using var tools = new AgentWorkspace(owner, request, studioRunner, OnAiUi, editorPacks: packs is null ? null : new AndroidEditorPackAccess(packs), review: review);
             tools.HelperMemory = args =>
             {
                 if (worker.Participant.HelperId.Length == 0) throw new InvalidOperationException("도우미 승격이 필요해.");
@@ -193,14 +213,22 @@ public sealed partial class MainActivity
                 return new { PrivateMemory = mobileDirectory.PrivateContext(worker.Participant.HelperId, owner.Project.Identity) };
             };
             worker.Turns.Add(new() { Role = "나", Text = prompt });
-            string answer = await new AssistantBridge(owner, OnAiUi).Send(worker.Assistant, request, token, tools, async (reply, ct) =>
+            string answer = await new AssistantBridge(owner, OnAiUi).Send(worker.Assistant, request, token, new DocumentOnlyAgentWorkspace(tools), async (reply, ct) =>
             {
                 string outcome = "";
                 await OnAiUiAsync(async () =>
                 {
                     if (review.NeedsHandoff) { review.DeferAsHandoff(); outcome = review.Request.ReviewOutcome; return; }
-                    var selected = review.CanAutoConfirm || await TryMobileReview(review, ct) ? review.Items.Select(i => i.Id).ToArray() : await ReviewAiChanges(review, ct);
-                    outcome = await review.Apply(selected, ct);
+                    await mobileReviewGate.WaitAsync(ct);
+                    try
+                    {
+                        mobileResolving = true;
+                        await mobileReviews.Prepare(review, ChooseMobileResolution, ct);
+                        var selected = peerClient is null && (review.CanAutoConfirm || await TryMobileReview(review, ct)) ? review.Items.Select(i => i.Id).ToArray() : await ReviewAiChanges(review, ct);
+                        outcome = peerClient is not null && MobileProject ? StagePeerWorkerChanges(review, selected) : await review.Apply(selected, ct);
+                        RefreshSharedEditor();
+                    }
+                    finally { mobileResolving = false; mobileReviewGate.Release(); }
                 });
                 return reply + "\n\n" + outcome;
             });
@@ -215,6 +243,7 @@ public sealed partial class MainActivity
         catch (Exception e) { worker.Turns.Add(new() { Role = "실행", Text = e is global::System.OperationCanceledException ? "요청을 취소했어." : e.Message }); Report(e.Message); }
         finally
         {
+            if (review is not null) mobileReviews.Remove(review.Request.Id);
             review?.Cancel(); worker.Cancellation.Dispose(); worker.Cancellation = null;
             AtomicWrite(Path.Combine(owner.StateDirectory, "participants", worker.Participant.Id, "turns-mobile.json"), Encoding.UTF8.GetBytes(EditorSession.Serialize(worker.Turns)));
             if (worker.Participant.HelperId.Length > 0) AtomicWrite(Path.Combine(root, "Helpers", worker.Participant.HelperId, "projects", WorkspaceProject.HashText(owner.Project.Identity) + ".json"), Encoding.UTF8.GetBytes(EditorSession.Serialize(worker.Turns)));

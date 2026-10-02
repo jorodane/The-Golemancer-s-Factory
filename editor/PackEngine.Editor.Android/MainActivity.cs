@@ -53,8 +53,8 @@ public sealed partial class MainActivity : Activity
         status = new(this) { TextSize = 12, Typeface = global::Android.Graphics.Typeface.Monospace }; status.SetTextIsSelectable(true);
         Panels = new(this) { Orientation = Orientation.Vertical }; Panels.AddView(welcome);
         var scroll = new ScrollView(this); scroll.AddView(Panels);
-        var content = new LinearLayout(this) { Orientation = Orientation.Horizontal }; mobileManagement = new(this) { Orientation = Orientation.Vertical }; var sidebar = new ScrollView(this); sidebar.AddView(mobileManagement); mobileSidebar = sidebar; sidebar.Visibility = ViewStates.Gone; content.AddView(sidebar, new LinearLayout.LayoutParams(220, ViewGroup.LayoutParams.MatchParent)); content.AddView(scroll, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MatchParent, 1));
-        layout.AddView(content, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, 0, 1)); var console = new ScrollView(this); console.AddView(status); layout.AddView(console, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, 170)); SetContentView(layout);
+        var content = new LinearLayout(this) { Orientation = Orientation.Horizontal }; mobileManagement = new(this) { Orientation = Orientation.Vertical }; var sidebar = new ScrollView(this); sidebar.AddView(mobileManagement); mobileSidebar = sidebar; sidebar.Visibility = ViewStates.Gone; mobileContent = content; mobilePrimary = scroll; content.AddView(sidebar, new LinearLayout.LayoutParams(Dp(220), ViewGroup.LayoutParams.MatchParent)); content.AddView(scroll, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MatchParent, 1));
+        layout.AddView(content, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, 0, 1)); var console = new ScrollView(this); console.AddView(status); layout.AddView(console, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(88))); SetContentView(layout);
         try
         {
             string saved = Path.Combine(root, "window-state.json");
@@ -204,8 +204,8 @@ public sealed partial class MainActivity : Activity
         }
         catch (IOException) { }
     }
-    protected override void OnPause() { SaveWindowState(); base.OnPause(); }
-    protected override void OnDestroy() { lifetime.Cancel(); editorAi?.Dispose(); studioRunner?.Dispose(); foreach (var worker in mobileWorkers) { worker.Cancellation?.Cancel(); worker.Assistant?.Dispose(); } windows.Dispose(); SaveWindowState(); runtime?.Dispose(); base.OnDestroy(); }
+    protected override void OnPause() { SaveWindowState(); if (studioSession is not null) { foreach (var doc in studioSession.Documents.Where(d => studioSession.CanEdit(d.Path)).ToArray()) studioSession.SaveRoom("human", doc.Path); } base.OnPause(); }
+    protected override void OnDestroy() { StopMobilePeers(); lifetime.Cancel(); editorAi?.Dispose(); studioRunner?.Dispose(); foreach (var worker in mobileWorkers) { worker.Cancellation?.Cancel(); worker.Assistant?.Dispose(); } windows.Dispose(); SaveWindowState(); runtime?.Dispose(); base.OnDestroy(); }
 
 #pragma warning disable CA1422, CS0618 // Framework document picker supports the app's API 26 deployment minimum.
     private void ImportPicker() => StartActivityForResult(new Intent(Intent.ActionOpenDocument).SetType("application/zip").AddCategory(Intent.CategoryOpenable), 1);
@@ -222,7 +222,15 @@ public sealed partial class MainActivity : Activity
     protected override void OnActivityResult(int requestCode, Result resultCode, Intent? data)
     {
         base.OnActivityResult(requestCode, resultCode, data);
-        if (resultCode != Result.Ok || data?.Data is not { } uri) return;
+        if (resultCode != Result.Ok || data?.Data is not { } uri) { if (requestCode == 3) pickingHelper = ""; if (requestCode == 5) exportingProject = null; return; }
+        if (requestCode == 3) { ReadHelperImage(uri); return; }
+        if (requestCode == 4) { ImportMobileProject(uri); return; }
+        if (requestCode == 5)
+        {
+            try { if (exportingProject is { } project) { using var output = ContentResolver!.OpenOutputStream(uri)!; ProjectSourcePackage.Write(project, output); Report("확정된 프로젝트 문서를 ZIP으로 내보냈어."); } }
+            catch (Exception e) { Report(e.Message); }
+            finally { exportingProject = null; } return;
+        }
         if (requestCode == 2 && exporting is { } pack)
         {
             try { using var output = ContentResolver!.OpenOutputStream(uri)!; EditorPackPackage.Write(pack, output); Report("팩 ZIP을 내보냈어."); }

@@ -3,4 +3,5 @@
   <ItemGroup><Compile Include="../Shared/ProjectConversation.cs" Link="ProjectConversation.cs" /></ItemGroup>
   <ItemGroup><ProjectReference Include="../../src/PackEngine.Runtime/PackEngine.Runtime.csproj" /></ItemGroup>
   <ItemGroup Condition="'$(TargetFramework)' == 'net48'"><PackageReference Include="System.Text.Json" Version="10.0.12" /></ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'net48'"><Reference Include="System.IO.Compression" /></ItemGroup>
 </Project>

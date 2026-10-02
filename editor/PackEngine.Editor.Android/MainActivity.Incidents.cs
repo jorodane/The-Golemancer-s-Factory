@@ -100,6 +100,7 @@ public sealed partial class MainActivity
     private void OpenMobileHelper(AiHelper helper)
     {
         var panel = new LinearLayout(this) { Orientation = Orientation.Vertical }; var scroll = new ScrollView(this); scroll.AddView(panel);
+        AddHelperImage(panel, helper);
         panel.AddView(AiAction("대화 · 프로젝트 참여", () => { var worker = CreateMobileWorker(helper); if (worker is not null) OpenMobileWorker(worker); }));
         panel.AddView(AiAction("이름 바꾸기", () => MobileName("이름", name => { if (string.IsNullOrWhiteSpace(name) || name.Length > 80) throw new ArgumentException("이름은 1–80자로 입력해줘."); helper.Name = name; foreach (var worker in mobileWorkers.Where(w => w.Participant.HelperId == helper.Id)) worker.Participant.Name = name; studioSession.Collaboration.Save(); SaveMobileDirectory(); RefreshMobileManagement(); })));
         panel.AddView(AiAction("프로젝트 기억 추가", () => MobileName("기억할 내용", text => { mobileDirectory.Remember(helper.Id, text, studioSession.Project.Identity); SaveMobileDirectory(); })));

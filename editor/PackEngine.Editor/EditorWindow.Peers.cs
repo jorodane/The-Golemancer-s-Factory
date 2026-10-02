@@ -65,6 +65,14 @@ public sealed partial class EditorWindow
             }
             catch (Exception e) { SetStatus(e.Message); AppendLog("프로젝트 연결: " + e.Message); }
         }));
+        panel.Children.Add(Action("모바일용 프로젝트 문서 ZIP 내보내기", () => Guard(() =>
+        {
+            if (!ReferenceEquals(session, owner)) throw new InvalidOperationException("연결 창을 다시 열어줘.");
+            var save = new Microsoft.Win32.SaveFileDialog { Filter = "프로젝트 문서 ZIP|*.zip", FileName = "Confectory-project-documents.zip" };
+            if (save.ShowDialog(this) != true) return;
+            using var output = System.IO.File.Create(save.FileName); ProjectSourcePackage.Write(owner, output);
+            SetStatus("확정된 프로젝트 문서를 내보냈어. Android의 프로젝트 문서 ZIP 가져오기에서 열어줘.");
+        })));
         panel.Children.Add(Action("연결 종료", () => { StopPeers(); dialog.Close(); })); dialog.Content = panel; dialog.Show();
     }
     private void StartPeerPolling()
