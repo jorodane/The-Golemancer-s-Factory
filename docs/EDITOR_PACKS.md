@@ -1,5 +1,7 @@
 # 에디터 객체팩
 
+PC와 같은 계약·XML·팩 DLL 소스를 사용하는 [Android 호스트와 Windows APK 빌드](EDITOR_ANDROID.md)도 제공한다. 실행 방식과 네이티브 컨트롤만 호스트별로 선택한다.
+
 게임팩을 편집하는 WPF 셸에 `editor-1` 객체팩을 동적으로 장착한다. 게임의 DLL은 여전히 게임 프로세스에서만 로드한다. 에디터팩도 공통 `PackCompiler`와 `UiCatalog`를 사용하며, 에디터 전용 등록 계약은 `PackEngine.Editor.Contracts.dll`에 있다. 엔진 코어와 게임 SDK는 변경하지 않는다.
 
 ## 사용

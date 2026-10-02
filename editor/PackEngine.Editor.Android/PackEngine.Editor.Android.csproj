@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-android</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <SupportedOSPlatformVersion>26</SupportedOSPlatformVersion>
+    <ApplicationId>com.packengine.editor</ApplicationId>
+    <ApplicationTitle>Project Studio</ApplicationTitle>
+    <ApplicationVersion>1</ApplicationVersion><ApplicationDisplayVersion>0.1.0</ApplicationDisplayVersion>
+    <RuntimeIdentifiers>android-arm64;android-x64</RuntimeIdentifiers>
+    <AndroidPackageFormats>apk</AndroidPackageFormats><AndroidBuildApplicationPackage>true</AndroidBuildApplicationPackage>
+    <EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
+    <PublishTrimmed>false</PublishTrimmed><RunAOTCompilation>false</RunAOTCompilation><PublishAot>false</PublishAot>
+    <AndroidUseAssemblyStore>true</AndroidUseAssemblyStore><AndroidEnableAssemblyCompression>true</AndroidEnableAssemblyCompression>
+    <AndroidEnableMarshalMethods>false</AndroidEnableMarshalMethods>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../PackEngine.EditorPacks/PackEngine.EditorPacks.csproj" AdditionalProperties="EngineTargetFramework=net10.0" />
+    <ProjectReference Include="../Packs/CoreTools/PackEngine.Editor.CoreTools.csproj;../examples/MobileLab/PackEngine.Editor.MobileLab.csproj" AdditionalProperties="EngineTargetFramework=net10.0" ReferenceOutputAssembly="false" />
+    <AndroidAsset Include="../Packs/CoreTools/*.xml;../Packs/CoreTools/*.cs;../Packs/CoreTools/*.csproj"><Link>Packs/CoreTools/%(Filename)%(Extension)</Link></AndroidAsset>
+    <AndroidAsset Include="../Packs/CoreTools/Bin/net10.0/PackEngine.Editor.CoreTools.dll"><Link>Packs/CoreTools/Bin/net10.0/PackEngine.Editor.CoreTools.dll</Link></AndroidAsset>
+    <AndroidAsset Include="../examples/MobileLab/*.xml;../examples/MobileLab/*.cs;../examples/MobileLab/*.csproj"><Link>Plugins/editor.lab.mobile/%(Filename)%(Extension)</Link></AndroidAsset>
+    <AndroidAsset Include="../examples/MobileLab/Bin/net10.0/PackEngine.Editor.MobileLab.dll"><Link>Plugins/editor.lab.mobile/Bin/net10.0/PackEngine.Editor.MobileLab.dll</Link></AndroidAsset>
+  </ItemGroup>
+</Project>

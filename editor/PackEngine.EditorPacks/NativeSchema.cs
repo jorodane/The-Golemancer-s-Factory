@@ -37,14 +37,14 @@ public static class EditorNativeSchema
         if (property == "fontSize" && (value.AsNumber() < 8 || value.AsNumber() > 48) || property == "margin" && (value.AsNumber() < 0 || value.AsNumber() > 64)) throw new InvalidDataException("Editor property exceeds native range: " + property);
         if (property == "orientation" && value.Literal is not ("horizontal" or "vertical")) throw new InvalidDataException("Unknown editor orientation.");
     }
-    public static void Preflight(IEditorPackRuntime generation)
+    public static void Preflight(IEditorPackRuntime generation, string platform = "windows")
     {
         var context = Context(generation.Snapshot, (_, _) => { }, "", "");
-        foreach (var panel in generation.Snapshot.Panels.Concat(generation.Snapshot.Windows)) using (generation.Catalog.Mount(panel.Fields["view"], context, new Probe())) { }
+        foreach (var panel in generation.Snapshot.Panels.Concat(generation.Snapshot.Windows)) using (generation.Catalog.Mount(panel.Fields["view"], context, new Probe(platform))) { }
     }
-    private sealed class Probe : IUiBackend
+    private sealed class Probe(string platform) : IUiBackend
     {
-        public string Platform => "windows";
+        public string Platform => platform;
         public bool Supports(string renderer, UiWidgetDefinition contract) => EditorNativeSchema.Supports(renderer, contract);
         public IUiElement Create(string renderer, string nodeId, UiLayout layout) { ValidateLayout(layout); return new Element(); }
         private sealed class Element : IUiElement

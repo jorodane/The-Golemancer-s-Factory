@@ -5,6 +5,12 @@
   </PropertyGroup>
   <ItemGroup Condition="'$(TargetFramework)' == 'net48'"><PackageReference Remove="Microsoft.NETFramework.ReferenceAssemblies.net48" /><PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net48" Version="1.0.3" PrivateAssets="all" /></ItemGroup>
   <ItemGroup Condition="'$(PackEngineEditorSdk)' == ''"><ProjectReference Include="../../PackEngine.Editor.Contracts/PackEngine.Editor.Contracts.csproj" Private="false" /></ItemGroup>
-  <ItemGroup Condition="'$(PackEngineEditorSdk)' != ''"><Reference Include="PackEngine.Contracts"><HintPath>$(PackEngineEditorSdk)/PackEngine.Contracts.dll</HintPath><Private>false</Private></Reference><Reference Include="PackEngine.Editor.Contracts"><HintPath>$(PackEngineEditorSdk)/PackEngine.Editor.Contracts.dll</HintPath><Private>false</Private></Reference></ItemGroup>
-  <Target Name="PublishEditorPack" AfterTargets="Build" Condition="'$(PackEngineEditorSdk)' == ''"><MakeDir Directories="$(MSBuildProjectDirectory)/Bin/$(TargetFramework)" /><Copy SourceFiles="$(TargetPath)" DestinationFolder="$(MSBuildProjectDirectory)/Bin/$(TargetFramework)" /></Target>
+  <ItemGroup Condition="'$(PackEngineEditorSdk)' != ''">
+    <Reference Include="PackEngine.Contracts"><HintPath>$(PackEngineEditorSdk)/PackEngine.Contracts.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="PackEngine.Editor.Contracts"><HintPath>$(PackEngineEditorSdk)/PackEngine.Editor.Contracts.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+  <Target Name="PublishEditorPack" AfterTargets="Build" Condition="'$(PackEngineEditorSdk)' == ''">
+    <MakeDir Directories="$(MSBuildProjectDirectory)/Bin/$(TargetFramework)" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(MSBuildProjectDirectory)/Bin/$(TargetFramework)" />
+  </Target>
 </Project>

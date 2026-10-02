@@ -13,14 +13,15 @@ public sealed class EditorModuleStatus
     public string Pack { get; set; } = "";
     public string CodeFingerprint { get; set; } = "";
     public int ProcessId { get; set; }
+    public string InstanceId { get; set; } = "";
 }
 
 // A prepared runtime owns module leases, not windows. Closing a window never releases a module.
 public sealed class EditorPackRuntime : IEditorPackRuntime
 {
-    private sealed class Module(EditorPackGeneration generation, string version)
+    private sealed class Module(IEditorModuleHost generation, string version)
     {
-        public readonly EditorPackGeneration Generation = generation;
+        public readonly IEditorModuleHost Generation = generation;
         public readonly string Version = version;
         private int references = 1;
         public Module Retain() { references++; return this; }
@@ -39,9 +40,13 @@ public sealed class EditorPackRuntime : IEditorPackRuntime
     public UiCatalog Catalog { get; private set; } = null!;
     public IReadOnlyDictionary<string, string> Hashes { get; private set; } = null!;
     public IReadOnlyList<EditorModuleStatus> Modules => modules.OrderBy(p => p.Key, StringComparer.Ordinal)
-        .Select(p => new EditorModuleStatus { Pack = p.Key, CodeFingerprint = p.Value.Version, ProcessId = p.Value.Generation.ProcessId }).ToArray();
+        .Select(p => new EditorModuleStatus { Pack = p.Key, CodeFingerprint = p.Value.Version, ProcessId = p.Value.Generation.ProcessId, InstanceId = p.Value.Generation.InstanceId }).ToArray();
 
-    public static async Task<EditorPackRuntime> Prepare(string executable, string dotnet, IReadOnlyList<EditorPackSource> sources,
+    public static Task<EditorPackRuntime> Prepare(string executable, string dotnet, IReadOnlyList<EditorPackSource> sources,
+        CancellationToken cancellation, EditorPackRuntime? previous = null, Action<IReadOnlyDictionary<string, string>>? authorize = null)
+        => Prepare(new ProcessEditorModuleHostFactory(executable, dotnet), sources, cancellation, previous, authorize);
+
+    public static async Task<EditorPackRuntime> Prepare(IEditorModuleHostFactory host, IReadOnlyList<EditorPackSource> sources,
         CancellationToken cancellation, EditorPackRuntime? previous = null, Action<IReadOnlyDictionary<string, string>>? authorize = null)
     {
         if (previous?.disposed == true) throw new ObjectDisposedException(nameof(previous));
@@ -74,12 +79,12 @@ public sealed class EditorPackRuntime : IEditorPackRuntime
             foreach (var copy in copies.Values.Where(s => s.Manifest().Root!.Elements("Assembly").Any()).OrderBy(s => s.Id, StringComparer.Ordinal))
             {
                 var closure = DependencyClosure(copy.Id, copies);
-                string version = CodeVersion(closure);
+                string version = WorkspaceProject.HashText(host.Identity + "\n" + CodeVersion(closure));
                 Module module;
                 if (previous is not null && previous.modules.TryGetValue(copy.Id, out var existing) && existing.Version == version && existing.Generation.IsAlive)
                     module = existing.Retain();
                 else
-                    module = new(await EditorPackGeneration.Prepare(executable, dotnet, closure, cancellation).ConfigureAwait(false), version);
+                    module = new(await host.Prepare(closure, cancellation).ConfigureAwait(false), version);
                 candidate.modules.Add(copy.Id, module);
                 foreach (var handler in module.Generation.Snapshot.Handlers.Where(h => h.Pack == copy.Id))
                 {
@@ -106,7 +111,7 @@ public sealed class EditorPackRuntime : IEditorPackRuntime
             candidate.Snapshot.Handlers = candidate.handlers.Values.ToList();
             candidate.Snapshot.Fingerprint = WorkspaceProject.HashText(string.Join("\n", hashes.OrderBy(p => p.Key, StringComparer.Ordinal).Select(p => p.Key + ":" + p.Value)));
             candidate.Catalog = candidate.Snapshot.Catalog();
-            EditorNativeSchema.Preflight(candidate);
+            EditorNativeSchema.Preflight(candidate, host.Platform);
             cancellation.ThrowIfCancellationRequested();
             return candidate;
         }

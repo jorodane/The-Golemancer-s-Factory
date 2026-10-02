@@ -47,19 +47,7 @@ public sealed partial class EditorWindow
     private object ManagePackWindow(string pack, EditorWindowAction action)
     {
         if (packGeneration is null || !packGeneration.Hashes.ContainsKey(pack)) throw new InvalidOperationException("먼저 에디터팩을 로드해줘.");
-        if (action.Operation == "register") packWindows.RegisterTemporary(action.Id, pack, action.View, action.Title);
-        else
-        {
-            var definition = packWindows.Definitions.SingleOrDefault(d => d.Id == action.Id && d.Pack == pack)
-                ?? throw new InvalidOperationException("이 팩에 등록된 창이 없어.");
-            switch (action.Operation)
-            {
-                case "open": packWindows.Open(definition.Id); break;
-                case "close": packWindows.Close(definition.Id); break;
-                case "unregister": packWindows.UnregisterTemporary(definition.Id); break;
-                default: throw new InvalidDataException("알 수 없는 창 동작이야.");
-            }
-        }
+        packWindows.Apply(pack, action);
         RefreshPackWindowChoices(); return new { action.Id, action.Operation, Completed = true };
     }
 

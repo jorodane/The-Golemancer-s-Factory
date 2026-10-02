@@ -12,24 +12,8 @@ Console.SetOut(Console.Error);
 EditorPackCatalog? catalog = null; string? failure = null;
 try
 {
-    catalog = new();
     if (args.Length != 1) throw new ArgumentException("Expected editor pack snapshot directory.");
-    if (Directory.GetFiles(args[0], "pack.xml", SearchOption.AllDirectories).Length > 0)
-    {
-        // Read declarative XML separately to retain pack-relative origin paths.
-        foreach (string manifest in Directory.GetFiles(args[0], "pack.xml", SearchOption.AllDirectories))
-        {
-            var xml = PackCompiler.ReadXml(manifest).Root!; string pack = (string)xml.Attribute("id")!; string folder = Path.GetDirectoryName(manifest)!;
-            foreach (var data in xml.Elements("Data")) { string path = (string)data.Attribute("path")!; catalog.Read(PackCompiler.ReadXml(PackCompiler.SafePath(folder, path)).Root!, pack, path); }
-            foreach (var ui in xml.Elements("Ui")) { string path = (string)ui.Attribute("path")!; catalog.Snapshot.Ui.Add(new() { Pack = pack, Path = path, Xml = File.ReadAllText(PackCompiler.SafePath(folder, path)) }); }
-        }
-        var cooked = PackCompiler.Cook<IEditorPackRegistry>(args[0], catalog, (_, _) => { }, _ => { }, "editor-1");
-        catalog.Snapshot.Fingerprint = cooked.Fingerprint;
-    }
-    catalog.Complete();
-    catalog.DescribeHandlers(assembly => Directory.GetFiles(args[0], "pack.xml", SearchOption.AllDirectories)
-        .Where(path => assembly.Location.StartsWith(Path.GetDirectoryName(path)! + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
-        .Select(path => (string)PackCompiler.ReadXml(path).Root!.Attribute("id")!).Single());
+    catalog = EditorModuleFiles.Load(args[0]);
 }
 catch (Exception e) { failure = e.ToString(); }
 string? line;
