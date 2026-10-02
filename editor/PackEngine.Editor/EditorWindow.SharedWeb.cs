@@ -39,9 +39,9 @@ public sealed partial class EditorWindow
     private void AddSharingControls(StackPanel header, Grid surface)
     {
         sharingSurface = surface; surface.Children.Add(yogiOverlay); yogiOverlay.Children.Add(yogiBox); yogiBox.Visibility = Visibility.Collapsed;
-        var row = sharingTools = new WrapPanel(); row.Children.Add(Action("에디터 연결", BeginSharedEditor));
-        var exactly = Action("Exactly Yogi", () => ArmYogi(false)); exactly.ToolTip = "지정한 대상 정보를 현재 채팅 입력창에 파일로 첨부합니다. Ctrl+클릭으로 여러 요소를 선택할 수 있습니다."; row.Children.Add(exactly);
-        var look = Action("Look At Yogi", () => ArmYogi(true)); look.ToolTip = "요소를 클릭하거나 범위를 드래그해 현재 채팅 입력창에 PNG로 첨부합니다."; row.Children.Add(look);
+        var row = sharingTools = new WrapPanel(); row.Children.Add(yogiRecipient); row.Children.Add(Action("에디터 연결", BeginSharedEditor));
+        var exactly = Action("Exactly Yogi", () => ArmYogi(false)); exactly.ToolTip = "지정한 대상 정보를 선택한 Participant에게 파일로 첨부합니다. Ctrl+클릭으로 여러 요소를 선택할 수 있습니다."; row.Children.Add(exactly);
+        var look = Action("Look At Yogi", () => ArmYogi(true)); look.ToolTip = "요소를 클릭하거나 범위를 드래그해 선택한 Participant에게 PNG로 첨부합니다."; row.Children.Add(look);
         row.Children.Add(Action("선택 첨부", () => PreviewSharedContext("ExactlyYogi")));
         row.Children.Add(Action("문서 공유", () => PreviewSharedContext("Document")));
         row.Children.Add(Action("상태 공유", () => PreviewSharedContext("State")));
@@ -64,7 +64,7 @@ public sealed partial class EditorWindow
             if (visualYogi)
             {
                 Rect rect = new(start, end); if (rect.Width < 4 && rect.Height < 4) rect = YogiElementBounds(YogiElement(end));
-                DisarmYogi();
+                DisarmYogi(true);
                 try { await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Render); pointedImage = CaptureYogiImage(rect); PreviewSharedContext("LookAtYogi"); }
                 catch (Exception error) { SetStatus(error.Message); }
                 return;
@@ -82,7 +82,7 @@ public sealed partial class EditorWindow
                 if (element.Tag is string key && session.Index.Nodes.ContainsKey(key)) { session.Pointing.Mode = "single"; session.Point(key, "ExactlyYogi", true); }
                 else if (element == editor && activeDocument is not null) { session.Pointing.Mode = "single"; session.Point("file:" + activeDocument.Path, "ExactlyYogi", true); }
                 RefreshPointing(); sharingStatus.Text = sharedUiTargets.Count + "개 요소 지정됨 · ‘선택 첨부’로 채팅에 붙여줘.";
-                if (!append) { DisarmYogi(); PreviewSharedContext("ExactlyYogi"); }
+                if (!append) { DisarmYogi(true); PreviewSharedContext("ExactlyYogi"); }
             });
         };
         PreviewKeyDown += (_, e) => { if (e.Key == Key.Escape && yogiOverlay.Visibility == Visibility.Visible) { DisarmYogi(); sharedUiTargets.Clear(); session?.SetPointingMode("none"); editorPoints.Clear(); RefreshPointing(); e.Handled = true; } };
@@ -111,13 +111,16 @@ public sealed partial class EditorWindow
     }
     private void ArmYogi(bool image)
     {
+        if (yogiRecipient.SelectedValue is not string recipient || recipient.Length == 0) { SetStatus("Yogi를 받을 작업자를 먼저 선택해줘."); return; }
+        armedYogiRecipient = recipient;
+
         if (busy || session is null || attachingYogi) return;
         detailedWorkspace = true; ApplyBrowserLayout(); visualYogi = image; pointedImage = null;
         if (!image) { sharedUiTargets.Clear(); session.SetPointingMode("single"); editorPoints.Clear(); }
         yogiOverlay.Cursor = image ? Cursors.Cross : Cursors.Arrow; yogiOverlay.Visibility = Visibility.Visible; yogiBox.Visibility = Visibility.Collapsed;
         sharingStatus.Text = image ? "요소를 클릭하거나 범위를 드래그해줘. Esc로 취소할 수 있어." : "알려줄 요소를 클릭해줘. Ctrl+클릭으로 여러 요소를 지정할 수 있어.";
     }
-    private void DisarmYogi() { yogiOverlay.ReleaseMouseCapture(); yogiOverlay.Visibility = Visibility.Collapsed; yogiBox.Visibility = Visibility.Collapsed; yogiStart = null; }
+    private void DisarmYogi(bool keepRecipient = false) { if (!keepRecipient) armedYogiRecipient = ""; yogiOverlay.ReleaseMouseCapture(); yogiOverlay.Visibility = Visibility.Collapsed; yogiBox.Visibility = Visibility.Collapsed; yogiStart = null; }
     private SharedEditorImage CaptureYogiImage(Rect region)
     {
         if (sharingSurface is null) throw new InvalidOperationException("에디터 작업 영역을 먼저 열어줘.");
@@ -138,7 +141,7 @@ public sealed partial class EditorWindow
     private void PreviewSharedContext(string kind) => Guard(() =>
     {
         if (busy || session is null || conversation is null || attachingYogi) return;
-        DisarmYogi();
+        DisarmYogi(true);
         var snapshot = session.CaptureSharedContext(conversation.Id, kind, kind == "Document" ? activeDocument?.Path : null);
         if (kind == "ExactlyYogi")
         {
@@ -149,7 +152,7 @@ public sealed partial class EditorWindow
         }
         if (kind == "LookAtYogi") snapshot.Image = pointedImage ?? throw new InvalidOperationException("Look At Yogi로 화면을 먼저 지정해줘.");
         snapshot = SharedEditorProtocol.Freeze(snapshot);
-        if (kind is "ExactlyYogi" or "LookAtYogi") { StageYogiAttachment(snapshot); return; }
+        if (kind is "ExactlyYogi" or "LookAtYogi") { DeliverParticipantYogi(snapshot); return; }
         var dialog = new Window { Owner = this, Title = "대화에 공유할 내용", Width = 640, Height = 560, MinWidth = 420, MinHeight = 350, Background = PanelInk, Foreground = TextInk, WindowStartupLocation = WindowStartupLocation.CenterOwner };
         var panel = new DockPanel { Margin = new Thickness(18) }; dialog.Content = panel;
         var top = new StackPanel(); top.Children.Add(Label(snapshot.Kind + " · " + session.Project.Name, 18)); top.Children.Add(Label("열린 문서 " + snapshot.Documents.Count + "개 · 지정 요소 " + (snapshot.Targets.Count + snapshot.EditorTargets.Count + snapshot.UiTargets.Count) + "개 · 본문 " + snapshot.Context.Sum(c => c.Content.Length).ToString("N0") + "자", 13, MutedInk));
@@ -320,6 +323,7 @@ public sealed partial class EditorWindow
                 request.ReviewChanges = true; request.SharedChats = CurrentAccess?.CaptureSharedChats() ?? [];
                 lastRequest = request; streamMessages.Clear(); Message("웹에서 받은 작업", task.GetProperty("prompt").GetString()!); RefreshContext();
                 var bridge = new AssistantBridge(ownerSession, action => Dispatcher.Invoke(() => { action(); RefreshContext(); }));
+                request.ParticipantId = "web-executor"; ownerSession.Collaboration.Register("web-executor", "웹 작업 AI", ParticipantKind.AI, ParticipantPermission.Talk | ParticipantPermission.Work);
                 var review = new ChangeReviewBatch(ownerSession, request, action => Dispatcher.Invoke(action));
                 using var tools = new AgentWorkspace(ownerSession, request, runner, action => Dispatcher.Invoke(() => { action(); RefreshContext(); }), AgentProgress, CreateEditorPackAgent(request, review), review, CreateImageAccess(review));
                 sharingStatus.Text = aiConnections.Editor.Name + " 작업 중 · " + remoteId.Substring(0, 8);

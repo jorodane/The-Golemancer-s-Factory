@@ -111,3 +111,5 @@ python tools/verify-editor.py --dotnet /path/to/dotnet
 `preview --file 경로 --text-file 제안파일 --intent 이유`, `apply/undo --change ID`, `graph`, `read`, `assist`, `build-project`, `verify`, `smoke`, `run`도 제공한다. `--dotnet`은 프로젝트의 빌드 명령에 사용할 SDK다. `--select`는 탐색만 하며 요청 첨부에는 `--point`를 쓴다. `--point "key;key"`는 여러 객체, `--range-file 경로 --start-line 1 --end-line 5`는 줄 범위를 지정한다. `codex-status`, `codex-chat`은 입주 제공자를 쓰며 `--codex`, `--model`, `--new-thread`, `--write-pack "id;id"`, `--allow-project-commands`를 지원한다.
 
 검증 스크립트는 실제 골레맨서 폴더를 임시 복사해 연다. 구매 버튼의 XML 수정·상속 조회·충돌·되돌리기, 실제 Commerce 팩 개별 빌드와 실패 복구, AI 제공자 전송 규약, 기존 전체 캠페인, Linux SDL 실행을 같은 프로젝트 진입점으로 확인한다. [초안 검증 결과](EDITOR_VERIFICATION.md)를 함께 기록했다. Windows GUI는 Windows에서 별도로 조작 확인해야 한다. 현재 프로젝트 선언에는 Windows와 Linux 실행 대상이 있으며 Android/iOS 호스트와 기존 빌드 절차는 게임 폴더에 유지된다.
+
+여러 AI의 독립 작업, 캐릭터·대화 로그, 변경 전파와 충돌 검토는 [멀티 작업자 사용법](COLLABORATION.md)을 참고한다.

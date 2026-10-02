@@ -129,7 +129,13 @@ public sealed partial class EditorSession
             remaining -= item.Content.Length; request.Context.Add(item);
         }
         request.Selection = request.Input.Targets.FirstOrDefault()?.Key ?? "";
-        State.Requests.Add(request); if (State.Requests.Count > 30) State.Requests.RemoveAt(0); Persist(); return request;
+        State.Requests.Add(request);
+        while (State.Requests.Count > 30)
+        {
+            int old = State.Requests.FindIndex(r => r != request && !r.Delivery.StartsWith("sent:", StringComparison.Ordinal) && !r.Delivery.StartsWith("awaiting-review:", StringComparison.Ordinal));
+            if (old < 0) break; State.Requests.RemoveAt(old);
+        }
+        Persist(); return request;
     }
     public ContextItem ReadSlice(string requestId, string path, int startLine = 1, int lineCount = 80)
     {
@@ -143,6 +149,10 @@ public sealed partial class EditorSession
     internal void RequireRequest(string id) { if (!State.Requests.Any(r => r.Id == id)) throw new InvalidDataException("Unknown request."); }
     internal void RecordRead(string request, string path, string text, string hash, bool partial = false)
     {
+        var work = Collaboration.State.Work.FirstOrDefault(w => w.RequestId == request);
+        string reference = path.Split('#')[0];
+        if (work is not null && !work.ReferenceSet.Any(r => r.Path == reference) && (Index.TextFiles.ContainsKey(reference) || reference.StartsWith("editor:", StringComparison.Ordinal)))
+            Collaboration.Reference(request, reference, ReferenceRelation.Read);
         State.Reads.Add(new() { Request = request, Path = path, Hash = hash, Characters = text.Length, Partial = partial, TimeUtc = DateTime.UtcNow.ToString("O") });
         if (State.Reads.Count > 200) State.Reads.RemoveAt(0); Persist();
     }

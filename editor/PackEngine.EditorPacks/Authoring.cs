@@ -155,6 +155,10 @@ public sealed partial class EditorPackAgent : IEditorPackAccess
                         BeforeHash = change.BeforeHash, AfterHash = change.AfterHash, Tool = "editor.apply", Subject = id + "/" + path },
                         () => { if (dirty(id, change.Path) || source.Read(change.Path) != change.Before) throw new IOException("Review conflict in editor pack " + id + "/" + change.Path); EditorPackChange.Validate(change.Path, change.After, id); },
                         () => { change.Apply(history); preview(change); }, () => { change.Apply(history, true); preview(change); }, () => WorkspaceProject.HashText(source.Read(change.Path)));
+                    if (review is not null) review.EnableTextEditing(change.Id,
+                        () => { if (dirty(id, path)) throw new IOException("Resolve the unsaved editor buffer first."); return source.Read(path); },
+                        next => { EditorPackChange.Validate(path, next, id); change.Before = source.Read(path); change.After = next;
+                            return new() { Before = change.Before, After = change.After, BeforeHash = change.BeforeHash, AfterHash = change.AfterHash }; });
                     result = new { ChangeId = change.Id, change.Pack, change.Path, change.BeforeHash, change.AfterHash, Applied = false }; break;
                 case "apply": case "undo":
                     if (bundles.TryGetValue(id, out var created) && created.Files.Id == S(args, "changeId"))

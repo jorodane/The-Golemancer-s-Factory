@@ -63,7 +63,7 @@ public sealed partial class EditorWindow : Window
         var composer = localComposer; composer.Children.Add(Label("Codex는 변경안을 모아서 검토를 요청해. 선택한 내용만 적용해.", 12, MutedInk)); prompt.Height = 90; composer.Children.Add(prompt);
         var sendRow = new WrapPanel(); submit = Action("보내기", Submit); sendRow.Children.Add(submit);
         composer.Children.Add(sendRow); DockPanel.SetDock(composer, Dock.Bottom); chat.Children.Add(composer);
-        chat.Children.Add(new ScrollViewer { Content = transcript, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }); AddTab("대화", chat);
+        chat.Children.Add(new ScrollViewer { Content = transcript, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }); AddTab("작업자", BuildParticipantsSpace(chat));
         var relationship = new DockPanel(); var trailView = new ScrollViewer { Content = trail, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled, Height = 40 }; DockPanel.SetDock(trailView, Dock.Top); relationship.Children.Add(trailView);
         relationship.Children.Add(new ScrollViewer { Content = graph, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }); AddTab("관계", relationship);
         var document = new DockPanel { Margin = new Thickness(12) };
@@ -90,8 +90,8 @@ public sealed partial class EditorWindow : Window
         SetupRangePointing();
         draftTimer.Tick += (_, _) => { draftTimer.Stop(); Guard(() => { session?.Persist(); RefreshContext(); }); };
         prompt.PreviewKeyDown += (_, e) => { if (e.Key == Key.Enter && Keyboard.Modifiers.HasFlag(ModifierKeys.Control)) { e.Handled = true; Submit(); } };
-        Closing += (_, e) => { if (busy) { SetStatus("현재 작업을 마치거나 취소한 뒤 닫아줘."); e.Cancel = true; return; } if (PackDocumentDirty()) { SetStatus("에디터팩 초안을 저장하거나 저장본으로 되돌린 뒤 닫아줘."); e.Cancel = true; return; } Guard(() => session?.Persist()); };
-        Closed += (_, _) => { draftTimer.Stop(); StopChatGptBridge(); runner?.Dispose(); provider?.Dispose(); };
+        Closing += (_, e) => { if (busy || WorkersRunning || PendingReviews || manualReviewActive) { SetStatus("현재 작업을 마치거나 취소한 뒤 닫아줘."); e.Cancel = true; return; } if (PackDocumentDirty()) { SetStatus("에디터팩 초안을 저장하거나 저장본으로 되돌린 뒤 닫아줘."); e.Cancel = true; return; } Guard(() => session?.Persist()); };
+        Closed += (_, _) => { draftTimer.Stop(); StopChatGptBridge(); runner?.Dispose(); provider?.Dispose(); foreach (var worker in workers) worker.Assistant?.Dispose(); };
         AddBrowserWorkspace(root, body, output, builds);
         Message("시작", "일반 대화에는 포인팅을 첨부하지 않아. 대상을 가리키려면 ‘이거’ 모드를 켜고 탐색기·관계도·XML에서 지정해줘. 전송할 때 대상과 문서 버전을 고정해."); SetBusy(false);
         RememberWindow(this, "studio.main");
@@ -173,7 +173,7 @@ public sealed partial class EditorWindow : Window
     }
     public void OpenProject(string path) => Guard(() =>
     {
-        if (busy) return;
+        if (busy || WorkersRunning || PendingReviews || manualReviewActive) { SetStatus("작업자의 요청을 마치거나 취소한 뒤 프로젝트를 바꿔줘."); return; }
         if (runner?.GameRunning == true) throw new InvalidOperationException("현재 프로젝트의 게임 창을 닫은 뒤 다른 프로젝트를 열어줘.");
         if (PackDocumentDirty()) throw new InvalidOperationException("먼저 에디터팩 초안을 저장해줘.");
         session?.Persist(); TryStopSharedEditorBeforeSwitch(); ClearSharedEditor();
@@ -186,7 +186,7 @@ public sealed partial class EditorWindow : Window
         targets.ItemsSource = session.Project.Targets.Select(t => t.Id).ToArray(); targets.SelectedItem = runner.PreferredTarget;
         transcript.Children.Clear(); Message("프로젝트", session.Project.Name + "을 열었어. 팩과 문서를 골라서 작업을 시작해.");
         pointingMode.SelectedIndex = 0; models.ItemsSource = null; submit.Content = "보내기"; RefreshProject(); RebuildDocuments(); SetBusy(false); RefreshPointing();
-        RegisterProject(); RefreshWebProject(); ApplyConversationMode(); EditorPackProjectChanged();
+        RegisterProject(); RefreshWebProject(); ApplyConversationMode(); EditorPackProjectChanged(); ResetWorkers();
     });
     private void RefreshProject()
     {
@@ -248,15 +248,11 @@ public sealed partial class EditorWindow : Window
     private void ShowChange()
     {
         impact.Children.Clear(); if (pending is null) { diff.Text = "변경 기록이 없어."; return; }
-        diff.Text = pending.Intent + "\n" + pending.File + " · " + pending.State + "\n\n" + string.Join("\n\n", pending.Changes.Select(c => c.Member + "\n  이전: " + (c.Before ?? "(없음)") + "\n  이후: " + (c.After ?? "(없음)")));
+        string before = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(pending.BeforeBytes)).TrimStart('\uFEFF');
+        string after = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(pending.AfterBytes)).TrimStart('\uFEFF');
+        diff.Text = pending.Intent + "\n" + pending.File + " · " + pending.State + "\n\n" + string.Join("\n", ChangeDifference.Compare(pending.File, before, after).Select(c => c.Preview));
         foreach (string key in pending.Impact.Take(80)) impact.Children.Add(Action(key, () => Guard(() => SelectNode(key))));
     }
-    private void ApplyChange(bool undo) => Guard(() =>
-    {
-        if (busy || session is null || pending is null) return;
-        session.Apply(pending.Id, undo); pending = session.LoadDraft(pending.Id); ShowChange(); RebuildDocuments(pending.File); RefreshProject();
-        SetStatus(undo ? "이 변경을 되돌렸어." : "변경을 적용했어. DLL 수정은 해당 팩을 빌드하고 게임을 다시 실행하면 반영돼.");
-    });
     private void ConnectProvider() => Guard(() =>
     {
         if (busy) return; var dialog = new OpenFileDialog { Title = "IEditorAssistant 제공자 DLL 연결", Filter = "Assistant DLL|*.dll" };
@@ -279,6 +275,7 @@ public sealed partial class EditorWindow : Window
             lastRequest = session.PrepareContext(text); CaptureAgentScope(lastRequest); Message("나", text); prompt.Clear(); RefreshContext();
             SetBusy(true); operation = new();
             var bridge = new AssistantBridge(session, action => Dispatcher.Invoke(() => { action(); RefreshContext(); }));
+            lastRequest.ParticipantId = "legacy-ai"; session.Collaboration.Register("legacy-ai", provider!.Name, ParticipantKind.AI, ParticipantPermission.Talk | ParticipantPermission.Work);
             var review = new ChangeReviewBatch(session, lastRequest, action => Dispatcher.Invoke(action));
             using var agentTools = provider is IResidentAssistant ? new AgentWorkspace(session, lastRequest, runner!, action => Dispatcher.Invoke(() => { action(); RefreshContext(); }), AgentProgress, CreateEditorPackAgent(lastRequest, review), review, CreateImageAccess(review)) : null;
             string answer;

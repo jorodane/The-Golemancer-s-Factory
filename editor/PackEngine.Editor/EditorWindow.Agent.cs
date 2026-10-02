@@ -82,14 +82,14 @@ public sealed partial class EditorWindow
             graph.ReleaseMouseCapture(); if (rangeBox is not null) graph.Children.Remove(rangeBox); rangeBox = null; rangeStart = null; e.Handled = true; RefreshPointing();
         };
     }
-    private void CaptureAgentScope(ContextRequest request)
+    private void CaptureAgentScope(ContextRequest request, bool clearStream = true)
     {
         if (session is null) return;
         request.Target = Target; request.AllowProjectCommands = false;
         request.ReviewChanges = true;
         request.SharedChats = assistantSettings.ConnectionEnabled ? CurrentAccess?.CaptureSharedChats() ?? [] : [];
         request.WritablePacks = session.Index.Packs.Where(p => !session.Project.Sources.TryGetValue(p.Id, out var source) || source.Editable).Select(p => p.Id).ToList();
-        CaptureEditorPacks(request); session.Persist(); streamMessages.Clear();
+        CaptureEditorPacks(request); session.Persist(); if (clearStream) streamMessages.Clear();
     }
     private void AddResidentControls(StackPanel parent)
     {

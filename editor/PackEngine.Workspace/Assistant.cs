@@ -26,7 +26,7 @@ public sealed class AssistantBridge(EditorSession session, Action<Action> dispat
     public async Task<string> Send(IEditorAssistant provider, ContextRequest request, CancellationToken cancellation, IAssistantWorkspace? workspace = null,
         Func<string, CancellationToken, Task<string>>? finish = null)
     {
-        request.Delivery = "sent:" + provider.Name; session.Persist();
+        dispatch(() => { request.Delivery = "sent:" + provider.Name; session.Persist(); });
         try
         {
             string reply = await provider.ReplyAsync(request, workspace ?? new Reader(session, request.Id, dispatch), cancellation).ConfigureAwait(false);

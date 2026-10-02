@@ -174,7 +174,7 @@ public sealed partial class CodexAssistant : IResidentAssistant, IProjectConvers
             request.ThreadId = ThreadId;
             var done = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
             lock (sync) { completion = done; workspace = tools; turnCancellation = lifetime.Token; turnId = ""; finalText = ""; lastMessage = ""; messages.Clear(); toolTasks.Clear(); }
-            string context = EditorSession.Serialize(new { request.Id, request.Project, request.Input, request.OpenFiles, request.Documents, request.Context, request.Omitted,
+            string context = EditorSession.Serialize(new { request.Id, request.ParticipantId, request.Project, request.Input, request.OpenFiles, request.Documents, request.Context, request.Omitted,
                 request.EditorInput, request.UiTargets, request.WritablePacks, request.WritableEditorPacks, request.AllowEditorReload, request.AllowProjectCommands, request.ReviewChanges, request.Target,
                 SharedChats = SharedChatReference.ForModel(request.SharedChats) });
             var input = new List<object> { new { type = "text", text = request.Prompt + "\n\n[Editor context captured when this request was sent]\n" + context } };

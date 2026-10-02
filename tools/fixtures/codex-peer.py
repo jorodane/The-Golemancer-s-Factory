@@ -90,7 +90,7 @@ try:
                 names = {tool['name'] for tool in params['dynamicTools']}
                 assert names == {'packengine_editor', 'packengine_find', 'packengine_inspect', 'packengine_read',
                                  'packengine_patch', 'packengine_apply', 'packengine_build', 'packengine_project',
-                                 'packengine_create', 'packengine_image'}
+                                 'packengine_create', 'packengine_image', 'packengine_collaboration'}
                 assert len(params['dynamicTools']) == len(names)
                 assert all(tool['type'] == 'function' for tool in params['dynamicTools'])
             else:

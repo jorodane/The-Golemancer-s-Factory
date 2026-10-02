@@ -31,6 +31,12 @@ public sealed class ReviewItem
     public List<ReviewedChange> Files { get; set; } = [];
     public bool IsFile => Operation.Length == 0;
     public string Group => Kind + ":" + Pack;
+    [System.Text.Json.Serialization.JsonIgnore]
+    public List<ChangeOperation> CollaborationOperations => Files.Count == 0 ? Differences : Files.Select(f => new ChangeOperation { Path = f.File, Target = "$file", Kind = "file", Before = f.BeforeHash, After = f.AfterHash }).ToList();
+    public string CanonicalPath => Kind == "editor" ? "editor:" + Pack + "/" + Path : Path;
+    public bool SelectableOperations { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore]
+    public List<ChangeOperation> Differences => IsFile ? ChangeDifference.Compare(CanonicalPath, Before, After) : [];
 }
 
 /// <summary>A request-local overlay. No proposal or queued action mutates project files before the host's review.</summary>
@@ -49,9 +55,16 @@ public sealed class ChangeReviewBatch
     private readonly Action<Action> dispatch;
     private readonly Dictionary<string, Work> work = new(StringComparer.Ordinal);
     private bool closed;
+    private readonly Dictionary<string, (Func<string> Read, Func<string, ReviewItem> Revise)> textEdits = new(StringComparer.Ordinal);
+    public ContextRequest Request => request;
+    public bool IsClosed => closed;
+    public CollaborationWorkspace Collaboration => session.Collaboration;
     public IReadOnlyList<ReviewItem> Items => work.Values.Select(w => w.Item).ToArray();
     public ChangeReviewBatch(EditorSession session, ContextRequest request, Action<Action> dispatch)
-    { this.session = session; this.request = request; this.dispatch = dispatch; }
+    { this.session = session; this.request = request; this.dispatch = dispatch;
+        if (request.ParticipantId.Length == 0) request.ParticipantId = "editor";
+        dispatch(() => session.Collaboration.Begin(request.Id, request.ParticipantId, request.Prompt));
+    }
     public string ProjectRelative(string path) => session.Project.Relative(path);
     private static string Key(string kind, string pack, string path) => kind + ":" + pack + "/" + path;
     public ReviewItem? File(string kind, string pack, string path) => work.TryGetValue(Key(kind, pack, path), out var value) ? value.Item : null;
@@ -63,6 +76,55 @@ public sealed class ChangeReviewBatch
         if (work.TryGetValue(key, out var previous) && (item.Before != previous.Item.Before || item.BeforeHash != previous.Item.BeforeHash))
             throw new IOException("A cumulative proposal must retain its original reviewed baseline.");
         work[key] = new(item, validate, apply, undo, null, currentHash); Save();
+    }
+    public void EnableTextEditing(string id, Func<string> read, Func<string, ReviewItem> revise)
+    { Require(id).SelectableOperations = true; textEdits[id] = (read, revise); Save(); }
+    public string CurrentText(string id) => textEdits.TryGetValue(id, out var edit) ? edit.Read() : Require(id).Before;
+    public void ReviseText(string id, string text)
+    {
+        if (closed) throw new InvalidOperationException("This review is already closed.");
+        var item = Require(id); var next = textEdits[id].Revise(text);
+        if (item.Before != next.Before) session.Collaboration.Work(request.Id).BaseRevision = session.Collaboration.State.Revision;
+        item.Before = next.Before; item.After = next.After; item.BeforeHash = next.BeforeHash; item.AfterHash = next.AfterHash;
+        Save();
+    }
+    public void SelectOperations(string id, IReadOnlyCollection<string> selected)
+    {
+        var item = Require(id); var operations = item.Differences;
+        if (!item.SelectableOperations || selected.Any(k => !operations.Any(o => o.Id == k))) throw new InvalidOperationException("Unknown selectable change.");
+        string next = ChangeDifference.Compose(item.Before, operations.Where(o => selected.Contains(o.Id)));
+        if (CurrentText(id) != item.Before) throw new IOException("검토 중 원본이 바뀌었어. 변경을 다시 비교해줘.");
+        ReviseText(id, next);
+    }
+    public List<ReviewItem> RebaseTexts()
+    {
+        var conflicts = new List<ReviewItem>();
+        foreach (var item in Items.Where(i => i.SelectableOperations))
+        {
+            string current = CurrentText(item.Id); if (current == item.Before) continue;
+            string merged;
+            try { merged = ChangeDifference.Merge(item.CanonicalPath, item.Before, item.After, current); }
+            catch (IOException) { conflicts.Add(item); continue; }
+            ReviseText(item.Id, merged);
+        }
+        return conflicts;
+    }
+    public void StageProject(ChangeDraft initial, string pack, string tool, string subject)
+    {
+        var draft = initial;
+        ReviewItem Item() => new() { Id = initial.Id, Kind = "game", Pack = pack, Path = draft.File, Intent = draft.Intent,
+            Before = Encoding.UTF8.GetString(Convert.FromBase64String(draft.BeforeBytes)).TrimStart('\uFEFF'),
+            After = Encoding.UTF8.GetString(Convert.FromBase64String(draft.AfterBytes)).TrimStart('\uFEFF'),
+            BeforeHash = draft.BeforeHash, AfterHash = draft.AfterHash, Tool = tool, Subject = subject };
+        Stage(Item(), () => session.ValidateChange(draft.Id), () => session.Apply(draft.Id), () => session.Apply(draft.Id, true),
+            () => WorkspaceProject.Hash(System.IO.File.ReadAllBytes(session.Project.Resolve(draft.File))));
+        EnableTextEditing(initial.Id, () =>
+        {
+            var snapshot = session.ReadDocumentSnapshot(draft.File);
+            if (snapshot.Draft) throw new IOException("먼저 미적용 문서 초안을 정리해줘: " + draft.File);
+            if (snapshot.DiskChanged && session.Documents.Any(d => d.Path == draft.File)) session.Reload(draft.File);
+            return session.ReadDocumentSnapshot(draft.File).Text;
+        }, text => { draft = session.PreviewDetached(draft.File, text, draft.Intent); return Item(); });
     }
     public string Queue(string kind, string pack, string operation, string tool, string subject, string detail, Action validate, Func<CancellationToken, Task<string>> run, string? actionKey = null)
     {
@@ -86,12 +148,12 @@ public sealed class ChangeReviewBatch
     private void Save() => dispatch(() =>
     {
         EditorSession.AtomicWrite(System.IO.Path.Combine(session.StateDirectory, "review-" + request.Id + ".json"), Encoding.UTF8.GetBytes(EditorSession.Serialize(new { Request = request.Id, Closed = closed, Items })));
-        session.Persist();
+        session.Collaboration.Capture(request.Id, Items); session.Persist();
     });
     public void Cancel()
     {
         if (closed) return;
-        closed = true; foreach (var entry in work.Values.Where(w => w.Item.State == "pending")) entry.Item.State = "cancelled"; Save();
+        closed = true; foreach (var entry in work.Values.Where(w => w.Item.State == "pending")) entry.Item.State = "cancelled"; dispatch(() => session.Collaboration.Finish(request.Id, Items, "cancelled")); Save();
     }
     public Task<string> Apply(IReadOnlyCollection<string> selected, CancellationToken cancellation) => Apply(selected, cancellation, null);
     public async Task<string> Apply(IReadOnlyCollection<string> selected, CancellationToken cancellation,
@@ -171,6 +233,6 @@ public sealed class ChangeReviewBatch
                 Save(); throw; }
         }
         request.ReviewOutcome = "검토 완료 · 파일 " + Items.Count(i => i.State == "applied") + "개 적용 · " + Items.Count(i => i.State == "excluded") + "개 제외 · 후속 작업 " + Items.Count(i => i.State == "completed") + "개 완료";
-        Save(); return request.ReviewOutcome;
+        dispatch(() => session.Collaboration.Finish(request.Id, Items, "completed")); Save(); return request.ReviewOutcome;
     }
 }

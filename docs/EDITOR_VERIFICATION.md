@@ -130,3 +130,14 @@ Windows WPF/net48 빌드는 오류·경고 없이 통과했다. 실제 Windows U
 - 에디터팩 149개, 모듈/창 32개, 모바일 공통 모듈 28개, 프로젝트 데이터 36개 검사 통과. 작업 모델 82개와 Codex 전송 52개, 대화 저장·시작 프로그램 및 이동 fixture도 통과했다.
 - AI 연결 35개 검사는 선택한 공유 본문의 실제 제공자 요청 스키마 전달도 확인한다. 전체 게임 캠페인 540개 검사 통과. 동결 게임 SDK와 게임 런타임 소스는 변경하지 않았다.
 - Windows net48 전체 빌드와 배포 체크섬을 확인한다. 창 위치의 실제 혼합 DPI 환경, Windows GUI, 웹 로그인/첨부, 유료 이미지 생성과 이번 변경의 Android 빌드·기기 실행은 여기서 검증하지 않았다.
+
+## 멀티 작업자 첫 구현
+
+[설계 원문](COLLABORATION_SPEC.md)과 [현재 동작·범위](COLLABORATION.md)를 함께 확인한다.
+
+- `tools/verify-resident.py`: workspace 160개(멀티 비교·프로토콜·동시 취소 50개 포함), Codex 전송·복구 fixture 52개. 모델 응답 대기 두 개를 동시에 시작한 뒤 하나만 취소하고 다른 요청이 계속 완료되는 경로를 확인한다.
+- XML 요소·namespace·안정 ID·부모 삭제·주석·추가 위치, 코드 CRLF·독립 구간·동일 위치 삽입·큰 파일 제한, 선택한 hunk만 실제 적용, 실제 원본 변경 감지와 stale 적용 거절을 검사한다.
+- Read/Observe 알림 억제, Depend/ModifyIntent 전파, 기계적 PASS 거절, 미완료 ADAPT, OBJECT와 충돌/격돌, Talk/Work/Apply 분리, 사람 조건 전파, 후보·결정 계보와 재시작 시 자동 요청 방지를 검사한다.
+- `tools/verify-editor-packs.py`: authoring 149개, module/window 32개, app 28개, project-data 36개. 생성 묶음·기존 검토·DLL 로드·SDK 빌드 흐름을 함께 유지한다.
+- `bash verify.sh`: 전체 게임 캠페인 통과. 엔진의 게임 독립성, 게임의 고정 SDK, 런타임 DLL 로드는 유지한다.
+- Windows net48 전체 솔루션 빌드·배포 체크섬을 확인한다. 실제 Windows GUI에서의 캐릭터 드래그, 두 Codex 세션의 유료 동시 응답, Yogi 대상별 이미지 전달은 이 Linux 검증에 포함하지 않는다. 다음 단계인 HP 자동 승패·인계·네트워크 Human 멀티도 이번 검증의 구현 범위가 아니다.

@@ -69,6 +69,7 @@ public sealed partial class EditorWindow
     {
         editorAiMenu.Header = "에디터 AI · " + aiConnections.Editor.Name;
         conversationAiMenu.Header = "대화 AI · " + aiConnections.Conversation.Name;
+        RefreshRecipients();
     }
     private void ReadyForPackSelection()
     {
@@ -106,7 +107,7 @@ public sealed partial class EditorWindow
     }
     private void DisconnectEditorAi()
     {
-        if (busy || sharingTaskExecuting) return;
+        if (busy || WorkersRunning || sharingTaskExecuting) return;
         TryStopSharedEditorBeforeSwitch(); ClearSharedEditor(); StopChatGptBridge();
         string old = aiConnections.Editor.Provider;
         aiConnections.DisconnectEditor(); SaveAiConnections(); aiCredentials.Delete(old); ResetResidentConnection();
@@ -115,7 +116,7 @@ public sealed partial class EditorWindow
     }
     private void DisconnectConversationAi()
     {
-        if (busy || attachingYogi || sharingTaskExecuting) return;
+        if (busy || WorkersRunning || attachingYogi || sharingTaskExecuting) return;
         TryStopSharedEditorBeforeSwitch(); ClearSharedEditor(); StopChatGptBridge(); CancelWebConnection();
         aiConnections.DisconnectConversation(); SaveAiConnections(); requestedChat = ""; localAiVisible = true;
         if (browser.CoreWebView2 is { } web) { web.Stop(); web.Navigate("about:blank"); }
@@ -124,7 +125,7 @@ public sealed partial class EditorWindow
     }
     private void ShowConversationAiSetup()
     {
-        if (busy || attachingYogi || sharingTaskExecuting) return;
+        if (busy || WorkersRunning || attachingYogi || sharingTaskExecuting) return;
         var dialog = new Window { Owner = this, Title = "대화 AI 연결", Width = 540, SizeToContent = SizeToContent.Height, WindowStartupLocation = WindowStartupLocation.CenterOwner, Background = PanelInk, Foreground = TextInk };
         var panel = new StackPanel { Margin = new Thickness(22) }; dialog.Content = panel;
         panel.Children.Add(Label("대화할 웹 AI를 선택해.", 20));
@@ -154,7 +155,7 @@ public sealed partial class EditorWindow
     }
     private void ShowEditorAiSetup()
     {
-        if (busy || sharingTaskExecuting) return;
+        if (busy || WorkersRunning || sharingTaskExecuting) return;
         var dialog = new Window { Owner = this, Title = "에디터 AI 연결", Width = 610, SizeToContent = SizeToContent.Height, WindowStartupLocation = WindowStartupLocation.CenterOwner, Background = PanelInk, Foreground = TextInk };
         var panel = new StackPanel { Margin = new Thickness(22) }; dialog.Content = panel;
         panel.Children.Add(Label("에디터 안에서 작업할 AI", 20));

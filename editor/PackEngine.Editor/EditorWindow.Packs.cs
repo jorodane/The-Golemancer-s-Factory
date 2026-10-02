@@ -112,15 +112,10 @@ public sealed partial class EditorWindow
     private void ShowEditorPackChange(EditorPackChange change)
     {
         if (!Dispatcher.CheckAccess()) { Dispatcher.Invoke(() => ShowEditorPackChange(change)); return; }
-        packChange = change; packDiff.Text = change.Intent + " · " + change.State + "\n" + change.Pack + "/" + change.Path + "\n이전:\n" + change.Before + "\n이후:\n" + change.After;
+        packChange = change; packDiff.Text = change.Intent + " · " + change.State + "\n" + change.Pack + "/" + change.Path + "\n" + string.Join("\n", ChangeDifference.Compare(change.Path, change.Before, change.After).Select(c => c.Preview));
         if (change.State != "preview" && packOpenId == change.Pack && packOpenPath == change.Path) { packOriginal = change.State == "undone" ? change.Before : change.After; packDocument.Text = packOriginal; }
         AppendLog("에디터팩 변경 · " + change.Pack + " · " + change.State);
     }
-    private void ApplyEditorPack(bool undo) => Guard(() => {
-        if (busy || packChange is null) return;
-        if (PackDocumentDirty(packChange.Pack, packChange.Path) && (undo || packDocument.Text != packChange.After)) throw new IOException("미리보기 이후 사용자 초안이 바뀌었어. 변경 미리보기를 다시 만들어줘.");
-        packChange.Apply(EditorPackHistory, undo); ShowEditorPackChange(packChange);
-    });
     private void CreateEditorPack(bool inherit) => Guard(() =>
     {
         if (busy || PackDocumentDirty()) return;
@@ -145,7 +140,14 @@ public sealed partial class EditorWindow
         catch (Exception e) { packStatus.Text = "에디터팩 작업 실패 · 실행 기록에서 확인해줘."; SetStatus(e.Message); AppendLog(e.Message); }
         finally { operation.Dispose(); operation = null; SetBusy(false); if (connectAfter && session is not null) ScheduleAutoConnect(); }
     }
+    private readonly SemaphoreSlim reloadExecution = new(1, 1);
     private async Task ReloadEditorPacks(IReadOnlyCollection<string>? authorized, CancellationToken cancellation)
+    {
+        await reloadExecution.WaitAsync(cancellation);
+        try { await ReloadEditorPacksCore(authorized, cancellation); }
+        finally { reloadExecution.Release(); }
+    }
+    private async Task ReloadEditorPacksCore(IReadOnlyCollection<string>? authorized, CancellationToken cancellation)
     {
         if (PackDocumentDirty()) throw new InvalidOperationException("에디터팩 초안을 먼저 저장해줘.");
         var selected = packSources.Where(p => enabledPackFolders.Contains(p.Folder)).ToArray();
@@ -193,7 +195,7 @@ public sealed partial class EditorWindow
                 {
                     if (review.Items.Count > 0)
                     {
-                        var selected = ReviewChanges(review, operation.Token, "에디터팩 변경안 검토 · " + ownerPack);
+                        var selected = await ReviewChanges(review, operation.Token, "에디터팩 변경안 검토 · " + ownerPack);
                         reviewOutcome = await review.Apply(selected, operation.Token);
                         RefreshProject(); RebuildDocuments(); RefreshContext();
                     }

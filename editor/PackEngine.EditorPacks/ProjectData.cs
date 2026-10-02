@@ -57,7 +57,9 @@ public sealed partial class EditorPackProjectData : IEditorProjectData, IEditorP
         if (reviewed) throw new InvalidOperationException("Review this command's proposals only once.");
         reviewed = true;
         if (changes.Count > 100) throw new InvalidDataException("Review at most 100 document changes per command.");
-        var request = new ContextRequest { Id = invocation, Project = session.Project.Identity, ReviewChanges = true };
+        string participant = "editor-pack:" + pack;
+        session.Collaboration.Register(participant, pack, ParticipantKind.EditorPack, ParticipantPermission.Work | ParticipantPermission.Talk);
+        var request = new ContextRequest { Id = invocation, Project = session.Project.Identity, ParticipantId = participant, Prompt = "에디터팩 명령: " + pack, ReviewChanges = true };
         var review = new ChangeReviewBatch(session, request, dispatch);
         try
         {
@@ -79,12 +81,7 @@ public sealed partial class EditorPackProjectData : IEditorProjectData, IEditorP
                 if (before.Text == change.Text) continue;
                 var draft = session.PreviewDetached(before.Path, change.Text, change.Intent);
                 if (draft.BeforeHash != before.DiskHash) throw new IOException("The document changed while preparing its proposal: " + before.Path);
-                review.Stage(new() { Id = draft.Id, Kind = "game", Pack = before.Pack, Path = before.Path, Intent = draft.Intent,
-                    Before = before.Text, After = change.Text, BeforeHash = draft.BeforeHash, AfterHash = draft.AfterHash,
-                    Tool = "editor.project.apply", Subject = pack + "/" + before.Path },
-                    () => { Validate(before); session.ValidateChange(draft.Id); },
-                    () => { Validate(before); session.ValidateChange(draft.Id); session.Apply(draft.Id); },
-                    () => session.Apply(draft.Id, true), () => WorkspaceProject.Hash(File.ReadAllBytes(session.Project.Resolve(draft.File))));
+                review.StageProject(draft, before.Pack, "editor.project.apply", pack + "/" + before.Path);
                 Record("propose", before.Path, change.Intent + "; pending user review.");
             }
             return review;

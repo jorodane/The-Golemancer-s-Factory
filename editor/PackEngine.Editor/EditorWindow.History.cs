@@ -82,7 +82,7 @@ public sealed partial class EditorWindow
             var selected = historyThreads.SelectedItem as AssistantThread; threadAccess.IsChecked = selected?.Allowed == true; threadAccess.IsEnabled = !busy && selected is not null;
             if (selected is null) return;
             if (!selected.Allowed) { SetStatus("이 대화는 차단되어 있어. 접근 허용을 켜면 다시 열 수 있어."); return; }
-            HistoryWork(async token => { await OpenConversation(selected.Id, token); tabs.SelectedIndex = 0; });
+            HistoryWork(async token => { await OpenConversation(selected.Id, token); OpenLegacyConversation(); });
         };
         threadAccess.Click += (_, _) => Guard(() =>
         {
@@ -121,6 +121,14 @@ public sealed partial class EditorWindow
     });
     private void ResetResidentConnection()
     {
+        foreach (var worker in workers)
+        {
+            if (!assistantSettings.ConnectionEnabled || CurrentAccess?.Enabled != true || CurrentAccess?.HistoryEnabled != true || worker.Assistant is IResidentAssistant ai && CurrentAccess is { } current && current.BlockedThreads.Contains(ai.ThreadId)) worker.Cancellation?.Cancel();
+            if (!worker.Running) { worker.Assistant?.Dispose(); worker.Assistant = null; }
+            if (CurrentAccess?.HistoryEnabled == false) worker.Turns.Clear();
+            else worker.Turns.RemoveAll(t => CurrentAccess?.BlockedThreads.Contains(t.ThreadId) == true);
+            RenderWorker(worker); worker.RefreshLog?.Invoke();
+        }
         provider?.Dispose(); provider = null; providerWebExecutor = false; models.ItemsSource = null; streamMessages.Clear(); transcript.Children.Clear(); historyMessages.Clear(); messageCursor = ""; lastRequest = null; RefreshContext();
         providerLabel.Text = aiConnections.Editor.Name + " · 미연결"; accountDetails.Text = "연결 상태를 다시 확인해줘."; submit.Content = "보내기"; conversationTitle.Text = "새 대화";
         if (!assistantSettings.ConnectionEnabled || CurrentAccess?.Enabled != true) { providerLabel.Text = "Codex 접근 차단"; accountDetails.Text = "설정에서 Codex 사용을 허용하면 연결할 수 있어."; }
@@ -181,7 +189,7 @@ public sealed partial class EditorWindow
     {
         if (busy || provider is not IResidentAssistant agent) return;
         agent.NewConversation(); transcript.Children.Clear(); streamMessages.Clear(); historyMessages.Clear(); messageCursor = ""; lastRequest = null;
-        conversationTitle.Text = "새 대화"; RefreshContext(); tabs.SelectedIndex = 0; SetStatus("새 대화야. 이전 대화는 목록에서 다시 열 수 있어.");
+        conversationTitle.Text = "새 대화"; RefreshContext(); OpenLegacyConversation(); SetStatus("새 대화야. 이전 대화는 목록에서 다시 열 수 있어.");
     });
     private void ShowAccount(AssistantAccount account)
     {

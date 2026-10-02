@@ -43,6 +43,7 @@ public sealed class ContextRequest
     public List<string> Omitted { get; set; } = [];
     public string Reply { get; set; } = "";
     public string ThreadId { get; set; } = "";
+    public string ParticipantId { get; set; } = "";
     public List<SharedChatReference> SharedChats { get; set; } = [];
     public SemanticInput Input { get; set; } = new();
     public List<DocumentVersion> Documents { get; set; } = [];
@@ -106,6 +107,7 @@ public sealed partial class EditorSession
     public WorkspaceIndex Index { get; private set; }
     public EditorState State { get; }
     public string StateDirectory { get; }
+    public CollaborationWorkspace Collaboration { get; }
     public List<OpenDocument> Documents { get; } = [];
     public static string Serialize(object value) => JsonSerializer.Serialize(value, value.GetType(), Json);
     public EditorSession(string manifest, string? stateDirectory = null)
@@ -122,6 +124,7 @@ public sealed partial class EditorSession
             if (draft is not null) { doc.Text = draft.Text; doc.Original = draft.Original; doc.Baseline = draft.Baseline; }
         }
         State.OpenFiles = Documents.Select(d => d.Path).ToList();
+        Collaboration = new(StateDirectory);
     }
     public void Persist()
     { State.Drafts = Documents.Where(d => d.Dirty).ToList(); AtomicWrite(Path.Combine(StateDirectory, "session.json"), Encoding.UTF8.GetBytes(Serialize(State))); }

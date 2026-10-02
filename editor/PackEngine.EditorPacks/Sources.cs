@@ -8,6 +8,7 @@ namespace PackEngine.EditorPacks;
 
 public sealed class EditorPackSource
 {
+    private static readonly SemaphoreSlim buildExecution = new(1, 1);
     public string Id { get; set; } = "";
     public string Scope { get; set; } = "";
     public string Folder { get; set; } = "";
@@ -92,6 +93,12 @@ public sealed class EditorPackSource
         return result;
     }
     public async Task Build(string dotnet, string sdk, CancellationToken cancellation)
+    {
+        await buildExecution.WaitAsync(cancellation).ConfigureAwait(false);
+        try { await BuildCore(dotnet, sdk, cancellation).ConfigureAwait(false); }
+        finally { buildExecution.Release(); }
+    }
+    private async Task BuildCore(string dotnet, string sdk, CancellationToken cancellation)
     {
         foreach (var source in Manifest().Root!.Elements("Source"))
         {

@@ -61,3 +61,7 @@ bash verify.sh
 ```
 
 이미지 API 응답 검사는 명시적인 HTTP fixture이며 유료 추론을 실행하지 않는다. Windows WPF 화면, 실제 ChatGPT 입력창 첨부, 실제 API 계정 응답은 별도의 기기 검증 항목이다.
+
+### 여러 작업자의 변경안
+
+Windows 호스트는 [멀티 작업자](COLLABORATION.md)의 WorkContext와 ChangeSet으로 AI·직접 편집·EditorProjectCommand 변경을 기록한다. `packengine_collaboration`으로 참조 관계와 수신 변경에 대한 PASS/ADAPT/OBJECT를 표현한다. 파일·Scope를 선점하지 않는다. 기존 문서 제안은 XML 요소 또는 코드 구간으로 검토·선택하고 현재 원본과 다시 비교한다. 생성·등록·이미지 파일 묶음은 기존 원자적 적용 단위를 유지한다. 확인한 해시, 사용자 미적용 초안, 명시적 적용 권한은 계속 검증한다.

@@ -84,6 +84,8 @@ public sealed partial class AgentWorkspace : IAgentWorkspace, IDisposable
         this.editorPacks = editorPacks; this.images = images;
         this.session = session; this.request = request; this.runner = runner; this.dispatch = dispatch; this.progress = progress;
         writable = new(request.WritablePacks, StringComparer.Ordinal); commands = request.AllowProjectCommands; target = request.Target.Length > 0 ? request.Target : runner.PreferredTarget;
+        if (request.ReviewChanges && request.ParticipantId.Length == 0)
+            dispatch(() => { request.ParticipantId = "assistant"; session.Collaboration.Register("assistant", "AI", ParticipantKind.AI, ParticipantPermission.Talk | ParticipantPermission.Work); });
         Review = request.ReviewChanges ? review ?? new(session, request, dispatch) : null;
         sharedChats = request.SharedChats.Where(c => c.Shared).Select(c => c.Snapshot()).ToDictionary(c => c.Path, StringComparer.Ordinal);
         foreach (var item in request.Context.Where(c => c.DocumentHash.Length > 0)) readVersions[item.Path] = item.DocumentHash;
@@ -115,6 +117,7 @@ public sealed partial class AgentWorkspace : IAgentWorkspace, IDisposable
     public IReadOnlyList<object> ToolDefinitions => Definitions;
     public static IReadOnlyList<object> Definitions { get; } = new[]
     {
+        Spec("packengine_collaboration", "Independent workers share proposals, never locks. Declare Depend or ModifyIntent references for files needed by your task; plain Read does not subscribe. Inspect state/incoming after receiving changes, respond PASS/ADAPT/OBJECT with reasons. PASS is rejected on overlapping edits/failed validation; ADAPT requires actually updating your proposal. discuss appends real speech to your conflict log. Read relevant code/XML slices for more context. Resolutions are proposals until human review; never claim an unrun compile/test passed.", """{"type":"object","properties":{"operation":{"type":"string","enum":["state","reference","respond","discuss"]},"path":{"type":"string"},"target":{"type":"string"},"relation":{"type":"string","enum":["Read","Observe","Depend","ModifyIntent"]},"changeSetId":{"type":"string"},"response":{"type":"string","enum":["PASS","ADAPT","OBJECT"]},"reason":{"type":"string"},"sessionId":{"type":"string"}},"required":["operation"],"additionalProperties":false}"""),
         Spec("packengine_image", "Check actual image backend status. generate uses the separately configured official API after device opt-in and may incur API charges; returns an artifact ID and a native preview, never fake image output. register queues insertion into an existing game/editor pack and an Asset manifest registration as one reviewed change; existing paths are never overwritten. Images are local artifacts, not automatically pushed or synced. If unavailable, state the reason clearly.", "{\"type\":\"object\",\"properties\":{\"operation\":{\"type\":\"string\",\"enum\":[\"status\",\"generate\",\"register\"]},\"prompt\":{\"type\":\"string\"},\"size\":{\"type\":\"string\",\"enum\":[\"1024x1024\",\"1536x1024\",\"1024x1536\"]},\"transparent\":{\"type\":\"boolean\"},\"artifactId\":{\"type\":\"string\"},\"domain\":{\"type\":\"string\",\"enum\":[\"game\",\"editor\"]},\"pack\":{\"type\":\"string\"},\"path\":{\"type\":\"string\"},\"intent\":{\"type\":\"string\"}},\"required\":[\"operation\"],\"additionalProperties\":false}"),
         Spec("packengine_editor", "Read and author the editor-1 packs. list/find returns editor:<pack>/<file>#<object> keys; inspect without view returns pack/file definitions, with view returns live inherited UI. api gives host contracts, native widget capabilities and examples. create proposes new files plus observed-hash registrations as ONE atomic files bundle; expectedHash=absent means create-only. new_pack creates a reviewed project/plugin scaffold, optionally implementation=true, and files can override scaffold contents. read/patch refine the proposal overlay. apply queues review; build/reload/windows/window report actual outcomes or pending-review. Closing windows retains DLLs. Creation never bypasses human review.", "{\"type\":\"object\",\"properties\":{\"operation\":{\"type\":\"string\",\"enum\":[\"list\",\"api\",\"find\",\"inspect\",\"read\",\"create\",\"new_pack\",\"patch\",\"apply\",\"undo\",\"build\",\"reload\",\"windows\",\"window\"]},\"pack\":{\"type\":\"string\"},\"query\":{\"type\":\"string\"},\"path\":{\"type\":\"string\"},\"view\":{\"type\":\"string\"},\"windowId\":{\"type\":\"string\"},\"title\":{\"type\":\"string\"},\"action\":{\"type\":\"string\",\"enum\":[\"register\",\"open\",\"close\",\"unregister\"]},\"startLine\":{\"type\":\"integer\",\"minimum\":1},\"lineCount\":{\"type\":\"integer\",\"minimum\":1,\"maximum\":160},\"expectedHash\":{\"type\":\"string\"},\"oldText\":{\"type\":\"string\"},\"newText\":{\"type\":\"string\"},\"intent\":{\"type\":\"string\"},\"changeId\":{\"type\":\"string\"},\"scope\":{\"type\":\"string\",\"enum\":[\"project\",\"plugin\"]},\"parent\":{\"type\":\"string\"},\"implementation\":{\"type\":\"boolean\"},\"text\":{\"type\":\"string\"},\"files\":{\"type\":\"array\",\"minItems\":1,\"maxItems\":100,\"items\":{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\"},\"text\":{\"type\":\"string\"},\"expectedHash\":{\"type\":\"string\"}},\"required\":[\"path\",\"text\",\"expectedHash\"],\"additionalProperties\":false}}},\"required\":[\"operation\"],\"additionalProperties\":false}"),
         Spec("packengine_find", "Find declared GAME AND EDITOR object IDs or source files by text, optionally within one pack. Returns at most 30 metadata entries, no file contents.", "{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"string\"},\"pack\":{\"type\":\"string\"}},\"required\":[\"query\"],\"additionalProperties\":false}"),
@@ -153,6 +156,7 @@ public sealed partial class AgentWorkspace : IAgentWorkspace, IDisposable
                 case "packengine_editor":
                     if (editorPacks is null) throw new InvalidOperationException("Editor pack access is unavailable in this host.");
                     string answer = await EditorCall(arguments, cancellation).ConfigureAwait(false); Note(tool, subject, Review is not null && Str(arguments, "operation") is "patch" or "create" or "new_pack" or "apply" or "build" or "reload" ? "staged" : "completed"); return answer;
+                case "packengine_collaboration": result = OnUi(() => CollaborationCall(arguments)); break;
                 case "packengine_create":
                     if (Str(arguments, "domain") == "editor") return await EditorCall(arguments, cancellation).ConfigureAwait(false);
                     result = OnUi(() => CreateGameFiles(arguments)); break;
@@ -219,10 +223,7 @@ public sealed partial class AgentWorkspace : IAgentWorkspace, IDisposable
                     int offset = oldText.Length == 0 ? -1 : current.IndexOf(oldText, StringComparison.Ordinal);
                     if (offset < 0 || current.IndexOf(oldText, offset + oldText.Length, StringComparison.Ordinal) >= 0) throw new InvalidDataException("oldText must match exactly once; use enough surrounding text.");
                     var draft = session.Preview(path, current.Substring(0, offset) + replacement + current.Substring(offset + oldText.Length), Str(arguments, "intent")); changes.Add(draft.Id);
-                    if (Review is not null) Review.Stage(new() { Id = draft.Id, Kind = "game", Pack = session.Index.Nodes["file:" + path].Pack, Path = path, Intent = draft.Intent,
-                        Before = Encoding.UTF8.GetString(Convert.FromBase64String(draft.BeforeBytes)).TrimStart('\uFEFF'), After = current.Substring(0, offset) + replacement + current.Substring(offset + oldText.Length),
-                        BeforeHash = draft.BeforeHash, AfterHash = draft.AfterHash, Tool = "packengine_apply", Subject = draft.Id },
-                        () => session.ValidateChange(draft.Id), () => session.Apply(draft.Id), () => session.Apply(draft.Id, true), () => WorkspaceProject.Hash(System.IO.File.ReadAllBytes(session.Project.Resolve(draft.File))));
+                    if (Review is not null) Review.StageProject(draft, session.Index.Nodes["file:" + path].Pack, "packengine_apply", draft.Id);
                     progress?.Invoke(new() { Kind = "preview", Subject = draft.Id, Text = draft.Intent });
                     return new { ChangeId = draft.Id, draft.File, draft.Intent, draft.BeforeHash, draft.AfterHash, Changes = draft.Changes.Take(30).ToArray(), Impact = draft.Impact.Take(40).ToArray(), Applied = false };
                 }); break;
@@ -270,7 +271,16 @@ public sealed partial class AgentWorkspace : IAgentWorkspace, IDisposable
                     break;
                 default: throw new InvalidDataException("Unknown editor tool: " + tool);
             }
-            cancellation.ThrowIfCancellationRequested(); Note(tool, subject, Review is not null && tool is ("packengine_create" or "packengine_patch" or "packengine_apply" or "packengine_build" or "packengine_project") || Review is not null && tool == "packengine_image" && Str(arguments, "operation") == "register" ? "staged" : "completed"); return EditorSession.Serialize(result);
+            cancellation.ThrowIfCancellationRequested(); Note(tool, subject, Review is not null && tool is ("packengine_create" or "packengine_patch" or "packengine_apply" or "packengine_build" or "packengine_project") || Review is not null && tool == "packengine_image" && Str(arguments, "operation") == "register" ? "staged" : "completed"); if (Review is not null)
+            {
+                using var json = JsonDocument.Parse(EditorSession.Serialize(result));
+                if (json.RootElement.ValueKind == JsonValueKind.Object)
+                {
+                    var enriched = json.RootElement.EnumerateObject().ToDictionary(p => p.Name, p => (object)p.Value.Clone(), StringComparer.Ordinal);
+                    enriched["Collaboration"] = OnUi(CollaborationContext); return EditorSession.Serialize(enriched);
+                }
+            }
+            return EditorSession.Serialize(result);
         }
         catch (Exception e) { Note(tool, subject, e is OperationCanceledException ? "cancelled" : "failed", e.Message); throw; }
         finally { gate.Release(); }
