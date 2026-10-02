@@ -31,31 +31,62 @@ function Read-AndroidBuildToolPath([ValidateSet('AndroidSdk', 'JavaSdk')][string
     }
 }
 
+function Read-AndroidBuildSetupChoice {
+    Write-Host '  1. 기본 위치로 준비하기 (권장, Enter)'
+    Write-Host '  2. 기존 설치 폴더 직접 선택하기'
+    Write-Host '  0. 취소'
+    while ($true) {
+        $answer = Read-Host '선택 [1]'
+        if (!$answer -or !$answer.Trim()) { return 1 }
+        if ($answer.Trim() -match '^[012]$') { return [int]$answer.Trim() }
+        Write-Host '1, 2 또는 0을 선택해줘.'
+    }
+}
+
 function Select-AndroidBuildTools {
     param($Tools, [bool]$Interactive, [bool]$InstallRequested)
     $sdk = $Tools.SdkPath
     $java = $Tools.JavaPath
     $sdkReady = $sdk -and (Test-Path -LiteralPath $sdk -PathType Container)
     $javaReady = $Tools.JavaVersion -and $Tools.JavaVersion.Major -eq 21
-    if (!$sdkReady -and !$InstallRequested) {
-        Write-Host 'Android SDK 경로를 찾지 못했어. Studio의 Tools > SDK Manager에서 기존 경로를 확인할 수 있어.'
-        if (Confirm-AndroidBuildAction '기존 SDK 경로를 이 창에서 지정할까?' $Interactive) {
-            $selected = Read-AndroidBuildToolPath AndroidSdk
-            if ($selected) { $sdk = $selected; $sdkReady = $true }
-        }
-    }
-    if (!$javaReady -and !$InstallRequested) {
-        foreach ($found in $Tools.IncompatibleJava) { Write-Host "확인한 다른 JDK: $found" }
-        if ($java) { Write-Host "지정한 JDK 경로: $java" }
-        Write-Host '기존 JDK 21을 찾지 못했어. Studio 설치 폴더의 jbr도 사용할 수 있어.'
-        if (Confirm-AndroidBuildAction '기존 JDK 21 경로를 이 창에서 지정할까?' $Interactive) {
-            $selected = Read-AndroidBuildToolPath JavaSdk
-            if ($selected) { $java = $selected; $javaReady = $true }
-        }
-    }
     if ((!$sdkReady -or !$javaReady) -and !$Interactive -and !$InstallRequested) {
         Show-AndroidBuildStudioGuidance
         throw '빌드 도구가 부족해. 대화형으로 실행하거나 기존 경로와 설치 옵션을 지정해줘.'
+    }
+    if ((!$sdkReady -or !$javaReady) -and $Interactive -and !$InstallRequested) {
+        $missingSdk = !$sdkReady
+        $missingJava = !$javaReady
+        Write-Host ''
+        Write-Host '기본 설치 위치와 기존 도구를 자동으로 확인했어.'
+        if ($missingSdk) {
+            Write-Host '기존 Android SDK를 찾지 못했어. 기본 폴더에 준비할 수 있어.'
+            $sdk = Get-AndroidBuildDefaultToolPath AndroidSdk
+        }
+        if ($missingJava) {
+            Write-Host '사용 가능한 JDK 21을 찾지 못했어. 기본 폴더에 JDK 21을 준비할 수 있어.'
+            foreach ($found in $Tools.IncompatibleJava) { Write-Host "확인한 다른 JDK: $found" }
+            $java = Get-AndroidBuildDefaultToolPath JavaSdk
+        }
+        Write-Host "기본 SDK 준비 위치: $sdk"
+        Write-Host "JDK 준비 위치: $java"
+        Write-Host '경로를 직접 찾지 않아도 이 위치로 준비할 수 있어. 실제 설치 전에 동의를 받을 거야.'
+        $choice = Read-AndroidBuildSetupChoice
+        if ($choice -eq 0) { throw '설정을 취소해서 빌드를 중단했어.' }
+        if ($choice -eq 2) {
+            if ($missingSdk) {
+                Write-Host 'Studio의 Tools > SDK Manager > Android SDK Location에서 기존 경로를 확인할 수 있어.'
+                $selected = Read-AndroidBuildToolPath AndroidSdk
+                if ($selected) { $sdk = $selected }
+            }
+            if ($missingJava) {
+                Write-Host 'Studio 설치 폴더의 jbr도 JDK 21이면 사용할 수 있어.'
+                $selected = Read-AndroidBuildToolPath JavaSdk
+                if ($selected) { $java = $selected }
+            }
+        }
+        $sdkReady = Test-Path -LiteralPath $sdk -PathType Container
+        $version = Get-AndroidBuildJavaVersion $java
+        $javaReady = $version -and $version.Major -eq 21
     }
     if (!$sdk) { $sdk = Get-AndroidBuildDefaultToolPath AndroidSdk }
     if (!$javaReady) {
@@ -68,7 +99,7 @@ function Select-AndroidBuildTools {
                 }
             }
         }
-        if (!$InstallRequested -or !$java) { $java = Get-AndroidBuildDefaultToolPath JavaSdk }
+        if (!$java) { $java = Get-AndroidBuildDefaultToolPath JavaSdk }
     }
     return [pscustomobject]@{
         SdkPath = [IO.Path]::GetFullPath($sdk)

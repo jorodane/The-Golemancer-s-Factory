@@ -42,6 +42,23 @@ function Get-AndroidBuildDefaultToolPath([ValidateSet('AndroidSdk', 'JavaSdk')][
     return Join-Path $localData 'PackEngine/BuildTools/jdk-21'
 }
 
+function Get-AndroidBuildPathJavaCandidates {
+    foreach ($name in @('javac.exe', 'javac', 'java.exe', 'java')) {
+        foreach ($command in @(Get-Command $name -CommandType Application -ErrorAction SilentlyContinue)) {
+            $source = $command.Source
+            # PATH entries may be links or launch shims; use the real JDK home when possible.
+            for ($step = 0; $step -lt 8; $step++) {
+                $file = Get-Item -LiteralPath $source -ErrorAction SilentlyContinue
+                if (!$file -or !$file.Target) { break }
+                $target = @($file.Target)[0]
+                if (![IO.Path]::IsPathRooted($target)) { $target = Join-Path (Split-Path $source -Parent) $target }
+                $source = [IO.Path]::GetFullPath($target)
+            }
+            [pscustomobject]@{ Path = (Split-Path (Split-Path $source -Parent) -Parent); Origin = 'PATH의 기존 JDK' }
+        }
+    }
+}
+
 function Resolve-AndroidBuildEnvironment {
     param([string]$RequestedSdk, [string]$RequestedJava, [bool]$SdkExplicit, [bool]$JavaExplicit)
     $studioRoots = @(Get-AndroidBuildStudioRoots)
@@ -69,12 +86,24 @@ function Resolve-AndroidBuildEnvironment {
     if (!$JavaExplicit) {
         foreach ($studio in $studioRoots) { $javaCandidates += [pscustomobject]@{ Path = (Join-Path $studio 'jbr'); Origin = 'Android Studio 내장 JDK' } }
         if ($env:STUDIO_JDK) { $javaCandidates += [pscustomobject]@{ Path = $env:STUDIO_JDK; Origin = 'STUDIO_JDK' } }
+        $javaCandidates += @(Get-AndroidBuildPathJavaCandidates)
+        foreach ($base in @($env:ProgramFiles, [Environment]::GetEnvironmentVariable('ProgramFiles(x86)'))) {
+            if (!$base) { continue }
+            foreach ($vendor in @('Microsoft', 'Java', 'Eclipse Adoptium', 'OpenJDK')) {
+                foreach ($installed in @(Get-ChildItem -LiteralPath (Join-Path $base $vendor) -Directory -Filter 'jdk*' -ErrorAction SilentlyContinue)) {
+                    $javaCandidates += [pscustomobject]@{ Path = $installed.FullName; Origin = '기본 JDK 설치 위치' }
+                }
+            }
+        }
         $javaCandidates += [pscustomobject]@{ Path = (Get-AndroidBuildDefaultToolPath JavaSdk); Origin = '사용자 빌드용 JDK' }
     }
     $java = $null
     $javaVersion = $null
     $incompatibleJava = @()
+    $checkedJava = @{}
     foreach ($candidate in $javaCandidates) {
+        if ($checkedJava.ContainsKey($candidate.Path)) { continue }
+        $checkedJava[$candidate.Path] = $true
         $version = Get-AndroidBuildJavaVersion $candidate.Path
         if ($JavaExplicit -or ($version -and $version.Major -eq 21)) { $java = $candidate; $javaVersion = $version; break }
         if ($version) { $incompatibleJava += ($candidate.Path + ' (' + $version.Text + ')') }

@@ -10,7 +10,7 @@
 
 Android Studio의 기존 Android SDK와 내장 JDK를 우선 재사용한다. .NET 10 SDK와 `android` workload가 준비된 상태에서 `BuildEditorAndroid.bat`를 실행하면 환경 변수, 기본 SDK 경로, Android Studio 설치 위치를 검사하고 선택한 도구의 경로와 JDK 버전을 화면·로그에 표시한다. 기본 Android SDK는 `%LOCALAPPDATA%\Android\Sdk`, Android Studio의 내장 JDK는 설치 폴더의 `jbr`에서 찾는다. Windows에서는 설치 등록 정보와 PATH에 등록된 Studio 실행 파일도 확인한다.
 
-내장 JDK는 **21 버전**이어야 한다. 이전 Android Studio의 JDK 17 등은 해당 버전을 표시하고 JDK 21 경로를 안내한다. `JAVA_HOME`이 이전 버전을 가리키더라도 자동 탐지 모드에서는 사용 가능한 Studio의 JDK 21을 찾는다. 명시적으로 준 `-AndroidSdk`·`-JavaSdk`는 우선 사용하며, 대화형 설정에서 사용자가 경로를 입력하거나 새 설치 위치에 동의한 경우에만 바꾼다.
+내장 JDK는 **21 버전**이어야 한다. 이전 Android Studio의 JDK 17 등은 해당 버전을 표시한다. `JAVA_HOME`이 이전 버전을 가리키더라도 자동 탐지 모드에서는 사용 가능한 Studio의 JDK 21을 찾는다. PATH에 있는 `java`·`javac`의 실제 설치 위치와 `%ProgramFiles%`의 Microsoft·Java·Eclipse Adoptium·OpenJDK 설치 폴더도 검사하므로, JDK 21이 일반적인 위치에 설치되어 있으면 사용자가 위치를 찾아 입력할 필요가 없다. 명시적으로 준 `-AndroidSdk`·`-JavaSdk`는 우선 사용하며, 대화형 설정에서 사용자가 경로를 입력하거나 새 설치 위치에 동의한 경우에만 바꾼다.
 
 SDK를 별도 위치로 옮겼거나 Studio를 사용자 지정 폴더에 설치했다면 **Tools → SDK Manager → Android SDK Location**에서 기존 SDK 경로를 확인하고 다음과 같이 지정한다.
 
@@ -18,9 +18,11 @@ SDK를 별도 위치로 옮겼거나 Studio를 사용자 지정 폴더에 설치
 .\BuildEditorAndroid.bat -AndroidSdk "D:\Android\Sdk" -JavaSdk "D:\Apps\Android Studio\jbr"
 ```
 
-예시 경로는 실제 설치 위치로 바꾼다. 배치 파일을 보통처럼 실행하면 경로를 찾지 못했을 때 **이 창에서 기존 경로를 지정할지** 묻는다. `y`를 선택하면 경로를 붙여넣을 수 있고 잘못된 경로나 JDK 버전은 다시 확인한다. 명령어를 고쳐서 재실행할 필요가 없다.
+예시 경로는 실제 설치 위치로 바꾼다. 보통은 경로를 직접 찾아갈 필요가 없다. 배치 파일이 기본 설치 위치를 자동으로 검사해 기존 도구를 재사용하고, 도구가 없으면 사용할 기본 SDK·JDK 위치를 먼저 보여준다. **1. 기본 위치로 준비하기**가 권장 선택이며 Enter로 선택할 수 있다. SDK는 `%LOCALAPPDATA%\Android\Sdk`, 새 빌드용 JDK 21은 `%LOCALAPPDATA%\PackEngine\BuildTools\jdk-21`을 사용한다. 이미 찾은 도구는 그 위치에서 계속 재사용한다.
 
-프로젝트에 필요한 Android 플랫폼·Build-Tools 등이 부족하면 사용할 SDK·JDK 위치와 구성 요소를 보여주고 **설치한 뒤 빌드를 계속할지** 묻는다. Android SDK 라이선스 동의를 포함해 `y`를 선택한 경우에만 `InstallAndroidDependencies`를 실행하고 설치 결과를 확인한 뒤 APK 빌드를 이어간다. 기본 선택은 거부이며 Enter 또는 `n`은 설치를 진행하지 않는다. 기존 JDK 21은 재사용한다. 새 JDK가 필요하면 `%LOCALAPPDATA%\PackEngine\BuildTools\jdk-21`에 설치하고 다음 실행부터 자동 탐지한다. 기존 Studio의 `jbr`나 이전 JDK는 자동 설치로 덮어쓰지 않는다. SDK 기본 설치 위치는 `%LOCALAPPDATA%\Android\Sdk`다.
+사용자 지정 설치를 재사용하려는 경우에만 **2. 기존 설치 폴더 직접 선택하기**를 고른다. 같은 창에서 경로를 붙여넣고 잘못된 경로나 JDK 버전은 다시 확인한다. 경로 입력을 건너뛰면 화면에 표시한 기본 준비 위치를 사용한다. **0. 취소**는 설치와 빌드를 중단한다.
+
+프로젝트에 필요한 Android 플랫폼·Build-Tools 등이 부족하면 사용할 SDK·JDK 위치와 구성 요소를 보여주고 **설치한 뒤 빌드를 계속할지** 묻는다. 기본 위치를 고르는 것과 설치 동의는 별개다. Android SDK 라이선스 동의를 포함해 `y`를 선택한 경우에만 `InstallAndroidDependencies`를 실행하고 설치 결과를 확인한 뒤 APK 빌드를 이어간다. 이 설치 질문의 기본 선택은 거부이며 Enter 또는 `n`은 설치를 진행하지 않는다. 설치한 기본 도구는 다음 실행부터 자동 탐지한다. 기존 Studio의 `jbr`나 이전 JDK는 자동 설치로 덮어쓰지 않는다.
 
 SDK 구성 요소는 기존 SDK의 **SDK Manager**에서 직접 추가할 수도 있다. .NET SDK/workload는 별도로 필요하며 Android Studio의 APK 빌드 버튼 대신 이 프로젝트의 빌드 스크립트를 사용한다. Studio의 SDK Manager와 에뮬레이터는 그대로 사용할 수 있다.
 
