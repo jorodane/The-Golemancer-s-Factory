@@ -35,6 +35,13 @@ try
     Layout("A project.packproject"); File.Delete(editor);
     await Reject(() => Task.FromResult(LauncherLayout.Load(root, Array.Empty<string>())), "missing editor is reported before dependency installation"); File.WriteAllText(editor, "fixture");
 
+    Layout("Missing game.packproject");
+    Check(LauncherLayout.Load(root, Array.Empty<string>()).Project.Length == 0, "missing optional default game opens standalone instead of failing preparation");
+    new XDocument(new XElement("Launcher", new XAttribute("version", 1), new XAttribute("editor", "editor/Builds/Windows/PackEngine.Editor.exe"))).Save(config);
+    Check(LauncherLayout.Load(root, Array.Empty<string>()).Project.Length == 0, "standalone launcher accepts a distribution without any default game");
+    await Reject(() => Task.FromResult(LauncherLayout.Load(root, new[] { Path.Combine(root, "missing.packproject") })), "a missing explicitly requested project is still reported");
+    Layout("A project.packproject");
+
     string nodeFolder = Path.Combine(root, "New Node Installation");
     string? registeredPath = null;
     var paths = CodexInstallation.MergeDirectories(new[] { root, '"' + root + '"', "", "relative/path" }, Path.PathSeparator);

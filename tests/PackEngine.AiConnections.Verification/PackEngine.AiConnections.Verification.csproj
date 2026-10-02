@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../editor/PackEngine.Assistant.Api/PackEngine.Assistant.Api.csproj" />
+    <ProjectReference Include="../../editor/PackEngine.EditorPacks/PackEngine.EditorPacks.csproj" />
+  </ItemGroup>
+</Project>

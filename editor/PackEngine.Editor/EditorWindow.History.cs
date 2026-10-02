@@ -11,8 +11,8 @@ public sealed partial class EditorWindow
     private readonly ComboBox historyProjects = new() { MinWidth = 220, Margin = new Thickness(3) };
     private readonly ListBox historyThreads = new() { Background = BackgroundInk, Foreground = TextInk, MinHeight = 140, Margin = new Thickness(3) };
     private readonly ListBox webChats = new() { Background = BackgroundInk, Foreground = TextInk, MinHeight = 120, MaxHeight = 230, Margin = new Thickness(3) };
-    private readonly CheckBox autoConnect = Setting("시작할 때 Codex 자동 연결"), connectionAccess = Setting("Codex 연결 허용"),
-        projectAccess = Setting("이 프로젝트에서 Codex 사용"), historyAccess = Setting("대화 기록 열기·이어가기 허용"), threadAccess = Setting("선택한 대화 접근 허용");
+    private readonly CheckBox autoConnect = Setting("시작할 때 에디터 AI 자동 연결"), connectionAccess = Setting("에디터 AI 연결 허용"),
+        projectAccess = Setting("이 프로젝트에서 에디터 AI 사용"), historyAccess = Setting("대화 기록 열기·이어가기 허용"), threadAccess = Setting("선택한 대화 접근 허용");
     private readonly TextBlock accountDetails = Label("계정 상태를 아직 확인하지 않았어.", 12, MutedInk), historyStatus = Label("Codex를 연결하면 대화 목록을 볼 수 있어.", 12, MutedInk),
         conversationTitle = Label("새 대화", 12, AccentInk);
     private readonly List<AssistantThread> threadItems = [];
@@ -104,7 +104,7 @@ public sealed partial class EditorWindow
     private void ScheduleAutoConnect()
     {
         var opened = session;
-        Dispatcher.BeginInvoke(new Action(() => { if (ReferenceEquals(session, opened) && !busy && !WebMode && conversation?.Mode == "local" && CurrentAccess is { } access && assistantSettings.ShouldConnect(access) && provider is null) ConnectCodex(); }));
+        Dispatcher.BeginInvoke(new Action(() => { if (ReferenceEquals(session, opened) && !busy && aiConnections.Editor.Enabled && studioReady && CurrentAccess is { } access && assistantSettings.ShouldConnect(access) && provider is null) _ = ConnectSelectedEditorAi(); }));
     }
     private void RefreshAccessControls()
     {
@@ -121,7 +121,7 @@ public sealed partial class EditorWindow
     private void ResetResidentConnection()
     {
         provider?.Dispose(); provider = null; providerWebExecutor = false; models.ItemsSource = null; streamMessages.Clear(); transcript.Children.Clear(); historyMessages.Clear(); messageCursor = ""; lastRequest = null; RefreshContext();
-        providerLabel.Text = "Codex 미연결"; accountDetails.Text = "연결 상태를 다시 확인해줘."; submit.Content = "보내기"; conversationTitle.Text = "새 대화";
+        providerLabel.Text = aiConnections.Editor.Name + " · 미연결"; accountDetails.Text = "연결 상태를 다시 확인해줘."; submit.Content = "보내기"; conversationTitle.Text = "새 대화";
         if (!assistantSettings.ConnectionEnabled || CurrentAccess?.Enabled != true) { providerLabel.Text = "Codex 접근 차단"; accountDetails.Text = "설정에서 Codex 사용을 허용하면 연결할 수 있어."; }
     }
     private void SetHistoryBusy(bool value)

@@ -17,7 +17,7 @@ namespace PackEngine.Editor.Android;
 
 [Activity(Name = "com.packengine.editor.MainActivity", Label = "Project Studio", MainLauncher = true, Exported = true,
     Theme = "@android:style/Theme.Material.Light.NoActionBar", ConfigurationChanges = ConfigChanges.Orientation | ConfigChanges.ScreenSize | ConfigChanges.KeyboardHidden)]
-public sealed class MainActivity : Activity
+public sealed partial class MainActivity : Activity
 {
     private readonly CancellationTokenSource lifetime = new();
     private readonly SemaphoreSlim operation = new(1, 1);
@@ -40,6 +40,7 @@ public sealed class MainActivity : Activity
         layout.SetOnApplyWindowInsetsListener(new InsetsPadding());
         Window?.SetSoftInputMode(SoftInput.AdjustResize);
         layout.AddView(new TextView(this) { Text = "Project Studio · Android", TextSize = 22 });
+        AddAiToolbar(layout);
         toolbar = new(this) { Orientation = Orientation.Horizontal };
         var strip = new HorizontalScrollView(this); strip.AddView(toolbar); layout.AddView(strip);
         AddButton("XML 문서", Documents); AddButton("팩 재적용", () => Work(Reload));
@@ -50,14 +51,14 @@ public sealed class MainActivity : Activity
             await Apply(lastChange, undo: true);
         }));
         status = new(this) { TextSize = 14 }; layout.AddView(status);
-        Panels = new(this) { Orientation = Orientation.Vertical };
+        Panels = new(this) { Orientation = Orientation.Vertical }; Panels.AddView(welcome);
         var scroll = new ScrollView(this); scroll.AddView(Panels);
         layout.AddView(scroll, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, 0, 1)); SetContentView(layout);
         try
         {
             string saved = Path.Combine(root, "window-state.json");
             if (File.Exists(saved)) SavedStates = JsonSerializer.Deserialize<Dictionary<string, EditorWindowState>>(File.ReadAllText(saved)) ?? new(StringComparer.Ordinal);
-            InstallAssets("Packs"); InstallAssets("Plugins"); await WorkAsync(Reload);
+            InstallAssets("Packs"); InstallAssets("Plugins"); PrepareAiConnections(); await WorkAsync(Reload);
         }
         catch (Exception e) { Report(e.Message); }
     }
@@ -69,7 +70,7 @@ public sealed class MainActivity : Activity
         .Concat(EditorPackSource.Discover(Path.Combine(root, "Plugins"), "plugin")).ToArray();
     private async Task Reload()
     {
-        var next = await EditorPackRuntime.Prepare(host, Sources(), lifetime.Token, runtime);
+        var next = await EditorPackRuntime.Prepare(host, ActiveSources(), lifetime.Token, runtime);
         Publish(next); Report($"에디터팩 {next.Hashes.Count}개 · 모듈 {next.Modules.Count}개를 적용했어.");
     }
     private void Publish(EditorPackRuntime next)
@@ -167,6 +168,7 @@ public sealed class MainActivity : Activity
     private async void Work(Func<Task> action) => await WorkAsync(action);
     private async Task WorkAsync(Func<Task> action)
     {
+        if (aiWorking) { Report("진행 중인 AI 요청을 마치거나 취소해줘."); return; }
         try
         {
             await operation.WaitAsync(lifetime.Token);
@@ -202,7 +204,7 @@ public sealed class MainActivity : Activity
         catch (IOException) { }
     }
     protected override void OnPause() { SaveWindowState(); base.OnPause(); }
-    protected override void OnDestroy() { lifetime.Cancel(); windows.Dispose(); SaveWindowState(); runtime?.Dispose(); base.OnDestroy(); }
+    protected override void OnDestroy() { lifetime.Cancel(); aiTurn?.Cancel(); editorAi?.Dispose(); studioRunner?.Dispose(); CloseConversationAi(); windows.Dispose(); SaveWindowState(); runtime?.Dispose(); base.OnDestroy(); }
 
 #pragma warning disable CA1422, CS0618 // Framework document picker supports the app's API 26 deployment minimum.
     private void ImportPicker() => StartActivityForResult(new Intent(Intent.ActionOpenDocument).SetType("application/zip").AddCategory(Intent.CategoryOpenable), 1);
@@ -242,7 +244,7 @@ public sealed class MainActivity : Activity
             try
             {
                 if (!await approval.Task.WaitAsync(lifetime.Token)) return;
-                var sources = Sources().Where(s => s.Id != imported.Id).Append(imported).ToArray();
+                var sources = EditorPackSelection.WithDependencies(Sources().Where(s => s.Id != imported.Id).Append(imported).ToArray(), imported.Id);
                 var next = await EditorPackRuntime.Prepare(host, sources, lifetime.Token, runtime);
                 string destination = Path.Combine(root, "Plugins", imported.Id), backup = Path.Combine(root, "ImportBackups", imported.Id + "-" + Guid.NewGuid().ToString("N"));
                 Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
@@ -263,6 +265,7 @@ public sealed class MainActivity : Activity
                     if (marked) File.Delete(marker);
                     throw;
                 }
+                aiConnections.SelectedPack = imported.Id; aiConnections.SetupCompleted = true; SaveAiConnections(); editorAi?.NewConversation(); aiTranscript = "";
                 Report("팩을 설치하고 적용했어: " + imported.Id);
             }
             finally { if (Directory.Exists(stage)) Directory.Delete(stage, true); }

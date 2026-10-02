@@ -94,12 +94,12 @@ public sealed partial class EditorWindow
     private void AddResidentControls(StackPanel parent)
     {
         parent.Children.Add(conversationModeLabel);
-        var modes = new WrapPanel(); modes.Children.Add(Action("ChatGPT 대화", UseEmbeddedChat)); modes.Children.Add(Action("로컬 Codex 대화", UseLocalChat)); parent.Children.Add(modes);
+        var modes = new WrapPanel(); modes.Children.Add(Action("대화 AI 열기", UseEmbeddedChat)); modes.Children.Add(Action("에디터 AI 대화", UseLocalChat)); parent.Children.Add(modes);
         parent.Children.Add(Action("이 PC의 대화 폴더", OpenConversationFolder));
         parent.Children.Add(Action("ChatGPT 열기", OpenChatGpt));
         parent.Children.Add(Action("에디터 연결", () => tabs.SelectedIndex = 6));
-        var panel = new StackPanel(); parent.Children.Add(new Expander { Header = "에디터 안에서 Codex 대화", Foreground = TextInk, Margin = new Thickness(4), Content = panel });
-        panel.Children.Add(Label("Codex 작업 세션", 13, AccentInk));
+        var panel = new StackPanel(); parent.Children.Add(new Expander { Header = "에디터 AI 작업 세션", Foreground = TextInk, Margin = new Thickness(4), Content = panel });
+        panel.Children.Add(Label("에디터 AI 작업 세션", 13, AccentInk));
         codexPath.ToolTip = "선택 사항: 네이티브 codex.exe 경로. 비워 두면 StartEditor가 준비한 설치 위치나 PATH에서 찾아.";
         codexPath.MaxWidth = 250;
         var advanced = new StackPanel(); advanced.Children.Add(Label("Codex 실행 경로 · 비워 두면 자동 탐색", 11, MutedInk)); advanced.Children.Add(codexPath);
@@ -107,14 +107,14 @@ public sealed partial class EditorWindow
         panel.Children.Add(new Expander { Header = "고급 연결 설정", Foreground = TextInk, Margin = new Thickness(4), Content = advanced });
         string preferences = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PackEngine", "codex-path.txt");
         if (File.Exists(preferences)) codexPath.Text = File.ReadAllText(preferences).Trim();
-        var row = new WrapPanel(); row.Children.Add(Action("Codex 연결", ConnectCodex)); row.Children.Add(Action("ChatGPT 로그인", LoginCodex)); panel.Children.Add(row);
+        var row = new WrapPanel(); row.Children.Add(Action("AI 연결 · 전환", ShowEditorAiSetup)); row.Children.Add(Action("ChatGPT 로그인", LoginCodex)); panel.Children.Add(row);
         var second = new WrapPanel(); second.Children.Add(Action("연결 확인", RefreshCodex)); second.Children.Add(Action("새 대화", NewCodexConversation));
         panel.Children.Add(second); panel.Children.Add(models);
         panel.Children.Add(Action("대화 목록·접근 설정", () => tabs.SelectedIndex = 5));
-        models.SelectionChanged += (_, _) => { if (provider is IResidentAssistant agent && models.SelectedItem is AssistantModel model) agent.Model = model.Id; };
-        panel.Children.Add(Label("로컬 방식을 선택하면 시작 시 자동 연결해. 대화 원본은 게임팩에 저장하고, 로그인은 이 PC의 Codex를 사용해.", 11, MutedInk));
+        models.SelectionChanged += (_, _) => { if (provider is IResidentAssistant agent && models.SelectedItem is AssistantModel model) { agent.Model = model.Id; if (aiConnections.Editor.IsApi) { aiConnections.Editor.Model = model.Id; SaveAiConnections(); } } };
+        panel.Children.Add(Label("연결 설정과 계정은 이 기기에서 재사용해. API 대화는 현재 창에서만 이어가고, Codex 대화는 별도 기록을 사용해.", 11, MutedInk));
     }
-    private async void ConnectCodex() => await ConnectCodexAsync(WebMode);
+    private void ConnectCodex() { if (aiConnections.Editor.Provider != "codex") ShowEditorAiSetup(); else _ = ConnectSelectedEditorAi(WebMode); }
     private PackEngine.Installation.CodexConnectionResult CodexConnectionFailed(string reason, bool needsNode = false, bool cancelled = false)
     {
         providerLabel.Text = cancelled ? "연결 취소됨" : "연결 준비 필요 · 다시 시도 가능"; accountDetails.Text = reason;
@@ -175,6 +175,7 @@ public sealed partial class EditorWindow
     }
     private async void LoginCodex()
     {
+        if (aiConnections.Editor.Provider != "codex") { ShowEditorAiSetup(); return; }
         if (busy || provider is not IResidentAssistant agent) { SetStatus("먼저 Codex를 연결해줘."); return; }
         SetBusy(true); operation = new();
         try
@@ -189,7 +190,7 @@ public sealed partial class EditorWindow
     {
         if (busy || provider is not IResidentAssistant agent) return;
         SetBusy(true); operation = new();
-        try { var account = await agent.AccountAsync(operation.Token); ShowAccount(account); if (account.Type == "chatgpt") { await LoadModels(agent, operation.Token); codexConnectionNotice.Visibility = Visibility.Collapsed; } else ShowCodexConnectionNotice("작업하려면 ‘ChatGPT 로그인’을 눌러 이 PC의 Codex에 로그인해줘.", needsLogin: true); await RefreshThreadList(operation.Token); }
+        try { var account = await agent.AccountAsync(operation.Token); ShowAccount(account); if (account.Type is "chatgpt" or "api") { await LoadModels(agent, operation.Token); codexConnectionNotice.Visibility = Visibility.Collapsed; } else ShowCodexConnectionNotice("작업하려면 ‘ChatGPT 로그인’을 눌러 이 PC의 Codex에 로그인해줘.", needsLogin: true); await RefreshThreadList(operation.Token); }
         catch (Exception e) { SetStatus(e.Message); AppendLog(e.Message); }
         finally { operation?.Dispose(); operation = null; SetBusy(false); }
     }
@@ -201,7 +202,7 @@ public sealed partial class EditorWindow
         {
             if (!streamMessages.TryGetValue(update.Subject, out var block))
             {
-                block = Label("", 14); var group = new StackPanel(); group.Children.Add(Label("Codex", 12, AccentInk)); group.Children.Add(block);
+                block = Label("", 14); var group = new StackPanel(); group.Children.Add(Label(provider?.Name ?? "에디터 AI", 12, AccentInk)); group.Children.Add(block);
                 transcript.Children.Add(new Border { Background = BackgroundInk, Padding = new Thickness(12), CornerRadius = new CornerRadius(8), Margin = new Thickness(0, 6, 0, 10), Child = group }); streamMessages[update.Subject] = block;
             }
             block.Text = update.Kind == "delta" ? block.Text + update.Text : update.Text; return;

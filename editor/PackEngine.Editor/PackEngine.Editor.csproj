@@ -4,6 +4,7 @@
     <EmbeddedResource Include="ChatComposerAttachment.js" />
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4258.31" />
     <ProjectReference Include="../PackEngine.Workspace/PackEngine.Workspace.csproj" /><ProjectReference Include="../PackEngine.EditorPacks/PackEngine.EditorPacks.csproj" />
+    <ProjectReference Include="../PackEngine.Assistant.Api/PackEngine.Assistant.Api.csproj" />
     <Compile Include="../Shared/EditorStartMode.cs" Link="EditorStartMode.cs" />
     <Compile Include="../Shared/CodexInstallation.cs" Link="CodexInstallation.cs" />
     <Compile Include="../Shared/CodexBootstrap.cs" Link="CodexBootstrap.cs" />

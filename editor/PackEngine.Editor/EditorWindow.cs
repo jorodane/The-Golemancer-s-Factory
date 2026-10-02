@@ -41,7 +41,7 @@ public sealed partial class EditorWindow : Window
         var brand = new StackPanel(); brand.Children.Add(projectLabel); brand.Children.Add(Label("OBJECT PACKS  /  CONTEXT  /  BUILD", 10, MutedInk)); DockPanel.SetDock(brand, Dock.Left); top.Children.Add(brand);
         var actions = new WrapPanel { HorizontalAlignment = HorizontalAlignment.Right };
         var primary = new WrapPanel { HorizontalAlignment = HorizontalAlignment.Right };
-        primary.Children.Add(Action("새 게임팩", CreateGameProject)); primary.Children.Add(Action("게임팩 열기", ChooseProject));
+        AddAiMenus(primary); primary.Children.Add(Action("새 게임팩", CreateGameProject)); primary.Children.Add(Action("게임팩 열기", ChooseProject));
         var builds = new Expander { Header = "빌드 · 실행", Foreground = TextInk, Content = actions, Margin = new Thickness(6) }; primary.Children.Add(builds); actions.Children.Add(targets);
         actions.Children.Add(Action("팩 빌드", () => Work(() => runner!.BuildPack(SelectedPack(), Target, operation!.Token)), true));
         actions.Children.Add(Action("프로젝트 빌드", () => Work(() => runner!.BuildProject(Target, operation!.Token)), true));
@@ -121,7 +121,8 @@ public sealed partial class EditorWindow : Window
     }
     private void SetBusy(bool value)
     {
-        busy = value; foreach (var button in actionButtons) button.IsEnabled = !busy && session is not null;
+        busy = value; foreach (var button in actionButtons) button.IsEnabled = !busy && session is not null && !Standalone;
+        aiMenu.IsEnabled = !busy && !sharingTaskExecuting;
         submit.IsEnabled = !busy && session is not null; editor.IsReadOnly = busy || activeDocument is null || session?.CanEdit(activeDocument.Path) != true;
         targets.IsEnabled = !busy; tree.IsEnabled = !busy; openDocs.IsEnabled = !busy; models.IsEnabled = !busy;
         codexPath.IsEnabled = !busy; SetHistoryBusy(busy); SetChatGptBusy(busy);
@@ -143,6 +144,7 @@ public sealed partial class EditorWindow : Window
     private void ChooseProject()
     {
         if (busy) return;
+        ReadyForPackSelection();
         var dialog = new OpenFileDialog { Title = "프로젝트 열기", Filter = "PackEngine 프로젝트|*.packproject" };
         if (dialog.ShowDialog(this) == true) OpenProject(dialog.FileName);
     }
@@ -161,7 +163,7 @@ public sealed partial class EditorWindow : Window
         targets.ItemsSource = session.Project.Targets.Select(t => t.Id).ToArray(); targets.SelectedItem = runner.PreferredTarget;
         transcript.Children.Clear(); Message("프로젝트", session.Project.Name + "을 열었어. 팩과 문서를 골라서 작업을 시작해.");
         pointingMode.SelectedIndex = 0; models.ItemsSource = null; submit.Content = "보내기"; RefreshProject(); RebuildDocuments(); SetBusy(false); RefreshPointing();
-        preferWeb = false; RegisterProject(); RefreshWebProject(); ApplyConversationMode(); EditorPackProjectChanged();
+        RegisterProject(); RefreshWebProject(); ApplyConversationMode(); EditorPackProjectChanged();
     });
     private void RefreshProject()
     {
@@ -249,7 +251,7 @@ public sealed partial class EditorWindow : Window
             if (CurrentAccess is { } current && (!assistantSettings.ConnectionEnabled || !current.Enabled) && provider is not null)
                 throw new InvalidOperationException("이 프로젝트의 Codex 접근이 차단되어 있어.");
             if (provider is null || provider is IResidentAssistant { IsConnected: false })
-                if (!(await ConnectCodexAsync()).Connected) return;
+                if (!await ConnectSelectedEditorAi()) return;
             if (provider is IResidentAssistant && CurrentAccess?.HistoryEnabled == false) transcript.Children.Clear();
             lastRequest = session.PrepareContext(text); CaptureAgentScope(lastRequest); Message("나", text); prompt.Clear(); RefreshContext();
             SetBusy(true); operation = new();

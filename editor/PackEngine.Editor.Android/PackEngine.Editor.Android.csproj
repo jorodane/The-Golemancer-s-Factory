@@ -15,6 +15,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../PackEngine.EditorPacks/PackEngine.EditorPacks.csproj" AdditionalProperties="EngineTargetFramework=net10.0" />
+    <ProjectReference Include="../PackEngine.Assistant.Api/PackEngine.Assistant.Api.csproj" AdditionalProperties="EngineTargetFramework=net10.0" />
     <ProjectReference Include="../Packs/CoreTools/PackEngine.Editor.CoreTools.csproj;../examples/MobileLab/PackEngine.Editor.MobileLab.csproj" AdditionalProperties="EngineTargetFramework=net10.0" ReferenceOutputAssembly="false" />
     <AndroidAsset Include="../Packs/CoreTools/*.xml;../Packs/CoreTools/*.cs;../Packs/CoreTools/*.csproj"><Link>Packs/CoreTools/%(Filename)%(Extension)</Link></AndroidAsset>
     <AndroidAsset Include="../Packs/CoreTools/Bin/net10.0/PackEngine.Editor.CoreTools.dll"><Link>Packs/CoreTools/Bin/net10.0/PackEngine.Editor.CoreTools.dll</Link></AndroidAsset>

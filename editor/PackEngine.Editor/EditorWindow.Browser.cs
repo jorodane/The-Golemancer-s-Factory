@@ -27,9 +27,9 @@ public sealed partial class EditorWindow
     private ProjectConversation? connectingProfile;
     private string connectingManifest = "", connectingTitle = "", requestedChat = "";
     private bool chatConfigured, connectionConfigured;
-    private bool webInitializing, webDisposed, detailedWorkspace, preferWeb;
+    private bool webInitializing, webDisposed, detailedWorkspace;
 
-    private bool WebMode => preferWeb || conversation?.Mode != "local";
+    private bool WebMode => aiConnections.Conversation.Enabled && !localAiVisible;
     private void AddBrowserWorkspace(Grid root, Grid body, UIElement output, Expander builds)
     {
         nativeBody = body; nativeOutput = output; buildOptions = builds;
@@ -42,7 +42,7 @@ public sealed partial class EditorWindow
         var web = new DockPanel { Background = PanelInk };
         var header = new StackPanel { Margin = new Thickness(9) };
         var buttons = new WrapPanel();
-        buttons.Children.Add(Action("ChatGPT", () => NavigateChat("https://chatgpt.com/")));
+        buttons.Children.Add(Action("대화 AI 시작 화면", () => NavigateConversation(aiConnections.Conversation.Home)));
         buttons.Children.Add(Action("뒤로", () => Guard(() => { if (browser.CoreWebView2?.CanGoBack == true) browser.CoreWebView2.GoBack(); })));
         buttons.Children.Add(Action("새로고침", () => Guard(() => browser.CoreWebView2?.Reload())));
         connectCurrent = Action("대화 주소 저장", BeginWebConnection); connectCurrent.ToolTip = "다음에 같은 대화를 열 수 있도록 주소를 저장합니다. 에디터 작업 연결은 ‘에디터 연결’을 사용합니다."; buttons.Children.Add(connectCurrent);
@@ -55,7 +55,7 @@ public sealed partial class EditorWindow
         var workspace = new DockPanel(); Grid.SetColumn(workspace, 2); webLayout.Children.Add(workspace);
         var workspaceHeader = new WrapPanel { Margin = new Thickness(8) };
         detailsButton = Action("작업 도구 펼치기", () => { detailedWorkspace = !detailedWorkspace; ApplyBrowserLayout(); }); workspaceHeader.Children.Add(detailsButton);
-        workspaceHeader.Children.Add(Action("ChatGPT 대화", UseEmbeddedChat)); workspaceHeader.Children.Add(Action("로컬 Codex 대화", UseLocalChat));
+        workspaceHeader.Children.Add(Action("대화 AI 열기", UseEmbeddedChat)); workspaceHeader.Children.Add(Action("에디터 AI 대화", UseLocalChat));
         DockPanel.SetDock(workspaceHeader, Dock.Top); workspace.Children.Add(workspaceHeader);
         var main = new Grid(); main.Children.Add(body); welcomeView.Content = welcome; main.Children.Add(welcomeView); workspace.Children.Add(main); AddSharingControls(header, main);
         ShowBrowserFallback("웹 대화를 준비하고 있어.", false);
@@ -66,7 +66,7 @@ public sealed partial class EditorWindow
     private void ApplyBrowserLayout()
     {
         if (webLayout is null || nativeBody is null) return;
-        bool web = WebMode, detailed = detailedWorkspace || !web;
+        bool web = WebMode, detailed = studioReady && (detailedWorkspace || !web && !Standalone);
         localComposer.Visibility = web ? Visibility.Collapsed : Visibility.Visible;
         if (tabs.Items.Count > 0 && tabs.Items[0] is TabItem localTab) localTab.Visibility = web ? Visibility.Collapsed : Visibility.Visible;
         webLayout.Children[0].Visibility = web ? Visibility.Visible : Visibility.Collapsed;
@@ -77,7 +77,7 @@ public sealed partial class EditorWindow
         nativeBody.Visibility = detailed ? Visibility.Visible : Visibility.Collapsed;
         welcomeView.Visibility = detailed ? Visibility.Collapsed : Visibility.Visible;
         detailsButton!.Content = detailed ? "작업 도구 접기" : "작업 도구 펼치기";
-        detailsButton.Visibility = web ? Visibility.Visible : Visibility.Collapsed;
+        detailsButton.Visibility = web || Standalone ? Visibility.Visible : Visibility.Collapsed;
         buildOptions!.Visibility = detailed ? Visibility.Visible : Visibility.Collapsed;
         nativeOutput!.Visibility = detailed ? Visibility.Visible : Visibility.Collapsed;
         if (editorRoot is not null) editorRoot.RowDefinitions[2].Height = detailed ? detailedLogHeight : new GridLength(0);
@@ -90,36 +90,42 @@ public sealed partial class EditorWindow
         pendingWebConnection = null; connectingProfile = null;
         connectionBrowser.Visibility = Visibility.Collapsed; browser.Visibility = Visibility.Visible; returnToChat!.Visibility = Visibility.Collapsed;
         welcome.Children.Clear();
-        welcome.Children.Add(Label(session is null ? "대화하면서 시작해." : session.Project.Name, 26));
-        welcome.Children.Add(Label(session is null ? "왼쪽에서 평소처럼 로그인하고 대화해. 작업할 게임팩은 새로 만들거나 열면 돼." : "‘에디터 연결’을 누르면 이 대화에서 객체와 문서를 공유하고 Codex에게 작업을 맡길 수 있어.", 15, MutedInk));
-        var actions = new WrapPanel { Margin = new Thickness(0, 16, 0, 16) };
-        actions.Children.Add(Action("새 게임팩", CreateGameProject)); actions.Children.Add(Action("게임팩 열기", ChooseProject)); welcome.Children.Add(actions);
-        if (session is not null)
+        if (Standalone || session is null) AddStudioWelcome();
+        else
         {
-            var urls = conversation is null ? (ProjectUrl: "", ChatUrl: "") : ConversationLinkMetadata.Read(conversation);
-            if (urls.ProjectUrl.Length + urls.ChatUrl.Length > 0)
+            welcome.Children.Add(Label(session is null ? "대화하면서 시작해." : session.Project.Name, 26));
+            welcome.Children.Add(Label(session is null ? "왼쪽에서 평소처럼 로그인하고 대화해. 작업할 게임팩은 새로 만들거나 열면 돼." : ChatGptWeb ? "‘에디터 연결’을 누르면 객체와 문서를 공유하고 선택한 에디터 AI에게 작업을 맡길 수 있어." : "팩을 선택해서 작업해. 에디터 AI 대화와 웹 대화는 각각 이어갈 수 있어.", 15, MutedInk));
+            var actions = new WrapPanel { Margin = new Thickness(0, 16, 0, 16) };
+            actions.Children.Add(Action("새 게임팩", CreateGameProject)); actions.Children.Add(Action("게임팩 열기", ChooseProject)); welcome.Children.Add(actions);
+            if (session is not null)
             {
-                welcome.Children.Add(Label("저장된 연결", 14, AccentInk));
-                if (urls.ChatUrl.Length > 0) welcome.Children.Add(Action("연결된 대화 열기", () => NavigateChat(urls.ChatUrl)));
-                if (urls.ProjectUrl.Length > 0) welcome.Children.Add(Action("연결된 프로젝트 열기", () => NavigateChat(urls.ProjectUrl)));
-            }
-            welcome.Children.Add(Label("게임팩의 객체", 15));
-            foreach (var pack in session.Index.Packs.Take(12))
-            {
-                string packId = pack.Id;
-                welcome.Children.Add(Action(packId, () => { detailedWorkspace = true; ApplyBrowserLayout(); Guard(() => SelectNode("pack:" + packId)); }));
+                var urls = conversation is null ? (ProjectUrl: "", ChatUrl: "") : ConversationLinkMetadata.Read(conversation);
+                if (urls.ProjectUrl.Length + urls.ChatUrl.Length > 0)
+                {
+                    welcome.Children.Add(Label("저장된 연결", 14, AccentInk));
+                    if (urls.ChatUrl.Length > 0) welcome.Children.Add(Action("연결된 대화 열기", () => NavigateChat(urls.ChatUrl)));
+                    if (urls.ProjectUrl.Length > 0) welcome.Children.Add(Action("연결된 프로젝트 열기", () => NavigateChat(urls.ProjectUrl)));
+                }
+                welcome.Children.Add(Label("게임팩의 객체", 15));
+                foreach (var pack in session.Index.Packs.Take(12))
+                {
+                    string packId = pack.Id;
+                    welcome.Children.Add(Action(packId, () => { detailedWorkspace = true; ApplyBrowserLayout(); Guard(() => SelectNode("pack:" + packId)); }));
+                }
             }
         }
-        webStatus.Text = session is null ? "로그인하고 대화를 시작해." : "현재 게임팩 · " + session.Project.Name;
+        webStatus.Text = aiConnections.Conversation.Enabled ? aiConnections.Conversation.Name + " · 웹 로그인은 해당 서비스에서 확인해." : "대화 AI 미연결";
         ApplyBrowserLayout(); RefreshBrowserAddress();
         if (WebMode && IsLoaded && !chatConfigured) _ = InitializeBrowser();
     }
     private void RefreshBrowserAddress()
     {
         if (webDisposed) return;
+        if (connectCurrent is not null) connectCurrent.Visibility = ChatGptWeb ? Visibility.Visible : Visibility.Collapsed;
+        if (sharingTools is not null) sharingTools.Visibility = ChatGptWeb ? Visibility.Visible : Visibility.Collapsed;
         var urls = WebConversationConnection.Observe(browser.Source?.AbsoluteUri);
         webAddress.Text = browser.Source?.GetLeftPart(UriPartial.Path) ?? "chatgpt.com";
-        if (connectCurrent is not null) connectCurrent.IsEnabled = !busy && session is not null && (urls.ProjectUrl.Length + urls.ChatUrl.Length > 0) && pendingWebConnection is null;
+        if (connectCurrent is not null) connectCurrent.IsEnabled = ChatGptWeb && !busy && session is not null && (urls.ProjectUrl.Length + urls.ChatUrl.Length > 0) && pendingWebConnection is null;
     }
     private void ShowBrowserFallback(string message, bool failed)
     {
@@ -129,7 +135,7 @@ public sealed partial class EditorWindow
         {
             webFallback.Children.Add(Action("다시 열기", async () => await InitializeBrowser()));
             webFallback.Children.Add(Action("웹 실행 구성 요소 설치", InstallWebRuntime));
-            webFallback.Children.Add(Action("브라우저에서 ChatGPT 열기", () => OpenUrl("https://chatgpt.com/")));
+            webFallback.Children.Add(Action("외부 브라우저에서 대화 AI 열기", () => OpenUrl(aiConnections.Conversation.Address)));
             webFallback.Children.Add(Label("웹 패널을 사용할 수 없어도 게임팩 작업 도구는 계속 사용할 수 있어.", 13, MutedInk));
         }
     }
@@ -153,8 +159,8 @@ public sealed partial class EditorWindow
                 chatConfigured = true;
             }
             webFallback.Visibility = Visibility.Collapsed;
-            var saved = conversation is null ? (ProjectUrl: "", ChatUrl: "") : ConversationLinkMetadata.Read(conversation);
-            browser.CoreWebView2.Navigate(requestedChat.Length > 0 ? requestedChat : saved.ChatUrl.Length > 0 ? saved.ChatUrl : saved.ProjectUrl.Length > 0 ? saved.ProjectUrl : "https://chatgpt.com/");
+            var saved = !ChatGptWeb || conversation is null ? (ProjectUrl: "", ChatUrl: "") : ConversationLinkMetadata.Read(conversation);
+            browser.CoreWebView2.Navigate(requestedChat.Length > 0 ? requestedChat : saved.ChatUrl.Length > 0 ? saved.ChatUrl : saved.ProjectUrl.Length > 0 ? saved.ProjectUrl : aiConnections.Conversation.Address);
         }
         catch (Exception e) { if (!webDisposed) { ShowBrowserFallback("웹 대화를 열지 못했어. 실행 구성 요소와 네트워크를 확인해줘.", true); AppendLog("웹 패널: " + e.Message); } }
         finally { webInitializing = false; }
@@ -189,25 +195,33 @@ public sealed partial class EditorWindow
     }
     private void NavigateChat(string url)
     {
-        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || uri.Scheme != "https" || uri.Host != "chatgpt.com" || !uri.IsDefaultPort || uri.UserInfo.Length > 0) return;
-        CancelWebConnection();
-        preferWeb = true; ApplyBrowserLayout();
-        requestedChat = uri.AbsoluteUri;
-        if (chatConfigured && browser.CoreWebView2 is not null) browser.CoreWebView2.Navigate(uri.AbsoluteUri);
-        else if (IsLoaded) _ = InitializeBrowser();
+        if (aiConnections.Conversation.Provider != "chatgpt") { SetStatus("대화 AI 메뉴에서 ChatGPT를 선택한 뒤 저장한 ChatGPT 대화를 열어줘."); return; }
+        NavigateConversation(url);
+    }
+    private void NavigateConversation(string url)
+    {
+        if (!aiConnections.Conversation.Enabled || busy) return;
+        try
+        {
+            string address = ConversationAiConnection.ValidateWebUrl(url, aiConnections.Conversation.Provider);
+            CancelWebConnection(); localAiVisible = false; ApplyBrowserLayout(); requestedChat = address;
+            if (chatConfigured && browser.CoreWebView2 is not null) browser.CoreWebView2.Navigate(address);
+            else if (IsLoaded) _ = InitializeBrowser();
+        }
+        catch (Exception e) { SetStatus(e.Message); }
     }
     private void UseEmbeddedChat()
     {
-        if (busy || conversation is null) return;
-        bool wasWeb = WebMode;
+        if (busy) return;
+        if (!aiConnections.Conversation.Enabled) { ShowConversationAiSetup(); return; }
+        localAiVisible = false;
         if (conversation is not null) { conversation.Mode = "chatgpt"; conversation.SaveLocal(); }
-        preferWeb = true; if (!wasWeb) ResetResidentConnection(); StopChatGptBridge(); RefreshWebProject(); ApplyConversationMode();
-        var urls = conversation is null ? (ProjectUrl: "", ChatUrl: "") : ConversationLinkMetadata.Read(conversation);
-        if (!wasWeb || browser.Source is null) NavigateChat(urls.ChatUrl.Length > 0 ? urls.ChatUrl : urls.ProjectUrl.Length > 0 ? urls.ProjectUrl : "https://chatgpt.com/");
+        RefreshWebProject(); ApplyConversationMode();
+        if (browser.Source is null || browser.Source.AbsoluteUri == "about:blank") NavigateConversation(aiConnections.Conversation.Address);
     }
     private async void BeginWebConnection()
     {
-        if (busy || session is null || conversation is null || webEnvironment is null || pendingWebConnection is not null) return;
+        if (!ChatGptWeb || busy || session is null || conversation is null || webEnvironment is null || pendingWebConnection is not null) return;
         try
         {
             var urls = WebConversationConnection.Observe(browser.Source?.AbsoluteUri);

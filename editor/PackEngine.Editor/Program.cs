@@ -11,7 +11,7 @@ internal static class Program
         {
             var app = new Application { ShutdownMode = ShutdownMode.OnMainWindowClose };
             var window = new EditorWindow();
-            window.Loaded += (_, _) => { if (args.Length > 0) window.OpenProject(args[0]); };
+            window.Loaded += (_, _) => { window.StartStudio(args.Length > 0 ? args[0] : ""); };
             return app.Run(window);
         }
         catch (Exception e) { MessageBox.Show(e.ToString(), "PackEngine Editor", MessageBoxButton.OK, MessageBoxImage.Error); return 1; }

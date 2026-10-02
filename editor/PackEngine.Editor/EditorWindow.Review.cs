@@ -22,7 +22,7 @@ public sealed partial class EditorWindow
         }
         catch { review.Cancel(); throw; }
     }
-    private IReadOnlyList<string> ReviewChanges(ChangeReviewBatch review, CancellationToken token, string title = "Codex 변경안 검토")
+    private IReadOnlyList<string> ReviewChanges(ChangeReviewBatch review, CancellationToken token, string title = "에디터 AI 변경안 검토")
     {
         token.ThrowIfCancellationRequested();
         var dialog = new Window { Owner = this, Title = title, Width = 1160, Height = 760, MinWidth = 880, MinHeight = 540,

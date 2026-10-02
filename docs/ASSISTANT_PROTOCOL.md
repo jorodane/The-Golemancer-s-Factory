@@ -1,6 +1,6 @@
 # 에디터의 외부 프로세스 제공자 연결
 
-이 문서는 기존 읽기 전용 `Command` 제공자의 규약이다. ChatGPT 구독으로 연결하는 공식 Codex app-server 제공자와 실제 편집 도구는 [RESIDENT_AGENT.md](RESIDENT_AGENT.md)를 따른다.
+이 문서는 기존 읽기 전용 `Command` 제공자의 규약이다. 일반 연결·제공자 전환은 에디터 메뉴와 [AI 연결](AI_CONNECTIONS.md)을 사용한다. ChatGPT 구독으로 연결하는 공식 Codex app-server 제공자와 실제 편집 도구는 [RESIDENT_AGENT.md](RESIDENT_AGENT.md)를 따른다.
 
 `IEditorAssistant`는 `PackEngine.Workspace.dll`의 공개 계약이다. 에디터/CLI가 사용자가 선택한 제공자 DLL을 로드한다. `ReplyAsync(ContextRequest, IAssistantWorkspace, CancellationToken)`가 문자열 응답을 반환한다. 모델 선택·인증·전송·비용 처리는 제공자의 책임이다. Command 제공자는 특정 모델 API를 직접 구현하지 않는다.
 

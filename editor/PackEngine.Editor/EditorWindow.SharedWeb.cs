@@ -17,6 +17,7 @@ public sealed partial class EditorWindow
 {
     private readonly WebView2 sharedBrowser = new();
     private readonly TextBlock sharingStatus = Label("에디터를 연결하면 이 대화에서 함께 작업할 수 있어.", 12, MutedInk);
+    private WrapPanel? sharingTools;
     private readonly StackPanel codexConnectionNotice = new() { Visibility = Visibility.Collapsed };
     private readonly DispatcherTimer sharingTimer = new() { Interval = TimeSpan.FromSeconds(3) };
     private readonly Dictionary<string, TaskCompletionSource<JsonElement>> sharingCalls = new(StringComparer.Ordinal);
@@ -38,7 +39,7 @@ public sealed partial class EditorWindow
     private void AddSharingControls(StackPanel header, Grid surface)
     {
         sharingSurface = surface; surface.Children.Add(yogiOverlay); yogiOverlay.Children.Add(yogiBox); yogiBox.Visibility = Visibility.Collapsed;
-        var row = new WrapPanel(); row.Children.Add(Action("에디터 연결", BeginSharedEditor));
+        var row = sharingTools = new WrapPanel(); row.Children.Add(Action("에디터 연결", BeginSharedEditor));
         var exactly = Action("Exactly Yogi", () => ArmYogi(false)); exactly.ToolTip = "지정한 대상 정보를 현재 채팅 입력창에 파일로 첨부합니다. Ctrl+클릭으로 여러 요소를 선택할 수 있습니다."; row.Children.Add(exactly);
         var look = Action("Look At Yogi", () => ArmYogi(true)); look.ToolTip = "요소를 클릭하거나 범위를 드래그해 현재 채팅 입력창에 PNG로 첨부합니다."; row.Children.Add(look);
         row.Children.Add(Action("선택 첨부", () => PreviewSharedContext("ExactlyYogi")));
@@ -169,19 +170,20 @@ public sealed partial class EditorWindow
     });
     private async void BeginSharedEditor()
     {
-        if (busy || session is null || conversation is null) return;
+        if (!ChatGptWeb || busy || session is null || conversation is null) return;
+        if (!aiConnections.Editor.Enabled || aiConnections.Editor.Provider == "custom") { SetStatus("작업을 맡길 에디터 AI를 먼저 연결해줘. 웹 작업은 Codex 또는 API 제공자를 사용해."); ShowEditorAiSetup(); return; }
         if (SharedEditorConnected) { SetStatus("에디터가 연결돼 있어. 상태·대상·문서를 공유하거나 웹 대화에서 작업을 요청해줘."); return; }
         try
         {
             SharedEditorBinding? previous = null;
             if (File.Exists(SharingBindingPath)) previous = JsonSerializer.Deserialize<SharedEditorBinding>(File.ReadAllText(SharingBindingPath), SharedEditorProtocol.Json);
             var grant = new SharedEditorPermissions { Codex = true, ReviewChanges = true };
-            if (grant.Codex && (CurrentAccess?.Enabled != true || !assistantSettings.ConnectionEnabled)) throw new InvalidOperationException("이 프로젝트의 Codex 사용이 꺼져 있어. ‘대화·접근’에서 허용한 뒤 다시 연결해줘.");
+            if (grant.Codex && (CurrentAccess?.Enabled != true || !assistantSettings.ConnectionEnabled)) throw new InvalidOperationException("이 프로젝트의 에디터 AI 사용이 꺼져 있어. ‘대화·접근’에서 허용한 뒤 다시 연결해줘.");
             var waitingSnapshot = pendingSharedSnapshot; ClearSharedEditor(); pendingSharedSnapshot = waitingSnapshot; sharingPermissions = grant; sharingManifest = session.Project.Manifest;
             bool reuse = previous is not null && previous.PackId == conversation.Id && DateTime.TryParse(previous.ExpiresAt, out var expires) && expires.ToUniversalTime() > DateTime.UtcNow && SharedEditorProtocol.SamePermissions(previous.Permissions, grant);
             sharingRequest = reuse ? previous!.RequestId : SharedEditorProtocol.NewNonce();
             sharingBinding = new() { PackId = conversation.Id, RequestId = sharingRequest, Permissions = grant };
-            conversation.Mode = "chatgpt"; conversation.SaveLocal(); preferWeb = true; ApplyConversationMode(); if (webEnvironment is null) await InitializeBrowser();
+            conversation.Mode = "chatgpt"; conversation.SaveLocal(); localAiVisible = false; ApplyConversationMode(); if (webEnvironment is null) await InitializeBrowser();
             if (webEnvironment is null || webDisposed) return;
             await sharedBrowser.EnsureCoreWebView2Async(webEnvironment);
             if (!sharingConfigured) { ConfigureBrowser(sharedBrowser, true); sharedBrowser.CoreWebView2.WebMessageReceived += SharedEditorMessage; sharedBrowser.CoreWebView2.NavigationStarting += (_, _) => { if (SharedEditorConnected) { sharingStatus.Text = "공유 페이지 이동으로 연결이 끊겼어. 다시 연결해줘."; ClearSharedEditor(); } }; sharingConfigured = true; }
@@ -282,12 +284,12 @@ public sealed partial class EditorWindow
             {
                 activeWebTask = remoteId; activeWebClaim = journal.ClaimId;
                 if (activeWebTaskCancelled) throw new OperationCanceledException();
-                if (!sharingPermissions.Codex || CurrentAccess?.Enabled != true || !assistantSettings.ConnectionEnabled) throw new InvalidOperationException("이 프로젝트의 Codex 접근이 차단됐어.");
+                if (!sharingPermissions.Codex || CurrentAccess?.Enabled != true || !assistantSettings.ConnectionEnabled) throw new InvalidOperationException("이 프로젝트의 에디터 AI 접근이 차단됐어.");
                 if (provider is not IResidentAssistant { IsConnected: true } || !providerWebExecutor)
                 {
-                    SetBusy(false); var connected = await ConnectCodexAsync(true);
+                    SetBusy(false); bool connected = await ConnectSelectedEditorAi(true);
                     if (activeWebTaskCancelled) throw new OperationCanceledException();
-                    connected.EnsureConnected();
+                    if (!connected) throw new InvalidOperationException(status.Text);
                 }
                 SetBusy(true); operation = new();
                 if (!SharedEditorConnected || !ReferenceEquals(session, ownerSession)) throw new InvalidOperationException("작업을 시작하기 전에 에디터 연결이 바뀌었어.");
@@ -295,7 +297,7 @@ public sealed partial class EditorWindow
                 var claimed = await SharedEditorCall("claim", new { taskId = remoteId, claimId = journal.ClaimId });
                 if (activeWebTaskCancelled || claimed.GetProperty("task").GetProperty("cancelRequested").GetBoolean()) throw new OperationCanceledException();
                 var account = await ((IResidentAssistant)provider!).AccountAsync(operation.Token);
-                if (account.Type != "chatgpt")
+                if (aiConnections.Editor.Provider == "codex" && account.Type != "chatgpt")
                 {
                     const string reason = "이 PC의 Codex에 ChatGPT 로그인이 필요해. 웹 패널 위의 ‘ChatGPT 로그인’을 눌러 완료한 뒤 새 작업을 요청해줘.";
                     ShowCodexConnectionNotice(reason, needsLogin: true); throw new InvalidOperationException(reason);
@@ -320,19 +322,19 @@ public sealed partial class EditorWindow
                 var bridge = new AssistantBridge(ownerSession, action => Dispatcher.Invoke(() => { action(); RefreshContext(); }));
                 var review = new ChangeReviewBatch(ownerSession, request, action => Dispatcher.Invoke(action));
                 using var tools = new AgentWorkspace(ownerSession, request, runner, action => Dispatcher.Invoke(() => { action(); RefreshContext(); }), AgentProgress, CreateEditorPackAgent(request, review), review);
-                sharingStatus.Text = "Codex 작업 중 · " + remoteId.Substring(0, 8);
+                sharingStatus.Text = aiConnections.Editor.Name + " 작업 중 · " + remoteId.Substring(0, 8);
                 try { return await bridge.Send(provider!, request, operation.Token, tools, (reply, token) => FinishReviewedChanges(review, reply, token)); }
                 finally { review.Cancel(); }
             });
             var completion = finished.Completion!.Value; string state = completion.GetProperty("state").GetString()!;
             string reply = completion.GetProperty("result").GetProperty("reply").GetString()!;
-            sharingStatus.Text = "Codex 결과 전달됨 · " + state;
-            if (state == "failed") { SetStatus(reply); Message("웹 Codex 실행 실패", reply); if (codexConnectionNotice.Visibility != Visibility.Visible) ShowCodexConnectionNotice(reply); }
+            sharingStatus.Text = "에디터 AI 결과 전달됨 · " + state;
+            if (state == "failed") { SetStatus(reply); Message("웹 AI 작업 실패", reply); if (codexConnectionNotice.Visibility != Visibility.Visible) ShowCodexConnectionNotice(reply); }
         }
         catch (Exception e)
         {
-            sharingStatus.Text = ownerSession.LoadSharedTask(remoteId)?.Completion is not null ? "결과는 이 PC에 저장됐어 · 전달 재시도 필요: " + e.Message : "Codex 작업 시작 확인 필요: " + e.Message;
-            AppendLog("웹 Codex 작업: " + e.Message);
+            sharingStatus.Text = ownerSession.LoadSharedTask(remoteId)?.Completion is not null ? "결과는 이 PC에 저장됐어 · 전달 재시도 필요: " + e.Message : "에디터 AI 작업 시작 확인 필요: " + e.Message;
+            AppendLog("웹 에디터 AI 작업: " + e.Message);
         }
         finally
         {
@@ -346,7 +348,8 @@ public sealed partial class EditorWindow
         var actions = new WrapPanel();
         if (needsNode) actions.Children.Add(Action("Node.js 설치 페이지", () => OpenUrl(PackEngine.Installation.CodexInstallation.NodeDownloadUrl)));
         if (needsLogin) actions.Children.Add(Action("ChatGPT 로그인", LoginCodex));
-        actions.Children.Add(Action("Codex 다시 연결", ConnectCodex));
+        actions.Children.Add(Action("에디터 AI 다시 연결", async () => await ConnectSelectedEditorAi(WebMode)));
+        actions.Children.Add(Action("연결 설정", ShowEditorAiSetup));
         codexConnectionNotice.Children.Add(actions); codexConnectionNotice.Visibility = Visibility.Visible;
     }
     private async void SharedTaskProgress(AssistantEvent update)

@@ -29,7 +29,7 @@ public sealed partial class EditorWindow
     private static string EditorPackSettings => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PackEngine", "editor-packs.json");
     private static string EditorPackHistory => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PackEngine", "EditorPackChanges");
     private static string SharedPackRoot => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PackEngine", "EditorPacks");
-    private string ProjectPackRoot => session is null ? "" : Path.Combine(session.Project.Root, "EditorPacks");
+    private string ProjectPackRoot => session is null || Standalone ? "" : Path.Combine(session.Project.Root, "EditorPacks");
     private string PackDotnet => Environment.GetEnvironmentVariable("PACKENGINE_DOTNET") ?? "dotnet";
     private void AddEditorPacksTab(Grid root, Grid body)
     {
