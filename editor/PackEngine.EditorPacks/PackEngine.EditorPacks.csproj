@@ -1,1 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk"><ItemGroup><ProjectReference Include="../PackEngine.Editor.Contracts/PackEngine.Editor.Contracts.csproj" /><ProjectReference Include="../PackEngine.Workspace/PackEngine.Workspace.csproj" /></ItemGroup></Project>
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup><ProjectReference Include="../PackEngine.Editor.Contracts/PackEngine.Editor.Contracts.csproj" /><ProjectReference Include="../PackEngine.Workspace/PackEngine.Workspace.csproj" /></ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'net48'"><Reference Include="System.IO.Compression" /></ItemGroup>
+</Project>

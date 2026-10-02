@@ -1,5 +1,6 @@
 using System.Text.Json;
 using PackEngine.Contracts.UI;
+using PackEngine.Editor.Contracts;
 using PackEngine.Workspace;
 
 namespace PackEngine.EditorPacks;
@@ -103,6 +104,25 @@ public sealed class EditorWindowRegistry : IDisposable
             instance.Activate(); instances.Add(id, instance);
         }
         catch { instance.Dispose(); throw; }
+    }
+    public void Apply(string pack, EditorWindowAction action)
+    {
+        if (action.Operation == "register")
+        {
+            if (!definitions.TryGetValue(action.Id, out var existing)) RegisterTemporary(action.Id, pack, action.View, action.Title);
+            else if (!existing.Temporary || existing.Pack != pack || existing.View != action.View || existing.Title != action.Title)
+                throw new InvalidOperationException("A different window is already registered with this ID.");
+            return;
+        }
+        if (!definitions.TryGetValue(action.Id, out var owned) || owned.Pack != pack)
+            throw new InvalidOperationException("A command can only operate its own pack's windows.");
+        switch (action.Operation)
+        {
+            case "open": Open(action.Id); break;
+            case "close": Close(action.Id); break;
+            case "unregister": UnregisterTemporary(action.Id); break;
+            default: throw new InvalidDataException("Unknown window operation.");
+        }
     }
     public void Close(string id)
     {

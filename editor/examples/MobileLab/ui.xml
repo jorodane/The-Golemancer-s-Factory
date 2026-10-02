@@ -1,0 +1,13 @@
+<Ui version="1" id="editor.lab.ui">
+  <View id="editor.lab.tools" extends="editor.core.tools">
+    <Override node="hint"><Set property="text" value="PC와 Android에서 같은 XML과 명령 DLL 소스를 사용하는 패널이야. 아래 입력은 실제 외부 DLL로 전달돼." /></Override>
+    <Override node="tools"><Slot name="children">
+      <Node id="echo" widget="editor.input" order="60"><Set property="text" value="" /><On event="changed" command="editor.lab.echo" /></Node>
+      <Node id="test" widget="editor.button" order="70"><Set property="text" value="같은 팩의 테스트 창 열기" /><On event="activate" command="editor.lab.test" /></Node>
+    </Slot></Override>
+  </View>
+  <View id="editor.lab.window"><Node id="testRoot" widget="editor.stack"><Slot name="children">
+    <Node id="title" widget="editor.text"><Set property="text" value="창을 닫아도 기능 DLL은 유지돼. 다시 열면 입력도 이어져." /></Node>
+    <Node id="note" widget="editor.input"><Set property="text" value="기억할 입력" /></Node>
+  </Slot></Node></View>
+</Ui>

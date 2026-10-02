@@ -1,0 +1,5 @@
+<EditorExtensions version="1">
+  <Command id="editor.lab.echo" handler="editor.lab.echo.handler" payload="Text" />
+  <Command id="editor.lab.test" handler="editor.lab.window.handler" payload="None" />
+  <Panel id="editor.lab.tools" extends="editor.core.tools" title="에디터팩 실험" view="editor.lab.tools" />
+</EditorExtensions>

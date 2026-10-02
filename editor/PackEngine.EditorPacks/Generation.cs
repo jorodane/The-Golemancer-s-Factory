@@ -7,7 +7,7 @@ using PackEngine.Workspace;
 
 namespace PackEngine.EditorPacks;
 
-public sealed class EditorPackGeneration : IEditorPackRuntime
+public sealed class EditorPackGeneration : IEditorPackRuntime, IEditorModuleHost
 {
     public static readonly JsonSerializerOptions WireJson = new(EditorSession.Json) { WriteIndented = false };
     private readonly Process worker;
@@ -19,6 +19,7 @@ public sealed class EditorPackGeneration : IEditorPackRuntime
     public UiCatalog Catalog { get; private set; } = null!;
     public IReadOnlyDictionary<string, string> Hashes { get; private set; } = null!;
     public int ProcessId => worker.Id;
+    public string InstanceId { get; } = Guid.NewGuid().ToString("N");
     public bool IsAlive => !disposed && !worker.HasExited;
     private EditorPackGeneration(Process worker, string directory)
     {

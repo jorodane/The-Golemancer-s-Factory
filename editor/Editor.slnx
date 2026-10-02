@@ -12,4 +12,5 @@
   <Project Path="PackEngine.EditorPacks/PackEngine.EditorPacks.csproj" />
   <Project Path="PackEngine.PackHost/PackEngine.PackHost.csproj" />
   <Project Path="Packs/CoreTools/PackEngine.Editor.CoreTools.csproj" />
+  <Project Path="examples/MobileLab/PackEngine.Editor.MobileLab.csproj" />
 </Solution>
