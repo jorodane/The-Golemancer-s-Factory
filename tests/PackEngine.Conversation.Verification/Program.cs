@@ -68,6 +68,7 @@ using (var archive = new ConversationArchive(profile.ConversationsPath, profile.
     archive.Save(new() { Id = id, NativeFile = "rollout-2026-10-01T00-00-00-" + id + ".jsonl", Title = "Portable conversation" }, ConversationArchive.ReadNative(native, id));
     archive.ActiveThread = id;
     Check(archive.List().Single().Id == id && archive.ReadRollout(archive.Read(id)!).SequenceEqual(Log("EXPLICIT TEST RECORD")), "native transcript bytes and selection are stored in the game");
+    Check(archive.Read(id)!.Version == 2 && File.Exists(Path.Combine(profile.ConversationsPath, archive.Read(id)!.Hash + ".jsonl")), "new recovery snapshots use the shorter version-2 filename");
     Reject(() => archive.Read("../outside"), "archive IDs cannot traverse outside the project");
     var entry = archive.Read(id)!; entry.Hash = new string('a', 64);
     File.WriteAllText(Path.Combine(profile.ConversationsPath, id + ".json"), JsonSerializer.Serialize(entry));
@@ -85,7 +86,13 @@ Check(!newAccess.ChatGpt.Enabled && newAccess.ChatGpt.WritablePacks.Count == 0, 
 using (var archive = new ConversationArchive(movedProfile.ConversationsPath, movedProfile.Id))
 {
     Check(archive.ActiveThread == id && archive.ReadRollout(archive.Read(id)!).SequenceEqual(Log("EXPLICIT TEST RECORD")), "a moved game loads its saved selection and exact original history");
-    var entry = archive.Read(id)!; string snapshot = Path.Combine(movedProfile.ConversationsPath, id + "-" + entry.Hash + ".jsonl");
+    var entry = archive.Read(id)!; string snapshot = Path.Combine(movedProfile.ConversationsPath, entry.Hash + ".jsonl");
+    string legacy = Path.Combine(movedProfile.ConversationsPath, id + "-" + entry.Hash + ".jsonl");
+    File.Move(snapshot, legacy); entry.Version = 1;
+    File.WriteAllText(Path.Combine(movedProfile.ConversationsPath, id + ".json"), JsonSerializer.Serialize(entry));
+    Check(archive.ReadRollout(archive.Read(id)!).SequenceEqual(Log("EXPLICIT TEST RECORD")), "legacy version-1 recovery snapshots remain readable");
+    archive.Save(entry, Log("EXPLICIT TEST RECORD"));
+    Check(File.Exists(snapshot) && !File.Exists(legacy) && archive.Read(id)!.Version == 2, "saving a legacy snapshot migrates it only after the short file and metadata are written");
     File.AppendAllText(snapshot, "{\"type\":\"extra\"}\n");
     Reject(() => archive.ReadRollout(entry), "a corrupt or partly synchronized transcript fails closed");
 }

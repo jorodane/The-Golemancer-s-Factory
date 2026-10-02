@@ -12,7 +12,7 @@ internal sealed class AndroidPackBackend(Context context) : IUiBackend
 {
     private readonly Dictionary<string, Element> elements = new(StringComparer.Ordinal);
     public string Platform => "android";
-    public bool Supports(string renderer, UiWidgetDefinition contract) => EditorNativeSchema.Supports(renderer, contract);
+    public bool Supports(string renderer, UiWidgetDefinition contract) => EditorNativeSchema.Supports(renderer, contract, "android");
     private int Dp(double value) => (int)Math.Round(value * (context.Resources?.DisplayMetrics?.Density ?? 1));
     public IUiElement Create(string renderer, string nodeId, UiLayout layout)
     {

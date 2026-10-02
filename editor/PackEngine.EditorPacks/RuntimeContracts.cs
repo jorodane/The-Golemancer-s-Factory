@@ -34,11 +34,16 @@ public sealed class EditorProjectQuery
     public string Operation { get; set; } = "";
     public string Pack { get; set; } = "";
     public string Path { get; set; } = "";
+    public string Kind { get; set; } = "";
+    public string Query { get; set; } = "";
     public int MaximumCharacters { get; set; } = 200000;
     public object Answer(IEditorProjectData project) => Operation switch
     {
         "list" => project.ListDocuments(Pack),
         "read" => project.ReadDocument(Path, MaximumCharacters),
+        "objects" when project is IEditorProjectCatalog catalog => catalog.ListObjects(Kind, Pack, Query),
+        "assets" when project is IEditorProjectCatalog catalog => catalog.ListAssets(Pack),
+        "asset" when project is IEditorProjectCatalog catalog => catalog.ReadAsset(Path),
         _ => throw new InvalidDataException("Unknown editor project data operation.")
     };
 }

@@ -4,12 +4,15 @@ using PackEngine.EditorPacks;
 
 namespace PackEngine.PackHost;
 
-internal sealed class ProjectDataClient(TextReader input, TextWriter output, string commandId) : IEditorProjectData, IDisposable
+internal sealed class ProjectDataClient(TextReader input, TextWriter output, string commandId) : IEditorProjectData, IEditorProjectCatalog, IDisposable
 {
     private readonly object gate = new();
     private bool closed;
     public IReadOnlyList<EditorProjectDocumentInfo> ListDocuments(string pack = "") => Call<List<EditorProjectDocumentInfo>>(new() { Operation = "list", Pack = pack });
     public EditorProjectDocument ReadDocument(string path, int maximumCharacters = 200000) => Call<EditorProjectDocument>(new() { Operation = "read", Path = path, MaximumCharacters = maximumCharacters });
+    public IReadOnlyList<EditorProjectObject> ListObjects(string kind = "", string pack = "", string query = "") => Call<List<EditorProjectObject>>(new() { Operation = "objects", Kind = kind, Pack = pack, Query = query });
+    public IReadOnlyList<EditorProjectAsset> ListAssets(string pack = "") => Call<List<EditorProjectAsset>>(new() { Operation = "assets", Pack = pack });
+    public EditorProjectAssetData ReadAsset(string path) => Call<EditorProjectAssetData>(new() { Operation = "asset", Path = path });
     private T Call<T>(EditorProjectQuery query)
     {
         lock (gate)

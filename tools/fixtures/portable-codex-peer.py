@@ -25,7 +25,7 @@ def records(id):
 def summary(id):
     rows = records(id)
     questions = [r['payload']['content'][0]['text'] for r in rows if r['type'] == 'response_item' and r['payload']['role'] == 'user']
-    return {'id': id, 'path': str(path(id)), 'cwd': rows[0]['payload']['cwd'], 'originator': 'packengine_editor', 'preview': questions[0] if questions else '', 'status': {'type': 'notLoaded'}}
+    return {'id': id, 'path': '' if mode == 'archive-fail' else str(path(id)), 'cwd': rows[0]['payload']['cwd'], 'originator': 'packengine_editor', 'preview': questions[0] if questions else '', 'status': {'type': 'notLoaded'}}
 
 for line in sys.stdin:
     req = json.loads(line)

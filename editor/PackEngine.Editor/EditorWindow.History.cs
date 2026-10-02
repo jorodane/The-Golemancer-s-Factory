@@ -29,9 +29,10 @@ public sealed partial class EditorWindow
         head.Children.Add(Action("프로젝트에 대화 저장", SaveProjectConversation));
         head.Children.Add(Action("대화 복사", () => Guard(() =>
         {
-            if (busy || historyMessages.Count == 0) { SetStatus("불러온 대화 기록이 없어."); return; }
-            Clipboard.SetText("에디터에서 선택해 복사한 대화 일부 · 자동 동기화 아님\n\n" + string.Join("\n\n", historyMessages.Select(m => m.Role + ": " + m.Text)));
-            SetStatus("현재 불러온 메시지를 복사했어. 웹 대화에 붙여 넣을 수 있어. 더 오래된 내용은 ‘이전 메시지’로 먼저 불러와줘.");
+            string text = VisibleTranscript();
+            if (text.Length == 0) { SetStatus("현재 화면에 복사할 메시지가 없어."); return; }
+            Clipboard.SetText(text);
+            SetStatus("현재 화면의 메시지를 복사했어. 응답 중에도 현재 표시된 내용까지 복사할 수 있어.");
         })));
         head.Children.Add(Action("이전 메시지", () => HistoryWork(async token =>
         {
@@ -203,12 +204,12 @@ public sealed partial class EditorWindow
         {
             try
             {
-                if (share.IsChecked == true && string.IsNullOrWhiteSpace(content.Text)) throw new InvalidDataException("링크만으로는 대화 내용을 공유할 수 없어. 참고 본문을 넣거나 ‘ChatGPT 연결’ 탭을 사용해줘.");
+                if (share.IsChecked == true && string.IsNullOrWhiteSpace(content.Text)) throw new InvalidDataException("링크만으로는 대화 내용을 공유할 수 없어. 공유할 본문을 넣어줘. 링크 등록과 본문 전달은 별도야.");
                 var entry = new SharedChatReference { Id = original?.Id ?? Guid.NewGuid().ToString("N"), Title = name.Text, Url = url.Text, Content = content.Text, Shared = share.IsChecked == true }.Snapshot();
                 if (original is null) project.WebChats.Add(entry); else project.WebChats[project.WebChats.IndexOf(original)] = entry;
                 SaveSettings(); RefreshWebChats(); dialog.Close();
             }
             catch (Exception e) { error.Text = e.Message; }
-        })); DockPanel.SetDock(bottom, Dock.Bottom); panel.Children.Add(bottom); panel.Children.Add(content); dialog.ShowDialog();
+        })); DockPanel.SetDock(bottom, Dock.Bottom); panel.Children.Add(bottom); panel.Children.Add(content); RememberWindow(dialog, "dialog:shared-excerpt"); dialog.ShowDialog();
     });
 }

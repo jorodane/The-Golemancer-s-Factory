@@ -22,6 +22,36 @@ public interface IEditorProjectData
     EditorProjectDocument ReadDocument(string path, int maximumCharacters = 200000);
 }
 
+// Optional catalog capability; older document-only commands remain compatible.
+public interface IEditorProjectCatalog
+{
+    IReadOnlyList<EditorProjectObject> ListObjects(string kind = "", string pack = "", string query = "");
+    IReadOnlyList<EditorProjectAsset> ListAssets(string pack = "");
+    EditorProjectAssetData ReadAsset(string path);
+}
+public sealed class EditorProjectObject
+{
+    public string Key { get; set; } = "";
+    public string Id { get; set; } = "";
+    public string Kind { get; set; } = "";
+    public string Title { get; set; } = "";
+    public string Pack { get; set; } = "";
+    public string Path { get; set; } = "";
+    public string Status { get; set; } = "";
+}
+public class EditorProjectAsset
+{
+    public string Path { get; set; } = "";
+    public string Pack { get; set; } = "";
+    public string MediaType { get; set; } = "";
+    public bool Readable { get; set; }
+}
+public sealed class EditorProjectAssetData : EditorProjectAsset
+{
+    public string Hash { get; set; } = "";
+    public string DataUrl { get; set; } = "";
+}
+
 public class EditorProjectDocumentInfo
 {
     public string Path { get; set; } = "";

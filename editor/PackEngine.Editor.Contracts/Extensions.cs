@@ -27,6 +27,21 @@ public sealed class EditorCommandResult
     public List<EditorEffect> Effects { get; set; } = [];
     public List<EditorWindowAction> Windows { get; set; } = [];
     public List<EditorDocumentChange> DocumentChanges { get; set; } = [];
+    public EditorViewUpdate? View { get; set; }
+    public EditorObjectPicker? PickObject { get; set; }
+}
+// Transient presentation, owned by one registered window of the command's pack.
+public sealed class EditorViewUpdate
+{
+    public string WindowId { get; set; } = "";
+    public string Xml { get; set; } = "";
+}
+public sealed class EditorObjectPicker
+{
+    public string Kind { get; set; } = "";
+    public string Pack { get; set; } = "";
+    public string Title { get; set; } = "항목 선택";
+    public string Command { get; set; } = "";
 }
 public sealed class EditorWindowAction
 {

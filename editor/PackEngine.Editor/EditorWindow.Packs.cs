@@ -168,6 +168,7 @@ public sealed partial class EditorWindow
     private async void ExecuteEditorCommand(IEditorPackRuntime generation, string command, UiValue value)
     {
         if (busy || !ReferenceEquals(generation, packGeneration)) return;
+        string nextCommand = "", nextPayload = "";
         SetBusy(true); operation = new();
         try
         {
@@ -175,6 +176,7 @@ public sealed partial class EditorWindow
             using var project = session is null ? null : new EditorPackProjectData(session, ownerPack, action => Dispatcher.Invoke(action));
             var result = await generation.Execute(new() { Command = command, Payload = value.Literal, Context = new() { ["project"] = session?.Project.Name ?? "", ["selection"] = session?.State.Selection ?? "" } }, operation.Token, project);
             if (!ReferenceEquals(generation, packGeneration)) return;
+            var preparedView = result.View is null ? null : EditorDynamicViews.Prepare(generation, ownerPack, result.View);
             string reviewOutcome = "";
             if (result.DocumentChanges.Count > 0)
             {
@@ -203,11 +205,32 @@ public sealed partial class EditorWindow
                     default: throw new InvalidDataException("Unsupported editor host effect: " + effect.Kind);
                 }
             foreach (var action in result.Windows) ManagePackWindow(ownerPack, action);
+            if (result.View is { } update)
+                packWindows.ReplaceView(update.WindowId, ownerPack, definition => CreatePackWindow(generation, definition with { View = preparedView!.View }, preparedView.Catalog));
+            if (result.PickObject is { } picker)
+            {
+                if (project is null) throw new InvalidOperationException("먼저 프로젝트를 열어줘.");
+                var callback = generation.Snapshot.Commands.SingleOrDefault(c => c.Id == picker.Command && c.Pack == ownerPack && string.Equals(c.Fields["payload"], "Text", StringComparison.OrdinalIgnoreCase)) ?? throw new InvalidDataException("Declare an owned Text command for the selection callback.");
+                if (ChooseCatalogObject(project, picker) is { } selected) { nextCommand = callback.Id; nextPayload = selected.Key; }
+            }
             if (reviewOutcome.Length > 0) SetStatus(reviewOutcome);
             else if (result.Message.Length > 0) SetStatus(result.Message);
         }
         catch (Exception e) { SetStatus(e.Message); AppendLog("에디터팩: " + e.Message); }
         finally { operation.Dispose(); operation = null; SetBusy(false); }
+        if (nextCommand.Length > 0) ExecuteEditorCommand(generation, nextCommand, UiValue.Text(nextPayload));
+    }
+    private EditorProjectObject? ChooseCatalogObject(IEditorProjectCatalog project, EditorObjectPicker picker)
+    {
+        var objects = project.ListObjects(picker.Kind, picker.Pack);
+        var dialog = new Window { Owner = this, Title = picker.Title, Width = 560, Height = 520, MinWidth = 320, MinHeight = 240, Background = PanelInk, Foreground = TextInk, WindowStartupLocation = WindowStartupLocation.CenterOwner };
+        var root = new DockPanel { Margin = new Thickness(12) }; dialog.Content = root; var filter = Input(); DockPanel.SetDock(filter, Dock.Top); root.Children.Add(filter);
+        var list = new ListBox { Background = BackgroundInk, Foreground = TextInk, DisplayMemberPath = "Title" }; EditorProjectObject? choice = null;
+        void Fill() { list.ItemsSource = objects.Where(o => (o.Title + " " + o.Id).IndexOf(filter.Text, StringComparison.OrdinalIgnoreCase) >= 0).ToArray(); }
+        filter.TextChanged += (_, _) => Fill(); Fill();
+        var bottom = new WrapPanel(); bottom.Children.Add(Action("선택", () => { if (list.SelectedItem is EditorProjectObject selected) { choice = selected; dialog.DialogResult = true; } })); bottom.Children.Add(Action("취소", () => dialog.DialogResult = false)); DockPanel.SetDock(bottom, Dock.Bottom); root.Children.Add(bottom); root.Children.Add(list);
+        list.MouseDoubleClick += (_, _) => { if (list.SelectedItem is EditorProjectObject selected) { choice = selected; dialog.DialogResult = true; } };
+        RememberWindow(dialog, "dialog:object-picker"); return dialog.ShowDialog() == true ? choice : null;
     }
     private void StopEditorPacks()
     {
@@ -279,10 +302,18 @@ public sealed partial class EditorWindow
         (authorized, token) => Dispatcher.InvokeAsync(() => ReloadEditorPacks(authorized, token)).Task.Unwrap(), ShowEditorPackChange,
         (tool, subject, result) => Dispatcher.Invoke(() => {
             session?.RecordOperation(request.Id, "editor." + tool, subject, result.Contains("\"pending-review\"") ? "staged" : "completed");
-            if (tool is "list" or "read" or "inspect" or "api") session?.RecordEditorPackRead(request.Id, subject, result, WorkspaceProject.HashText(result), result.Contains("\"Partial\": true"));
+            if (tool is "list" or "find" or "read" or "inspect" or "api") session?.RecordEditorPackRead(request.Id, subject, result, WorkspaceProject.HashText(result), result.Contains("\"Partial\": true"));
             AppendLog("editor." + tool + " · " + subject); }),
         AppDomain.CurrentDomain.BaseDirectory, PackDotnet, EditorPackHistory,
         (pack, path) => Dispatcher.Invoke(() => PackDocumentDirty(pack, path)), review,
         () => Dispatcher.Invoke(() => (object)packWindows.Definitions.Select(d => new { Definition = d, Open = packWindows.OpenIds.Contains(d.Id) }).ToArray()),
-        (pack, action) => Dispatcher.Invoke(() => ManagePackWindow(pack, action)));
+        (pack, action) => Dispatcher.Invoke(() => ManagePackWindow(pack, action)),
+        new Dictionary<string, string> { ["project"] = ProjectPackRoot, ["plugin"] = SharedPackRoot },
+        (source, added) => Dispatcher.Invoke(() =>
+        {
+            if (added) enabledPackFolders.Add(source.Folder); else enabledPackFolders.Remove(source.Folder);
+            DiscoverEditorPacks();
+            Directory.CreateDirectory(Path.GetDirectoryName(EditorPackSettings)!);
+            EditorSession.AtomicWrite(EditorPackSettings, System.Text.Encoding.UTF8.GetBytes(JsonSerializer.Serialize(enabledPackFolders.ToArray())));
+        }));
 }

@@ -4,6 +4,13 @@
   <Widget id="editor.text" extends="editor.element"><Property name="text" type="text" default="" /><Renderer platform="*" key="editor.text" /></Widget>
   <Widget id="editor.button" extends="editor.text"><Event name="activate" payload="none" /><Renderer platform="*" key="editor.button" /></Widget>
   <Widget id="editor.input" extends="editor.text"><Event name="changed" payload="text" /><Renderer platform="*" key="editor.input" /></Widget>
+  <Widget id="editor.wrap" extends="editor.stack"><Renderer platform="windows" key="editor.wrap" /></Widget>
+  <Widget id="editor.slot" extends="editor.element">
+    <Property name="image" type="text" default="" /><Property name="glyph" type="text" default="" />
+    <Property name="count" type="number" default="0" min="0" max="1000000" /><Property name="value" type="text" default="" />
+    <Property name="tint" type="text" default="#293B4D" /><Event name="activate" payload="text" />
+    <Renderer platform="windows" key="editor.slot" />
+  </Widget>
   <View id="editor.core.tools"><Node id="tools" widget="editor.stack"><Slot name="children" export="true">
     <Node id="project" order="0" widget="editor.text"><Bind property="text" source="editor.project" /><Set property="fontSize" value="20" /></Node>
     <Node id="hint" order="10" widget="editor.text"><Set property="text" value="‘이거’ 모드로 이 패널의 요소를 가리키면 에디터팩의 XML을 AI에게 전달할 수 있어." /></Node>

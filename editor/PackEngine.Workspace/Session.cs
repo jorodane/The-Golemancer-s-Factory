@@ -127,8 +127,16 @@ public sealed partial class EditorSession
     { State.Drafts = Documents.Where(d => d.Dirty).ToList(); AtomicWrite(Path.Combine(StateDirectory, "session.json"), Encoding.UTF8.GetBytes(Serialize(State))); }
     public static void AtomicWrite(string path, byte[] data)
     {
-        string temp = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
-        try { File.WriteAllBytes(temp, data); if (File.Exists(path)) File.Replace(temp, path, null); else File.Move(temp, path); }
+        string directory = Path.GetDirectoryName(Path.GetFullPath(path))!;
+        Directory.CreateDirectory(directory);
+        // Same-volume replacement, without repeating a potentially long destination filename.
+        string temp = Path.Combine(directory, Path.GetRandomFileName());
+        try
+        {
+            using (var stream = new FileStream(temp, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            { stream.Write(data, 0, data.Length); stream.Flush(); }
+            if (File.Exists(path)) File.Replace(temp, path, null); else File.Move(temp, path);
+        }
         finally { if (File.Exists(temp)) File.Delete(temp); }
     }
     public void Select(string key)

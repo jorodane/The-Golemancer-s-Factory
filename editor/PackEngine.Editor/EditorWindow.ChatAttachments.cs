@@ -24,6 +24,7 @@ public sealed partial class EditorWindow
         public Button Retry = null!;
         public StackPanel Panel = null!;
         public bool Mirrored;
+        public string Target = "";
     }
     private void StageYogiAttachment(SharedEditorSnapshot snapshot)
     {
@@ -38,6 +39,7 @@ public sealed partial class EditorWindow
         var draft = new YogiDraft { Session = session, Snapshot = snapshot, File = file, Path = path, Status = note, Panel = panel };
         var actions = new WrapPanel();
         draft.Retry = Action("첨부 다시 시도", async () => await DeliverYogiAttachment(draft)); actions.Children.Add(draft.Retry);
+        actions.Children.Add(Action("입력창 직접 지정", async () => await SelectYogiComposer(draft)));
         actions.Children.Add(Action("파일 복사", () => Guard(() =>
         {
             Clipboard.SetFileDropList(new StringCollection { path }); note.Text = "파일을 복사했어. 채팅 입력창에 붙여넣거나 위 파일명을 끌어 넣어줘.";
@@ -62,7 +64,8 @@ public sealed partial class EditorWindow
         CoreWebView2? core = null; string group = "yogi-" + Guid.NewGuid().ToString("N");
         try
         {
-            if (webDisposed || !WebMode || !browser.IsVisible || browser.CoreWebView2 is null)
+            AppendLog("Yogi · 대상 웹 화면 확인");
+            if (webDisposed || !browser.IsVisible || browser.CoreWebView2 is null)
                 throw new InvalidOperationException("첨부할 ChatGPT 대화를 먼저 열어줘. 위 파일은 그대로 남아 있어.");
             core = browser.CoreWebView2;
             string url = core.Source; long navigation = chatNavigationVersion;
@@ -70,13 +73,19 @@ public sealed partial class EditorWindow
                 throw new InvalidOperationException("ChatGPT 채팅 입력창에서 첨부를 다시 눌러줘.");
             void Current()
             {
-                if (webDisposed || !ReferenceEquals(session, draft.Session) || !WebMode || !browser.IsVisible || core.Source != url || chatNavigationVersion != navigation)
+                if (webDisposed || !ReferenceEquals(session, draft.Session) || !browser.IsVisible || core.Source != url || chatNavigationVersion != navigation)
                     throw new InvalidOperationException("대화나 게임팩이 바뀌었어. 현재 첨부 목록을 확인한 뒤 다시 눌러줘.");
             }
             Current(); draft.Status.Text = "채팅 입력창에 첨부하는 중…";
             using var script = new StreamReader(typeof(EditorWindow).Assembly.GetManifestResourceStream("PackEngine.Editor.ChatComposerAttachment.js")!);
-            string expression = script.ReadToEnd() + "(" + SharedEditorProtocol.Serialize(new { url, name = draft.File.Name, mime = draft.File.MediaType }) + ")";
-            var prepared = RemoteResult(await core.CallDevToolsProtocolMethodAsync("Runtime.evaluate", SharedEditorProtocol.Serialize(new { expression, objectGroup = group, returnByValue = false })));
+            string expression = script.ReadToEnd() + "(" + SharedEditorProtocol.Serialize(new { url, name = draft.File.Name, mime = draft.File.MediaType, target = draft.Target }) + ")";
+            AppendLog("Yogi · 활성 입력창 탐색");
+            JsonElement prepared = default;
+            for (int attempt = 0; ; attempt++)
+            {
+                try { prepared = RemoteResult(await core.CallDevToolsProtocolMethodAsync("Runtime.evaluate", SharedEditorProtocol.Serialize(new { expression, objectGroup = group, returnByValue = false }))); break; }
+                catch (InvalidOperationException e) when (attempt < 7 && e.Message.Contains("YOGI_COMPOSER_MISSING")) { Current(); await Task.Delay(250); }
+            }
             string handle = prepared.GetProperty("objectId").GetString()!;
             Current();
             var status = await ComposerCall(core, handle, "status");
@@ -86,14 +95,17 @@ public sealed partial class EditorWindow
                 Current();
                 if (input.TryGetProperty("objectId", out var inputId))
                 {
+                    AppendLog("Yogi · 입력창의 파일 첨부 요소로 전달");
                     await ComposerCall(core, handle, "markDelivered"); Current();
                     await core.CallDevToolsProtocolMethodAsync("DOM.setFileInputFiles", SharedEditorProtocol.Serialize(new { files = new[] { draft.Path }, objectId = inputId.GetString() }));
                 }
                 else
                 {
+                    AppendLog("Yogi · 입력창의 붙여넣기 이벤트로 전달");
                     await ComposerCall(core, handle, "paste", true, Convert.ToBase64String(draft.File.Bytes));
                 }
                 bool visible = false;
+                AppendLog("Yogi · 첨부 표시 확인");
                 for (int attempt = 0; attempt < 32; attempt++)
                 {
                     Current();
@@ -104,6 +116,7 @@ public sealed partial class EditorWindow
                 if (!visible) throw new InvalidOperationException("첨부 표시를 확인하지 못했어. 입력창을 확인하고, 없으면 위 파일을 끌어 넣거나 다시 눌러줘.");
             }
             Current(); await ComposerCall(core, handle, "focus"); browser.Focus();
+            AppendLog("Yogi · 첨부 표시 확인 완료 · 메시지 전송은 사용자 동작");
             draft.Status.Text = "입력창에 첨부 표시됨 · 업로드가 끝나면 메시지를 보내줘.";
             sharingStatus.Text = draft.Snapshot.Kind + " · 현재 채팅 입력창에 첨부했어.";
             // The user's existing, explicit editor grant may also make the frozen snapshot available to Codex.
@@ -122,6 +135,23 @@ public sealed partial class EditorWindow
                 try { await core.CallDevToolsProtocolMethodAsync("Runtime.releaseObjectGroup", SharedEditorProtocol.Serialize(new { objectGroup = group })); } catch (Exception) { }
             attachingYogi = false; draft.Retry.IsEnabled = true;
         }
+    }
+    private async Task SelectYogiComposer(YogiDraft draft)
+    {
+        if (attachingYogi || webDisposed || browser.CoreWebView2 is not { } core || !browser.IsVisible) { draft.Status.Text = "첨부할 웹 대화를 먼저 열어줘."; return; }
+        string url = core.Source, target = Guid.NewGuid().ToString("N"); long navigation = chatNavigationVersion;
+        attachingYogi = true; draft.Status.Text = "웹 대화의 메시지 입력창을 클릭해줘. Esc로 취소할 수 있어."; browser.Focus();
+        try
+        {
+            using var script = new StreamReader(typeof(EditorWindow).Assembly.GetManifestResourceStream("PackEngine.Editor.SelectYogiComposer.js")!);
+            var result = RemoteResult(await core.CallDevToolsProtocolMethodAsync("Runtime.evaluate", SharedEditorProtocol.Serialize(new
+            { expression = script.ReadToEnd() + "(" + SharedEditorProtocol.Serialize(new { url, target }) + ")", returnByValue = true, awaitPromise = true })));
+            if (core.Source != url || chatNavigationVersion != navigation || !ReferenceEquals(session, draft.Session) || result.GetProperty("value").GetString() != target) throw new InvalidOperationException("지정 중에 대화나 게임팩이 바뀌었어.");
+            draft.Target = target; AppendLog("Yogi · 사용자가 지정한 입력창 선택");
+        }
+        catch (Exception e) { draft.Status.Text = e.Message; AppendLog("Yogi 입력창 지정: " + e.Message); return; }
+        finally { attachingYogi = false; }
+        await DeliverYogiAttachment(draft);
     }
     private static async Task<JsonElement> ComposerCall(CoreWebView2 core, string handle, string method, bool byValue = true, params object[] arguments)
     {

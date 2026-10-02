@@ -14,7 +14,7 @@ public sealed partial class EditorWindow : Window
     private readonly TreeView tree = new() { Background = PanelInk, Foreground = TextInk, BorderThickness = new Thickness(0), Margin = new Thickness(8) };
     private readonly TextBox search = Input(), prompt = Input(true), editor = Input(true), intent = Input(), log = ReadBox();
     private readonly TextBox contract = ReadBox(), diff = ReadBox();
-    private readonly TextBlock status = Label("프로젝트를 열어서 시작해."), projectLabel = Label("PACKENGINE / PROJECT STUDIO", 19), providerLabel = Label("AI 제공자 미연결", 12);
+    private readonly TextBlock status = Label("프로젝트를 열어서 시작해."), projectLabel = Label("CONFECTORY / PROJECT STUDIO", 19), providerLabel = Label("AI 제공자 미연결", 12);
     private readonly ComboBox targets = new() { MinWidth = 135, Margin = new Thickness(4) }, openDocs = new() { MinWidth = 160, Margin = new Thickness(4) };
     private readonly StackPanel transcript = new(), contexts = new(), impact = new(), trail = new() { Orientation = Orientation.Horizontal };
     private readonly TabControl tabs = new() { Background = PanelInk, Foreground = TextInk, BorderThickness = new Thickness(0) };
@@ -34,7 +34,7 @@ public sealed partial class EditorWindow : Window
     private string Target => (string?)targets.SelectedItem ?? runner?.PreferredTarget ?? "";
     public EditorWindow()
     {
-        Title = "PackEngine — Project Studio"; Width = 1480; Height = 920; MinWidth = 1080; MinHeight = 680;
+        Title = "Confectory — Project Studio"; Width = 1480; Height = 920; MinWidth = 1080; MinHeight = 680;
         Background = BackgroundInk; Foreground = TextInk; FontFamily = new FontFamily("Malgun Gothic"); FontSize = 13;
         var root = new Grid(); root.RowDefinitions.Add(new() { Height = GridLength.Auto }); root.RowDefinitions.Add(new()); root.RowDefinitions.Add(new() { Height = new GridLength(150) }); root.RowDefinitions.Add(new() { Height = GridLength.Auto }); Content = root;
         var top = new DockPanel { Margin = new Thickness(18, 14, 18, 10) };
@@ -94,6 +94,7 @@ public sealed partial class EditorWindow : Window
         Closed += (_, _) => { draftTimer.Stop(); StopChatGptBridge(); runner?.Dispose(); provider?.Dispose(); };
         AddBrowserWorkspace(root, body, output, builds);
         Message("시작", "일반 대화에는 포인팅을 첨부하지 않아. 대상을 가리키려면 ‘이거’ 모드를 켜고 탐색기·관계도·XML에서 지정해줘. 전송할 때 대상과 문서 버전을 고정해."); SetBusy(false);
+        RememberWindow(this, "studio.main");
     }
     private static Brush Brush(string color) => (Brush)new BrushConverter().ConvertFromString(color)!;
     private static TextBlock Label(string text, double size = 13, Brush? ink = null) => new() { Text = text, FontSize = size, Foreground = ink ?? TextInk, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(4) };
@@ -108,9 +109,22 @@ public sealed partial class EditorWindow : Window
     private void AddTab(string name, UIElement content) => tabs.Items.Add(new TabItem { Header = name, Content = content, Foreground = Brush("#17202B"), Padding = new Thickness(12, 7, 12, 7) });
     private void Message(string who, string content)
     {
-        var block = new StackPanel(); block.Children.Add(Label(who, 12, AccentInk)); block.Children.Add(Label(content, 14));
-        transcript.Children.Add(new Border { Background = BackgroundInk, CornerRadius = new CornerRadius(8), Padding = new Thickness(12), Margin = new Thickness(0, 6, 0, 10), Child = block });
+        CreateMessage(who).Text = content;
     }
+    private TextBox CreateMessage(string who)
+    {
+        var text = Input(true); text.IsReadOnly = true; text.TextWrapping = TextWrapping.Wrap;
+        text.BorderThickness = new Thickness(0); text.Padding = new Thickness(4); text.FontSize = 14;
+        var block = new StackPanel(); block.Tag = new Func<string>(() => who + ": " + text.Text);
+        var header = new DockPanel(); header.Children.Add(Label(who, 12, AccentInk));
+        var copy = Action("복사", () => Guard(() => { Clipboard.SetText(text.Text); SetStatus("현재 메시지를 복사했어."); }));
+        copy.HorizontalAlignment = HorizontalAlignment.Right; header.Children.Add(copy);
+        block.Children.Add(header); block.Children.Add(text);
+        transcript.Children.Add(new Border { Background = BackgroundInk, CornerRadius = new CornerRadius(8), Padding = new Thickness(12), Margin = new Thickness(0, 6, 0, 10), Child = block });
+        return text;
+    }
+    private string VisibleTranscript() => string.Join("\n\n", transcript.Children.OfType<Border>()
+        .Select(b => (b.Child as FrameworkElement)?.Tag).OfType<Func<string>>().Select(read => read()));
     private void SetStatus(string text) => status.Text = text;
     private void Guard(Action action) { try { action(); } catch (Exception e) { SetStatus(e.Message); AppendLog("ERROR: " + e.Message); } }
     private void AppendLog(string line)
@@ -145,7 +159,7 @@ public sealed partial class EditorWindow : Window
     {
         if (busy) return;
         ReadyForPackSelection();
-        var dialog = new OpenFileDialog { Title = "프로젝트 열기", Filter = "PackEngine 프로젝트|*.packproject" };
+        var dialog = new OpenFileDialog { Title = "프로젝트 열기", Filter = "Confectory 프로젝트|*.packproject" };
         if (dialog.ShowDialog(this) == true) OpenProject(dialog.FileName);
     }
     public void OpenProject(string path) => Guard(() =>
@@ -159,7 +173,7 @@ public sealed partial class EditorWindow : Window
         StopChatGptBridge(); runner?.Dispose(); provider?.Dispose(); provider = null; providerLabel.Text = "AI 제공자 미연결"; session = next; conversation = nextConversation;
         runner = new(session, Environment.GetEnvironmentVariable("PACKENGINE_DOTNET") ?? "dotnet"); runner.Output += AppendLog;
         activeDocument = null; pending = null; lastRequest = null;
-        Title = "PackEngine — " + session.Project.Name; projectLabel.Text = session.Project.Name;
+        Title = "Confectory — " + session.Project.Name; projectLabel.Text = session.Project.Name;
         targets.ItemsSource = session.Project.Targets.Select(t => t.Id).ToArray(); targets.SelectedItem = runner.PreferredTarget;
         transcript.Children.Clear(); Message("프로젝트", session.Project.Name + "을 열었어. 팩과 문서를 골라서 작업을 시작해.");
         pointingMode.SelectedIndex = 0; models.ItemsSource = null; submit.Content = "보내기"; RefreshProject(); RebuildDocuments(); SetBusy(false); RefreshPointing();
@@ -257,7 +271,7 @@ public sealed partial class EditorWindow : Window
             SetBusy(true); operation = new();
             var bridge = new AssistantBridge(session, action => Dispatcher.Invoke(() => { action(); RefreshContext(); }));
             var review = new ChangeReviewBatch(session, lastRequest, action => Dispatcher.Invoke(action));
-            using var agentTools = provider is IResidentAssistant ? new AgentWorkspace(session, lastRequest, runner!, action => Dispatcher.Invoke(() => { action(); RefreshContext(); }), AgentProgress, CreateEditorPackAgent(lastRequest, review), review) : null;
+            using var agentTools = provider is IResidentAssistant ? new AgentWorkspace(session, lastRequest, runner!, action => Dispatcher.Invoke(() => { action(); RefreshContext(); }), AgentProgress, CreateEditorPackAgent(lastRequest, review), review, CreateImageAccess(review)) : null;
             string answer;
             try { answer = await bridge.Send(provider!, lastRequest, operation.Token, agentTools, (reply, token) => FinishReviewedChanges(review, reply, token)); }
             finally { review.Cancel(); }
@@ -285,7 +299,7 @@ public sealed partial class EditorWindow : Window
             foreach (var target in lastRequest.EditorInput.Targets) contexts.Children.Add(Label("에디터 · " + target.Key, 11));
             contexts.Children.Add(Label(lastRequest.Context.Sum(c => c.Content.Length).ToString("N0") + " / " + lastRequest.CharacterBudget.ToString("N0") + "자", 11, MutedInk));
             foreach (var item in lastRequest.Context) contexts.Children.Add(Label(item.Path + (item.Partial ? " (일부)" : "") + (item.Draft ? " (미적용 초안)" : "") + (item.DiskChanged ? " (디스크에 외부 변경 있음)" : "") + "\n" + item.Why, 11));
-            foreach (var item in lastRequest.SharedChats) contexts.Children.Add(Label("공유 웹 문맥: " + item.Title + "\n본문은 요청할 때만 읽음 · 자동 동기화 없음", 11, MutedInk));
+            foreach (var item in lastRequest.SharedChats) contexts.Children.Add(Label("공유 웹 문맥: " + item.Title + "\n전송 시점의 본문 " + item.Content.Length + "자 · 링크와 분리된 스냅샷", 11, MutedInk));
             if (lastRequest.Omitted.Count > 0) contexts.Children.Add(Label("포함하지 못한 문맥: " + string.Join(", ", lastRequest.Omitted), 11, MutedInk));
         }
         contexts.Children.Add(Label("제공자가 명시적으로 읽은 문서", 13, AccentInk));

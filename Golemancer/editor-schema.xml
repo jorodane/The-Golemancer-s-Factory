@@ -18,4 +18,6 @@
   <Symbol kind="recipe" select="/GameContent/Recipes/Recipe" id="id" title="name" />
   <Symbol kind="quest" select="/GameContent/Quests/Quest" id="id" title="name" />
   <Symbol kind="input" select="/GameContent/InputActions/InputAction" id="id" title="name" />
+  <Asset select="/GameContent/Sprites/Sprite/Animation" attribute="image" />
+  <Asset select="/GameContent/Tilesets/Tileset/Tile" attribute="image" />
 </IndexRules>

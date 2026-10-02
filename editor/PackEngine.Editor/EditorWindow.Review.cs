@@ -54,6 +54,7 @@ public sealed partial class EditorWindow
                 var box = new CheckBox { Content = item.IsFile ? item.Path : item.Intent, IsChecked = selected.Contains(item.Id), Foreground = TextInk, Margin = new Thickness(6, 12, 6, 4) };
                 box.Click += (_, _) => { if (box.IsChecked == true) selected.Add(item.Id); else selected.Remove(item.Id); RefreshChecks(); }; details.Children.Add(box);
                 details.Children.Add(Label(item.Intent, 12, MutedInk));
+                if (item.PreviewImage.Length > 0) details.Children.Add(new Image { Source = LoadBitmap(item.PreviewImage), Height = 240, Stretch = System.Windows.Media.Stretch.Uniform, Margin = new Thickness(6) });
                 if (!item.IsFile) { details.Children.Add(Label("검토 후 실행 · " + item.Operation, 12, AccentInk)); continue; }
                 var compare = new Grid(); compare.ColumnDefinitions.Add(new()); compare.ColumnDefinitions.Add(new());
                 TextBox Pane(string title, string content, int column)
@@ -76,6 +77,7 @@ public sealed partial class EditorWindow
         accept.Click += (_, _) => { try { token.ThrowIfCancellationRequested(); review.ValidateSelection(selected.ToArray()); dialog.DialogResult = true; } catch (Exception e) { error.Text = e.Message; } };
         RefreshChecks(); packs.SelectedIndex = 0;
         using var stop = token.Register(() => Dispatcher.BeginInvoke(new Action(() => dialog.Close())));
+        RememberWindow(dialog, "dialog:change-review");
         if (dialog.ShowDialog() != true) { review.Cancel(); throw new OperationCanceledException("변경안 검토를 취소했어.", token); }
         token.ThrowIfCancellationRequested(); return selected.ToArray();
     }

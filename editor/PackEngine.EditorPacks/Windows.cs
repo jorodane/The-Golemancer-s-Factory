@@ -129,6 +129,16 @@ public sealed class EditorWindowRegistry : IDisposable
         if (!instances.TryGetValue(id, out var instance)) return;
         states[id] = instance.Capture(); instances.Remove(id); instance.Dispose();
     }
+    public void ReplaceView(string id, string pack, Func<EditorWindowDefinition, IEditorWindowInstance> create)
+    {
+        if (!definitions.TryGetValue(id, out var definition) || definition.Pack != pack) throw new InvalidOperationException("A command can only update its own registered window.");
+        instances.TryGetValue(id, out var previous);
+        var saved = previous?.Capture() ?? (states.TryGetValue(id, out var state) ? state : null);
+        var candidate = create(definition);
+        try { if (saved is not null) candidate.Restore(saved); candidate.Activate(); }
+        catch { candidate.Dispose(); throw; }
+        instances[id] = candidate; previous?.Dispose();
+    }
     public void UnregisterTemporary(string id)
     {
         if (!definitions.TryGetValue(id, out var definition)) return;

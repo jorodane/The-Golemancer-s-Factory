@@ -11,6 +11,7 @@ public sealed class AiConnections
     public bool SetupCompleted { get; set; }
     public EditorAiConnection Editor { get; set; } = new();
     public ConversationAiConnection Conversation { get; set; } = new();
+    public ImageAiConnection Images { get; set; } = new();
     public string SelectedPack { get; set; } = "";
     public static string DefaultPath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PackEngine", "ai-connections.json");
     public static AiConnections Load(string path)
@@ -36,11 +37,22 @@ public sealed class AiConnections
     }
     public void Validate()
     {
-        if (Editor is null || Conversation is null || SelectedPack is null) throw new InvalidDataException("AI 연결 설정을 다시 선택해줘.");
-        Editor.Validate(); Conversation.Validate();
+        if (Editor is null || Conversation is null || Images is null || SelectedPack is null) throw new InvalidDataException("AI 연결 설정을 다시 선택해줘.");
+        Editor.Validate(); Conversation.Validate(); Images.Validate();
     }
     public void DisconnectEditor() => Editor = new();
     public void DisconnectConversation() => Conversation = new();
+}
+
+public sealed class ImageAiConnection
+{
+    public bool Enabled { get; set; }
+    public string Model { get; set; } = "gpt-image-2.5-flare";
+    public string Quality { get; set; } = "medium";
+    public void Validate()
+    {
+        if (Model is null || !Model.StartsWith("gpt-image-", StringComparison.Ordinal) || Model.Length > 160 || Model.Any(char.IsControl) || Quality is not ("low" or "medium" or "high")) throw new InvalidDataException("Choose a GPT Image model and low/medium/high quality.");
+    }
 }
 
 public sealed class EditorAiConnection
@@ -110,7 +122,7 @@ public static class StandaloneEditorWorkspace
         if (!File.Exists(manifest))
         {
             var xml = new XDocument(new XElement("EngineProject", new XAttribute("version", "1"), new XAttribute("id", "packengine.editor"),
-                new XAttribute("name", "Project Studio"), new XAttribute("packs", "Packs"), new XAttribute("defaultTarget", "editor"),
+                new XAttribute("name", "Confectory Project Studio"), new XAttribute("packs", "Packs"), new XAttribute("defaultTarget", "editor"),
                 new XElement("Target", new XAttribute("id", "editor"), new XAttribute("platform", platform), new XAttribute("framework", framework))));
             EditorSession.AtomicWrite(manifest, Encoding.UTF8.GetBytes(xml + "\n"));
         }

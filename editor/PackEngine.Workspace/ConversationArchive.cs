@@ -49,7 +49,7 @@ public sealed class ConversationArchive : IDisposable
         string path = RecordPath(id); if (!File.Exists(path)) return null;
         if (new FileInfo(path).Length > 16384) throw new InvalidDataException("Invalid conversation metadata size.");
         var entry = JsonSerializer.Deserialize<ArchivedConversation>(File.ReadAllText(path)) ?? throw new InvalidDataException("Empty conversation metadata.");
-        if (entry.Version != 1 || entry.Project != project || entry.Id != id || entry.Title is null || entry.Model is null || entry.Hash is null || entry.NativeFile is null || entry.Title.Length > 200 ||
+        if (entry.Version is not (1 or 2) || entry.Project != project || entry.Id != id || entry.Title is null || entry.Model is null || entry.Hash is null || entry.NativeFile is null || entry.Title.Length > 200 ||
             entry.Hash.Length != 64 || entry.Hash.Any(c => !"0123456789abcdef".Contains(c)) ||
             entry.NativeFile != Path.GetFileName(entry.NativeFile) || !entry.NativeFile.StartsWith("rollout-", StringComparison.Ordinal) ||
             !entry.NativeFile.EndsWith("-" + id + ".jsonl", StringComparison.Ordinal)) throw new InvalidDataException("게임팩 대화 메타데이터가 잘못됐어.");
@@ -57,6 +57,17 @@ public sealed class ConversationArchive : IDisposable
     }
     public List<ArchivedConversation> List() => (Directory.Exists(root) ? Directory.EnumerateFiles(root, "*.json") : Enumerable.Empty<string>()).Select(Path.GetFileNameWithoutExtension)
         .Where(id => Guid.TryParseExact(id, "D", out _)).Select(id => Read(id!)!).OrderByDescending(c => c.UpdatedAt).ThenBy(c => c.Id, StringComparer.Ordinal).ToList();
+    public List<ArchivedConversation> ListAvailable(Action<string, Exception> warning)
+    {
+        var entries = new List<ArchivedConversation>();
+        foreach (string path in Directory.Exists(root) ? Directory.EnumerateFiles(root, "*.json") : Enumerable.Empty<string>())
+        {
+            string id = Path.GetFileNameWithoutExtension(path); if (!Guid.TryParseExact(id, "D", out _)) continue;
+            try { if (Read(id) is { } entry) entries.Add(entry); }
+            catch (Exception e) when (e is IOException or InvalidDataException or JsonException or UnauthorizedAccessException) { warning(id, e); }
+        }
+        return entries.OrderByDescending(c => c.UpdatedAt).ThenBy(c => c.Id, StringComparer.Ordinal).ToList();
+    }
     public string ActiveThread
     {
         get
@@ -78,11 +89,12 @@ public sealed class ConversationArchive : IDisposable
     }
     public byte[] ReadRollout(ArchivedConversation entry)
     {
-        string path = PathFor(entry.Id + "-" + entry.Hash + ".jsonl");
+        string path = DataPath(entry);
         var data = ReadNative(path, entry.Id);
         if (WorkspaceProject.Hash(data) != entry.Hash) throw new InvalidDataException("대화 파일이 아직 완전히 복사되지 않았거나 손상됐어. 게임팩 폴더 동기화를 완료한 뒤 다시 열어줘.");
         return data;
     }
+    private string DataPath(ArchivedConversation entry) => PathFor(entry.Version == 1 ? entry.Id + "-" + entry.Hash + ".jsonl" : entry.Hash + ".jsonl");
     public static byte[] ReadNative(string file, string id)
     {
         ProjectConversation.SafePath(file);
@@ -102,15 +114,15 @@ public sealed class ConversationArchive : IDisposable
     {
         RequireWriter();
         RequireUnchanged(entry.Id); var previous = Read(entry.Id);
-        entry.Project = project; entry.Hash = WorkspaceProject.Hash(rollout); entry.Version = 1;
-        string data = PathFor(entry.Id + "-" + entry.Hash + ".jsonl");
+        entry.Project = project; entry.Hash = WorkspaceProject.Hash(rollout); entry.Version = 2;
+        string data = DataPath(entry);
         if (!File.Exists(data)) EditorSession.AtomicWrite(data, rollout);
         RequireUnchanged(entry.Id); // A sync client may have changed the record while its large snapshot was being written.
         EditorSession.AtomicWrite(RecordPath(entry.Id), Encoding.UTF8.GetBytes(EditorSession.Serialize(entry)));
         observed[entry.Id] = entry.Hash;
-        if (previous is not null && previous.Hash != entry.Hash)
+        if (previous is not null && DataPath(previous) != data)
         {
-            try { File.Delete(PathFor(previous.Id + "-" + previous.Hash + ".jsonl")); }
+            try { File.Delete(DataPath(previous)); }
             catch (IOException) { } catch (UnauthorizedAccessException) { }
         }
     }

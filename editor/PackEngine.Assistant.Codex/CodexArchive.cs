@@ -10,6 +10,12 @@ public sealed partial class CodexAssistant
     private ConversationArchive? projectArchive;
     private readonly Dictionary<string, JsonElement> nativeThreads = new(StringComparer.Ordinal);
     private string promptTitle = "";
+    private ArchivedConversation? CachedMetadata(ConversationArchive? source, string id)
+    {
+        try { return source?.Read(id); }
+        catch (Exception e) when (e is IOException or InvalidDataException or JsonException or UnauthorizedAccessException)
+        { Emit("archive-failed", "복구본 메타데이터를 읽지 못했어. Codex 원본을 유지했어. " + e.Message, id); return null; }
+    }
     private static string NativeSessions => ProjectConversation.SafePath(Path.Combine(
         Environment.GetEnvironmentVariable("CODEX_HOME") is { Length: > 0 } configured ? Path.GetFullPath(configured) :
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".codex"), "sessions"));
@@ -119,7 +125,12 @@ public sealed partial class CodexAssistant
     private async Task PreserveInterruptedArchive()
     {
         if (archive is null || ThreadId.Length == 0) return;
-        try { await SaveArchive(ThreadId, CancellationToken.None, true).ConfigureAwait(false); }
-        catch (Exception e) { Emit("archive-failed", "대화 복구본 보관 실패 · 이 PC의 Codex 원본은 유지돼. " + e.Message); }
+        await CacheConversation(ThreadId, CancellationToken.None, true).ConfigureAwait(false);
+    }
+    private async Task CacheConversation(string id, CancellationToken cancellation, bool allowDisconnected = false)
+    {
+        try { await SaveArchive(id, cancellation, allowDisconnected).ConfigureAwait(false); }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { throw; }
+        catch (Exception e) { Emit("archive-failed", "대화 복구본 보관 실패 · 응답과 이 PC의 Codex 원본은 유지돼. 현재 화면의 대화는 복사할 수 있어. " + e.Message); }
     }
 }

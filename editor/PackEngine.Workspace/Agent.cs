@@ -62,7 +62,7 @@ public interface IAgentWorkspace : IAssistantWorkspace
 public interface IEditorPackAccess { Task<string> Call(JsonElement arguments, CancellationToken cancellation); }
 
 /// <summary>All project access is routed through the editor's declared index and the frozen request scope.</summary>
-public sealed class AgentWorkspace : IAgentWorkspace, IDisposable
+public sealed partial class AgentWorkspace : IAgentWorkspace, IDisposable
 {
     private readonly EditorSession session;
     private readonly ContextRequest request;
@@ -77,10 +77,11 @@ public sealed class AgentWorkspace : IAgentWorkspace, IDisposable
     private readonly string target;
     private readonly Dictionary<string, SharedChatReference> sharedChats;
     private readonly IEditorPackAccess? editorPacks;
+    private readonly IEditorImageAccess? images;
     public ChangeReviewBatch? Review { get; }
-    public AgentWorkspace(EditorSession session, ContextRequest request, ProjectRunner runner, Action<Action> dispatch, Action<AssistantEvent>? progress = null, IEditorPackAccess? editorPacks = null, ChangeReviewBatch? review = null)
+    public AgentWorkspace(EditorSession session, ContextRequest request, ProjectRunner runner, Action<Action> dispatch, Action<AssistantEvent>? progress = null, IEditorPackAccess? editorPacks = null, ChangeReviewBatch? review = null, IEditorImageAccess? images = null)
     {
-        this.editorPacks = editorPacks;
+        this.editorPacks = editorPacks; this.images = images;
         this.session = session; this.request = request; this.runner = runner; this.dispatch = dispatch; this.progress = progress;
         writable = new(request.WritablePacks, StringComparer.Ordinal); commands = request.AllowProjectCommands; target = request.Target.Length > 0 ? request.Target : runner.PreferredTarget;
         Review = request.ReviewChanges ? review ?? new(session, request, dispatch) : null;
@@ -114,17 +115,19 @@ public sealed class AgentWorkspace : IAgentWorkspace, IDisposable
     public IReadOnlyList<object> ToolDefinitions => Definitions;
     public static IReadOnlyList<object> Definitions { get; } = new[]
     {
-        Spec("packengine_editor", "Inspect/edit the EDITOR's own object packs, separate from game packs. api returns the host project-data contracts and command example without requiring host source sharing; list returns pack IDs/files; inspect(view) returns live inherited UI and origins; read(pack,path) returns a bounded slice and full hash. patch requires a prior read, expectedHash, unique oldText, newText, intent and WritableEditorPacks; apply/undo require this request's changeId and pack. build compiles that pack only. windows lists registered/open windows; window(action,windowId,pack,view,title) registers a temporary view, opens/closes a window, or unregisters a temporary window. Closing/unregistering a window retains its loaded DLL. With ReviewChanges true these actions wait for human review. reload needs AllowEditorReload and rejects changes outside this request's writable editor packs. No screenshots or cloud chat access.", "{\"type\":\"object\",\"properties\":{\"operation\":{\"type\":\"string\",\"enum\":[\"list\",\"api\",\"inspect\",\"read\",\"patch\",\"apply\",\"undo\",\"build\",\"reload\",\"windows\",\"window\"]},\"pack\":{\"type\":\"string\"},\"path\":{\"type\":\"string\"},\"view\":{\"type\":\"string\"},\"windowId\":{\"type\":\"string\"},\"title\":{\"type\":\"string\"},\"action\":{\"type\":\"string\",\"enum\":[\"register\",\"open\",\"close\",\"unregister\"]},\"startLine\":{\"type\":\"integer\",\"minimum\":1},\"lineCount\":{\"type\":\"integer\",\"minimum\":1,\"maximum\":160},\"expectedHash\":{\"type\":\"string\"},\"oldText\":{\"type\":\"string\"},\"newText\":{\"type\":\"string\"},\"intent\":{\"type\":\"string\"},\"changeId\":{\"type\":\"string\"}},\"required\":[\"operation\"],\"additionalProperties\":false}"),
-        Spec("packengine_find", "Find declared object IDs or source files by text, optionally within one pack. Returns at most 30 metadata entries, no file contents.", "{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"string\"},\"pack\":{\"type\":\"string\"}},\"required\":[\"query\"],\"additionalProperties\":false}"),
+        Spec("packengine_image", "Check actual image backend status. generate uses the separately configured official API after device opt-in and may incur API charges; returns an artifact ID and a native preview, never fake image output. register queues insertion into an existing game/editor pack and an Asset manifest registration as one reviewed change; existing paths are never overwritten. Images are local artifacts, not automatically pushed or synced. If unavailable, state the reason clearly.", "{\"type\":\"object\",\"properties\":{\"operation\":{\"type\":\"string\",\"enum\":[\"status\",\"generate\",\"register\"]},\"prompt\":{\"type\":\"string\"},\"size\":{\"type\":\"string\",\"enum\":[\"1024x1024\",\"1536x1024\",\"1024x1536\"]},\"transparent\":{\"type\":\"boolean\"},\"artifactId\":{\"type\":\"string\"},\"domain\":{\"type\":\"string\",\"enum\":[\"game\",\"editor\"]},\"pack\":{\"type\":\"string\"},\"path\":{\"type\":\"string\"},\"intent\":{\"type\":\"string\"}},\"required\":[\"operation\"],\"additionalProperties\":false}"),
+        Spec("packengine_editor", "Read and author the editor-1 packs. list/find returns editor:<pack>/<file>#<object> keys; inspect without view returns pack/file definitions, with view returns live inherited UI. api gives host contracts, native widget capabilities and examples. create proposes new files plus observed-hash registrations as ONE atomic files bundle; expectedHash=absent means create-only. new_pack creates a reviewed project/plugin scaffold, optionally implementation=true, and files can override scaffold contents. read/patch refine the proposal overlay. apply queues review; build/reload/windows/window report actual outcomes or pending-review. Closing windows retains DLLs. Creation never bypasses human review.", "{\"type\":\"object\",\"properties\":{\"operation\":{\"type\":\"string\",\"enum\":[\"list\",\"api\",\"find\",\"inspect\",\"read\",\"create\",\"new_pack\",\"patch\",\"apply\",\"undo\",\"build\",\"reload\",\"windows\",\"window\"]},\"pack\":{\"type\":\"string\"},\"query\":{\"type\":\"string\"},\"path\":{\"type\":\"string\"},\"view\":{\"type\":\"string\"},\"windowId\":{\"type\":\"string\"},\"title\":{\"type\":\"string\"},\"action\":{\"type\":\"string\",\"enum\":[\"register\",\"open\",\"close\",\"unregister\"]},\"startLine\":{\"type\":\"integer\",\"minimum\":1},\"lineCount\":{\"type\":\"integer\",\"minimum\":1,\"maximum\":160},\"expectedHash\":{\"type\":\"string\"},\"oldText\":{\"type\":\"string\"},\"newText\":{\"type\":\"string\"},\"intent\":{\"type\":\"string\"},\"changeId\":{\"type\":\"string\"},\"scope\":{\"type\":\"string\",\"enum\":[\"project\",\"plugin\"]},\"parent\":{\"type\":\"string\"},\"implementation\":{\"type\":\"boolean\"},\"text\":{\"type\":\"string\"},\"files\":{\"type\":\"array\",\"minItems\":1,\"maxItems\":100,\"items\":{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\"},\"text\":{\"type\":\"string\"},\"expectedHash\":{\"type\":\"string\"}},\"required\":[\"path\",\"text\",\"expectedHash\"],\"additionalProperties\":false}}},\"required\":[\"operation\"],\"additionalProperties\":false}"),
+        Spec("packengine_find", "Find declared GAME AND EDITOR object IDs or source files by text, optionally within one pack. Returns at most 30 metadata entries, no file contents.", "{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"string\"},\"pack\":{\"type\":\"string\"}},\"required\":[\"query\"],\"additionalProperties\":false}"),
         Spec("packengine_inspect", "Inspect one object: definition is the current XML fragment; relations are one-hop references; contract is the resolved SAVED definition with provenance. Drafts are not runtime state. Implementation IDs can remain runtime-unknown.", "{\"type\":\"object\",\"properties\":{\"key\":{\"type\":\"string\"},\"section\":{\"type\":\"string\",\"enum\":[\"definition\",\"relations\",\"contract\"]}},\"required\":[\"key\",\"section\"],\"additionalProperties\":false}"),
-        Spec("packengine_read", "Read a bounded source/document slice only when needed. Returns full document hash for conflict-safe edits. Paths must be declared project files or explicitly shared chat: context paths. Shared context is read-only and is not synchronized web history. Does not open a user tab.", "{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\"},\"startLine\":{\"type\":\"integer\",\"minimum\":1},\"lineCount\":{\"type\":\"integer\",\"minimum\":1,\"maximum\":160}},\"required\":[\"path\"],\"additionalProperties\":false}"),
+        Spec("packengine_read", "Read a bounded source/document slice only when needed. Returns full document hash for conflict-safe edits. Paths must be declared project files, editor:<pack>/<file> paths, or explicitly shared chat: context paths. Shared context is read-only and is not synchronized web history. Does not open a user tab.", "{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\"},\"startLine\":{\"type\":\"integer\",\"minimum\":1},\"lineCount\":{\"type\":\"integer\",\"minimum\":1,\"maximum\":160}},\"required\":[\"path\"],\"additionalProperties\":false}"),
+        Spec("packengine_create", "Generate new files/objects or a new pack as ONE reviewed, atomic file bundle. Include required XML/source/project registrations. Existing registrations require a prior read and expectedHash; new paths use expectedHash=absent. Game paths are project-relative; new game packs use <project packs directory>/<pack ID> and register their build projects automatically. Editor paths are pack-relative, scope project/plugin for new packs. Creation requires ReviewChanges=true and never overwrites an existing path. Read/patch can refine created files before review.", "{\"type\":\"object\",\"properties\":{\"domain\":{\"type\":\"string\",\"enum\":[\"game\",\"editor\"]},\"operation\":{\"type\":\"string\",\"enum\":[\"create\",\"new_pack\"]},\"pack\":{\"type\":\"string\"},\"path\":{\"type\":\"string\"},\"text\":{\"type\":\"string\"},\"files\":{\"type\":\"array\",\"minItems\":1,\"maxItems\":100,\"items\":{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\"},\"text\":{\"type\":\"string\"},\"expectedHash\":{\"type\":\"string\"}},\"required\":[\"path\",\"text\",\"expectedHash\"],\"additionalProperties\":false}},\"scope\":{\"type\":\"string\",\"enum\":[\"project\",\"plugin\"]},\"parent\":{\"type\":\"string\"},\"implementation\":{\"type\":\"boolean\"},\"intent\":{\"type\":\"string\"}},\"required\":[\"domain\",\"operation\",\"pack\",\"intent\"],\"additionalProperties\":false}"),
         Spec("packengine_patch", "Prepare a visible change preview in a request-authorized pack. Replace exactly one matching oldText after reading the current document hash. Does not apply. Rejects stale versions and unsaved user buffers.", "{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\"},\"expectedHash\":{\"type\":\"string\"},\"oldText\":{\"type\":\"string\"},\"newText\":{\"type\":\"string\"},\"intent\":{\"type\":\"string\"}},\"required\":[\"path\",\"expectedHash\",\"oldText\",\"newText\",\"intent\"],\"additionalProperties\":false}"),
         Spec("packengine_apply", "Apply a preview created during THIS request in its authorized pack. Validates disk and editor buffer versions again. The editor records undo data.", "{\"type\":\"object\",\"properties\":{\"changeId\":{\"type\":\"string\"}},\"required\":[\"changeId\"],\"additionalProperties\":false}"),
         Spec("packengine_build", "Build only the named request-authorized pack for the request's selected platform. Failed builds retain its previous DLL. XML packs are validated without a compiler.", "{\"type\":\"object\",\"properties\":{\"pack\":{\"type\":\"string\"}},\"required\":[\"pack\"],\"additionalProperties\":false}"),
         Spec("packengine_project", "Run the project's declared verify, smoke or launch command. Requires AllowProjectCommands on the request. Returns actual exit result/log; launch is not proof of visual correctness.", "{\"type\":\"object\",\"properties\":{\"operation\":{\"type\":\"string\",\"enum\":[\"verify\",\"smoke\",\"run\"]}},\"required\":[\"operation\"],\"additionalProperties\":false}")
     };
     private void RequirePack(string pack)
-    { if (pack.Length == 0 || (Review is null ? !writable.Contains(pack) : !session.Index.Packs.Any(p => p.Id == pack) || session.Project.Sources.TryGetValue(pack, out var source) && !source.Editable)) throw new InvalidOperationException("This request does not authorize editing/building pack '" + pack + "'."); }
+    { if (pack.Length == 0 || (Review is null ? !writable.Contains(pack) : !session.Index.Packs.Any(p => p.Id == pack) && !gameBundles.ContainsKey(pack) || session.Project.Sources.TryGetValue(pack, out var source) && !source.Editable)) throw new InvalidOperationException("This request does not authorize editing/building pack '" + pack + "'."); }
     private void RequireFile(string path)
     {
         if (!session.Index.Nodes.TryGetValue("file:" + path, out var file)) throw new InvalidDataException("Unknown declared file.");
@@ -142,17 +145,36 @@ public sealed class AgentWorkspace : IAgentWorkspace, IDisposable
             object result;
             switch (tool)
             {
+                case "packengine_image":
+                    result = images is null ? new { Available = false, Generated = false, Reason = "No image backend is configured in this host. A skill name alone does not grant image generation. Use the editor's image connection setup." }
+                        : JsonSerializer.Deserialize<JsonElement>(await images.Call(arguments, cancellation).ConfigureAwait(false));
+                    if (result is JsonElement imageResult && imageResult.TryGetProperty("ChangeId", out var imageChange)) changes.Add(imageChange.GetString()!);
+                    break;
                 case "packengine_editor":
                     if (editorPacks is null) throw new InvalidOperationException("Editor pack access is unavailable in this host.");
-                    string answer = await editorPacks.Call(arguments, cancellation).ConfigureAwait(false); Note(tool, subject, Review is not null && Str(arguments, "operation") is "patch" or "apply" or "build" or "reload" ? "staged" : "completed"); return answer;
+                    string answer = await EditorCall(arguments, cancellation).ConfigureAwait(false); Note(tool, subject, Review is not null && Str(arguments, "operation") is "patch" or "create" or "new_pack" or "apply" or "build" or "reload" ? "staged" : "completed"); return answer;
+                case "packengine_create":
+                    if (Str(arguments, "domain") == "editor") return await EditorCall(arguments, cancellation).ConfigureAwait(false);
+                    result = OnUi(() => CreateGameFiles(arguments)); break;
                 case "packengine_find": result = OnUi(() =>
                 {
                     session.Refresh(); string query = Str(arguments, "query"), pack = Str(arguments, "pack");
                     var found = session.Index.Nodes.Values.Where(n => (pack.Length == 0 || n.Pack == pack) && (n.Key + " " + n.Title + " " + n.File).IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0).ToArray();
                     object value = new { Matches = found.Take(30).ToArray(), Total = found.Length, Partial = found.Length > 30 };
                     string content = EditorSession.Serialize(value); session.RecordRead(request.Id, "index:" + query, content, WorkspaceProject.HashText(content)); return value;
-                }); break;
-                case "packengine_inspect": result = OnUi(() =>
+                });
+                    if (editorPacks is not null)
+                    {
+                        using var gameMatches = JsonDocument.Parse(EditorSession.Serialize(result));
+                        using var editorMatches = JsonDocument.Parse(await EditorCall(JsonSerializer.SerializeToElement(new { operation = "find", query = Str(arguments, "query"), pack = Str(arguments, "pack") }), cancellation).ConfigureAwait(false));
+                        var all = gameMatches.RootElement.GetProperty("Matches").EnumerateArray().Concat(editorMatches.RootElement.GetProperty("Matches").EnumerateArray()).Select(e => e.Clone()).ToArray();
+                        int total = gameMatches.RootElement.GetProperty("Total").GetInt32() + editorMatches.RootElement.GetProperty("Total").GetInt32();
+                        result = new { Matches = all.Take(30).ToArray(), Total = total, Partial = total > 30 };
+                    }
+                    break;
+                case "packengine_inspect":
+                    if (editorPacks is not null && !OnUi(() => session.Index.Nodes.ContainsKey(Str(arguments, "key")))) return await RoutedEditorCall("inspect", Str(arguments, "key"), arguments, cancellation).ConfigureAwait(false);
+                    result = OnUi(() =>
                 {
                     session.Refresh(); string key = Str(arguments, "key"), section = Str(arguments, "section");
                     if (!session.Index.Nodes.ContainsKey(key)) throw new InvalidDataException("Unknown object ID.");
@@ -171,12 +193,18 @@ public sealed class AgentWorkspace : IAgentWorkspace, IDisposable
                     session.RecordRead(request.Id, section + ":" + key, fragment, WorkspaceProject.HashText(text), partial);
                     return new { Key = key, Section = section, SavedDefinitions = section == "contract", Content = fragment, Partial = partial, Hint = partial ? "Use definition and relations to inspect individual parts." : "" };
                 }); break;
-                case "packengine_read": result = OnUi(() =>
+                case "packengine_read":
+                    if (Str(arguments, "path").StartsWith("editor:", StringComparison.Ordinal)) return await RoutedEditorCall("read", Str(arguments, "path"), arguments, cancellation).ConfigureAwait(false);
+                    if (TryReadGameBundle(arguments, out result)) break;
+                    result = OnUi(() =>
                 { string path = Str(arguments, "path"); if (path.StartsWith("chat:", StringComparison.Ordinal)) return ReadSharedChat(path, Num(arguments, "startLine", 1), Num(arguments, "lineCount", 80));
                     path = session.Project.Relative(session.Project.Resolve(path));
                     var staged = session.Index.Nodes.TryGetValue("file:" + path, out var node) ? Review?.File("game", node.Pack, path) : null;
                     var item = staged is not null ? ReadOverlay(path, staged, Num(arguments, "startLine", 1), Num(arguments, "lineCount", 80)) : session.ReadSlice(request.Id, path, Num(arguments, "startLine", 1), Num(arguments, "lineCount", 80)); readVersions[item.Path] = item.DocumentHash; return item; }); break;
-                case "packengine_patch": result = OnUi(() =>
+                case "packengine_patch":
+                    if (Str(arguments, "path").StartsWith("editor:", StringComparison.Ordinal)) return await RoutedEditorCall("patch", Str(arguments, "path"), arguments, cancellation).ConfigureAwait(false);
+                    if (TryPatchGameBundle(arguments, out result)) break;
+                    result = OnUi(() =>
                 {
                     string path = session.Project.Relative(session.Project.Resolve(Str(arguments, "path"))); RequireFile(path);
                     var doc = session.Document(path); string expected = Str(arguments, "expectedHash");
@@ -194,7 +222,9 @@ public sealed class AgentWorkspace : IAgentWorkspace, IDisposable
                     progress?.Invoke(new() { Kind = "preview", Subject = draft.Id, Text = draft.Intent });
                     return new { ChangeId = draft.Id, draft.File, draft.Intent, draft.BeforeHash, draft.AfterHash, Changes = draft.Changes.Take(30).ToArray(), Impact = draft.Impact.Take(40).ToArray(), Applied = false };
                 }); break;
-                case "packengine_apply": result = OnUi(() =>
+                case "packengine_apply":
+                    if (editorChanges.TryGetValue(Str(arguments, "changeId"), out var editorPack)) return await EditorCall(JsonSerializer.SerializeToElement(new { operation = "apply", pack = editorPack, changeId = Str(arguments, "changeId") }), cancellation).ConfigureAwait(false);
+                    result = OnUi(() =>
                 {
                     string id = Str(arguments, "changeId"); if (!changes.Contains(id)) throw new InvalidOperationException("Only this request's previews can be applied by its agent.");
                     if (Review is not null) { var staged = Review.Require(id); return (object)new { ChangeId = id, File = staged.Path, Applied = false, State = "pending-review", Hint = "The user will review all proposed changes together after this turn." }; }
@@ -203,6 +233,7 @@ public sealed class AgentWorkspace : IAgentWorkspace, IDisposable
                     return new { ChangeId = id, draft.File, Applied = true, DocumentHash = readVersions[draft.File] };
                 }); break;
                 case "packengine_build": case "packengine_project":
+                    if (tool == "packengine_build" && editorPacks is not null && !OnUi(() => session.Index.Packs.Any(p => p.Id == Str(arguments, "pack")) || gameBundles.ContainsKey(Str(arguments, "pack")))) return await EditorCall(JsonSerializer.SerializeToElement(new { operation = "build", pack = Str(arguments, "pack") }), cancellation).ConfigureAwait(false);
                     if (Review is not null)
                     {
                         string pack = Str(arguments, "pack"), op = tool == "packengine_build" ? "build" : Str(arguments, "operation");
@@ -235,7 +266,7 @@ public sealed class AgentWorkspace : IAgentWorkspace, IDisposable
                     break;
                 default: throw new InvalidDataException("Unknown editor tool: " + tool);
             }
-            cancellation.ThrowIfCancellationRequested(); Note(tool, subject, Review is not null && tool is ("packengine_patch" or "packengine_apply" or "packengine_build" or "packengine_project") ? "staged" : "completed"); return EditorSession.Serialize(result);
+            cancellation.ThrowIfCancellationRequested(); Note(tool, subject, Review is not null && tool is ("packengine_create" or "packengine_patch" or "packengine_apply" or "packengine_build" or "packengine_project") || Review is not null && tool == "packengine_image" && Str(arguments, "operation") == "register" ? "staged" : "completed"); return EditorSession.Serialize(result);
         }
         catch (Exception e) { Note(tool, subject, e is OperationCanceledException ? "cancelled" : "failed", e.Message); throw; }
         finally { gate.Release(); }
@@ -262,5 +293,5 @@ public sealed class AgentWorkspace : IAgentWorkspace, IDisposable
         }
         finally { runner.Output -= Log; }
     }
-    public void Dispose() => gate.Dispose();
+    public void Dispose() { images?.Dispose(); gate.Dispose(); }
 }

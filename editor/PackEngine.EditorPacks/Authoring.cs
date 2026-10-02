@@ -28,9 +28,7 @@ public sealed class EditorPackChange
         Directory.CreateDirectory(history);
         // Save recovery data before the atomic replacement.
         File.WriteAllText(System.IO.Path.Combine(history, Id + ".json"), EditorSession.Serialize(this), new UTF8Encoding(false));
-        string target = source.PathFor(Path), temp = target + "." + Id + ".tmp";
-        try { File.WriteAllText(temp, next, new UTF8Encoding(false)); File.Replace(temp, target, null); }
-        finally { if (File.Exists(temp)) File.Delete(temp); }
+        EditorSession.AtomicWrite(source.PathFor(Path), new UTF8Encoding(false).GetBytes(next));
         State = undo ? "undone" : "applied";
         File.WriteAllText(System.IO.Path.Combine(history, Id + ".json"), EditorSession.Serialize(this), new UTF8Encoding(false));
     }
@@ -56,7 +54,7 @@ public sealed class EditorPackChange
     }
 }
 
-public sealed class EditorPackAgent : IEditorPackAccess
+public sealed partial class EditorPackAgent : IEditorPackAccess
 {
     private readonly Dictionary<string, EditorPackSource> sources;
     private readonly HashSet<string> writable;
@@ -75,7 +73,8 @@ public sealed class EditorPackAgent : IEditorPackAccess
     public EditorPackAgent(IEnumerable<EditorPackSource> sources, ContextRequest request, Func<IEditorPackRuntime?> active,
         Func<IReadOnlyCollection<string>, CancellationToken, Task> reload, Action<EditorPackChange> preview, Action<string, string, string> record,
         string sdk, string dotnet, string history, Func<string, string, bool>? dirty = null, ChangeReviewBatch? review = null,
-        Func<object>? windows = null, Func<string, PackEngine.Editor.Contracts.EditorWindowAction, object>? window = null)
+        Func<object>? windows = null, Func<string, PackEngine.Editor.Contracts.EditorWindowAction, object>? window = null,
+        IReadOnlyDictionary<string, string>? creationRoots = null, Action<EditorPackSource, bool>? registration = null)
     {
         this.sources = sources.ToDictionary(s => s.Id, StringComparer.Ordinal); writable = new(request.WritableEditorPacks, StringComparer.Ordinal);
         allowReload = request.AllowEditorReload; this.active = active; this.reload = reload; this.preview = preview; this.record = record;
@@ -83,6 +82,7 @@ public sealed class EditorPackAgent : IEditorPackAccess
         this.dirty = dirty ?? ((_, _) => false);
         this.review = review;
         this.windows = windows; this.window = window;
+        this.creationRoots = creationRoots ?? new Dictionary<string, string>(); this.registration = registration;
     }
     private static string S(JsonElement args, string key) => args.TryGetProperty(key, out var value) ? value.GetString() ?? "" : "";
     public async Task<string> Call(JsonElement args, CancellationToken cancellation)
@@ -91,7 +91,9 @@ public sealed class EditorPackAgent : IEditorPackAccess
         string operation = S(args, "operation"), id = S(args, "pack"), path = S(args, "path");
         object result;
         if (operation == "api") result = EditorProjectDataApi.Describe();
-        else if (operation == "list") result = new { Packs = sources.Values.Select(s => new { s.Id, s.Scope, s.Parent, Files = s.Documents(), Active = active()?.Hashes.ContainsKey(s.Id) == true }), Writable = writable, AllowReload = allowReload, ReviewChanges = review is not null, ProposalScope = review is null ? "Frozen writable packs" : "All registered editor packs; actual changes/actions require the host review", ProjectDataApi = "Use operation=api for the host's project-data-1 read/proposal contracts and a compilable command example.",
+        else if (operation == "find") result = Find(S(args, "query"), id);
+        else if (operation is "create" or "new_pack") result = CreateFiles(args, operation == "new_pack");
+        else if (operation == "list") result = new { Packs = sources.Values.Select(s => new { s.Id, Key = "editor:" + s.Id, s.Scope, s.Parent, Files = Documents(s), Active = active()?.Hashes.ContainsKey(s.Id) == true, PendingReview = bundles.ContainsKey(s.Id) }), Writable = writable, AllowReload = allowReload, ReviewChanges = review is not null, CreationScopes = creationRoots.Keys.ToArray(), Creation = "create: supply all new files and observed-hash XML/project registration changes as one files bundle. new_pack: project/plugin scaffold, optionally with implementation. Creation always requires review. expectedHash=absent means create-only.", ProposalScope = review is null ? "Frozen writable packs" : "All registered editor packs; actual changes/actions require the host review", ProjectDataApi = "Use operation=api for the host's project-data-1 read/proposal contracts and a compilable command example.",
             Modules = (active() as EditorPackRuntime)?.Modules, WindowsAvailable = windows is not null,
             Shell = active()?.Snapshot.Shell, ShellHint = "EditorExtensions/Shell extends a layout ID; sidebarWidth 0..600, contextWidth 180..700, logHeight 0..600; sidebar+context <=1000. Omission inherits. XML-only changes apply on reload." };
         else if (operation == "windows") result = windows?.Invoke() ?? throw new InvalidOperationException("This host does not expose registered windows.");
@@ -133,15 +135,15 @@ public sealed class EditorPackAgent : IEditorPackAccess
                     else { if (!allowReload) throw new InvalidOperationException("Enable editor execution for window actions."); result = window(id, action); }
                     break;
                 case "inspect":
-                    string view = S(args, "view"); var live = active() ?? throw new InvalidOperationException("No active editor packs.");
-                    result = new { LiveSnapshot = live.Snapshot.Fingerprint, Definition = live.Catalog.InspectView(view), Hint = "Origins identify parent/child XML; use read for current source. Live snapshot can differ from edited files." }; break;
+                    result = Inspect(source, path, S(args, "view")); break;
                 case "read":
-                    var staged = review?.File("editor", id, path); string text = staged?.After ?? source.Read(path), hash = WorkspaceProject.HashText(text); reads[id + "/" + path] = hash;
+                    var staged = review?.File("editor", id, path); string text = ReadText(source, path), hash = WorkspaceProject.HashText(text); reads[id + "/" + path] = hash;
                     int start = args.TryGetProperty("startLine", out var a) ? a.GetInt32() : 1, count = args.TryGetProperty("lineCount", out var b) ? b.GetInt32() : 80;
                     var lines = text.Replace("\r\n", "\n").Split('\n'); if (start < 1 || start > lines.Length || count < 1 || count > 160) throw new ArgumentException("Invalid source slice.");
                     string slice = string.Join("\n", lines.Skip(start - 1).Take(count));
-                    result = new { Pack = id, Path = path, Hash = hash, Content = slice.Substring(0, Math.Min(slice.Length, 12000)), TotalLines = lines.Length, PendingReview = staged is not null, Partial = start > 1 || start - 1 + count < lines.Length || slice.Length > 12000 }; break;
+                    result = new { Pack = id, Path = "editor:" + id + "/" + path, Hash = hash, DocumentHash = hash, Content = slice.Substring(0, Math.Min(slice.Length, 12000)), TotalLines = lines.Length, PendingReview = staged is not null || bundles.ContainsKey(id), Partial = start > 1 || start - 1 + count < lines.Length || slice.Length > 12000 }; break;
                 case "patch":
+                    if (bundles.TryGetValue(id, out var bundle) && bundle.Files.Paths.Contains(path)) { result = PatchBundle(source, bundle, args); break; }
                     var previous = review?.File("editor", id, path); string baseline = source.Read(path), before = previous?.After ?? baseline, expected = S(args, "expectedHash"), oldText = S(args, "oldText"), newText = S(args, "newText");
                     if (previous is not null && previous.Before != baseline) throw new IOException("The real editor file changed while proposals were being prepared.");
                     if (!reads.TryGetValue(id + "/" + path, out var read) || read != expected || WorkspaceProject.HashText(before) != expected) throw new IOException("Read the current editor pack document before patching.");
@@ -155,6 +157,8 @@ public sealed class EditorPackAgent : IEditorPackAccess
                         () => { change.Apply(history); preview(change); }, () => { change.Apply(history, true); preview(change); }, () => WorkspaceProject.HashText(source.Read(change.Path)));
                     result = new { ChangeId = change.Id, change.Pack, change.Path, change.BeforeHash, change.AfterHash, Applied = false }; break;
                 case "apply": case "undo":
+                    if (bundles.TryGetValue(id, out var created) && created.Files.Id == S(args, "changeId"))
+                    { if (operation == "undo") throw new InvalidOperationException("Exclude the complete file bundle in the review window to cancel it."); review!.Require(created.Files.Id); result = new { ChangeId = created.Files.Id, State = "pending-review", Applied = false }; break; }
                     if (!changes.TryGetValue(S(args, "changeId"), out var selected) || selected.Pack != id) throw new InvalidOperationException("Only this request's editor pack previews can be applied.");
                     if (review is not null)
                     {

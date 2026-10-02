@@ -88,7 +88,10 @@ try:
             if method == 'thread/start':
                 assert params['environments'] == []
                 names = {tool['name'] for tool in params['dynamicTools']}
-                assert len(names) == 8 and 'packengine_patch' in names and 'packengine_editor' in names
+                assert names == {'packengine_editor', 'packengine_find', 'packengine_inspect', 'packengine_read',
+                                 'packengine_patch', 'packengine_apply', 'packengine_build', 'packengine_project',
+                                 'packengine_create', 'packengine_image'}
+                assert len(params['dynamicTools']) == len(names)
                 assert all(tool['type'] == 'function' for tool in params['dynamicTools'])
             else:
                 assert params['threadId'] in (thread, 'fixture-older') and params['excludeTurns']

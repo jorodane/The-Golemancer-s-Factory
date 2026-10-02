@@ -14,7 +14,7 @@ public sealed partial class EditorWindow
     private readonly StackPanel pointChips = new() { Orientation = Orientation.Horizontal };
     private readonly TextBox codexPath = Input();
     private readonly ComboBox models = new() { Margin = new Thickness(3), MinWidth = 150 };
-    private readonly Dictionary<string, TextBlock> streamMessages = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, TextBox> streamMessages = new(StringComparer.Ordinal);
     private readonly Dictionary<string, Rect> graphObjects = new(StringComparer.Ordinal);
     private Point? rangeStart;
     private Rectangle? rangeBox;
@@ -202,8 +202,7 @@ public sealed partial class EditorWindow
         {
             if (!streamMessages.TryGetValue(update.Subject, out var block))
             {
-                block = Label("", 14); var group = new StackPanel(); group.Children.Add(Label(provider?.Name ?? "에디터 AI", 12, AccentInk)); group.Children.Add(block);
-                transcript.Children.Add(new Border { Background = BackgroundInk, Padding = new Thickness(12), CornerRadius = new CornerRadius(8), Margin = new Thickness(0, 6, 0, 10), Child = group }); streamMessages[update.Subject] = block;
+                block = CreateMessage(provider?.Name ?? "에디터 AI"); streamMessages[update.Subject] = block;
             }
             block.Text = update.Kind == "delta" ? block.Text + update.Text : update.Text; return;
         }

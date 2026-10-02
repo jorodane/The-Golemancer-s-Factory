@@ -11,14 +11,14 @@ public sealed partial class EditorWindow
 {
     private readonly EditorWindowRegistry packWindows = new();
     private readonly ComboBox packWindowChoice = new() { MinWidth = 220, DisplayMemberPath = "Title", Margin = new Thickness(4) };
-    private IEditorWindowInstance CreatePackWindow(IEditorPackRuntime runtime, EditorWindowDefinition definition)
+    private IEditorWindowInstance CreatePackWindow(IEditorPackRuntime runtime, EditorWindowDefinition definition, UiCatalog? transient = null)
     {
         var context = EditorNativeSchema.Context(runtime.Snapshot, (id, value) =>
         {
             if (packGeneration is { } current) ExecuteEditorCommand(current, id, value);
         }, session?.Project.Name ?? "프로젝트를 열어줘", session?.State.Selection ?? "");
-        var backend = new EditorPackBackend(node => Guard(() => PointEditorNode(definition.View, node)), () => session?.Pointing.Mode is "single" or "range");
-        var view = runtime.Catalog.Mount(definition.View, context, backend);
+        var backend = new EditorPackBackend(node => Guard(() => { if (transient is null) PointEditorNode(definition.View, node); else PointEditorPack(definition.Pack, "pack.xml", "runtime-view:" + definition.View); }), () => session?.Pointing.Mode is "single" or "range");
+        var view = (transient ?? runtime.Catalog).Mount(definition.View, context, backend);
         try { return new PackWindowInstance(this, definition, backend, view); }
         catch { view.Dispose(); throw; }
     }
@@ -80,6 +80,7 @@ public sealed partial class EditorWindow
             {
                 window = new() { Owner = owner, Title = definition.Title, Content = scroll, Width = 760, Height = 520, MinWidth = 320, MinHeight = 200,
                     Background = Brush("#11171F"), WindowStartupLocation = WindowStartupLocation.CenterOwner };
+                owner.RememberWindow(window, "pack:" + (owner.session?.Project.Identity ?? "studio") + ":" + definition.Pack + ":" + (definition.Temporary ? definition.View : definition.Id));
                 window.Closed += WindowClosed;
             }
         }
@@ -91,8 +92,12 @@ public sealed partial class EditorWindow
         {
             var state = backend.Capture(); state.Values["$scroll"] = scroll.VerticalOffset.ToString(CultureInfo.InvariantCulture);
             if (window is not null)
-                foreach (var item in new[] { ("$left", window.Left), ("$top", window.Top), ("$width", window.Width), ("$height", window.Height) })
+            {
+                var bounds = window.WindowState == WindowState.Normal ? new Rect(window.Left, window.Top, window.Width, window.Height) : window.RestoreBounds;
+                state.Values["$maximized"] = (window.WindowState == WindowState.Maximized).ToString();
+                foreach (var item in new[] { ("$left", bounds.Left), ("$top", bounds.Top), ("$width", bounds.Width), ("$height", bounds.Height) })
                     state.Values[item.Item1] = item.Item2.ToString(CultureInfo.InvariantCulture);
+            }
             return state;
         }
         public void Restore(EditorWindowState state)
@@ -102,9 +107,8 @@ public sealed partial class EditorWindow
             { value = 0; return state.Values.TryGetValue(key, out var text) && double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value) && !double.IsNaN(value) && !double.IsInfinity(value); }
             if (Number("$scroll", out var saved)) { offset = Math.Max(0, saved); restoreScroll = true; }
             if (window is null) return;
-            if (Number("$width", out var width)) window.Width = Math.Max(window.MinWidth, width);
-            if (Number("$height", out var height)) window.Height = Math.Max(window.MinHeight, height);
-            if (Number("$left", out var left) && Number("$top", out var top)) { window.WindowStartupLocation = WindowStartupLocation.Manual; window.Left = left; window.Top = top; }
+            if (Number("$width", out var width) && Number("$height", out var height) && Number("$left", out var left) && Number("$top", out var top))
+                RestorePlacement(window, new(left, top, width, height, state.Values.TryGetValue("$maximized", out var maximized) && bool.TryParse(maximized, out var isMaximized) && isMaximized));
         }
         public void Activate()
         {

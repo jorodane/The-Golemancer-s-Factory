@@ -5,7 +5,7 @@ using PackEngine.Workspace;
 namespace PackEngine.EditorPacks;
 
 // One service per command invocation, bound to one host session. DLLs receive detached DTOs.
-public sealed class EditorPackProjectData : IEditorProjectData, IDisposable
+public sealed partial class EditorPackProjectData : IEditorProjectData, IEditorProjectCatalog, IDisposable
 {
     private readonly EditorSession session;
     private readonly string pack;

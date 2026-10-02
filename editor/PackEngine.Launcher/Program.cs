@@ -13,6 +13,6 @@ internal static class Program
             LauncherLayout.Load(AppDomain.CurrentDomain.BaseDirectory, args).Launch(null);
             return 0;
         }
-        catch (Exception e) { MessageBox.Show(e.Message, "Project Studio 시작", MessageBoxButton.OK, MessageBoxImage.Error); return 1; }
+        catch (Exception e) { MessageBox.Show(e.Message, "Confectory 시작", MessageBoxButton.OK, MessageBoxImage.Error); return 1; }
     }
 }

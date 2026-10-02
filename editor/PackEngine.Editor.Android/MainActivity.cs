@@ -15,7 +15,7 @@ using OperationCanceledException = System.OperationCanceledException;
 
 namespace PackEngine.Editor.Android;
 
-[Activity(Name = "com.packengine.editor.MainActivity", Label = "Project Studio", MainLauncher = true, Exported = true,
+[Activity(Name = "com.packengine.editor.MainActivity", Label = "Confectory", MainLauncher = true, Exported = true,
     Theme = "@android:style/Theme.Material.Light.NoActionBar", ConfigurationChanges = ConfigChanges.Orientation | ConfigChanges.ScreenSize | ConfigChanges.KeyboardHidden)]
 public sealed partial class MainActivity : Activity
 {
@@ -39,7 +39,7 @@ public sealed partial class MainActivity : Activity
         var layout = new LinearLayout(this) { Orientation = Orientation.Vertical };
         layout.SetOnApplyWindowInsetsListener(new InsetsPadding());
         Window?.SetSoftInputMode(SoftInput.AdjustResize);
-        layout.AddView(new TextView(this) { Text = "Project Studio · Android", TextSize = 22 });
+        layout.AddView(new TextView(this) { Text = "Confectory · Android", TextSize = 22 });
         AddAiToolbar(layout);
         toolbar = new(this) { Orientation = Orientation.Horizontal };
         var strip = new HorizontalScrollView(this); strip.AddView(toolbar); layout.AddView(strip);

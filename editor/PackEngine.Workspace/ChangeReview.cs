@@ -26,6 +26,7 @@ public sealed class ReviewItem
     public string Subject { get; set; } = "";
     public string Detail { get; set; } = "";
     public string State { get; set; } = "pending";
+    public string PreviewImage { get; set; } = "";
     public bool IsFile => Operation.Length == 0;
     public string Group => Kind + ":" + Pack;
 }

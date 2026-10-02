@@ -4,7 +4,7 @@
     <OutputType>Exe</OutputType>
     <SupportedOSPlatformVersion>26</SupportedOSPlatformVersion>
     <ApplicationId>com.packengine.editor</ApplicationId>
-    <ApplicationTitle>Project Studio</ApplicationTitle>
+    <ApplicationTitle>Confectory</ApplicationTitle>
     <ApplicationVersion>1</ApplicationVersion><ApplicationDisplayVersion>0.1.0</ApplicationDisplayVersion>
     <RuntimeIdentifiers>android-arm64;android-x64</RuntimeIdentifiers>
     <AndroidPackageFormats>apk</AndroidPackageFormats><AndroidBuildApplicationPackage>true</AndroidBuildApplicationPackage>

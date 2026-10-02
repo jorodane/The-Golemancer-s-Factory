@@ -317,11 +317,11 @@ public sealed partial class EditorWindow
                 request.Target = Target; request.WritablePacks = sharingPermissions.WritablePacks.Where(p => ownerSession.Index.Packs.Any(x => x.Id == p)).ToList();
                 request.WritableEditorPacks = sharingPermissions.WritableEditorPacks.Where(p => packSources.Any(x => x.Id == p)).ToList();
                 request.AllowProjectCommands = sharingPermissions.ProjectCommands; request.AllowEditorReload = sharingPermissions.EditorReload; ownerSession.Persist();
-                request.ReviewChanges = true;
+                request.ReviewChanges = true; request.SharedChats = CurrentAccess?.CaptureSharedChats() ?? [];
                 lastRequest = request; streamMessages.Clear(); Message("웹에서 받은 작업", task.GetProperty("prompt").GetString()!); RefreshContext();
                 var bridge = new AssistantBridge(ownerSession, action => Dispatcher.Invoke(() => { action(); RefreshContext(); }));
                 var review = new ChangeReviewBatch(ownerSession, request, action => Dispatcher.Invoke(action));
-                using var tools = new AgentWorkspace(ownerSession, request, runner, action => Dispatcher.Invoke(() => { action(); RefreshContext(); }), AgentProgress, CreateEditorPackAgent(request, review), review);
+                using var tools = new AgentWorkspace(ownerSession, request, runner, action => Dispatcher.Invoke(() => { action(); RefreshContext(); }), AgentProgress, CreateEditorPackAgent(request, review), review, CreateImageAccess(review));
                 sharingStatus.Text = aiConnections.Editor.Name + " 작업 중 · " + remoteId.Substring(0, 8);
                 try { return await bridge.Send(provider!, request, operation.Token, tools, (reply, token) => FinishReviewedChanges(review, reply, token)); }
                 finally { review.Cancel(); }

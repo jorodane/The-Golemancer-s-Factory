@@ -14,6 +14,6 @@ internal static class Program
             window.Loaded += (_, _) => { window.StartStudio(args.Length > 0 ? args[0] : ""); };
             return app.Run(window);
         }
-        catch (Exception e) { MessageBox.Show(e.ToString(), "PackEngine Editor", MessageBoxButton.OK, MessageBoxImage.Error); return 1; }
+        catch (Exception e) { MessageBox.Show(e.ToString(), "Confectory Editor", MessageBoxButton.OK, MessageBoxImage.Error); return 1; }
     }
 }

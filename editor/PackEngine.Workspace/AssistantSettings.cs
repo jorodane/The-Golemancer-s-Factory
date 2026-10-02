@@ -53,7 +53,18 @@ public sealed class SharedChatReference
     public string Content { get; set; } = "";
     public bool Shared { get; set; }
     public string Path => "chat:" + Id;
-    public override string ToString() => Title + (Shared && !string.IsNullOrWhiteSpace(Content) ? " · 문맥 공유" : " · 링크/비공유");
+    public override string ToString() => Title + (Shared && !string.IsNullOrWhiteSpace(Content) ? " · 본문 " + Content.Length + "자 공유" : " · 링크/비공유");
+    public static object[] ForModel(IEnumerable<SharedChatReference> chats)
+    {
+        int remaining = 12000;
+        return chats.Where(c => c.Shared && !string.IsNullOrWhiteSpace(c.Content)).Select(c =>
+        {
+            int length = Math.Min(remaining, c.Content.Length); remaining -= length;
+            return (object)new { c.Path, c.Title, Source = "explicit shared excerpt frozen at send time", Content = c.Content.Substring(0, length),
+                DocumentHash = WorkspaceProject.HashText(c.Content), TotalCharacters = c.Content.Length, Partial = length < c.Content.Length,
+                ReadMore = "packengine_read(path) returns this request's complete shared excerpt; URLs are metadata, not history access" };
+        }).ToArray();
+    }
     public static string ValidateUrl(string url)
     {
         if (url.Length > 4096 || !Uri.TryCreate(url.Trim(), UriKind.Absolute, out var uri) || uri.Scheme != "https" || uri.Host != "chatgpt.com" ||

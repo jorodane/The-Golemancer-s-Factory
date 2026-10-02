@@ -31,6 +31,7 @@ public sealed partial class EditorWindow
         editorAiMenu.Items.Add(Item("연결 확인 · 다시 연결", async () => await ConnectSelectedEditorAi()));
         editorAiMenu.Items.Add(Item("에디터 AI 대화 열기", UseLocalChat));
         editorAiMenu.Items.Add(Item("새 대화", NewCodexConversation));
+        editorAiMenu.Items.Add(Item("이미지 생성 연결…", ShowImageAiSetup));
         editorAiMenu.Items.Add(Item("연결 해제", DisconnectEditorAi));
         conversationAiMenu.Items.Add(Item("연결 · 제공자 전환…", ShowConversationAiSetup));
         conversationAiMenu.Items.Add(Item("연결된 대화 열기", UseEmbeddedChat));
@@ -149,7 +150,7 @@ public sealed partial class EditorWindow
             }
             catch (Exception e) { note.Text = e.Message; }
         }));
-        panel.Children.Add(Action("취소", dialog.Close)); dialog.ShowDialog();
+        panel.Children.Add(Action("취소", dialog.Close)); RememberWindow(dialog, "dialog:" + dialog.Title); dialog.ShowDialog();
     }
     private void ShowEditorAiSetup()
     {
@@ -229,7 +230,7 @@ public sealed partial class EditorWindow
         }
         Update(); select.SelectionChanged += (_, _) => Update();
         dialog.Closed += (_, _) => { cancellation.Cancel(); if (working && ids[select.SelectedIndex] == "codex") operation?.Cancel(); candidate?.Dispose(); candidate = null; };
-        dialog.ShowDialog();
+        RememberWindow(dialog, "dialog:" + dialog.Title); dialog.ShowDialog();
     }
     private AssistantConnection SelectedAiOptions() => CurrentAccess is { } access && session is not null
         ? assistantSettings.Connection(access, "", session.StateDirectory) : throw new InvalidOperationException("에디터 작업공간을 먼저 준비해줘.");
@@ -277,12 +278,12 @@ internal sealed class WindowsAiCredentials : IAiCredentialStore
 {
     private static string FileFor(string provider)
     {
-        if (provider is not ("anthropic" or "openai")) throw new ArgumentException("API 제공자가 아니야.");
+        if (provider is not ("anthropic" or "openai" or "openai-images")) throw new ArgumentException("API 제공자가 아니야.");
         return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PackEngine", "Credentials", provider + ".bin");
     }
     public string Read(string provider)
     { string path = FileFor(provider); return File.Exists(path) ? Encoding.UTF8.GetString(ProtectedData.Unprotect(File.ReadAllBytes(path), null, DataProtectionScope.CurrentUser)) : ""; }
     public void Write(string provider, string secret)
     { string path = FileFor(provider); Directory.CreateDirectory(Path.GetDirectoryName(path)!); EditorSession.AtomicWrite(path, ProtectedData.Protect(Encoding.UTF8.GetBytes(secret), null, DataProtectionScope.CurrentUser)); }
-    public void Delete(string provider) { if (provider is not ("anthropic" or "openai")) return; string path = FileFor(provider); if (File.Exists(path)) File.Delete(path); }
+    public void Delete(string provider) { if (provider is not ("anthropic" or "openai" or "openai-images")) return; string path = FileFor(provider); if (File.Exists(path)) File.Delete(path); }
 }

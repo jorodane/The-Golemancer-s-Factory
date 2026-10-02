@@ -90,13 +90,20 @@ def main():
                 records = [json.loads(x) for x in log.read_text().splitlines()] if log.exists() else []
                 return run, records
 
+            failing_state = folder / 'archive-failure-state'
+            successful, traffic = call('codex-chat', project, failing_state, home, '--prompt', 'ARCHIVE FAILURE FIXTURE', mode='archive-fail')
+            check(successful.stdout.strip() == 'PORTABILITY_FIXTURE_OK' and 'archive-failed' in successful.stderr,
+                  'a cache failure warns without converting a successful model fixture response into a failed task')
+            failed_id = json.loads((failing_state / 'codex-thread.json').read_text())['ThreadId']
+            history, _ = call('codex-history', project, failing_state, home, '--thread', failed_id, mode='archive-fail')
+            check('ARCHIVE FAILURE FIXTURE' in history.stdout, 'native history remains readable when its recovery cache cannot be saved')
             original_project = files(project.parent)
             first, _ = call('codex-chat', project, state, home, '--prompt', 'FIRST DEVICE FIXTURE')
             check(first.stdout.strip() == 'PORTABILITY_FIXTURE_OK', 'fixture response is clearly labeled as a protocol fixture')
             local = state / 'conversations'
             id = (local / 'active.txt').read_text().strip()
             descriptor = json.loads((local / (id + '.json')).read_text())
-            data = (local / (id + '-' + descriptor['Hash'] + '.jsonl')).read_bytes()
+            data = (local / (descriptor['Hash'] + '.jsonl')).read_bytes()
             check(b'FIRST DEVICE FIXTURE' in data and len(data) > 0, 'the device state contains the native transcript outside the project')
             call('codex-threads', project, state, home)
             call('codex-history', project, state, home, '--thread', id)
@@ -106,7 +113,7 @@ def main():
             check(files(project.parent) == original_project, 'blocked explicit saves cannot create project files')
             call('codex-save', project, state, home, '--thread', id)
             saved_meta = json.loads((archive(project) / (id + '.json')).read_text())
-            check((archive(project) / (id + '-' + saved_meta['Hash'] + '.jsonl')).read_bytes() == data,
+            check((archive(project) / (saved_meta['Hash'] + '.jsonl')).read_bytes() == data,
                   'explicit save writes the exact selected transcript and portable project identity')
             moved = folder / 'device-b/Renamed Game'
             shutil.copytree(project.parent, moved)
@@ -128,7 +135,7 @@ def main():
             check(files(project.parent) == saved_project, 'restoring and continuing a saved conversation never refreshes the project snapshot automatically')
             call('codex-save', project, state, home, '--thread', id)
             saved_meta = json.loads((archive(project) / (id + '.json')).read_text())
-            check(b'SECOND DEVICE FIXTURE' in (archive(project) / (id + '-' + saved_meta['Hash'] + '.jsonl')).read_bytes(),
+            check(b'SECOND DEVICE FIXTURE' in (archive(project) / (saved_meta['Hash'] + '.jsonl')).read_bytes(),
                   'saving again explicitly includes the newer local messages')
             saved_project = files(project.parent)
             _, traffic = call('codex-history', project, state, home, '--thread', id, '--deny-thread', id, fail=True)
@@ -138,7 +145,7 @@ def main():
             _, _ = call('codex-chat', project, state, home, '--prompt', 'DISCONNECT FIXTURE', mode='disconnect', fail=True)
             active = (local / 'active.txt').read_text().strip()
             meta = json.loads((local / (active + '.json')).read_text())
-            check(b'DISCONNECT FIXTURE' in (local / (active + '-' + meta['Hash'] + '.jsonl')).read_bytes(), 'a disconnected turn preserves complete native records on this device')
+            check(b'DISCONNECT FIXTURE' in (local / (meta['Hash'] + '.jsonl')).read_bytes(), 'a disconnected turn preserves complete native records on this device')
             cmd, env, log = command('codex-chat', project, state, home, '--prompt', 'CANCEL FIXTURE', mode='cancel')
             proc = subprocess.Popen(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             try:
@@ -154,15 +161,15 @@ def main():
                 if proc.poll() is None:
                     proc.kill(); proc.wait()
             meta = json.loads((local / (active + '.json')).read_text())
-            check(b'CANCEL FIXTURE' in (local / (active + '-' + meta['Hash'] + '.jsonl')).read_bytes(), 'cancelled native records remain recoverable locally')
+            check(b'CANCEL FIXTURE' in (local / (meta['Hash'] + '.jsonl')).read_bytes(), 'cancelled native records remain recoverable locally')
             check(files(project.parent) == saved_project, 'new selections, history-disabled turns, disconnects and cancellation leave saved project files unchanged')
             call('codex-save', project, state, home, '--thread', active)
             meta = json.loads((archive(project) / (active + '.json')).read_text())
             native = next((home / 'sessions').rglob('*-' + active + '.jsonl'))
-            snapshot = archive(project) / (active + '-' + meta['Hash'] + '.jsonl')
+            snapshot = archive(project) / (meta['Hash'] + '.jsonl')
             changed = snapshot.read_bytes() + b'{"type":"fixture-divergent"}\n'
             new_hash = hashlib.sha256(changed).hexdigest()
-            (archive(project) / (active + '-' + new_hash + '.jsonl')).write_bytes(changed)
+            (archive(project) / (new_hash + '.jsonl')).write_bytes(changed)
             meta['Hash'] = new_hash; (archive(project) / (active + '.json')).write_text(json.dumps(meta))
             with native.open('ab') as stream:
                 stream.write(b'{"type":"fixture-local-branch"}\n')
