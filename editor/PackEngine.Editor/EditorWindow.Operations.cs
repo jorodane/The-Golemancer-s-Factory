@@ -8,7 +8,6 @@ public sealed partial class EditorWindow
     private readonly TextBlock operationNotice = Label("", 12, AccentInk);
     private Button? retryOperation, closeOperation, cancelOperation;
     private TaskCompletionSource<bool>? retryDecision;
-    private bool? operationLogVisible;
     private string dismissedOperationError = "", waitingOperationError = "";
 
     private UIElement OperationHeader()
@@ -34,7 +33,7 @@ public sealed partial class EditorWindow
         cancelOperation!.IsEnabled = busy;
         closeOperation!.IsEnabled = !busy || waiting && !retryDecision!.Task.IsCompleted;
     }
-    private void ShowOperationLog() { operationLogVisible = true; ApplyBrowserLayout(); }
+    private void ShowOperationLog() { RefreshStudioShell(); }
     private void CloseOperationLog()
     {
         if (busy && (retryDecision is null || retryDecision.Task.IsCompleted)) return;
@@ -43,8 +42,8 @@ public sealed partial class EditorWindow
             dismissedOperationError = waitingOperationError;
             retryDecision.TrySetResult(false);
         }
-        operationNotice.Visibility = Visibility.Collapsed; operationLogVisible = false;
-        SetStatus("실행 기록을 닫았어. 적용한 변경과 실패 기록은 유지돼."); RefreshOperationControls(); ApplyBrowserLayout();
+        operationNotice.Visibility = Visibility.Collapsed;
+        SetStatus("재시도 대기를 끝냈어. 실행 콘솔은 계속 표시돼."); RefreshOperationControls(); RefreshStudioShell();
     }
     private async Task<bool> AwaitBuildRetry(string title, Exception error, CancellationToken token)
     {
@@ -71,7 +70,7 @@ public sealed partial class EditorWindow
                 if (ReferenceEquals(retryDecision, choice))
                 {
                     retryDecision = null; waitingOperationError = ""; operationNotice.Visibility = Visibility.Collapsed;
-                    RefreshOperationControls(); ApplyBrowserLayout();
+                    RefreshOperationControls(); RefreshStudioShell();
                 }
             });
         }

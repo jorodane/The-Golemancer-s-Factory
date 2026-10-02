@@ -10,7 +10,6 @@ public sealed partial class EditorWindow
     private AssistantSettings assistantSettings = new();
     private readonly ComboBox historyProjects = new() { MinWidth = 220, Margin = new Thickness(3) };
     private readonly ListBox historyThreads = new() { Background = BackgroundInk, Foreground = TextInk, MinHeight = 140, Margin = new Thickness(3) };
-    private readonly ListBox webChats = new() { Background = BackgroundInk, Foreground = TextInk, MinHeight = 120, MaxHeight = 230, Margin = new Thickness(3) };
     private readonly CheckBox autoConnect = Setting("시작할 때 에디터 AI 자동 연결"), connectionAccess = Setting("에디터 AI 연결 허용"),
         projectAccess = Setting("이 프로젝트에서 에디터 AI 사용"), historyAccess = Setting("대화 기록 열기·이어가기 허용"), threadAccess = Setting("선택한 대화 접근 허용");
     private readonly TextBlock accountDetails = Label("계정 상태를 아직 확인하지 않았어.", 12, MutedInk), historyStatus = Label("Codex를 연결하면 대화 목록을 볼 수 있어.", 12, MutedInk),
@@ -62,20 +61,12 @@ public sealed partial class EditorWindow
         actions.Children.Add(Action("이 PC의 대화 폴더", OpenConversationFolder));
         actions.Children.Add(Action("프로젝트에 저장한 대화 폴더", OpenSavedConversationFolder));
         localHead.Children.Add(actions); localHead.Children.Add(threadAccess); localHead.Children.Add(historyStatus); DockPanel.SetDock(localHead, Dock.Top); local.Children.Add(localHead); local.Children.Add(historyThreads); columns.Children.Add(local);
-        var web = new StackPanel(); web.Children.Add(Label("수동 참고 메모 · 선택 사항", 15, AccentInk));
-        web.Children.Add(Label("ChatGPT에서 직접 작업하려면 ‘ChatGPT 연결’ 탭을 사용해줘. 아래는 별도 에디터 Codex에 텍스트를 제공하는 이전 방식이야. 링크만으로 대화 내용이 전달되지는 않아.", 12, MutedInk));
-        web.Children.Add(webChats);
-        var links = new WrapPanel(); links.Children.Add(Action("등록", () => EditWebChat(false))); links.Children.Add(Action("내용·공유 설정", () => EditWebChat(true)));
-        links.Children.Add(Action("웹에서 열기", () => Guard(() => { if (webChats.SelectedItem is SharedChatReference item) Process.Start(new ProcessStartInfo(SharedChatReference.ValidateUrl(item.Url)) { UseShellExecute = true }); })));
-        links.Children.Add(Action("등록 해제", () => Guard(() => { if (busy || SelectedAccess is not { } project || webChats.SelectedItem is not SharedChatReference item) return; project.WebChats.Remove(item); SaveSettings(); RefreshWebChats(); })));
-        web.Children.Add(links); web.Children.Add(Label("공유한 문맥도 본문은 필요할 때만 읽어. 설정을 해제하면 이후 요청에서 제외돼. 이미 보낸 내용은 해당 대화에 남으므로 분리하려면 새 대화를 시작해줘.", 11, MutedInk));
-        Grid.SetColumn(web, 2); columns.Children.Add(new ScrollViewer { Content = web, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }); Grid.SetColumn(columns.Children[1], 2);
         page.Children.Add(columns); AddTab("대화·접근", page);
         connectionAccess.IsChecked = assistantSettings.ConnectionEnabled; autoConnect.IsChecked = assistantSettings.AutoConnect;
         autoConnect.Click += (_, _) => Guard(() => { assistantSettings.AutoConnect = autoConnect.IsChecked == true; SaveSettings(); if (assistantSettings.AutoConnect) ScheduleAutoConnect(); });
         connectionAccess.Click += (_, _) => Guard(() => { assistantSettings.ConnectionEnabled = connectionAccess.IsChecked == true; SaveSettings(); ResetResidentConnection(); ScheduleAutoConnect(); });
         projectAccess.Click += (_, _) => ChangeProjectAccess(); historyAccess.Click += (_, _) => ChangeProjectAccess();
-        historyProjects.SelectionChanged += (_, _) => { if (!updatingHistory) { RefreshAccessControls(); ClearThreadList(); RefreshWebChats(); } };
+        historyProjects.SelectionChanged += (_, _) => { if (!updatingHistory) { RefreshAccessControls(); ClearThreadList(); } };
         historyThreads.SelectionChanged += (_, _) =>
         {
             if (updatingHistory) return;
@@ -98,7 +89,7 @@ public sealed partial class EditorWindow
         if (session is null) return;
         assistantSettings.Register(session.Project); SaveSettings(); updatingHistory = true;
         historyProjects.ItemsSource = assistantSettings.Projects.ToArray(); historyProjects.SelectedItem = CurrentAccess; updatingHistory = false;
-        RefreshAccessControls(); ClearThreadList(); RefreshWebChats(); historyMessages.Clear(); messageCursor = ""; conversationTitle.Text = "새 대화";
+        RefreshAccessControls(); ClearThreadList(); historyMessages.Clear(); messageCursor = ""; conversationTitle.Text = "새 대화";
         if (!assistantSettings.ConnectionEnabled || CurrentAccess?.Enabled != true) { providerLabel.Text = "Codex 접근 차단"; accountDetails.Text = "설정에서 이 프로젝트의 Codex 사용을 허용하면 연결할 수 있어."; }
         ScheduleAutoConnect();
     }
@@ -129,13 +120,13 @@ public sealed partial class EditorWindow
             else worker.Turns.RemoveAll(t => CurrentAccess?.BlockedThreads.Contains(t.ThreadId) == true);
             RenderWorker(worker); worker.RefreshLog?.Invoke();
         }
-        provider?.Dispose(); provider = null; providerWebExecutor = false; models.ItemsSource = null; streamMessages.Clear(); transcript.Children.Clear(); historyMessages.Clear(); messageCursor = ""; lastRequest = null; RefreshContext();
+        provider?.Dispose(); provider = null; models.ItemsSource = null; streamMessages.Clear(); transcript.Children.Clear(); historyMessages.Clear(); messageCursor = ""; lastRequest = null; RefreshContext();
         providerLabel.Text = aiConnections.Editor.Name + " · 미연결"; accountDetails.Text = "연결 상태를 다시 확인해줘."; submit.Content = "보내기"; conversationTitle.Text = "새 대화";
         if (!assistantSettings.ConnectionEnabled || CurrentAccess?.Enabled != true) { providerLabel.Text = "Codex 접근 차단"; accountDetails.Text = "설정에서 Codex 사용을 허용하면 연결할 수 있어."; }
     }
     private void SetHistoryBusy(bool value)
     {
-        connectionAccess.IsEnabled = autoConnect.IsEnabled = historyProjects.IsEnabled = historyThreads.IsEnabled = webChats.IsEnabled = !value;
+        connectionAccess.IsEnabled = autoConnect.IsEnabled = historyProjects.IsEnabled = historyThreads.IsEnabled = !value;
         projectAccess.IsEnabled = historyAccess.IsEnabled = !value && SelectedAccess is not null; threadAccess.IsEnabled = !value && historyThreads.SelectedItem is AssistantThread;
     }
     private void ClearThreadList()
@@ -143,7 +134,6 @@ public sealed partial class EditorWindow
         updatingHistory = true; threadItems.Clear(); historyThreads.ItemsSource = null; threadCursor = ""; threadAccess.IsChecked = false; threadAccess.IsEnabled = false; updatingHistory = false;
         historyStatus.Text = SelectedAccess?.HistoryEnabled == false ? "대화 기록 접근이 꺼져 있어. 새 요청마다 별도 대화를 사용해." : "선택한 프로젝트를 열고 Codex에 연결하면 목록을 볼 수 있어.";
     }
-    private void RefreshWebChats() { webChats.ItemsSource = null; webChats.ItemsSource = SelectedAccess?.WebChats; }
     private async void HistoryWork(Func<CancellationToken, Task> action)
     {
         if (busy) return;
@@ -196,28 +186,4 @@ public sealed partial class EditorWindow
         providerLabel.Text = account.Display; accountDetails.Text = account.Display + (account.Email.Length > 0 ? " · " + account.Email : "") +
             "\n로컬 연결 상태이며, 웹 프로젝트·채팅에 대한 열람 권한을 뜻하지는 않아.";
     }
-    private void EditWebChat(bool edit) => Guard(() =>
-    {
-        if (busy || SelectedAccess is not { } project) return;
-        var original = edit ? webChats.SelectedItem as SharedChatReference : null; if (edit && original is null) return;
-        var dialog = new Window { Owner = this, Title = "웹 대화·프로젝트 문맥 등록", Width = 620, Height = 630, MinWidth = 420, MinHeight = 440,
-            Background = PanelInk, Foreground = TextInk, WindowStartupLocation = WindowStartupLocation.CenterOwner };
-        var panel = new DockPanel { Margin = new Thickness(16) }; dialog.Content = panel;
-        var top = new StackPanel(); var name = Input(); name.MaxLength = 160; name.Text = original?.Title ?? "";
-        var url = Input(); url.MaxLength = 4096; url.Text = original?.Url ?? ""; var content = Input(true); content.MaxLength = 12000; content.Text = original?.Content ?? ""; content.TextWrapping = TextWrapping.Wrap; content.VerticalScrollBarVisibility = ScrollBarVisibility.Auto;
-        top.Children.Add(Label("목록에 표시할 이름")); top.Children.Add(name); top.Children.Add(Label("ChatGPT 프로젝트·대화 URL")); top.Children.Add(url);
-        top.Children.Add(Label("공유할 내용만 12,000자까지 붙여 넣어줘. 링크만 등록하면 본문은 가져오지 않아.", 12, MutedInk)); DockPanel.SetDock(top, Dock.Top); panel.Children.Add(top);
-        var bottom = new StackPanel(); var share = Setting("이 프로젝트의 Codex에 이 문맥 공유"); share.IsChecked = original?.Shared == true; bottom.Children.Add(share); var error = Label("", 12, AccentInk); bottom.Children.Add(error);
-        bottom.Children.Add(Action("저장", () =>
-        {
-            try
-            {
-                if (share.IsChecked == true && string.IsNullOrWhiteSpace(content.Text)) throw new InvalidDataException("링크만으로는 대화 내용을 공유할 수 없어. 공유할 본문을 넣어줘. 링크 등록과 본문 전달은 별도야.");
-                var entry = new SharedChatReference { Id = original?.Id ?? Guid.NewGuid().ToString("N"), Title = name.Text, Url = url.Text, Content = content.Text, Shared = share.IsChecked == true }.Snapshot();
-                if (original is null) project.WebChats.Add(entry); else project.WebChats[project.WebChats.IndexOf(original)] = entry;
-                SaveSettings(); RefreshWebChats(); dialog.Close();
-            }
-            catch (Exception e) { error.Text = e.Message; }
-        })); DockPanel.SetDock(bottom, Dock.Bottom); panel.Children.Add(bottom); panel.Children.Add(content); RememberWindow(dialog, "dialog:shared-excerpt"); dialog.ShowDialog();
-    });
 }

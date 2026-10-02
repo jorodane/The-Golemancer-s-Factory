@@ -27,7 +27,7 @@ internal sealed class LauncherLayout
         }
         if (arguments.Length > 1) throw new ArgumentException("프로젝트 경로 하나를 지정해줘.");
         var layout = new LauncherLayout { Root = root, Editor = Local("editor"), Project = arguments.Length == 1 && arguments[0].Length > 0 ? Path.GetFullPath(arguments[0]) : config.Attribute("defaultProject") is null ? "" : Local("defaultProject") };
-        if (!File.Exists(layout.Editor)) throw new FileNotFoundException("에디터 실행 파일이 없어. 저장소를 Pull하거나 BuildEditor.bat으로 빌드해줘.", layout.Editor);
+        if (!File.Exists(layout.Editor)) throw new FileNotFoundException("에디터 실행 파일이 없어. 저장소를 Pull한 다음 BuildEditor.bat으로 빌드해줘.", layout.Editor);
         if (layout.Project.Length > 0 && !File.Exists(layout.Project))
         { if (arguments.Length > 0) throw new FileNotFoundException("열 프로젝트를 찾을 수 없어.", layout.Project); layout.Project = ""; }
         return layout;

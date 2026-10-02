@@ -96,6 +96,7 @@ public sealed partial class EditorWindow
     });
     private void ConfirmActiveRoom() => Guard(() =>
     {
+        if (SendPeerConfirmation()) return;
         if (session is null || activeDocument is null) return;
         session.SaveRoom("human", activeDocument.Path, activeMember);
         SemanticDocument.Validate(activeDocument.Path, activeDocument.Text);

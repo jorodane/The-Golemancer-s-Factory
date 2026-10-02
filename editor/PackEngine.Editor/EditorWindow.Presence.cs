@@ -16,7 +16,7 @@ public sealed partial class EditorWindow
     {
         if (observedHub is not null) observedHub.Changed -= QueuePresenceRefresh;
         participantWindow?.Close(); foreach (var chat in publicChats.ToArray()) chat.Window.Close();
-        observedHub = session?.Collaboration;
+        observedHub = session?.Collaboration; knownIncidents.Clear(); pendingIncidents.Clear(); if (observedHub is not null) foreach (var incident in observedHub.State.Incidents) knownIncidents.Add(incident.Id);
         if (observedHub is not null) { observedHub.Changed += QueuePresenceRefresh; observedHub.Move("human", activeDocument?.Path ?? "", activeMember); }
     }
     private void QueuePresenceRefresh()
@@ -25,7 +25,7 @@ public sealed partial class EditorWindow
         Dispatcher.BeginInvoke(new Action(() =>
         {
             presenceRefreshQueued = false; foreach (var worker in workers) RenderWorker(worker);
-            refreshParticipantWindow?.Invoke(); foreach (var chat in publicChats.ToArray()) chat.Refresh(); RefreshRoomCaption();
+            refreshParticipantWindow?.Invoke(); foreach (var chat in publicChats.ToArray()) chat.Refresh(); RefreshRoomCaption(); RefreshAiManagement(); RefreshEmbeddedChat(); DispatchPendingIncidents();
         }));
     }
     private void OpenParticipantList()

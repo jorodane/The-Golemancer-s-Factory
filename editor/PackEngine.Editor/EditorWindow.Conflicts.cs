@@ -59,9 +59,11 @@ public sealed partial class EditorWindow
             foreach (var candidate in candidates.Where(c => c.Set.ChangeSetId != selected))
                 resolved = ChangeDifference.Merge(item.CanonicalPath, baseline, candidate.Text, resolved, true);
             resolved = ChangeDifference.Merge(item.CanonicalPath, baseline, choice.Text, resolved, true);
-            hub.Say(conflict.Id, "human", "후보 선택: " + choice.Set.Author);
+            bool automatic = conflict.Battle is { State: "decided" } && !conflict.HumanParticipating;
+            if (!automatic) hub.Say(conflict.Id, "human", "후보 선택: " + choice.Set.Author);
             string decision = hub.State.Participants.First(p => p.Id == choice.Set.Author).Name + "의 충돌 구간을 선택 · 다른 구간의 변경은 유지";
-            var resolution = hub.Resolve(conflict.Id, "human", decision, ChangeDifference.Compare(item.CanonicalPath, baseline, resolved));
+            var resolvedOperations = ChangeDifference.Compare(item.CanonicalPath, baseline, resolved);
+            var resolution = automatic ? hub.ResolveAutomatic(conflict.Id, resolvedOperations) : hub.Resolve(conflict.Id, "human", decision, resolvedOperations);
             foreach (var peer in activeReviews.Values.Where(r => !r.IsClosed && conflict.Participants.Contains(hub.Work(r.Request.Id).ParticipantId) && hub.Work(r.Request.Id).State == "review").ToArray())
             {
                 var same = peer.Items.FirstOrDefault(i => i.CanonicalPath == item.CanonicalPath && i.Before == baseline && i.SelectableOperations);
@@ -93,7 +95,7 @@ public sealed partial class EditorWindow
             content.Children.Add(Label(actor.Name + " · " + candidate.Set.Intent, 16, AccentInk));
             content.Children.Add(Label("검증: " + candidate.Set.ValidationResult, 12, MutedInk));
             foreach (var change in candidate.Set.Operations) content.Children.Add(Highlight(change.Preview.Substring(0, Math.Min(12000, change.Preview.Length))));
-            content.Children.Add(Action(actor.Name + "의 충돌 구간 선택", () => { done.TrySetResult(candidate.Set.ChangeSetId); dialog.Close(); }));
+            content.Children.Add(Action(actor.Name + "의 충돌 구간 선택", () => { session!.Collaboration.Say(conflict.Id, "human", "후보 직접 선택"); done.TrySetResult(candidate.Set.ChangeSetId); dialog.Close(); }));
             content.Children.Add(Action("파일 전체 보기", () => ShowReviewFile(new() { Path = conflict.Target, Before = conflict.BaseSnapshot, After = candidate.Text })));
         }
         content.Children.Add(Label("Resolution Log", 17)); content.Children.Add(logs); RenderLog();
@@ -101,6 +103,14 @@ public sealed partial class EditorWindow
         var collaboration = session!.Collaboration; collaboration.Changed += RenderLog;
         conflictWindows[conflict.Id] = dialog; dialog.Closed += (_, _) => { collaboration.Changed -= RenderLog; conflictWindows.Remove(conflict.Id); done.TrySetCanceled(); };
         RememberWindow(dialog, "resolution:" + conflict.Id); using var stop = token.Register(() => Dispatcher.BeginInvoke(new Action(dialog.Close))); dialog.Show();
+        using var battleStop = CancellationTokenSource.CreateLinkedTokenSource(token);
+        async Task AutoResolve()
+        {
+            try { string? selected = await RunResolutionBattle(conflict, candidates, battleStop.Token); if (selected is not null && !done.Task.IsCompleted) { done.TrySetResult(selected); dialog.Close(); } }
+            catch (OperationCanceledException) { }
+        }
+        _ = AutoResolve();
+        dialog.Closed += (_, _) => battleStop.Cancel();
         return await done.Task;
     }
     private void OpenResolutionLog(string id)

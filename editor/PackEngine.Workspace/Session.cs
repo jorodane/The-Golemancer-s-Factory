@@ -31,6 +31,8 @@ public sealed class ContextItem
 }
 public sealed class ContextRequest
 {
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string PrivateIdentity { get; set; } = "";
     public string Id { get; set; } = "";
     public string Prompt { get; set; } = "";
     public string Project { get; set; } = "";

@@ -19,22 +19,8 @@ public sealed partial class EditorWindow
         if (dialog.ShowDialog(this) != true) return;
         OpenProject(NewProject.Create(dialog.FileName).Manifest);
     });
-    private void ChooseConversationMode() => UseEmbeddedChat();
-    private void UseLocalChat() => Guard(() =>
-    {
-        if (busy) return;
-        localAiVisible = true; detailedWorkspace = true;
-        if (conversation is not null) { conversation.Mode = "local"; conversation.SaveLocal(); }
-        StopChatGptBridge(); CancelWebConnection(); ApplyConversationMode(); RefreshWebProject();
-        if (!aiConnections.Editor.Enabled) ShowEditorAiSetup();
-    });
-    private void ApplyConversationMode()
-    {
-        conversationModeLabel.Text = WebMode ? "대화 AI: " + aiConnections.Conversation.Name : "에디터 AI: " + aiConnections.Editor.Name;
-        RefreshChatGptProject();
-        if (!WebMode) { tabs.SelectedIndex = 0; ScheduleAutoConnect(); }
-        SetChatGptBusy(busy); ApplyBrowserLayout();
-    }
+    private void UseLocalChat() => Guard(() => { ShowProjectWorkspace(); tabs.SelectedIndex = 0; });
+    private void ApplyConversationMode() { conversationModeLabel.Text = "내부 작업 AI · " + aiConnections.Editor.Name; RefreshStudioShell(); }
     private void OpenConversationFolder() => Guard(() =>
     {
         if (session is null) return;
@@ -48,7 +34,7 @@ public sealed partial class EditorWindow
     });
     private void SaveProjectConversation() => HistoryWork(async token =>
     {
-        if (conversation is null || providerWebExecutor || provider is not IResidentAssistant agent || provider is not IProjectConversationStorage storage || agent.ThreadId.Length == 0)
+        if (conversation is null || provider is not IResidentAssistant agent || provider is not IProjectConversationStorage storage || agent.ThreadId.Length == 0)
         { SetStatus("저장할 로컬 Codex 대화를 먼저 열어줘."); return; }
         await storage.SaveConversationAsync(agent.ThreadId, token);
         conversation.Save();

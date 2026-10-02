@@ -110,7 +110,7 @@ public sealed class ApiAssistant : IResidentAssistant
             request.ThreadId = ThreadId;
             string context = EditorSession.Serialize(new { request.Id, request.Project, request.Input, request.OpenFiles, request.Documents, request.Context, request.Omitted,
                 request.EditorInput, request.UiTargets, request.WritablePacks, request.WritableEditorPacks, request.AllowEditorReload, request.AllowProjectCommands, request.ReviewChanges, request.Target,
-                SharedChats = SharedChatReference.ForModel(request.SharedChats) });
+                PrivateIdentity = request.PrivateIdentity, SharedChats = SharedChatReference.ForModel(request.SharedChats) });
             var working = new List<object>(messages);
             if (previousRequest?.ReviewChanges == true)
                 working.Add(new { role = "user", content = "[Host review result for the previous request]\n" + (previousRequest.ReviewOutcome.Length > 0 ? previousRequest.ReviewOutcome : "The prior proposals were not confirmed as applied. Read current versions before making another change.") });

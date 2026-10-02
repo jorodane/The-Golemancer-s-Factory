@@ -30,6 +30,7 @@ public sealed partial class EditorWindow
         public List<WorkerTurn> Turns = [];
         public int Turn;
         public Border Character = null!;
+        public Border Avatar = null!;
         public TextBlock Bubble = null!, Caption = null!, Page = null!;
         public TextBox? LiveAnswer;
         public SharedEditorSnapshot? Attachment;
@@ -37,9 +38,10 @@ public sealed partial class EditorWindow
         public Action? RefreshLog;
         public readonly Dictionary<string, string> Streams = new(StringComparer.Ordinal);
         public bool PublicConversation;
-        public string DisplayedAnswer = "";
+        public string DisplayedAnswer = "", UrgentIncident = "";
         public bool Running => Cancellation is not null;
     }
+    private TabControl? workerPages;
     private readonly Canvas participantsCanvas = new() { Background = BackgroundInk, MinWidth = 1100, MinHeight = 950 };
     private readonly List<EditorWorker> workers = [];
     private readonly StackPanel participantNotifications = new();
@@ -60,7 +62,7 @@ public sealed partial class EditorWindow
         bar.Children.Add(Action("결정 기록", ShowDecisionHistory)); bar.Children.Add(participantSelection);
         DockPanel.SetDock(bar, Dock.Top); root.Children.Add(bar);
         DockPanel.SetDock(participantNotifications, Dock.Top); root.Children.Add(participantNotifications);
-        root.Children.Add(new ScrollViewer { Content = participantsCanvas, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
+        var pages = workerPages = new TabControl(); pages.Items.Add(new TabItem { Header = "프로젝트 채팅", Content = BuildProjectChat() }); pages.Items.Add(new TabItem { Header = "작업자", Content = new ScrollViewer { Content = participantsCanvas, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } }); root.Children.Add(pages);
         return root;
     }
     private void OpenLegacyConversation()
@@ -77,18 +79,20 @@ public sealed partial class EditorWindow
         if (session is null) return;
         ObserveParticipants(); participantNotifications.Children.Clear();
         foreach (var participant in session.Collaboration.State.Participants.Where(p => p.Kind == ParticipantKind.AI && p.Id.StartsWith("worker-", StringComparison.Ordinal)).ToArray()) CreateWorker(participant);
-        if (workers.Count == 0) AddWorker();
-        RefreshRecipients(); detailedWorkspace = !Standalone; ApplyBrowserLayout();
+        RefreshRecipients(); RefreshStudioShell();
     }
     private void AddWorker()
     {
         if (session is null) return;
+        var agent = aiDirectory.Agent(aiDirectory.SelectedAgentId);
         var participant = session.Collaboration.Register("worker-" + Guid.NewGuid().ToString("N"), "AI " + (workers.Count + 1), ParticipantKind.AI, ParticipantPermission.Talk | ParticipantPermission.Work);
+        participant.AgentId = agent.Id; participant.Model = agent.Connection.Model;
         participant.X = 24 + workers.Count % 3 * 330; participant.Y = 28 + workers.Count / 3 * 420;
         CreateWorker(participant); session.Collaboration.Save(); RefreshRecipients(); SelectWorker(workers.Last());
     }
     private void CreateWorker(Participant participant)
     {
+        if (participant.AgentId.Length == 0) participant.AgentId = aiDirectory.SelectedAgentId;
         var worker = new EditorWorker { Participant = participant, Directory = Path.Combine(session!.StateDirectory, "participants", participant.Id), Model = participant.Model.Length > 0 ? participant.Model : aiConnections.Editor.Model };
         Directory.CreateDirectory(worker.Directory); string logPath = Path.Combine(worker.Directory, "turns.json");
         if (session!.Collaboration.CanControl("human", participant.Id) && File.Exists(logPath) && CurrentAccess?.HistoryEnabled != false)
@@ -108,12 +112,13 @@ public sealed partial class EditorWindow
         nav.Children.Add(Action("▶", () => { worker.Turn = Math.Min(worker.Turns.Count - 1, worker.Turn + 1); worker.DisplayedAnswer = ""; RenderWorker(worker); ReadWorkerBubble(worker); })); panel.Children.Add(nav);
         // A native character handle; its identity and position belong to the Participant, not the chat pane.
         var avatar = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center };
-        avatar.Children.Add(new Border { Background = AccentInk, CornerRadius = new CornerRadius(26), Width = 52, Height = 52, Child = new TextBlock { Text = "AI", Foreground = BackgroundInk, FontWeight = FontWeights.Bold, FontSize = 18, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center } });
+        worker.Avatar = new Border { Background = AccentInk, CornerRadius = new CornerRadius(25, 25, 20, 20), Width = 48, Height = 62, ClipToBounds = true }; avatar.Children.Add(worker.Avatar);
         var drag = new Thumb { Width = 78, Height = 18, Background = AccentInk, Cursor = System.Windows.Input.Cursors.SizeAll, ToolTip = "드래그해서 작업자 이동" }; avatar.Children.Add(drag); panel.Children.Add(avatar);
         worker.Caption = Label(participant.Name, 15, AccentInk); worker.Caption.TextAlignment = TextAlignment.Center; panel.Children.Add(worker.Caption);
         var actions = new WrapPanel { HorizontalAlignment = HorizontalAlignment.Center };
         if (session!.Collaboration.CanControl("human", participant.Id))
         {
+            if (participant.HelperId.Length == 0) actions.Children.Add(Action("도우미로 승격", () => PromoteWorker(worker)));
             actions.Children.Add(Action("선택", () => Guard(() => SelectWorker(worker)))); actions.Children.Add(Action("대화 로그", () => Guard(() => OpenWorkerLog(worker))));
             actions.Children.Add(Action("취소", () => Guard(() => { session.Collaboration.RequireControl("human", participant.Id); worker.Cancellation?.Cancel(); })));
             var direct = Input(true); direct.Height = 62; direct.TextWrapping = TextWrapping.Wrap; panel.Children.Add(direct);
@@ -131,18 +136,25 @@ public sealed partial class EditorWindow
     {
         string selected = yogiRecipient.SelectedValue as string ?? selectedWorker;
         var choices = workers.Where(w => session?.Collaboration.CanControl("human", w.Participant.Id) == true).Select(w => w.Participant).ToList();
-        if (aiConnections.Conversation.Enabled) choices.Add(new Participant { Id = "web-chat", Name = "웹 대화 · " + aiConnections.Conversation.Name, Kind = ParticipantKind.AI, Permissions = ParticipantPermission.Talk });
         yogiRecipient.ItemsSource = choices; yogiRecipient.SelectedValue = selected;
     }
     private void SelectWorker(EditorWorker worker)
     {
         session!.Collaboration.RequireControl("human", worker.Participant.Id);
+        if (workerPages is not null) workerPages.SelectedIndex = 1;
         selectedWorker = worker.Participant.Id; participantSelection.Text = "선택: " + worker.Participant.Name;
         foreach (var item in workers) item.Character.BorderBrush = item == worker ? AccentInk : PanelInk;
         yogiRecipient.SelectedValue = selectedWorker;
     }
     private void RenderWorker(EditorWorker worker)
     {
+        var helper = aiDirectory.Helpers.FirstOrDefault(h => h.Id == worker.Participant.HelperId);
+        worker.Avatar.Child = new TextBlock { Text = helper is null ? "알" : helper.Name.Substring(0, 1), Foreground = BackgroundInk, FontWeight = FontWeights.Bold, FontSize = 18, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+        if (helper is not null && File.Exists(helper.AvatarPath))
+        {
+            try { var bitmap = new System.Windows.Media.Imaging.BitmapImage(); bitmap.BeginInit(); bitmap.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad; bitmap.UriSource = new Uri(helper.AvatarPath); bitmap.DecodePixelWidth = 128; bitmap.EndInit(); worker.Avatar.Child = new Image { Source = bitmap, Stretch = Stretch.UniformToFill }; }
+            catch (Exception e) when (e is IOException or NotSupportedException) { }
+        }
         worker.Turn = Math.Max(0, Math.Min(worker.Turn, worker.Turns.Count - 1));
         var turn = worker.Turns.ElementAtOrDefault(worker.Turn);
         worker.Bubble.Text = turn is null ? "독립 작업을 맡겨줘." : "나\n" + turn.User + "\n\n" + worker.Participant.Name + "\n" + (turn.Answer.Length > 0 ? turn.Answer : turn.Events.LastOrDefault() ?? turn.State);
@@ -168,6 +180,7 @@ public sealed partial class EditorWindow
         var model = Input(); model.Text = worker.Model; model.ToolTip = "비워 두면 연결에서 선택한 모델을 사용해.";
         var publicTask = Input(); publicTask.Width = 220; publicTask.Text = worker.Participant.PublicTask; publicTask.ToolTip = "참여자에게 공개할 작업 설명";
         var settings = new WrapPanel(); settings.Children.Add(publicTask); name.Width = 160; model.Width = 220; settings.Children.Add(name); settings.Children.Add(model);
+        settings.Children.Add(Action("제안 승인 범위", () => AskName("승인할 프로젝트 경로 · 쉼표 구분, *는 전체, 비우면 해제", string.Join(",", session!.Collaboration.State.Authorities.FirstOrDefault(a => a.Participant == worker.Participant.Id)?.Scopes ?? []), scopes => session!.Collaboration.GrantProposalAuthority("human", worker.Participant.Id, scopes.Split(',')))));
         settings.Children.Add(Action("이름 · 모델 저장", () => Guard(() => { if (worker.Running) throw new InvalidOperationException("이 작업자의 현재 요청이 끝난 뒤 바꿔줘."); worker.Participant.Name = name.Text.Trim().Length == 0 ? worker.Participant.Name : name.Text.Trim(); worker.Model = model.Text.Trim(); worker.Participant.Model = worker.Model; worker.Participant.PublicTask = publicTask.Text.Trim(); session!.Collaboration.Save(); RefreshRecipients(); RenderWorker(worker); window.Title = worker.Participant.Name + " · 대화 로그"; })));
         DockPanel.SetDock(settings, Dock.Top); root.Children.Add(settings);
         var entry = Input(true); entry.Height = 85; entry.TextWrapping = TextWrapping.Wrap; composer.Children.Add(entry);
@@ -201,7 +214,8 @@ public sealed partial class EditorWindow
     {
         session?.Collaboration.RequireControl("human", worker.Participant.Id);
         if (session is null || CurrentAccess is not { } access || !assistantSettings.ConnectionEnabled || !access.Enabled) throw new InvalidOperationException("이 프로젝트의 에디터 AI 접근을 먼저 허용해줘.");
-        var connection = aiConnections.Editor;
+        var profileAgent = aiDirectory.Agent(worker.Participant.AgentId);
+        var connection = profileAgent.Connection;
         if (!connection.Enabled) throw new InvalidOperationException("위쪽 에디터 AI 메뉴에서 연결을 준비해줘.");
         string profile = EditorSession.Serialize(new { connection, access.HistoryEnabled, access.BlockedThreads });
         if (worker.Assistant is not null && worker.Profile == profile && worker.Assistant is not IResidentAssistant { IsConnected: false }) return worker.Assistant;
@@ -212,7 +226,7 @@ public sealed partial class EditorWindow
             executable = PackEngine.Installation.CodexInstallation.ResolveExecutable(codexPath.Text.Trim());
             next = AssistantBridge.Load(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Providers", "PackEngine.Assistant.Codex.dll"));
         }
-        else if (connection.IsApi) { var api = new ApiAssistant(); api.Configure(connection, aiCredentials.Read(connection.Provider)); next = api; }
+        else if (connection.IsApi) { var api = new ApiAssistant(); api.Configure(connection, aiCredentials.Read(profileAgent.CredentialKey.Length > 0 ? profileAgent.CredentialKey : connection.Provider)); next = api; }
         else next = AssistantBridge.Load(connection.AssemblyPath);
         try
         {
@@ -246,6 +260,9 @@ public sealed partial class EditorWindow
             try { request = owner.PrepareContext(promptText); CaptureAgentScope(request, false); }
             finally { owner.Pointing.Mode = previousMode; owner.Pointing.Targets.AddRange(previousTargets); }
             request.ParticipantId = worker.Participant.Id;
+            string identity = aiDirectory.PrivateContext(worker.Participant.HelperId, owner.Project.Identity);
+            var privateTurns = worker.Turns.Take(Math.Max(0, worker.Turns.Count - 1)).Reverse().Take(6).Reverse().Select(t => new { User = t.User.Substring(0, Math.Min(1200, t.User.Length)), Answer = t.Answer.Substring(0, Math.Min(2000, t.Answer.Length)), t.State });
+            request.PrivateIdentity = identity + "\n이 작업자의 최근 비공개 경험:\n" + EditorSession.Serialize(privateTurns);
             if (worker.Attachment is { } snapshot)
             {
                 request.Context = snapshot.Context.ToList(); request.Documents = snapshot.Documents.ToList(); request.Input.Targets = snapshot.Targets.ToList(); request.Input.Mode = snapshot.Kind;
@@ -255,13 +272,21 @@ public sealed partial class EditorWindow
             review = new(owner, request, action => Dispatcher.Invoke(action)); activeReviews[request.Id] = review;
             var bridge = new AssistantBridge(owner, action => Dispatcher.Invoke(action));
             using var tools = new AgentWorkspace(owner, request, runner, action => Dispatcher.Invoke(action), update => WorkerProgress(worker, update), CreateEditorPackAgent(request, review), review, CreateImageAccess(review));
+            tools.HelperMemory = args => Dispatcher.Invoke(() =>
+            {
+                if (worker.Participant.HelperId.Length == 0) throw new InvalidOperationException("장기기억은 도우미로 승격한 뒤 사용할 수 있어.");
+                string op = args.GetProperty("operation").GetString()!;
+                if (op == "remember") { aiDirectory.Remember(worker.Participant.HelperId, args.GetProperty("text").GetString()!, owner.Project.Identity, args.TryGetProperty("kind", out var kind) ? kind.GetString()! : "fact"); SaveAiDirectory(); }
+                else if (op != "read") throw new ArgumentException("Unknown memory operation.");
+                return (object)new { PrivateMemory = aiDirectory.PrivateContext(worker.Participant.HelperId, owner.Project.Identity) };
+            });
             string answer = await bridge.Send(assistant, request, token, tools, async (reply, cancellation) =>
             {
                 await Dispatcher.InvokeAsync(() => { turn.State = "review"; turn.Answer = reply; SaveWorker(worker); });
                 bool deferred = await Dispatcher.InvokeAsync(() => { if (!review.NeedsHandoff) return false; review.DeferAsHandoff(); turn.State = "handoff"; return true; });
                 if (deferred) return reply + "\n\n" + review.Request.ReviewOutcome;
                 IReadOnlyList<string> chosen;
-                if (await Dispatcher.InvokeAsync(() => review.CanAutoConfirm)) chosen = review.Items.Select(i => i.Id).ToArray();
+                if (await Dispatcher.InvokeAsync(() => review.CanAutoConfirm) || await Dispatcher.InvokeAsync(() => TryScopedAiReview(review, cancellation)).Task.Unwrap()) chosen = review.Items.Select(i => i.Id).ToArray();
                 else { var task = await Dispatcher.InvokeAsync(() => ReviewChanges(review, cancellation, worker.Participant.Name + " · 변경안 검토")); chosen = await task; }
                 if (review.IsHandoff) { turn.State = "handoff"; return reply + "\n\n" + review.Request.ReviewOutcome; }
                 string result = await review.Apply(chosen, cancellation, (item, error, ct) => WorkerBuildRetry(worker, item, error, ct));
@@ -271,11 +296,20 @@ public sealed partial class EditorWindow
             turn.Answer = answer; if (turn.State != "handoff") turn.State = "completed";
             if (!review.IsClosed) { owner.Collaboration.Publish(request.Id); owner.Collaboration.Finish(request.Id, review.Items, "completed"); }
         }
-        catch (OperationCanceledException) { turn.State = "cancelled"; turn.Events.Add("이 작업자의 요청을 취소했어."); }
+        catch (OperationCanceledException)
+        {
+            if (worker.UrgentIncident.Length > 0 && review is not null)
+            {
+                if (!review.IsClosed) review.DeferAsHandoff();
+                owner.Collaboration.Suspend(worker.Participant.Id, review.Request.Id, worker.UrgentIncident, "원래 요청 " + review.Request.Id + "\n" + string.Join("\n", review.Items.Select(i => i.Path + " · " + i.State)) + "\n" + turn.Answer);
+                turn.State = "suspended"; turn.Events.Add("긴급 요청으로 중단 · 초안과 진행 기록 보존"); worker.UrgentIncident = "";
+            }
+            else { turn.State = "cancelled"; turn.Events.Add("이 작업자의 요청을 취소했어."); }
+        }
         catch (Exception e) { turn.State = "failed"; turn.Events.Add(e.Message); SetStatus(worker.Participant.Name + " · " + e.Message); }
         finally
         {
-            if (review is not null) { review.Cancel(); if (turn.State != "handoff") owner.Collaboration.Finish(review.Request.Id, review.Items, turn.State); activeReviews.Remove(review.Request.Id); }
+            if (review is not null) { review.Cancel(); if (turn.State is not ("handoff" or "suspended")) owner.Collaboration.Finish(review.Request.Id, review.Items, turn.State); activeReviews.Remove(review.Request.Id); }
             if (worker.Assistant is IResidentAssistant resident) turn.ThreadId = resident.ThreadId;
             worker.Cancellation.Dispose(); worker.Cancellation = null;
             owner.Collaboration.Leave(worker.Participant.Id);
@@ -291,6 +325,8 @@ public sealed partial class EditorWindow
                 }
             }
             SaveWorker(worker);
+            if (worker.Participant.HelperId.Length > 0 && CurrentAccess?.HistoryEnabled != false)
+            { string history = Path.Combine(HelperDirectory(worker.Participant.HelperId), "projects", WorkspaceProject.HashText(owner.Project.Identity) + ".json"); EditorSession.AtomicWrite(history, Encoding.UTF8.GetBytes(EditorSession.Serialize(worker.Turns))); }
         }
     }
     private void WorkerProgress(EditorWorker worker, AssistantEvent update)
@@ -331,7 +367,6 @@ public sealed partial class EditorWindow
     private void DeliverParticipantYogi(SharedEditorSnapshot snapshot)
     {
         string target = armedYogiRecipient.Length > 0 ? armedYogiRecipient : yogiRecipient.SelectedValue as string ?? ""; armedYogiRecipient = "";
-        if (target == "web-chat") { StageYogiAttachment(snapshot); return; }
         var worker = workers.FirstOrDefault(w => w.Participant.Id == target) ?? throw new InvalidOperationException("Yogi를 받을 작업자를 먼저 선택해줘.");
         session!.Collaboration.RequireControl("human", worker.Participant.Id);
         worker.Attachment = SharedEditorProtocol.Freeze(snapshot); RenderWorker(worker);

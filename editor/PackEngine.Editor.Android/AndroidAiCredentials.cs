@@ -9,7 +9,7 @@ namespace PackEngine.Editor.Android;
 
 internal sealed class AndroidAiCredentials(string root) : IAiCredentialStore
 {
-    private static string Alias(string provider) => provider is "anthropic" or "openai" ? "PackEngine.AI." + provider : throw new ArgumentException("API 제공자가 아니야.");
+    private static string Alias(string provider) => provider is "anthropic" or "openai" || Guid.TryParseExact(provider, "N", out _) ? "PackEngine.AI." + provider : throw new ArgumentException("API 제공자가 아니야.");
     private string FileFor(string provider) { _ = Alias(provider); return Path.Combine(root, "Credentials", provider + ".bin"); }
     private static KeyStore Store() { var store = KeyStore.GetInstance("AndroidKeyStore")!; store.Load(null); return store; }
     private static IKey Key(string provider)
@@ -41,7 +41,7 @@ internal sealed class AndroidAiCredentials(string root) : IAiCredentialStore
     }
     public void Delete(string provider)
     {
-        if (provider is not ("anthropic" or "openai")) return;
+        if (provider is not ("anthropic" or "openai") && !Guid.TryParseExact(provider, "N", out _)) return;
         string path = FileFor(provider); if (File.Exists(path)) File.Delete(path);
         using var store = Store(); if (store.ContainsAlias(Alias(provider))) store.DeleteEntry(Alias(provider));
     }

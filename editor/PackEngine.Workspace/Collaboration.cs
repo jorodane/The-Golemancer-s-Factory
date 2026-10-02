@@ -9,6 +9,8 @@ public enum ReferenceRelation { Read, Observe, Depend, ModifyIntent }
 public enum ChangeResponse { PASS, ADAPT, TAKEOVER, YIELD, OBJECT }
 public sealed class Participant
 {
+    public string AgentId { get; set; } = "";
+    public string HelperId { get; set; } = "";
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string Name { get; set; } = "";
     public ParticipantKind Kind { get; set; }
@@ -72,6 +74,7 @@ public sealed class ResolutionEntry
 }
 public sealed class ConflictSet
 {
+    public ResolutionBattle? Battle { get; set; }
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string Target { get; set; } = "";
     public string BaseSnapshot { get; set; } = "";
@@ -86,6 +89,9 @@ public sealed class ConflictSet
 }
 public sealed class CollaborationState
 {
+    public List<IncidentRecord> Incidents { get; set; } = [];
+    public List<ProposalAuthority> Authorities { get; set; } = [];
+    public List<WorkCheckpoint> Checkpoints { get; set; } = [];
     public List<DocumentRoom> Rooms { get; set; } = [];
     public List<ParticipantPresence> Presence { get; set; } = [];
     public List<ParticipantView> Views { get; set; } = [];
@@ -176,10 +182,24 @@ public sealed partial class CollaborationWorkspace
         foreach (var recipient in State.Work.Where(w => (w.State is "working" or "review") && w.ParticipantId != change.Author))
         {
             if (recipient.AcceptedChanges.Contains(change.ChangeSetId) || recipient.IncomingChanges.Any(i => i.ChangeSetId == change.ChangeSetId)) continue;
+            // Re-announcing an accepted decision is not a new conflict. Different descendant edits still propagate.
+            var acceptedResults = State.Changes.Where(c => c.ResolutionId.Length > 0 && recipient.AcceptedChanges.Contains(c.ChangeSetId)).ToArray();
+            if (change.Operations.Count > 0 && acceptedResults.Any(r => DescendsFrom(change, r.ChangeSetId) && change.Operations.All(o => r.Operations.Any(a => ChangeDifference.Same(a, o)))))
+            { recipient.AcceptedChanges.Add(change.ChangeSetId); continue; }
             if (!change.Operations.Any(o => recipient.ReferenceSet.Any(r => (r.Relation is ReferenceRelation.Depend or ReferenceRelation.ModifyIntent) && string.Equals(r.Path, o.Path, StringComparison.OrdinalIgnoreCase) &&
                 (r.Target.Length == 0 || r.Target == o.Target || o.Target.StartsWith(r.Target + "/", StringComparison.Ordinal) || r.Target.StartsWith(o.Target + "/", StringComparison.Ordinal))))) continue;
             recipient.IncomingChanges.Add(new() { ChangeSetId = change.ChangeSetId });
         }
+    }
+    private bool DescendsFrom(ChangeSet change, string ancestor)
+    {
+        var visited = new HashSet<string>(StringComparer.Ordinal); var pending = new Stack<string>(change.ParentChanges);
+        while (pending.Count > 0)
+        {
+            string id = pending.Pop(); if (id == ancestor) return true; if (!visited.Add(id)) continue;
+            var parent = State.Changes.FirstOrDefault(c => c.ChangeSetId == id); if (parent is not null) foreach (var before in parent.ParentChanges) pending.Push(before);
+        }
+        return false;
     }
     public IncomingChange Respond(string request, string changeId, ChangeResponse response, string reason)
     {
@@ -227,7 +247,7 @@ public sealed partial class CollaborationWorkspace
         if (conflict.State != "open") throw new InvalidOperationException("Resolution is already recorded.");
         if (string.IsNullOrWhiteSpace(text)) throw new ArgumentException("A message is required.");
         if (!conflict.Participants.Contains(participant)) conflict.Participants.Add(participant);
-        if (actor.Kind == ParticipantKind.Human) conflict.HumanParticipating = true;
+        if (actor.Kind == ParticipantKind.Human) { conflict.HumanParticipating = true; if (conflict.Battle is not null) conflict.Battle.State = "human"; }
         if (constraint && actor.Kind != ParticipantKind.Human) throw new InvalidOperationException("Only a human may set a user constraint.");
         conflict.Log.Add(new() { Author = participant, Text = text, Constraint = constraint });
         if (constraint) foreach (var work in State.Work.Where(w => (w.State is "working" or "review") && conflict.Participants.Contains(w.ParticipantId))) work.ResolutionConstraints.Add(text);
@@ -238,6 +258,10 @@ public sealed partial class CollaborationWorkspace
         Require(actor, ParticipantPermission.Apply);
         var conflict = State.Conflicts.Single(c => c.Id == conflictId);
         if (conflict.State != "open" || string.IsNullOrWhiteSpace(decision)) throw new InvalidOperationException("Resolution needs an open session and a decision.");
+        return RecordResolution(conflict, actor, decision, operations);
+    }
+    private ChangeSet RecordResolution(ConflictSet conflict, string actor, string decision, IEnumerable<ChangeOperation> operations)
+    {
         var result = new ChangeSet { Author = actor, Intent = decision, BaseRevision = State.Revision, Operations = operations.ToList(), ParentChanges = conflict.Candidates.Select(c => c.ChangeSetId).ToList(), ResolutionId = conflict.Id };
         result.Origin = conflict.Candidates.FirstOrDefault()?.Origin ?? result.ChangeSetId;
         State.Changes.Add(result); conflict.State = "resolved"; conflict.Decision = decision; conflict.ResultingChangeSet = result.ChangeSetId;
@@ -264,6 +288,11 @@ public sealed partial class CollaborationWorkspace
         }
         else if (work.AppliedChangeSet.Length > 0) State.Changes.Single(c => c.ChangeSetId == work.AppliedChangeSet).ValidationResult = validation;
         if (reviewed is not null) { reviewed.State = state == "completed" ? applied.Count == 0 ? "withdrawn" : "reviewed" : state; reviewed.ValidationResult = validation; }
+        foreach (var incident in State.Incidents.Where(i => i.ChangeSetId == work.FinalChangeSet && i.State == "approved"))
+        {
+            if (applied.Count > 0 && reviewed is not null && reviewed.Operations.All(o => applied.Any(a => ChangeDifference.Same(a, o))))
+            { incident.State = "applied"; incident.Result = "승인된 변경이 적용됨 · 검증: " + validation; incident.Log.Add(new() { Author = "host", Text = incident.Result }); }
+        }
         Save();
     }
 }

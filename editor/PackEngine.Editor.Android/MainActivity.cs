@@ -42,7 +42,7 @@ public sealed partial class MainActivity : Activity
         layout.AddView(new TextView(this) { Text = "Confectory · Android", TextSize = 22 });
         AddAiToolbar(layout);
         toolbar = new(this) { Orientation = Orientation.Horizontal };
-        var strip = new HorizontalScrollView(this); strip.AddView(toolbar); layout.AddView(strip);
+        var strip = new HorizontalScrollView(this); strip.AddView(toolbar); layout.AddView(strip); strip.Visibility = ViewStates.Gone; mobileTools = strip;
         AddButton("XML 문서", Documents); AddButton("팩 재적용", () => Work(Reload));
         AddButton("창 관리", WindowMenu); AddButton("팩 ZIP 가져오기", ImportPicker);
         AddButton("팩 ZIP 내보내기", ExportPicker); AddButton("되돌리기", () => Work(async () =>
@@ -50,15 +50,16 @@ public sealed partial class MainActivity : Activity
             if (lastChange is null || lastChange.State != "applied") throw new InvalidOperationException("되돌릴 변경이 없어.");
             await Apply(lastChange, undo: true);
         }));
-        status = new(this) { TextSize = 14 }; layout.AddView(status);
+        status = new(this) { TextSize = 12, Typeface = global::Android.Graphics.Typeface.Monospace }; status.SetTextIsSelectable(true);
         Panels = new(this) { Orientation = Orientation.Vertical }; Panels.AddView(welcome);
         var scroll = new ScrollView(this); scroll.AddView(Panels);
-        layout.AddView(scroll, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, 0, 1)); SetContentView(layout);
+        var content = new LinearLayout(this) { Orientation = Orientation.Horizontal }; mobileManagement = new(this) { Orientation = Orientation.Vertical }; var sidebar = new ScrollView(this); sidebar.AddView(mobileManagement); mobileSidebar = sidebar; sidebar.Visibility = ViewStates.Gone; content.AddView(sidebar, new LinearLayout.LayoutParams(220, ViewGroup.LayoutParams.MatchParent)); content.AddView(scroll, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MatchParent, 1));
+        layout.AddView(content, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, 0, 1)); var console = new ScrollView(this); console.AddView(status); layout.AddView(console, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, 170)); SetContentView(layout);
         try
         {
             string saved = Path.Combine(root, "window-state.json");
             if (File.Exists(saved)) SavedStates = JsonSerializer.Deserialize<Dictionary<string, EditorWindowState>>(File.ReadAllText(saved)) ?? new(StringComparer.Ordinal);
-            InstallAssets("Packs"); InstallAssets("Plugins"); PrepareAiConnections(); await WorkAsync(Reload);
+            InstallAssets("Packs"); InstallAssets("Plugins"); PrepareAiConnections(); await Task.CompletedTask;
         }
         catch (Exception e) { Report(e.Message); }
     }
@@ -178,7 +179,7 @@ public sealed partial class MainActivity : Activity
         catch (Exception e) { Report(e.Message); }
     }
     private void Report(string message)
-    { if (!IsFinishing && !IsDestroyed) RunOnUiThread(() => status.Text = message); }
+    { if (!IsFinishing && !IsDestroyed) RunOnUiThread(() => { var text = status.Text ?? ""; status.Text = (text.Length > 30000 ? text.Substring(text.Length - 20000) : text) + "\n" + message; }); }
     private void InstallAssets(string asset)
     {
         var parts = asset.Split('/');
@@ -204,7 +205,7 @@ public sealed partial class MainActivity : Activity
         catch (IOException) { }
     }
     protected override void OnPause() { SaveWindowState(); base.OnPause(); }
-    protected override void OnDestroy() { lifetime.Cancel(); aiTurn?.Cancel(); editorAi?.Dispose(); studioRunner?.Dispose(); CloseConversationAi(); windows.Dispose(); SaveWindowState(); runtime?.Dispose(); base.OnDestroy(); }
+    protected override void OnDestroy() { lifetime.Cancel(); editorAi?.Dispose(); studioRunner?.Dispose(); foreach (var worker in mobileWorkers) { worker.Cancellation?.Cancel(); worker.Assistant?.Dispose(); } windows.Dispose(); SaveWindowState(); runtime?.Dispose(); base.OnDestroy(); }
 
 #pragma warning disable CA1422, CS0618 // Framework document picker supports the app's API 26 deployment minimum.
     private void ImportPicker() => StartActivityForResult(new Intent(Intent.ActionOpenDocument).SetType("application/zip").AddCategory(Intent.CategoryOpenable), 1);
@@ -265,7 +266,7 @@ public sealed partial class MainActivity : Activity
                     if (marked) File.Delete(marker);
                     throw;
                 }
-                aiConnections.SelectedPack = imported.Id; aiConnections.SetupCompleted = true; SaveAiConnections(); editorAi?.NewConversation(); aiTranscript = "";
+                SwitchMobileProject(imported.Id); aiConnections.SelectedPack = imported.Id; aiConnections.SetupCompleted = true; SaveAiConnections(); editorAi?.NewConversation();
                 Report("팩을 설치하고 적용했어: " + imported.Id);
             }
             finally { if (Directory.Exists(stage)) Directory.Delete(stage, true); }

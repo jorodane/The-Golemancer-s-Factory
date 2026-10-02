@@ -5,31 +5,30 @@
   </PropertyGroup>
   <Target Name="Publish">
     <ItemGroup>
-      <Runtime Include="$(MSBuildThisFileDirectory)PackEngine.Editor/bin/Release/net48/*.exe;$(MSBuildThisFileDirectory)PackEngine.Editor/bin/Release/net48/*.dll;$(MSBuildThisFileDirectory)PackEngine.Editor/bin/Release/net48/*.config" />
+      <Runtime Include="$(MSBuildThisFileDirectory)PackEngine.Editor/bin/Release/net48/*.exe;$(MSBuildThisFileDirectory)PackEngine.Editor/bin/Release/net48/*.dll;$(MSBuildThisFileDirectory)PackEngine.Editor/bin/Release/net48/*.config" Exclude="$(MSBuildThisFileDirectory)PackEngine.Editor/bin/Release/net48/Microsoft.Web.WebView2.*" />
       <Runtime Include="$(MSBuildThisFileDirectory)PackEngine.Tool/bin/Release/net48/PackEngine.Tool.exe;$(MSBuildThisFileDirectory)PackEngine.Tool/bin/Release/net48/PackEngine.Tool.exe.config" />
-      <Runtime Include="$(MSBuildThisFileDirectory)PackEngine.Mcp/bin/Release/net48/PackEngine.Mcp.exe;$(MSBuildThisFileDirectory)PackEngine.Mcp/bin/Release/net48/PackEngine.Mcp.exe.config" />
       <Runtime Include="$(MSBuildThisFileDirectory)PackEngine.PackHost/bin/Release/net48/PackEngine.PackHost.exe;$(MSBuildThisFileDirectory)PackEngine.PackHost/bin/Release/net48/PackEngine.PackHost.exe.config" />
-      <WebLoader Include="$(MSBuildThisFileDirectory)PackEngine.Editor/bin/Release/net48/runtimes/**/WebView2Loader.dll" />
     </ItemGroup>
     <Error Condition="!Exists('$(MSBuildThisFileDirectory)PackEngine.Editor/bin/Release/net48/PackEngine.Editor.exe')" Text="Build editor/Editor.slnx first." />
     <Error Condition="!Exists('$(MSBuildThisFileDirectory)PackEngine.Tool/bin/Release/net48/PackEngine.Tool.exe')" Text="Build the net48 CLI first." />
-    <Error Condition="!Exists('$(MSBuildThisFileDirectory)PackEngine.Mcp/bin/Release/net48/PackEngine.Mcp.exe')" Text="Build the MCP bridge first." />
     <Error Condition="!Exists('$(MSBuildThisFileDirectory)PackEngine.PackHost/bin/Release/net48/PackEngine.PackHost.exe')" Text="Build the editor pack host first." />
     <Error Condition="!Exists('$(MSBuildThisFileDirectory)Packs/CoreTools/Bin/net48/PackEngine.Editor.CoreTools.dll')" Text="Build the core editor pack first." />
     <Error Condition="!Exists('$(MSBuildThisFileDirectory)examples/MobileLab/Bin/net48/PackEngine.Editor.MobileLab.dll')" Text="Build the shared editor pack example first." />
     <Error Condition="!Exists('$(MSBuildThisFileDirectory)PackEngine.Launcher/bin/Release/net48/StartEditor.exe')" Text="Build the launcher first." />
     <Copy SourceFiles="$(MSBuildThisFileDirectory)PackEngine.Launcher/bin/Release/net48/StartEditor.exe;$(MSBuildThisFileDirectory)PackEngine.Launcher/bin/Release/net48/StartEditor.exe.config" DestinationFolder="$(MSBuildThisFileDirectory)../" />
     <MakeDir Directories="$(EditorPublishDir)" />
+    <ItemGroup>
+      <RetiredBridge Include="$(EditorPublishDir)PackEngine.Mcp.exe;$(EditorPublishDir)PackEngine.Mcp.exe.config;$(EditorPublishDir)Microsoft.Web.WebView2.*;$(EditorPublishDir)runtimes/**/WebView2Loader.dll;$(EditorPublishDir)Licenses/WebView2-LICENSE.txt" />
+    </ItemGroup>
+    <Delete Files="@(RetiredBridge)" />
     <Copy SourceFiles="@(Runtime)" DestinationFolder="$(EditorPublishDir)" SkipUnchangedFiles="true" />
-    <Error Condition="'@(WebLoader)' == ''" Text="Build the WebView2 native loaders before publishing." />
-    <Copy SourceFiles="@(WebLoader)" DestinationFiles="@(WebLoader->'$(EditorPublishDir)runtimes/%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
-    <Copy SourceFiles="$(MSBuildThisFileDirectory)ThirdParty/WebView2-LICENSE.txt;$(MSBuildThisFileDirectory)ThirdParty/Roslyn-LICENSE.txt;$(MSBuildThisFileDirectory)ThirdParty/Roslyn-ThirdPartyNotices.rtf" DestinationFolder="$(EditorPublishDir)Licenses" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(MSBuildThisFileDirectory)ThirdParty/Roslyn-LICENSE.txt;$(MSBuildThisFileDirectory)ThirdParty/Roslyn-ThirdPartyNotices.rtf" DestinationFolder="$(EditorPublishDir)Licenses" SkipUnchangedFiles="true" />
     <MakeDir Directories="$(EditorPublishDir)Providers" />
     <Copy SourceFiles="$(MSBuildThisFileDirectory)PackEngine.Assistant.Command/bin/Release/net48/PackEngine.Assistant.Command.dll" DestinationFolder="$(EditorPublishDir)Providers" />
     <Copy SourceFiles="$(MSBuildThisFileDirectory)PackEngine.Assistant.Codex/bin/Release/net48/PackEngine.Assistant.Codex.dll" DestinationFolder="$(EditorPublishDir)Providers" />
     <ItemGroup>
+      <Published Include="$(EditorPublishDir)Licenses/*.txt;$(EditorPublishDir)Licenses/*.rtf" />
       <Published Include="$(EditorPublishDir)*.exe;$(EditorPublishDir)*.dll;$(EditorPublishDir)*.config;$(EditorPublishDir)Providers/*.dll;$(MSBuildThisFileDirectory)Packs/CoreTools/Bin/net48/*.dll;$(MSBuildThisFileDirectory)Packs/CoreTools/*.xml;$(MSBuildThisFileDirectory)../StartEditor.exe;$(MSBuildThisFileDirectory)../StartEditor.exe.config" />
-      <Published Include="$(EditorPublishDir)runtimes/**/WebView2Loader.dll;$(EditorPublishDir)Licenses/*.txt;$(EditorPublishDir)Licenses/*.rtf" />
       <Published Include="$(MSBuildThisFileDirectory)examples/MobileLab/Bin/net48/*.dll;$(MSBuildThisFileDirectory)examples/MobileLab/*.xml" />
       <Published Update="@(Published)">
         <RelativePath>$([MSBuild]::MakeRelative('$(EditorPublishDir)', '%(Published.FullPath)'))</RelativePath>

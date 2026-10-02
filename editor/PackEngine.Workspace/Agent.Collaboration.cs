@@ -40,7 +40,7 @@ public sealed partial class AgentWorkspace
     {
         if (Review is null) return new { Enabled = false };
         var hub = session.Collaboration; var work = hub.Work(request.Id);
-        return new { work.ParticipantId, work.BaseRevision, work.ResolutionConstraints, work.SemanticEvents,
+        return new { Incidents = hub.State.Incidents.Where(i => i.Assignee == work.ParticipantId && i.State is "open" or "review" or "working").ToArray(), work.ParticipantId, work.BaseRevision, work.ResolutionConstraints, work.SemanticEvents,
             Presence = hub.State.Presence,
             Handoffs = hub.State.Handoffs.Where(h => h.To == work.ParticipantId || h.From == work.ParticipantId).ToArray(), References = work.ReferenceSet,
             Resolutions = hub.State.Conflicts.Where(c => c.Participants.Contains(work.ParticipantId)).Select(c => new { c.Id, c.Target, c.State, c.Decision, c.ResultingChangeSet,

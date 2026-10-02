@@ -85,7 +85,7 @@ public sealed partial class EditorWindow
         {
             if (!packDefaultsLoaded && source.Scope == "core" && source.Id == "editor.core.tools") enabledPackFolders.Add(source.Folder);
             var row = new WrapPanel(); var enabled = new CheckBox { Content = source.ToString(), IsChecked = enabledPackFolders.Contains(source.Folder), Foreground = TextInk, Margin = new Thickness(4) };
-            enabled.Click += (_, _) => { if (busy) { enabled.IsChecked = enabledPackFolders.Contains(source.Folder); return; } if (enabled.IsChecked == true) enabledPackFolders.Add(source.Folder); else enabledPackFolders.Remove(source.Folder); chatGptWorkspace?.Revoke(); };
+            enabled.Click += (_, _) => { if (busy) { enabled.IsChecked = enabledPackFolders.Contains(source.Folder); return; } if (enabled.IsChecked == true) enabledPackFolders.Add(source.Folder); else enabledPackFolders.Remove(source.Folder); };
             row.Children.Add(enabled); packRows.Children.Add(row);
         }
         packDefaultsLoaded = true;
@@ -214,7 +214,7 @@ public sealed partial class EditorWindow
                 switch (effect.Kind)
                 {
                     case "refresh": RefreshProject(); break;
-                    case "tab": tabs.SelectedIndex = effect.Value switch { "chat" => 0, "relations" => 1, "documents" => 2, "contract" => 3, "changes" => 4, "packs" => 7, _ => throw new InvalidDataException("Unknown editor tab.") }; break;
+                    case "tab": tabs.SelectedIndex = effect.Value switch { "chat" => 0, "relations" => 1, "documents" => 2, "contract" => 3, "changes" => 4, "packs" => 6, _ => throw new InvalidDataException("Unknown editor tab.") }; break;
                     case "layout":
                         if (effect.Value is not ("focus" or "normal")) throw new InvalidDataException("Unknown editor layout.");
                         ApplyPackShell(effect.Value == "focus"); break;
@@ -257,9 +257,8 @@ public sealed partial class EditorWindow
         var shell = packGeneration?.Snapshot.Shell;
         editorBody!.ColumnDefinitions[0].Width = new GridLength(focus ? 0 : EditorNativeSchema.LayoutNumber(shell?.Fields["sidebarWidth"] ?? "250", 0, 600));
         editorBody.ColumnDefinitions[4].Width = new GridLength(EditorNativeSchema.LayoutNumber(shell?.Fields["contextWidth"] ?? "300", 180, 700));
-        detailedLogHeight = new GridLength(focus ? 0 : EditorNativeSchema.LayoutNumber(shell?.Fields["logHeight"] ?? "150", 0, 600));
-        editorRoot!.RowDefinitions[2].Height = detailedLogHeight;
-        ApplyBrowserLayout();
+        editorRoot!.RowDefinitions[2].Height = new GridLength(Math.Max(140, EditorNativeSchema.LayoutNumber(shell?.Fields["logHeight"] ?? "160", 0, 600)));
+        RefreshStudioShell();
     }
     private void EditorPackProjectChanged()
     {
@@ -269,8 +268,8 @@ public sealed partial class EditorWindow
     }
     private void QueueEditorPackReload() => Dispatcher.BeginInvoke(new Action(() =>
     {
-        if (!pendingEditorPackReload || busy) return; pendingEditorPackReload = false;
-        PackWork(async () => { DiscoverEditorPacks(); await ReloadEditorPacks(null, operation!.Token); }, true);
+        if (!pendingEditorPackReload || busy || !studioReady || !projectWorkspaceVisible) return; pendingEditorPackReload = false;
+        PackWork(async () => { DiscoverEditorPacks(); await ReloadEditorPacks(null, operation!.Token); });
     }));
     private void PointEditorNode(string view, string node)
     {

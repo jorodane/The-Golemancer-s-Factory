@@ -1,16 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><TargetFramework>net48</TargetFramework><OutputType>WinExe</OutputType><ApplicationManifest>app.manifest</ApplicationManifest></PropertyGroup>
   <ItemGroup>
-    <EmbeddedResource Include="ChatComposerAttachment.js" />
-    <EmbeddedResource Include="SelectYogiComposer.js" />
-    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4258.31" />
     <ProjectReference Include="../PackEngine.Workspace/PackEngine.Workspace.csproj" /><ProjectReference Include="../PackEngine.EditorPacks/PackEngine.EditorPacks.csproj" />
     <ProjectReference Include="../PackEngine.Assistant.Api/PackEngine.Assistant.Api.csproj" />
-    <Compile Include="../Shared/EditorStartMode.cs" Link="EditorStartMode.cs" />
     <Compile Include="../Shared/CodexInstallation.cs" Link="CodexInstallation.cs" />
     <Compile Include="../Shared/CodexBootstrap.cs" Link="CodexBootstrap.cs" />
-    <Compile Include="../Shared/ChatGptSetup.cs" Link="ChatGptSetup.cs" />
-    <Compile Include="../Shared/ChatGptWebSetup.cs" Link="ChatGptWebSetup.cs" />
     <Reference Include="System.Net.Http" /><Reference Include="System.IO.Compression" /><Reference Include="System.Security" />
     <Reference Include="WindowsBase" /><Reference Include="PresentationCore" /><Reference Include="PresentationFramework" /><Reference Include="System.Xaml" />
   </ItemGroup>
