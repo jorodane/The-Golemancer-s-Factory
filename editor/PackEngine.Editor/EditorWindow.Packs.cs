@@ -54,7 +54,11 @@ public sealed partial class EditorWindow
         page.Children.Add(packChoice);
         var editing = new WrapPanel(); editing.Children.Add(Action("팩 가리키기", () => Guard(() => { if (packChoice.SelectedItem is EditorPackSource s) PointEditorPack(s.Id, "pack.xml", "pack:" + s.Id); })));
         editing.Children.Add(Action("DLL 구현 추가", () => Guard(() => { if (busy || packChoice.SelectedItem is not EditorPackSource s) return; EditorPackTemplates.AddImplementation(s); SelectEditorPack(); })));
-        editing.Children.Add(Action("선택 팩 빌드", () => PackWork(() => ((EditorPackSource)packChoice.SelectedItem).Build(PackDotnet, AppDomain.CurrentDomain.BaseDirectory, operation!.Token))));
+        editing.Children.Add(Action("선택 팩 빌드", () =>
+        {
+            if (busy || packChoice.SelectedItem is not EditorPackSource source) return;
+            PackWork(() => RunBuildWithRetry("에디터팩 빌드 · " + source.Id, () => source.Build(PackDotnet, AppDomain.CurrentDomain.BaseDirectory, operation!.Token), operation!.Token));
+        }));
         editing.Children.Add(Action("팩 폴더 열기", () => Guard(() => { if (packChoice.SelectedItem is EditorPackSource s) System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(s.Folder) { UseShellExecute = true }); })));
         page.Children.Add(editing); page.Children.Add(packFiles); packDocument.Height = 260; packDocument.FontFamily = new System.Windows.Media.FontFamily("Consolas"); packDocument.VerticalScrollBarVisibility = ScrollBarVisibility.Auto; packDocument.AcceptsTab = true; page.Children.Add(packDocument);
         var changes = new WrapPanel(); changes.Children.Add(Action("에디터팩 변경 미리보기", PreviewEditorPack));
@@ -136,7 +140,9 @@ public sealed partial class EditorWindow
     private async void PackWork(Func<Task> action, bool connectAfter = false)
     {
         if (busy) return; SetBusy(true); operation = new();
-        try { await action(); } catch (Exception e) { packStatus.Text = "적용 실패 · " + e.Message; AppendLog(packStatus.Text); }
+        try { await action(); SetStatus("에디터팩 작업을 완료했어."); }
+        catch (OperationCanceledException) { SetStatus("에디터팩 작업을 취소했어."); }
+        catch (Exception e) { packStatus.Text = "에디터팩 작업 실패 · 실행 기록에서 확인해줘."; SetStatus(e.Message); AppendLog(e.Message); }
         finally { operation.Dispose(); operation = null; SetBusy(false); if (connectAfter && session is not null) ScheduleAutoConnect(); }
     }
     private async Task ReloadEditorPacks(IReadOnlyCollection<string>? authorized, CancellationToken cancellation)

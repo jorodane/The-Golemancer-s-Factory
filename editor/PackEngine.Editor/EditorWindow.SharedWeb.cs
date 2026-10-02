@@ -329,7 +329,7 @@ public sealed partial class EditorWindow
             var completion = finished.Completion!.Value; string state = completion.GetProperty("state").GetString()!;
             string reply = completion.GetProperty("result").GetProperty("reply").GetString()!;
             sharingStatus.Text = "에디터 AI 결과 전달됨 · " + state;
-            if (state == "failed") { SetStatus(reply); Message("웹 AI 작업 실패", reply); if (codexConnectionNotice.Visibility != Visibility.Visible) ShowCodexConnectionNotice(reply); }
+            if (state == "failed") { SetStatus(reply); Message("웹 AI 작업 실패", reply); if (reply != dismissedOperationError && codexConnectionNotice.Visibility != Visibility.Visible) ShowCodexConnectionNotice(reply); }
         }
         catch (Exception e)
         {

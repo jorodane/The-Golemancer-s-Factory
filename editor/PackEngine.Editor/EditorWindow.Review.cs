@@ -16,7 +16,7 @@ public sealed partial class EditorWindow
                 AgentProgress(new() { Kind = "review", Text = "변경안 검토 대기 · 아직 실제 파일은 변경하지 않았어." });
                 return ReviewChanges(review, token);
             });
-            string outcome = await review.Apply(selected, token);
+            string outcome = await review.Apply(selected, token, (item, error, cancellation) => AwaitBuildRetry(item.Intent, error, cancellation));
             await Dispatcher.InvokeAsync(() => { RefreshProject(); RebuildDocuments(); RefreshContext(); Message("검토 결과", outcome); });
             return outcome + "\n" + string.Join("\n", review.Items.Select(i => (i.State == "applied" ? "적용" : i.State == "completed" ? "실행" : "제외") + " · " + i.Pack + "/" + (i.IsFile ? i.Path : i.Operation) + " · " + i.Intent + (i.Detail.Length > 0 ? "\n" + i.Detail : "")));
         }

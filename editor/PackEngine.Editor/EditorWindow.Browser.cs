@@ -79,8 +79,10 @@ public sealed partial class EditorWindow
         detailsButton!.Content = detailed ? "작업 도구 접기" : "작업 도구 펼치기";
         detailsButton.Visibility = web || Standalone ? Visibility.Visible : Visibility.Collapsed;
         buildOptions!.Visibility = detailed ? Visibility.Visible : Visibility.Collapsed;
-        nativeOutput!.Visibility = detailed ? Visibility.Visible : Visibility.Collapsed;
-        if (editorRoot is not null) editorRoot.RowDefinitions[2].Height = detailed ? detailedLogHeight : new GridLength(0);
+        bool showOutput = operationLogVisible ?? detailed;
+        nativeOutput!.Visibility = showOutput ? Visibility.Visible : Visibility.Collapsed;
+        if (editorRoot is not null) editorRoot.RowDefinitions[2].Height = showOutput
+            ? operationLogVisible == true ? new GridLength(Math.Max(190, detailedLogHeight.Value)) : detailedLogHeight : new GridLength(0);
     }
     private void RefreshWebProject()
     {

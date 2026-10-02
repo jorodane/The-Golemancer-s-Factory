@@ -42,7 +42,7 @@ public sealed partial class EditorWindow : Window
         var actions = new WrapPanel { HorizontalAlignment = HorizontalAlignment.Right };
         var primary = new WrapPanel { HorizontalAlignment = HorizontalAlignment.Right };
         AddAiMenus(primary); primary.Children.Add(Action("새 게임팩", CreateGameProject)); primary.Children.Add(Action("게임팩 열기", ChooseProject));
-        var builds = new Expander { Header = "빌드 · 실행", Foreground = TextInk, Content = actions, Margin = new Thickness(6) }; primary.Children.Add(builds); actions.Children.Add(targets);
+        var builds = new Expander { Header = "빌드 · 실행", Foreground = TextInk, Content = actions, Margin = new Thickness(6) }; primary.Children.Add(builds); primary.Children.Add(Action("실행 기록", ShowOperationLog)); actions.Children.Add(targets);
         actions.Children.Add(Action("팩 빌드", () => Work(() => runner!.BuildPack(SelectedPack(), Target, operation!.Token)), true));
         actions.Children.Add(Action("프로젝트 빌드", () => Work(() => runner!.BuildProject(Target, operation!.Token)), true));
         actions.Children.Add(Action("실행", () => Guard(() => runner!.Launch(Target)), true));
@@ -80,8 +80,8 @@ public sealed partial class EditorWindow : Window
         changeActions.Children.Add(Action("최근 변경 불러오기", () => Guard(() => { pending = session!.Changes().FirstOrDefault(); ShowChange(); }))); changeHead.Children.Add(changeActions);
         DockPanel.SetDock(changeHead, Dock.Top); changes.Children.Add(changeHead); var affected = new ScrollViewer { Content = impact, Height = 130, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }; DockPanel.SetDock(affected, Dock.Bottom); changes.Children.Add(affected); changes.Children.Add(diff); AddTab("변경", changes);
         AddHistoryTab(); AddChatGptTab(); AddEditorPacksTab(root, body);
-        var output = new DockPanel { Margin = new Thickness(14, 0, 14, 0) }; var outputHeader = new DockPanel(); outputHeader.Children.Add(Label("실행 · 빌드 기록", 12, MutedInk)); var cancel = Action("작업 취소", () => operation?.Cancel()); cancel.HorizontalAlignment = HorizontalAlignment.Right; outputHeader.Children.Add(cancel); DockPanel.SetDock(outputHeader, Dock.Top); output.Children.Add(outputHeader); output.Children.Add(log); Grid.SetRow(output, 2); root.Children.Add(output);
-        status.Margin = new Thickness(18, 8, 18, 8); Grid.SetRow(status, 3); root.Children.Add(status);
+        var output = new DockPanel { Margin = new Thickness(14, 0, 14, 0) }; var outputHeader = OperationHeader(); DockPanel.SetDock(outputHeader, Dock.Top); output.Children.Add(outputHeader); output.Children.Add(log); Grid.SetRow(output, 2); root.Children.Add(output);
+        status.Margin = new Thickness(18, 8, 18, 8); status.MaxHeight = 44; Grid.SetRow(status, 3); root.Children.Add(status);
         tree.SelectedItemChanged += (_, e) => { if (e.NewValue is TreeViewItem { Tag: string key }) Guard(() => { SelectNode(key); if (!busy && !loading) PointObject(key, "tree"); }); };
         search.TextChanged += (_, _) => RebuildTree();
         openDocs.SelectionChanged += (_, _) => { if (!loading && openDocs.SelectedItem is string path) ShowDocument(path); };
@@ -125,7 +125,14 @@ public sealed partial class EditorWindow : Window
     }
     private string VisibleTranscript() => string.Join("\n\n", transcript.Children.OfType<Border>()
         .Select(b => (b.Child as FrameworkElement)?.Tag).OfType<Func<string>>().Select(read => read()));
-    private void SetStatus(string text) => status.Text = text;
+    private void SetStatus(string text)
+    {
+        if (dismissedOperationError.Length > 0 && text == dismissedOperationError) text = "남은 실행을 종료했어. 적용한 변경과 실패 기록은 유지돼.";
+        string first = text.Split('\n')[0].TrimEnd('\r');
+        status.Text = first.Length > 220 ? first.Substring(0, 220) + "…" : first;
+        if (text.Length > first.Length) status.Text += " · 자세한 내용은 실행 기록에서 확인해줘.";
+        status.ToolTip = text;
+    }
     private void Guard(Action action) { try { action(); } catch (Exception e) { SetStatus(e.Message); AppendLog("ERROR: " + e.Message); } }
     private void AppendLog(string line)
     {
@@ -135,7 +142,9 @@ public sealed partial class EditorWindow : Window
     }
     private void SetBusy(bool value)
     {
+        if (value && !busy) dismissedOperationError = "";
         busy = value; foreach (var button in actionButtons) button.IsEnabled = !busy && session is not null && !Standalone;
+        RefreshOperationControls();
         aiMenu.IsEnabled = !busy && !sharingTaskExecuting;
         submit.IsEnabled = !busy && session is not null; editor.IsReadOnly = busy || activeDocument is null || session?.CanEdit(activeDocument.Path) != true;
         targets.IsEnabled = !busy; tree.IsEnabled = !busy; openDocs.IsEnabled = !busy; models.IsEnabled = !busy;
@@ -150,7 +159,7 @@ public sealed partial class EditorWindow : Window
         if (session is null || runner is null || busy) return;
         if (session.Documents.Any(d => d.Dirty)) { SetStatus("먼저 문서 초안을 적용하거나 디스크에서 다시 읽어줘. 빌드는 저장된 파일을 사용해."); return; }
         SetBusy(true); operation = new();
-        try { session.Refresh(); await action(); SetStatus("작업 완료. 실행 기록을 확인해줘."); RefreshProject(); }
+        try { await RunBuildWithRetry("빌드·검증", async () => { session.Refresh(); await action(); }, operation.Token); RefreshProject(); SetStatus("작업 완료. 실행 기록을 확인해줘."); }
         catch (OperationCanceledException) { SetStatus("작업을 취소했어."); }
         catch (Exception e) { SetStatus(e.Message); AppendLog("ERROR: " + e.Message); }
         finally { operation.Dispose(); operation = null; SetBusy(false); }

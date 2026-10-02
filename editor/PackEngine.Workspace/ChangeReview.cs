@@ -22,6 +22,7 @@ public sealed class ReviewItem
     public string AfterHash { get; set; } = "";
     public string Operation { get; set; } = "";
     public int Sequence { get; set; }
+    public int Attempts { get; set; }
     public string Tool { get; set; } = "";
     public string Subject { get; set; } = "";
     public string Detail { get; set; } = "";
@@ -92,7 +93,9 @@ public sealed class ChangeReviewBatch
         if (closed) return;
         closed = true; foreach (var entry in work.Values.Where(w => w.Item.State == "pending")) entry.Item.State = "cancelled"; Save();
     }
-    public async Task<string> Apply(IReadOnlyCollection<string> selected, CancellationToken cancellation)
+    public Task<string> Apply(IReadOnlyCollection<string> selected, CancellationToken cancellation) => Apply(selected, cancellation, null);
+    public async Task<string> Apply(IReadOnlyCollection<string> selected, CancellationToken cancellation,
+        Func<ReviewItem, Exception, CancellationToken, Task<bool>>? retry)
     {
         cancellation.ThrowIfCancellationRequested();
         dispatch(() =>
@@ -141,14 +144,29 @@ public sealed class ChangeReviewBatch
         foreach (var entry in work.Values.Where(w => !w.Item.IsFile && selected.Contains(w.Item.Id))
             .OrderBy(w => w.Item.Operation == "reload" ? 1 : w.Item.Operation == "window" ? 2 : 0).ThenBy(w => w.Item.Sequence))
         {
+            Exception? recordedFailure = null;
             try
             {
-                cancellation.ThrowIfCancellationRequested(); entry.Validate(); entry.Item.State = "running"; Save();
-                entry.Item.Detail = await entry.Run!(cancellation).ConfigureAwait(false); entry.Item.State = "completed";
-                dispatch(() => session.RecordOperation(request.Id, entry.Item.Tool, entry.Item.Subject, "completed", entry.Item.Detail)); Save();
+                while (true)
+                {
+                    cancellation.ThrowIfCancellationRequested();
+                    dispatch(() => { entry.Validate(); entry.Item.Attempts++; entry.Item.State = "running"; Save(); });
+                    try { entry.Item.Detail = await entry.Run!(cancellation).ConfigureAwait(false); }
+                    catch (Exception e) when (e is not OperationCanceledException && !cancellation.IsCancellationRequested
+                        && retry is not null && (entry.Item.Operation is "build" or "verify" or "smoke"))
+                    {
+                        recordedFailure = e; entry.Item.State = "awaiting-retry"; entry.Item.Detail = e.Message;
+                        dispatch(() => session.RecordOperation(request.Id, entry.Item.Tool, entry.Item.Subject, "failed", e.Message)); Save();
+                        // Keep the approved sequence alive. Never replay file writes, completed actions or model inference.
+                        if (await retry(entry.Item, e, cancellation).ConfigureAwait(false)) continue;
+                        throw;
+                    }
+                    entry.Item.State = "completed";
+                    dispatch(() => session.RecordOperation(request.Id, entry.Item.Tool, entry.Item.Subject, "completed", entry.Item.Detail)); Save(); break;
+                }
             }
             catch (Exception e) { entry.Item.State = e is OperationCanceledException ? "cancelled" : "failed"; entry.Item.Detail = e.Message;
-                dispatch(() => session.RecordOperation(request.Id, entry.Item.Tool, entry.Item.Subject, entry.Item.State, e.Message));
+                if (!ReferenceEquals(recordedFailure, e)) dispatch(() => session.RecordOperation(request.Id, entry.Item.Tool, entry.Item.Subject, entry.Item.State, e.Message));
                 foreach (var remaining in work.Values.Where(w => w.Item.State == "pending")) remaining.Item.State = "cancelled";
                 Save(); throw; }
         }

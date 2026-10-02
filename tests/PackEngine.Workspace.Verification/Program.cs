@@ -127,4 +127,5 @@ var restored = AssistantSettings.Load(settingsPath);
 Check(!restored.AutoConnect && !restored.Projects.Single().HistoryEnabled && restored.Projects.Single().WebChats.Count == 2, "connection, project, history and shared-context preferences survive restart");
 await SharedTaskVerification.Run(session, runner, Check);
 await ReviewVerification.Run(session, runner, Check);
+await ReviewRetryVerification.Run(session, runner, Check);
 Console.WriteLine("RESIDENT_WORKSPACE_PASS " + checks);
