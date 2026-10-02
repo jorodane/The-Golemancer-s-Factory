@@ -8,18 +8,29 @@ string root = args[0]; Directory.CreateDirectory(root);
 int checks = 0;
 void Check(bool ok, string name) { if (!ok) throw new Exception(name); Console.WriteLine("PASS: " + name); checks++; }
 void Reject(Action action, string name)
-{ try { action(); } catch (Exception e) when (e is IOException or InvalidDataException or ArgumentException) { Check(true, name); return; } throw new Exception(name); }
+{ try { action(); } catch (Exception e) when (e is IOException or InvalidDataException or ArgumentException or InvalidOperationException) { Check(true, name); return; } throw new Exception(name); }
 var project = NewProject.Create(Path.Combine(root, "game", "Game.packproject"));
 var profile = ProjectConversation.Load(project.Manifest);
 Check(profile.Configured && profile.Mode == "chatgpt" && profile.Url.Length == 0 && !File.Exists(profile.FilePath), "new games default to the web conversation without a URL or command execution");
-profile.Save();
-Check(ProjectConversation.Load(project.Manifest).Id == profile.Id && ProjectConversation.Load(project.Manifest).Url.Length == 0, "URL-free web mode preserves its portable identity across reloads");
+profile.SaveLocal();
+Check(ProjectConversation.Load(project.Manifest).Id == profile.Id && ProjectConversation.Load(project.Manifest).Url.Length == 0 && !Directory.Exists(profile.DirectoryPath), "opening a new game preserves identity locally without creating project conversation files");
 Check(new WorkspaceIndex(project).Packs.Count == 1 && project.Targets.All(t => t.Build.Count + t.Run.Count + t.Verify.Count == 0), "new game scaffold indexes a generic object pack and contains no executable commands");
 Reject(() => NewProject.Create(project.Manifest), "new game creation never overwrites existing project files");
-profile.Mode = "local"; profile.Save();
-Check(ProjectConversation.Load(project.Manifest).Id == profile.Id && ProjectConversation.Load(project.Manifest).Mode == "local", "local mode and portable identity survive reload");
+profile.Mode = "local"; profile.SaveLocal();
+Check(ProjectConversation.Load(project.Manifest).Id == profile.Id && ProjectConversation.Load(project.Manifest).Mode == "local" && !Directory.Exists(profile.DirectoryPath), "switching to local chat survives reload without touching the project");
 profile.Mode = "chatgpt"; profile.Url = "https://chatgpt.com/g/g-p-example/project"; profile.Title = "Existing project"; profile.Save();
 Check(ProjectConversation.Load(project.Manifest).Url == profile.Url, "an existing project URL and name survive reload");
+byte[] savedProfile = File.ReadAllBytes(profile.FilePath);
+profile.Mode = "local"; profile.SaveLocal();
+Check(ProjectConversation.Load(project.Manifest).Mode == "local" && File.ReadAllBytes(profile.FilePath).SequenceEqual(savedProfile), "device mode changes leave explicitly saved project metadata byte-for-byte unchanged");
+profile.Mode = "chatgpt"; profile.SaveLocal();
+string absentArchive = Path.Combine(root, "not-created");
+using (var reader = new ConversationArchive(absentArchive, profile.Id, readOnly: true))
+{
+    Check(reader.List().Count == 0 && reader.ActiveThread == "" && !Directory.Exists(absentArchive), "read-only project archive access creates neither directories nor lock files");
+    Reject(() => reader.ActiveThread = "", "read-only archives cannot change the saved selection");
+    Reject(() => reader.Save(new(), []), "read-only archives cannot implicitly save history");
+}
 foreach (string url in new[] { "https://chatgpt.com/", "file:///tmp/x", "https://chatgpt.com.evil.test/c/x", "https://user@chatgpt.com/c/x", "https://chatgpt.com:8443/c/x" })
     Reject(() => ProjectConversation.ValidateLink(url), "connection choice rejects unrelated or unsafe URL: " + url);
 Check(ProjectConversation.ValidateLink("https://chatgpt.com/c/example") == "https://chatgpt.com/c/example", "existing chats are accepted");

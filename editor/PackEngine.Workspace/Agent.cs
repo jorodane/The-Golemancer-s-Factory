@@ -8,6 +8,7 @@ public sealed class AssistantConnection
     public string Executable { get; set; } = "";
     public string ProjectIdentity { get; set; } = "";
     public string StateDirectory { get; set; } = "";
+    // Optional portable archive for reading and explicit saves; never an automatic write target.
     public string ConversationDirectory { get; set; } = "";
     public string ConversationProject { get; set; } = "";
     public bool AccessEnabled { get; set; } = true;
@@ -48,6 +49,10 @@ public interface IResidentAssistant : IEditorAssistant
     Task<AssistantHistoryPage> HistoryAsync(string threadId, string cursor, CancellationToken cancellation);
     Task SelectConversationAsync(string threadId, CancellationToken cancellation);
     void NewConversation();
+}
+public interface IProjectConversationStorage
+{
+    Task SaveConversationAsync(string threadId, CancellationToken cancellation);
 }
 public interface IAgentWorkspace : IAssistantWorkspace
 {

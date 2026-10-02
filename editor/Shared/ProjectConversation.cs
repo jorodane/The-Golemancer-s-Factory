@@ -1,4 +1,5 @@
 using System.Text;
+using System.Security.Cryptography;
 using System.Xml;
 using System.Xml.Linq;
 
@@ -16,6 +17,15 @@ public sealed class ProjectConversation
     public string DirectoryPath => SafePath(Path.Combine(Path.GetDirectoryName(Manifest)!, ".packengine", Path.GetFileName(Manifest)));
     public string FilePath => SafePath(Path.Combine(DirectoryPath, "conversation.xml"));
     public string ConversationsPath => SafePath(Path.Combine(DirectoryPath, "conversations"));
+    public string LocalFilePath
+    {
+        get
+        {
+            using var hash = SHA256.Create();
+            string identity = BitConverter.ToString(hash.ComputeHash(Encoding.UTF8.GetBytes(Manifest))).Replace("-", "").ToLowerInvariant();
+            return SafePath(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PackEngine", "Projects", identity, "conversation.xml"));
+        }
+    }
     public bool Configured => Mode is "local" or "chatgpt";
     public static string SafePath(string path)
     {
@@ -36,8 +46,19 @@ public sealed class ProjectConversation
     public static ProjectConversation Load(string manifest)
     {
         var result = new ProjectConversation { Manifest = Path.GetFullPath(manifest) };
-        if (!File.Exists(result.FilePath)) return result;
-        using var reader = XmlReader.Create(result.FilePath, new() { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null, MaxCharactersInDocument = 16384 });
+        bool portable = File.Exists(result.FilePath);
+        if (portable) Read(result, result.FilePath);
+        if (File.Exists(result.LocalFilePath))
+        {
+            var local = new ProjectConversation { Manifest = result.Manifest }; Read(local, result.LocalFilePath);
+            if (!portable) return local;
+            if (local.Id == result.Id) result.Mode = local.Mode; // Device preference must not hide newly synced project links.
+        }
+        return result;
+    }
+    private static void Read(ProjectConversation result, string path)
+    {
+        using var reader = XmlReader.Create(path, new() { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null, MaxCharactersInDocument = 16384 });
         var xml = XDocument.Load(reader).Root ?? throw new InvalidDataException("대화 설정이 비어 있어.");
         string id = (string?)xml.Attribute("id") ?? "";
         if (xml.Name != "ProjectConversation" || (string?)xml.Attribute("version") != "1" || !Guid.TryParseExact(id, "N", out _))
@@ -45,7 +66,7 @@ public sealed class ProjectConversation
         result.Id = id; result.Mode = (string?)xml.Attribute("mode") ?? "";
         result.Url = (string?)xml.Element("Url") ?? ""; result.Title = (string?)xml.Element("Title") ?? "";
         result.ProjectUrl = (string?)xml.Element("ProjectUrl") ?? "";
-        result.Validate(); return result;
+        result.Validate();
     }
     private void Validate()
     {
@@ -55,10 +76,15 @@ public sealed class ProjectConversation
     }
     public void Save()
     {
-        Validate(); Directory.CreateDirectory(DirectoryPath);
+        Write(FilePath); SaveLocal();
+    }
+    public void SaveLocal() => Write(LocalFilePath);
+    private void Write(string target)
+    {
+        Validate(); Directory.CreateDirectory(Path.GetDirectoryName(target)!);
         var xml = new XDocument(new XElement("ProjectConversation", new XAttribute("version", "1"), new XAttribute("id", Id),
             new XAttribute("mode", Mode), new XElement("Title", Title.Trim()), new XElement("Url", Url), new XElement("ProjectUrl", ProjectUrl)));
-        string target = FilePath, temporary = target + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        string temporary = target + "." + Guid.NewGuid().ToString("N") + ".tmp";
         try
         {
             File.WriteAllText(temporary, xml.ToString() + "\n", new UTF8Encoding(false));

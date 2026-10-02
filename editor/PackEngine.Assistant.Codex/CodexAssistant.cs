@@ -5,7 +5,7 @@ using PackEngine.Workspace;
 namespace PackEngine.Assistant.Codex;
 
 /// <summary>Persistent, subscription-authenticated Codex session with semantic editor tools. No model is simulated.</summary>
-public sealed partial class CodexAssistant : IResidentAssistant
+public sealed partial class CodexAssistant : IResidentAssistant, IProjectConversationStorage
 {
     public string Name => "Codex · 객체팩 작업 환경";
     public string Model { get; set; } = "";
@@ -36,14 +36,15 @@ public sealed partial class CodexAssistant : IResidentAssistant
     {
         if (completion is not null) throw new InvalidOperationException("Finish or cancel the current turn first.");
         if (!options.AccessEnabled) throw new InvalidOperationException("이 프로젝트의 Codex 접근이 설정에서 차단되어 있어.");
-        rpc?.Dispose(); rpc = null; archive?.Dispose(); archive = null; nativeThreads.Clear(); loaded = false; connected = false;
+        rpc?.Dispose(); rpc = null; archive?.Dispose(); archive = null; projectArchive?.Dispose(); projectArchive = null; nativeThreads.Clear(); loaded = false; connected = false;
         connection = new() { Executable = options.Executable, StateDirectory = Path.GetFullPath(options.StateDirectory), ProjectIdentity = options.ProjectIdentity,
             ConversationDirectory = options.ConversationDirectory, ConversationProject = options.ConversationProject,
             AccessEnabled = options.AccessEnabled, HistoryEnabled = options.HistoryEnabled, BlockedThreads = options.BlockedThreads.ToArray() }; ThreadId = "";
         Directory.CreateDirectory(options.StateDirectory);
         // The Codex working directory contains no game source, assets, or editor state.
         string directory = Path.Combine(options.StateDirectory, "codex-workspace"); Directory.CreateDirectory(directory);
-        if (File.Exists(BindingPath))
+        bool hasLocalBinding = File.Exists(BindingPath);
+        if (hasLocalBinding)
         {
             using var stored = JsonDocument.Parse(File.ReadAllText(BindingPath));
             if (Text(stored.RootElement, "ProjectIdentity") != options.ProjectIdentity) throw new InvalidDataException("The saved conversation belongs to a different project.");
@@ -52,13 +53,13 @@ public sealed partial class CodexAssistant : IResidentAssistant
         }
         if (options.ConversationDirectory.Length > 0)
         {
-            archive = new(options.ConversationDirectory, options.ConversationProject);
-            string active = archive.ActiveThread;
-            // An explicit empty portable selection means “new conversation”, including on another PC.
-            if (File.Exists(Path.Combine(options.ConversationDirectory, "active.txt"))) ThreadId = active;
+            archive = new(ConversationArchive.LocalPath(options.StateDirectory), WorkspaceProject.Hash(Encoding.UTF8.GetBytes(options.ProjectIdentity)).Substring(0, 32));
+            projectArchive = new(options.ConversationDirectory, options.ConversationProject, readOnly: true);
+            // A saved snapshot supplies the initial selection only on a device with no local binding.
+            if (!hasLocalBinding && connection.HistoryEnabled) ThreadId = projectArchive.ActiveThread;
             if (!connection.HistoryEnabled || connection.BlockedThreads.Contains(ThreadId, StringComparer.Ordinal)) ThreadId = "";
             // Restore on history access/send, so a conflicted last thread does not prevent choosing another conversation.
-            if (ThreadId.Length > 0 && Model.Length == 0) Model = archive.Read(ThreadId)?.Model ?? "";
+            if (ThreadId.Length > 0 && Model.Length == 0) Model = (archive.Read(ThreadId) ?? projectArchive.Read(ThreadId))?.Model ?? "";
         }
         var client = new CodexRpc(ResolveExecutable(options.Executable), directory); rpc = client;
         client.Notification += (method, data) => { if (ReferenceEquals(rpc, client)) OnNotification(method, data); };
@@ -76,7 +77,7 @@ public sealed partial class CodexAssistant : IResidentAssistant
             connected = true;
             return await AccountAsync(cancellation).ConfigureAwait(false);
         }
-        catch { client.Dispose(); rpc = null; archive?.Dispose(); archive = null; connected = false; throw; }
+        catch { client.Dispose(); rpc = null; archive?.Dispose(); archive = null; projectArchive?.Dispose(); projectArchive = null; connected = false; throw; }
     }
     public async Task<AssistantAccount> AccountAsync(CancellationToken cancellation)
     {
@@ -282,6 +283,6 @@ public sealed partial class CodexAssistant : IResidentAssistant
     public static string ResolveExecutable(string configured) => PackEngine.Installation.CodexInstallation.ResolveExecutable(configured);
     public void Dispose()
     {
-        lock (sync) completion?.TrySetCanceled(); rpc?.Dispose(); rpc = null; connected = false; archive?.Dispose(); archive = null;
+        lock (sync) completion?.TrySetCanceled(); rpc?.Dispose(); rpc = null; connected = false; archive?.Dispose(); archive = null; projectArchive?.Dispose(); projectArchive = null;
     }
 }

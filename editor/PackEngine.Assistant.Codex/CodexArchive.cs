@@ -7,6 +7,7 @@ namespace PackEngine.Assistant.Codex;
 public sealed partial class CodexAssistant
 {
     private ConversationArchive? archive;
+    private ConversationArchive? projectArchive;
     private readonly Dictionary<string, JsonElement> nativeThreads = new(StringComparer.Ordinal);
     private string promptTitle = "";
     private static string NativeSessions => ProjectConversation.SafePath(Path.Combine(
@@ -34,8 +35,10 @@ public sealed partial class CodexAssistant
     private void RestoreArchived(string id)
     {
         if (archive is null) return;
-        archive.RequireUnchanged(id); var entry = archive.Read(id); if (entry is null) return;
-        byte[] saved = archive.ReadRollout(entry);
+        var source = archive.Read(id) is not null ? archive : projectArchive;
+        if (source is null) return;
+        source.RequireUnchanged(id); var entry = source.Read(id); if (entry is null) return;
+        byte[] saved = source.ReadRollout(entry);
         var paths = NativeMatches(NativeSessions, id).ToArray();
         if (paths.Length > 1) throw new IOException("이 PC에 같은 ID의 Codex 기록이 여러 개 있어. 기존 파일을 덮어쓰지 않았어.");
         string destination;
@@ -55,12 +58,12 @@ public sealed partial class CodexAssistant
             destination = ProjectConversation.SafePath(Path.Combine(NativeSessions, created.ToString("yyyy"), created.ToString("MM"), created.ToString("dd"), entry.NativeFile));
             Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
         }
-        archive.RequireUnchanged(id);
+        source.RequireUnchanged(id);
         EditorSession.AtomicWrite(destination, saved);
     }
     private bool ArchivedThread(JsonElement thread)
     {
-        if (archive?.Read(Text(thread, "id")) is null) return false;
+        if (archive?.Read(Text(thread, "id")) is null && projectArchive?.Read(Text(thread, "id")) is null) return false;
         string path = Text(thread, "path");
         if (path.Length == 0 || !Under(path, NativeSessions)) return false;
         ConversationArchive.ReadNative(path, Text(thread, "id")); return true;
@@ -81,7 +84,7 @@ public sealed partial class CodexAssistant
         }
         if (!nativeThreads.TryGetValue(id, out var thread)) throw new IOException("대화 원본 위치를 확인하지 못했어. Codex의 이 PC 기록은 유지돼.");
         string source = Text(thread, "path");
-        if (source.Length == 0 || !Under(source, NativeSessions)) throw new IOException("Codex가 게임팩에 보관할 수 있는 기록 파일을 반환하지 않았어.");
+        if (source.Length == 0 || !Under(source, NativeSessions)) throw new IOException("Codex가 보관할 수 있는 기록 파일을 반환하지 않았어.");
         byte[] data = ConversationArchive.ReadNative(source, id);
         string title = Text(thread, "name"); if (title.Length == 0) title = VisiblePrompt(Text(thread, "preview"));
         if (title.Length == 0) title = archive.Read(id)?.Title ?? promptTitle;
@@ -89,12 +92,34 @@ public sealed partial class CodexAssistant
         archive.Save(new() { Id = id, Title = title.Substring(0, Math.Min(100, title.Length)), Model = Model,
             NativeFile = Path.GetFileName(source), UpdatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds() }, data);
         archive.ActiveThread = ThreadId;
-        Emit("saved", "게임팩 내부에 Codex 대화 원본을 저장했어.", id);
+        Emit("saved", "이 PC에 Codex 대화를 보관했어.", id);
+    }
+    public async Task SaveConversationAsync(string threadId, CancellationToken cancellation)
+    {
+        RequireHistory(threadId);
+        if (connection!.ConversationDirectory.Length == 0) throw new InvalidOperationException("프로젝트 대화 저장 위치가 지정되지 않았어.");
+        if (!await turnGate.WaitAsync(0, cancellation).ConfigureAwait(false)) throw new InvalidOperationException("진행 중인 응답을 마친 뒤 대화를 저장해줘.");
+        try
+        {
+            await RequireThread(threadId, cancellation).ConfigureAwait(false);
+            await SaveArchive(threadId, cancellation).ConfigureAwait(false);
+            var entry = archive!.Read(threadId)!; byte[] data = archive.ReadRollout(entry);
+            cancellation.ThrowIfCancellationRequested();
+            using var target = new ConversationArchive(connection.ConversationDirectory, connection.ConversationProject);
+            target.Observe(threadId);
+            var previous = target.Read(threadId);
+            if (previous is not null && !Prefix(target.ReadRollout(previous), data))
+                throw new IOException("프로젝트에 저장된 대화와 이 PC의 기록이 서로 달라. 저장된 원본은 덮어쓰지 않았어.");
+            target.Save(entry, data); target.ActiveThread = threadId;
+            projectArchive?.Dispose(); projectArchive = new(connection.ConversationDirectory, connection.ConversationProject, readOnly: true);
+            Emit("project-saved", "현재 대화를 프로젝트에 저장했어. 이후 대화는 다시 저장할 때까지 이 PC에만 보관돼.", threadId);
+        }
+        finally { turnGate.Release(); }
     }
     private async Task PreserveInterruptedArchive()
     {
         if (archive is null || ThreadId.Length == 0) return;
         try { await SaveArchive(ThreadId, CancellationToken.None, true).ConfigureAwait(false); }
-        catch (Exception e) { Emit("archive-failed", "게임팩 대화 보관 실패 · 이 PC의 Codex 원본은 유지돼. " + e.Message); }
+        catch (Exception e) { Emit("archive-failed", "대화 복구본 보관 실패 · 이 PC의 Codex 원본은 유지돼. " + e.Message); }
     }
 }

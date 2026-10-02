@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify portable game conversations using explicit fixtures plus optional official Codex without inference."""
+"""Verify local conversation storage and explicit portable snapshots, without model inference."""
 import argparse
 import hashlib
 import json
@@ -54,6 +54,9 @@ def main():
     def archive(project):
         return project.parent / '.packengine' / project.name / 'conversations'
 
+    def files(directory):
+        return {str(p.relative_to(directory)): p.read_bytes() for p in directory.rglob('*') if p.is_file()}
+
     try:
         with tempfile.TemporaryDirectory(prefix='packengine-conversations-') as tmp:
             folder = Path(tmp)
@@ -87,16 +90,29 @@ def main():
                 records = [json.loads(x) for x in log.read_text().splitlines()] if log.exists() else []
                 return run, records
 
+            original_project = files(project.parent)
             first, _ = call('codex-chat', project, state, home, '--prompt', 'FIRST DEVICE FIXTURE')
             check(first.stdout.strip() == 'PORTABILITY_FIXTURE_OK', 'fixture response is clearly labeled as a protocol fixture')
-            id = (archive(project) / 'active.txt').read_text().strip()
-            descriptor = json.loads((archive(project) / (id + '.json')).read_text())
-            data = (archive(project) / (id + '-' + descriptor['Hash'] + '.jsonl')).read_bytes()
-            check(b'FIRST DEVICE FIXTURE' in data and len(data) > 0, 'game folder contains the actual native transcript rather than just a thread ID')
+            local = state / 'conversations'
+            id = (local / 'active.txt').read_text().strip()
+            descriptor = json.loads((local / (id + '.json')).read_text())
+            data = (local / (id + '-' + descriptor['Hash'] + '.jsonl')).read_bytes()
+            check(b'FIRST DEVICE FIXTURE' in data and len(data) > 0, 'the device state contains the native transcript outside the project')
+            call('codex-threads', project, state, home)
+            call('codex-history', project, state, home, '--thread', id)
+            check(files(project.parent) == original_project and not archive(project).parent.exists(),
+                  'chat, reconnect, listing and history browsing create no project files even with legacy project-conversations enabled')
+            call('codex-save', project, state, home, '--thread', id, '--deny-thread', id, fail=True)
+            check(files(project.parent) == original_project, 'blocked explicit saves cannot create project files')
+            call('codex-save', project, state, home, '--thread', id)
+            saved_meta = json.loads((archive(project) / (id + '.json')).read_text())
+            check((archive(project) / (id + '-' + saved_meta['Hash'] + '.jsonl')).read_bytes() == data,
+                  'explicit save writes the exact selected transcript and portable project identity')
             moved = folder / 'device-b/Renamed Game'
             shutil.copytree(project.parent, moved)
             shutil.rmtree(project.parent); shutil.rmtree(home); shutil.rmtree(state)
             project = moved / 'Game.packproject'; state = folder / 'state-b'; home = folder / 'codex-b'; home.mkdir()
+            saved_project = files(project.parent); local = state / 'conversations'
             listed, traffic = call('codex-threads', project, state, home)
             check(json.loads(listed.stdout)['Threads'][0]['Id'] == id and not any(x.get('method') in ('thread/start', 'thread/resume', 'turn/start') for x in traffic),
                   'a moved game lists its conversations without the previous PC or starting inference')
@@ -109,14 +125,20 @@ def main():
                   'second-device chat resumes the same native ID with restricted tools and current working directory')
             history, _ = call('codex-history', project, state, home, '--thread', id)
             check(len(json.loads(history.stdout)['Messages']) == 4, 'both devices messages survive round-trip persistence')
+            check(files(project.parent) == saved_project, 'restoring and continuing a saved conversation never refreshes the project snapshot automatically')
+            call('codex-save', project, state, home, '--thread', id)
+            saved_meta = json.loads((archive(project) / (id + '.json')).read_text())
+            check(b'SECOND DEVICE FIXTURE' in (archive(project) / (id + '-' + saved_meta['Hash'] + '.jsonl')).read_bytes(),
+                  'saving again explicitly includes the newer local messages')
+            saved_project = files(project.parent)
             _, traffic = call('codex-history', project, state, home, '--thread', id, '--deny-thread', id, fail=True)
             check(not any(x.get('method') == 'thread/read' for x in traffic), 'blocked history is denied before any native history read')
             _, traffic = call('codex-chat', project, state, home, '--prompt', 'NO HISTORY FIXTURE', '--no-history')
             check(not any(x.get('method') == 'thread/resume' for x in traffic), 'history-disabled mode starts a new conversation')
             _, _ = call('codex-chat', project, state, home, '--prompt', 'DISCONNECT FIXTURE', mode='disconnect', fail=True)
-            active = (archive(project) / 'active.txt').read_text().strip()
-            meta = json.loads((archive(project) / (active + '.json')).read_text())
-            check(b'DISCONNECT FIXTURE' in (archive(project) / (active + '-' + meta['Hash'] + '.jsonl')).read_bytes(), 'a disconnected turn preserves complete native records already written to disk')
+            active = (local / 'active.txt').read_text().strip()
+            meta = json.loads((local / (active + '.json')).read_text())
+            check(b'DISCONNECT FIXTURE' in (local / (active + '-' + meta['Hash'] + '.jsonl')).read_bytes(), 'a disconnected turn preserves complete native records on this device')
             cmd, env, log = command('codex-chat', project, state, home, '--prompt', 'CANCEL FIXTURE', mode='cancel')
             proc = subprocess.Popen(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             try:
@@ -127,12 +149,15 @@ def main():
                 proc.send_signal(signal.SIGINT)
                 stdout, stderr = proc.communicate(timeout=20)
                 (out / 'cancel.log').write_text(stdout + stderr)
-                check(proc.returncode != 0 and 'turn/interrupt' in log.read_text(), 'cancellation interrupts the turn and retains a project snapshot')
+                check(proc.returncode != 0 and 'turn/interrupt' in log.read_text(), 'cancellation interrupts the turn and retains a local snapshot')
             finally:
                 if proc.poll() is None:
                     proc.kill(); proc.wait()
+            meta = json.loads((local / (active + '.json')).read_text())
+            check(b'CANCEL FIXTURE' in (local / (active + '-' + meta['Hash'] + '.jsonl')).read_bytes(), 'cancelled native records remain recoverable locally')
+            check(files(project.parent) == saved_project, 'new selections, history-disabled turns, disconnects and cancellation leave saved project files unchanged')
+            call('codex-save', project, state, home, '--thread', active)
             meta = json.loads((archive(project) / (active + '.json')).read_text())
-            check(b'CANCEL FIXTURE' in (archive(project) / (active + '-' + meta['Hash'] + '.jsonl')).read_bytes(), 'cancelled native records remain portable')
             native = next((home / 'sessions').rglob('*-' + active + '.jsonl'))
             snapshot = archive(project) / (active + '-' + meta['Hash'] + '.jsonl')
             changed = snapshot.read_bytes() + b'{"type":"fixture-divergent"}\n'
@@ -142,10 +167,19 @@ def main():
             with native.open('ab') as stream:
                 stream.write(b'{"type":"fixture-local-branch"}\n')
             original_native = native.read_bytes()
-            _, _ = call('codex-history', project, state, home, '--thread', active, fail=True)
+            conflicted_project = files(project.parent)
+            _, _ = call('codex-history', project, state, home, '--thread', active)
+            check(files(project.parent) == conflicted_project, 'local history remains usable when a project snapshot has diverged')
+            _, _ = call('codex-save', project, state, home, '--thread', active, fail=True)
             check(native.read_bytes() == original_native, 'divergent device histories stop safely and preserve both native originals')
+            check(files(project.parent) == conflicted_project, 'an explicit conflicting save preserves every existing project file')
             _, traffic = call('codex-chat', project, state, home, '--prompt', 'AFTER CONFLICT FIXTURE', '--new-thread')
             check(any(x.get('method') == 'thread/start' for x in traffic), 'a conflicting old conversation does not prevent explicitly starting a new one')
+            new_id = (local / 'active.txt').read_text().strip()
+            _, traffic = call('codex-chat', project, state, home, '--prompt', 'LOCAL SELECTION FIXTURE')
+            check(any(x.get('method') == 'thread/resume' and x['params']['threadId'] == new_id for x in traffic),
+                  'reconnecting honors the local selection instead of the older saved project selection')
+            check(files(project.parent) == conflicted_project, 'local continuation after a project conflict does not change Git-tracked snapshots')
             check(not any(p.name in ('auth.json', 'config.toml') or b'SYNTHETIC_AUTH_SENTINEL' in p.read_bytes() for p in moved.rglob('*') if p.is_file()),
                   'moving the game never copied login credentials or global Codex configuration')
             if args.codex:

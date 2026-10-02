@@ -181,7 +181,7 @@ public sealed partial class EditorWindow
             bool reuse = previous is not null && previous.PackId == conversation.Id && DateTime.TryParse(previous.ExpiresAt, out var expires) && expires.ToUniversalTime() > DateTime.UtcNow && SharedEditorProtocol.SamePermissions(previous.Permissions, grant);
             sharingRequest = reuse ? previous!.RequestId : SharedEditorProtocol.NewNonce();
             sharingBinding = new() { PackId = conversation.Id, RequestId = sharingRequest, Permissions = grant };
-            conversation.Mode = "chatgpt"; conversation.Save(); preferWeb = true; ApplyConversationMode(); if (webEnvironment is null) await InitializeBrowser();
+            conversation.Mode = "chatgpt"; conversation.SaveLocal(); preferWeb = true; ApplyConversationMode(); if (webEnvironment is null) await InitializeBrowser();
             if (webEnvironment is null || webDisposed) return;
             await sharedBrowser.EnsureCoreWebView2Async(webEnvironment);
             if (!sharingConfigured) { ConfigureBrowser(sharedBrowser, true); sharedBrowser.CoreWebView2.WebMessageReceived += SharedEditorMessage; sharedBrowser.CoreWebView2.NavigationStarting += (_, _) => { if (SharedEditorConnected) { sharingStatus.Text = "공유 페이지 이동으로 연결이 끊겼어. 다시 연결해줘."; ClearSharedEditor(); } }; sharingConfigured = true; }

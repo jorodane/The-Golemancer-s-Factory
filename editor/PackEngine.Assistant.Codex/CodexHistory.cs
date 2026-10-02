@@ -47,7 +47,8 @@ public sealed partial class CodexAssistant
             {
                 int offset = cursor.Length == 0 ? 0 : int.Parse(cursor.Substring(8), System.Globalization.CultureInfo.InvariantCulture);
                 if (offset < 0) throw new ArgumentException("Invalid archive cursor.");
-                var stored = archive.List(); var portable = new AssistantThreadPage();
+                var stored = archive.List().Concat(projectArchive?.List() ?? []).GroupBy(c => c.Id, StringComparer.Ordinal).Select(g => g.First())
+                    .OrderByDescending(c => c.UpdatedAt).ThenBy(c => c.Id, StringComparer.Ordinal).ToList(); var portable = new AssistantThreadPage();
                 portable.Threads = stored.Skip(offset).Take(30).Select(c => new AssistantThread { Id = c.Id, Title = c.Title.Length == 0 ? "대화 · " + c.Id : c.Title,
                     UpdatedAt = c.UpdatedAt, Allowed = !connection!.BlockedThreads.Contains(c.Id, StringComparer.Ordinal) }).ToList();
                 if (portable.Threads.Count > 0)
@@ -66,7 +67,7 @@ public sealed partial class CodexAssistant
         {
             if (!OwnThread(thread)) continue;
             string id = Text(thread, "id"), title = Text(thread, "name"); if (id.Length == 0) continue;
-            if (archive?.Read(id) is not null) continue;
+            if (archive?.Read(id) is not null || projectArchive?.Read(id) is not null) continue;
             if (title.Length == 0) title = VisiblePrompt(Text(thread, "preview"));
             title = title.Replace('\n', ' ').Replace('\r', ' ').Trim(); if (title.Length == 0) title = "새 대화 · " + id;
             page.Threads.Add(new() { Id = id, Title = (archive is null ? "" : "이 PC · ") + title.Substring(0, Math.Min(title.Length, 100)),

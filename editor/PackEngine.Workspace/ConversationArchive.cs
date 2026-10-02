@@ -16,17 +16,21 @@ public sealed class ArchivedConversation
     public string Hash { get; set; } = "";
 }
 
-/// <summary>Atomic project-owned snapshots of native Codex rollouts, never a Codex home or auth store.</summary>
+/// <summary>Native rollout snapshots. Project archives are read-only until an explicit save.</summary>
 public sealed class ConversationArchive : IDisposable
 {
     public const int MaximumBytes = 64 * 1024 * 1024;
     private readonly string root, project;
-    private readonly FileStream writer;
+    private readonly FileStream? writer;
+    private readonly bool readOnly;
     private readonly Dictionary<string, string> observed = new(StringComparer.Ordinal);
-    public ConversationArchive(string directory, string projectId)
+    public static string LocalPath(string stateDirectory) => ProjectConversation.SafePath(Path.Combine(stateDirectory, "conversations"));
+    public ConversationArchive(string directory, string projectId, bool readOnly = false)
     {
         if (!Guid.TryParseExact(projectId, "N", out _)) throw new InvalidDataException("Invalid portable project identity.");
-        root = ProjectConversation.SafePath(directory); project = projectId; Directory.CreateDirectory(root);
+        root = ProjectConversation.SafePath(directory); project = projectId; this.readOnly = readOnly;
+        if (readOnly) return;
+        Directory.CreateDirectory(root);
         try { writer = new(PathFor("writer.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None); }
         catch (IOException e) { throw new IOException("다른 에디터가 이 게임팩의 대화를 사용 중이야. 해당 연결을 닫은 뒤 다시 시도해줘.", e); }
     }
@@ -51,7 +55,7 @@ public sealed class ConversationArchive : IDisposable
             !entry.NativeFile.EndsWith("-" + id + ".jsonl", StringComparison.Ordinal)) throw new InvalidDataException("게임팩 대화 메타데이터가 잘못됐어.");
         return entry;
     }
-    public List<ArchivedConversation> List() => Directory.EnumerateFiles(root, "*.json").Select(Path.GetFileNameWithoutExtension)
+    public List<ArchivedConversation> List() => (Directory.Exists(root) ? Directory.EnumerateFiles(root, "*.json") : Enumerable.Empty<string>()).Select(Path.GetFileNameWithoutExtension)
         .Where(id => Guid.TryParseExact(id, "D", out _)).Select(id => Read(id!)!).OrderByDescending(c => c.UpdatedAt).ThenBy(c => c.Id, StringComparer.Ordinal).ToList();
     public string ActiveThread
     {
@@ -61,7 +65,7 @@ public sealed class ConversationArchive : IDisposable
             if (new FileInfo(path).Length > 100) throw new InvalidDataException("Invalid active conversation.");
             string id = File.ReadAllText(path).Trim(); if (id.Length > 0) RecordPath(id); return id;
         }
-        set { if (value.Length > 0) RecordPath(value); EditorSession.AtomicWrite(PathFor("active.txt"), Encoding.UTF8.GetBytes(value)); }
+        set { RequireWriter(); if (value.Length > 0) RecordPath(value); EditorSession.AtomicWrite(PathFor("active.txt"), Encoding.UTF8.GetBytes(value)); }
     }
     public void Observe(string id)
     {
@@ -96,6 +100,7 @@ public sealed class ConversationArchive : IDisposable
     }
     public void Save(ArchivedConversation entry, byte[] rollout)
     {
+        RequireWriter();
         RequireUnchanged(entry.Id); var previous = Read(entry.Id);
         entry.Project = project; entry.Hash = WorkspaceProject.Hash(rollout); entry.Version = 1;
         string data = PathFor(entry.Id + "-" + entry.Hash + ".jsonl");
@@ -109,5 +114,7 @@ public sealed class ConversationArchive : IDisposable
             catch (IOException) { } catch (UnauthorizedAccessException) { }
         }
     }
-    public void Dispose() => writer.Dispose();
+    private void RequireWriter()
+    { if (readOnly) throw new InvalidOperationException("프로젝트 대화는 읽기 전용이야. ‘프로젝트에 대화 저장’을 선택해줘."); }
+    public void Dispose() => writer?.Dispose();
 }

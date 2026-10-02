@@ -95,7 +95,7 @@ public sealed partial class EditorWindow
     {
         parent.Children.Add(conversationModeLabel);
         var modes = new WrapPanel(); modes.Children.Add(Action("ChatGPT 대화", UseEmbeddedChat)); modes.Children.Add(Action("로컬 Codex 대화", UseLocalChat)); parent.Children.Add(modes);
-        parent.Children.Add(Action("대화 저장 폴더", OpenConversationFolder));
+        parent.Children.Add(Action("이 PC의 대화 폴더", OpenConversationFolder));
         parent.Children.Add(Action("ChatGPT 열기", OpenChatGpt));
         parent.Children.Add(Action("에디터 연결", () => tabs.SelectedIndex = 6));
         var panel = new StackPanel(); parent.Children.Add(new Expander { Header = "에디터 안에서 Codex 대화", Foreground = TextInk, Margin = new Thickness(4), Content = panel });

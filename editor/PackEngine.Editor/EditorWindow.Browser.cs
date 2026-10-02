@@ -200,7 +200,7 @@ public sealed partial class EditorWindow
     {
         if (busy || conversation is null) return;
         bool wasWeb = WebMode;
-        if (conversation is not null) { conversation.Mode = "chatgpt"; conversation.Save(); }
+        if (conversation is not null) { conversation.Mode = "chatgpt"; conversation.SaveLocal(); }
         preferWeb = true; if (!wasWeb) ResetResidentConnection(); StopChatGptBridge(); RefreshWebProject(); ApplyConversationMode();
         var urls = conversation is null ? (ProjectUrl: "", ChatUrl: "") : ConversationLinkMetadata.Read(conversation);
         if (!wasWeb || browser.Source is null) NavigateChat(urls.ChatUrl.Length > 0 ? urls.ChatUrl : urls.ProjectUrl.Length > 0 ? urls.ProjectUrl : "https://chatgpt.com/");
