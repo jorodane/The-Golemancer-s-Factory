@@ -104,7 +104,11 @@ public sealed class EditorPackGeneration : IEditorPackRuntime, IEditorModuleHost
                 string? line = await worker.StandardOutput.ReadLineAsync().ConfigureAwait(false); timeout.Token.ThrowIfCancellationRequested();
                 if (line is null || line.Length > 4_000_000) throw new IOException("Invalid editor pack response.");
                 using var reply = JsonDocument.Parse(line);
-                if (reply.RootElement.GetProperty("Id").GetString() != id) throw new IOException("Editor pack response ID mismatch.");
+                if (reply.RootElement.GetProperty("Id").GetString() != id)
+                {
+                    string detail = reply.RootElement.TryGetProperty("Error", out var protocolError) ? protocolError.GetString() ?? "" : "";
+                    throw new IOException("Editor pack response ID mismatch." + (detail.Length > 0 ? " Worker: " + detail : ""));
+                }
                 if (reply.RootElement.TryGetProperty("ProjectRequest", out var queryBody))
                 {
                     var query = JsonSerializer.Deserialize<EditorProjectQuery>(queryBody.GetRawText(), WireJson) ?? throw new IOException("Invalid project data request.");
