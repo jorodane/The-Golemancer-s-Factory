@@ -72,7 +72,17 @@ internal static class Program
             NativeInputs(window);
             Console.WriteLine("NATIVE_WORKSPACE_CHECKS=" + checks); return 0;
         }
-        catch (Exception error) { Console.Error.WriteLine(error); return 1; }
+        catch (Exception error)
+        {
+            Console.Error.WriteLine(error);
+            if (window is not null)
+            {
+                Console.Error.WriteLine("Native status: " + Field<TextBlock>(window, "status").Text);
+                Console.Error.WriteLine("Pack status: " + Field<TextBlock>(window, "packStatus").Text);
+                Console.Error.WriteLine("Native operation log:\n" + Field<TextBox>(window, "log").Text);
+            }
+            return 1;
+        }
         finally { if (window is not null) { Call(window, "StopEditorPacks"); window.Close(); } }
     }
     private static void NativeInputs(EditorWindow owner)
