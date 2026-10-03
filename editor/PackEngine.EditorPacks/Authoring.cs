@@ -17,10 +17,12 @@ public sealed class EditorPackChange
     public string Before { get; set; } = "";
     public string After { get; set; } = "";
     public string State { get; set; } = "preview";
+    public bool IsReadOnly { get; set; }
     public string BeforeHash => WorkspaceProject.HashText(Before);
     public string AfterHash => WorkspaceProject.HashText(After);
     public void Apply(string history, bool undo = false)
     {
+        if (IsReadOnly) throw new InvalidOperationException("The installed engine is read-only. Create a project overlay.");
         var source = new EditorPackSource { Id = Pack, Folder = Folder };
         string current = source.Read(Path); string expected = undo ? After : Before, next = undo ? Before : After;
         if (State != (undo ? "applied" : "preview") || current != expected) throw new IOException("Editor pack changed after preview. Read it again before applying/undoing.");
@@ -95,7 +97,7 @@ public sealed partial class EditorPackAgent : IEditorPackAccess
         if (operation == "api") result = EditorProjectDataApi.Describe();
         else if (operation == "find") result = Find(S(args, "query"), id);
         else if (operation is "create" or "new_pack") result = CreateFiles(args, operation == "new_pack");
-        else if (operation == "list") result = new { Packs = sources.Values.Select(s => new { s.Id, Key = "editor:" + s.Id, s.Scope, s.Parent, Files = Documents(s), Active = active()?.Hashes.ContainsKey(s.Id) == true, PendingReview = bundles.ContainsKey(s.Id) }), Writable = writable, AllowReload = allowReload, ReviewChanges = review is not null, CreationScopes = creationRoots.Keys.ToArray(), Creation = "create: supply all new files and observed-hash XML/project registration changes as one files bundle. new_pack: project/plugin scaffold, optionally with implementation. Creation always requires review. expectedHash=absent means create-only.", ProposalScope = review is null ? "Frozen writable packs" : "All registered editor packs; actual changes/actions require the host review", ProjectDataApi = "Use operation=api for the host's project-data-1 read/proposal contracts and a compilable command example.",
+        else if (operation == "list") result = new { Packs = sources.Values.Select(s => new { s.Id, Key = "editor:" + s.Id, s.Scope, s.Parent, s.IsReadOnly, Files = Documents(s), Active = active()?.Hashes.ContainsKey(s.Id) == true, PendingReview = bundles.ContainsKey(s.Id) }), Writable = writable, AllowReload = allowReload, ReviewChanges = review is not null, CreationScopes = creationRoots.Keys.ToArray(), Creation = "create: supply all new files and observed-hash XML/project registration changes as one files bundle. new_pack: project/plugin scaffold, optionally with implementation. Creation always requires review. expectedHash=absent means create-only. Installed engine packs are read-only; use a new project pack ID and inheritance.", ProposalScope = review is null ? "Frozen writable packs" : "Writable project/plugin packs; actual changes/actions require the host review", ProjectDataApi = "Use operation=api for the host's project-data-1 read/proposal contracts and a compilable command example.",
             Modules = (active() as EditorPackRuntime)?.Modules, WindowsAvailable = windows is not null,
             Shell = active()?.Snapshot.Shell, ShellHint = "EditorExtensions/Shell extends a layout ID; sidebarWidth 0..600, contextWidth 180..700, logHeight 0..600; sidebar+context <=1000. Omission inherits. XML-only changes apply on reload." };
         else if (operation == "windows") result = windows?.Invoke() ?? throw new InvalidOperationException("This host does not expose registered windows.");
@@ -118,7 +120,10 @@ public sealed partial class EditorPackAgent : IEditorPackAccess
         {
             if (!sources.TryGetValue(id, out var source)) throw new InvalidDataException("Unknown editor pack in this request.");
             if (operation is "patch" or "apply" or "undo" or "build" or "window")
+            {
+                if (operation != "window") source.RequireWritable();
                 if (review is null && !writable.Contains(id)) throw new InvalidOperationException("This request does not authorize changing editor pack " + id);
+            }
             if (operation == "patch")
                 if (WorkingCopy is null && dirty(id, path)) throw new IOException("This editor pack has an unsaved user buffer. Reconcile it first.");
             switch (operation)
@@ -243,6 +248,7 @@ public static class EditorPackTemplates
     }
     public static void AddImplementation(EditorPackSource source)
     {
+        source.RequireWritable();
         var manifest = source.Manifest(); if (manifest.Root!.Elements("Assembly").Any()) throw new InvalidOperationException("This pack already declares a DLL.");
         const string project = "EditorExtension.csproj", code = "Commands.cs";
         string assembly = source.Id + ".Implementation";

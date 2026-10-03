@@ -1,4 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><OutputType>Exe</OutputType></PropertyGroup>
-  <ItemGroup><ProjectReference Include="../PackEngine.Workspace/PackEngine.Workspace.csproj" /></ItemGroup>
+  <ItemGroup><ProjectReference Include="../PackEngine.Workspace/PackEngine.Workspace.csproj" /><ProjectReference Include="../PackEngine.EditorPacks/PackEngine.EditorPacks.csproj" /></ItemGroup>
 </Project>

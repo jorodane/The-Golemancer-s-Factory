@@ -160,7 +160,7 @@ public sealed partial class EditorWindow : Window
         submit.IsEnabled = !busy && session is not null; editor.IsReadOnly = busy || activeDocument is null || session?.CanEdit(activeDocument.Path) != true;
         targets.IsEnabled = !busy; tree.IsEnabled = !busy; openDocs.IsEnabled = !busy; models.IsEnabled = !busy;
         codexPath.IsEnabled = !busy; SetHistoryBusy(busy);
-        packDocument.IsReadOnly = busy; packChoice.IsEnabled = !busy; packFiles.IsEnabled = !busy;
+        packDocument.IsReadOnly = busy || (packChoice.SelectedItem as PackEngine.EditorPacks.EditorPackSource)?.IsReadOnly == true; packChoice.IsEnabled = !busy; packFiles.IsEnabled = !busy;
         if (!busy && pendingEditorPackReload) QueueEditorPackReload();
         if (!busy && workspaceInitializationPending) Dispatcher.BeginInvoke(new Action(InitializeWorkspace));
         if (!busy && pendingAccountRefresh) { pendingAccountRefresh = false; Dispatcher.BeginInvoke(new Action(RefreshCodex)); }

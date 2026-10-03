@@ -1,5 +1,6 @@
 using PackEngine.Workspace;
 using PackEngine.Installation;
+using PackEngine.EditorPacks;
 
 try
 {
@@ -7,9 +8,19 @@ try
     string Need(string name) => Option(name) ?? throw new ArgumentException("Missing " + name);
     using var cancellation = new CancellationTokenSource();
     Console.CancelKeyPress += (_, e) => { e.Cancel = true; cancellation.Cancel(); };
+    if (args.Length > 0 && args[0] == "bundle-engine")
+    {
+        var engine = EditorEngineDistribution.Bundle(Need("--recipe"), Need("--output"));
+        Console.WriteLine(EditorSession.Serialize(new { engine.Id, engine.Release, engine.Fingerprint, engine.Compatibility })); return 0;
+    }
+    if (args.Length > 0 && args[0] == "inspect-engine")
+    {
+        var engine = EditorEngineDistribution.Open(Need("--engine"));
+        Console.WriteLine(EditorSession.Serialize(new { engine.Id, engine.Release, engine.Fingerprint, engine.Compatibility, Packs = engine.Sources.Select(s => s.Id) })); return 0;
+    }
     if (args.Length == 0 || args.Contains("--help"))
     {
-        Console.WriteLine("PackEngine.Tool <inspect|graph|context|read|assist|codex-status|codex-chat|codex-threads|codex-history|codex-save|preview|apply|undo|build-pack|build-project|verify|smoke|run> --project file.packproject [--state directory] [--target id] [--dotnet executable]\ninspect --node key; context --prompt text [--point key;key | --range-file path --start-line n --end-line n] [--open path;path] [--budget characters]; read --request id --file path; assist --provider DLL --prompt text; codex-status/codex-chat/codex-threads/codex-history/codex-save --provider DLL [--project-conversations] [--thread id] [--cursor token] [--no-history] [--deny-thread id;id] [--deny-access] [--codex native-executable] [--model id] [--new-thread] [--write-pack id;id] [--allow-project-commands]; codex-save [--thread id] explicitly saves one conversation to the project; preview --file path --text-file utf8-file --intent text; apply/undo --change id; build-pack --pack id");
+        Console.WriteLine("PackEngine.Tool <inspect|graph|context|read|assist|codex-status|codex-chat|codex-threads|codex-history|codex-save|preview|apply|undo|build-pack|build-project|verify|smoke|run|export-project-pack> --project file.packproject [--state directory] [--target id] [--dotnet executable]\nexport-project-pack --engine installed/Engine --output project.projectpack; bundle-engine --recipe editor/engine.xml --output installed/Engine; inspect-engine --engine installed/Engine\ninspect --node key; context --prompt text [--point key;key | --range-file path --start-line n --end-line n] [--open path;path] [--budget characters]; read --request id --file path; assist --provider DLL --prompt text; codex-status/codex-chat/codex-threads/codex-history/codex-save --provider DLL [--project-conversations] [--thread id] [--cursor token] [--no-history] [--deny-thread id;id] [--deny-access] [--codex native-executable] [--model id] [--new-thread] [--write-pack id;id] [--allow-project-commands]; codex-save [--thread id] explicitly saves one conversation to the project; preview --file path --text-file utf8-file --intent text; apply/undo --change id; build-pack --pack id");
         return 0;
     }
     var session = new EditorSession(Need("--project"), Option("--state"));
@@ -35,6 +46,9 @@ try
     }
     switch (args[0])
     {
+        case "export-project-pack":
+            using (var output = File.Create(Need("--output"))) ProjectExecutionPackage.Write(EditorEngineDistribution.Open(Need("--engine")), session, EditorPackSource.Discover(Path.Combine(session.Project.Root, "EditorPacks"), "project"), output);
+            Console.WriteLine("Project pack exported."); break;
         case "inspect": Console.WriteLine(EditorSession.Serialize(Option("--node") is { } node ? session.Index.Inspect(node) : new { session.Project.Id, session.Project.Name, session.Index.Packs, session.Index.Diagnostics })); break;
         case "graph": Console.WriteLine(EditorSession.Serialize(new { Nodes = session.Index.Nodes.Values, session.Index.Links, session.Index.Diagnostics })); break;
         case "context":

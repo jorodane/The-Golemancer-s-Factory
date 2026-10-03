@@ -1,5 +1,7 @@
 # 에디터 객체팩
 
+[팩 기반 엔진 배포와 프로젝트팩 실행](PROJECT_EXECUTION.md): 엔진 팩은 소스에서 빌드해 통합 배포본으로 고정한다. 배포된 기본 팩은 읽기 전용이며 새 프로젝트팩이 상속·추가한다. 프로젝트팩 파일은 설치된 엔진을 참조하고 프로젝트별 실행 세션에 적용한다.
+
 PC와 같은 계약·XML·팩 DLL 소스를 사용하는 [Android 호스트와 Windows APK 빌드](EDITOR_ANDROID.md)도 제공한다. 실행 방식과 네이티브 컨트롤만 호스트별로 선택한다.
 
 게임팩을 편집하는 WPF 셸에 `editor-1` 객체팩을 동적으로 장착한다. 게임의 DLL은 여전히 게임 프로세스에서만 로드한다. 에디터팩도 공통 `PackCompiler`와 `UiCatalog`를 사용하며, 에디터 전용 등록 계약은 `PackEngine.Editor.Contracts.dll`에 있다. 엔진 코어와 게임 SDK는 변경하지 않는다.
@@ -17,7 +19,7 @@ PC와 같은 계약·XML·팩 DLL 소스를 사용하는 [Android 호스트와 W
 
 | 범위 | 기본 경로 | 의존 가능한 범위 |
 |---|---|---|
-| 기본 제공 / 코어 | `editor/Packs/<팩>` | 코어 |
+| 기본 제공 / 코어 | 배포본 `Engine/Packs/<팩>`; 개발 소스 `editor/Packs/<팩>` | 코어 |
 | 공용 플러그인 | `%LOCALAPPDATA%/PackEngine/EditorPacks/<팩>` | 코어·공용 |
 | 프로젝트 전용 | `<현재 게임 프로젝트>/EditorPacks/<팩>` | 코어·공용·같은 프로젝트 |
 

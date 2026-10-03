@@ -52,6 +52,10 @@ internal static class Program
             Check(host.IsVisible && host.ActualWidth > 400 && host.ActualHeight > 200 && Descendants(host).OfType<TextBlock>().Any(t => t.Text == "공방의 설계"), "the real project main pack occupies the native work surface");
             Check(VisualTreeHelper.GetParent(Field<Grid>(window, "editorBody")) is null && Field<ScrollViewer>(window, "aiManagementView").Visibility == Visibility.Collapsed, "the project opens with the work surface and keeps the explorer, inspector and AI directory in separate tools");
             var session = Field<EditorSession>(window, "session");
+            var engine = Field<PackEngine.EditorPacks.EditorEngineDistribution>(window, "installedEngine");
+            Check(engine.Sources.All(s => s.IsReadOnly) && engine.Root.StartsWith(AppDomain.CurrentDomain.BaseDirectory), "native editor loads fixed engine packs from its integrated deployment");
+            var execution = Field<PackEngine.EditorPacks.ProjectPackSession>(window, "packExecution");
+            Check(execution.ProjectIdentity == session.Project.Identity && execution.Runtime?.ExecutionSession == execution.Identity, "native project workspace belongs to its own pack execution session");
             var itemTitles = new HashSet<string>(session.Index.Nodes.Values.Where(n => n.Kind == "item").Select(n => n.Title));
             Check(Descendants(host).Any(n => n.GetType().Name == "Card") && Descendants(host).OfType<TextBlock>().Any(t => itemTitles.Contains(t.Text))
                 && !Descendants(host).OfType<TextBox>().Any(t => t.IsVisible && t.Text.Contains("<ObjectPack")), "the native main view renders actual project item cards instead of source documents");

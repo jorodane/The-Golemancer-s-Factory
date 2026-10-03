@@ -51,7 +51,7 @@ public sealed partial class EditorPackAgent
             string fragment = selector.Length == 0 ? text : Xml(text).Descendants().Single(e => (string?)e.Attribute("id") == selector).ToString();
             return new { Key = "editor:" + source.Id + "/" + path, Path = "editor:" + source.Id + "/" + file, DocumentHash = hash, Content = fragment.Substring(0, Math.Min(12000, fragment.Length)), Partial = fragment.Length > 12000, PendingReview = bundles.ContainsKey(source.Id) || review?.File("editor", source.Id, file) is not null };
         }
-        return new { Key = "editor:" + source.Id, source.Id, source.Scope, source.Parent, Contract = "editor-1", Files = Documents(source).Select(p => "editor:" + source.Id + "/" + p).ToArray(),
+        return new { Key = "editor:" + source.Id, source.Id, source.Scope, source.Parent, source.IsReadOnly, Contract = "editor-1", Files = Documents(source).Select(p => "editor:" + source.Id + "/" + p).ToArray(),
             Active = live?.Hashes.ContainsKey(source.Id) == true, LiveSnapshot = live?.Snapshot.Fingerprint,
             Panels = live?.Snapshot.Panels.Where(p => p.Pack == source.Id).ToArray(), Windows = live?.Snapshot.Windows.Where(w => w.Pack == source.Id).ToArray(), Commands = live?.Snapshot.Commands.Where(c => c.Pack == source.Id).ToArray(),
             Navigation = live?.Snapshot.Navigation.Where(n => n.Pack == source.Id).ToArray(), ObjectEditors = live?.Snapshot.ObjectEditors.Where(e => e.Pack == source.Id).ToArray(),
@@ -87,6 +87,7 @@ public sealed partial class EditorPackAgent
             finally { if (Directory.Exists(temporary)) Directory.Delete(temporary, true); }
         }
         else source = sources.TryGetValue(id, out var found) ? found : throw new InvalidDataException("Unknown editor pack.");
+        source.RequireWritable();
         if (args.TryGetProperty("files", out var supplied))
         {
             var input = JsonSerializer.Deserialize<List<TextFileProposal>>(supplied.GetRawText(), new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? throw new InvalidDataException("Provide files.");

@@ -19,6 +19,7 @@ modules = re.search(r'^MODULE_WINDOW_CHECKS=(\d+)$', result.stdout, re.MULTILINE
 data = re.search(r'^PROJECT_DATA_CHECKS=(\d+)$', result.stdout, re.MULTILINE)
 mobile = re.search(r'^APP_MODULE_CHECKS=(\d+)$', result.stdout, re.MULTILINE)
 live = re.search(r'^LIVE_VIEW_CHECKS=(\d+)$', result.stdout, re.MULTILINE)
+execution = re.search(r'^PROJECT_EXECUTION_CHECKS=(\d+)$', result.stdout, re.MULTILINE)
 elements = re.search(r'^ELEMENT_CHECKS=(\d+)$', result.stdout, re.MULTILINE)
-if not completed or int(completed.group(1)) < 170 or not modules or int(modules.group(1)) < 30 or not data or int(data.group(1)) < 30 or not mobile or int(mobile.group(1)) < 20 or not live or int(live.group(1)) < 25 or not elements or int(elements.group(1)) < 40:
+if not execution or int(execution.group(1)) < 28 or not completed or int(completed.group(1)) < 170 or not modules or int(modules.group(1)) < 30 or not data or int(data.group(1)) < 30 or not mobile or int(mobile.group(1)) < 20 or not live or int(live.group(1)) < 25 or not elements or int(elements.group(1)) < 40:
     raise RuntimeError('Editor pack verification did not reach its completion marker.')

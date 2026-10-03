@@ -46,6 +46,12 @@ jobs:
       - name: Native Windows editor build
         shell: cmd
         run: BuildEditor.bat
+      - name: Installed Windows pack engine
+        run: python tools/verify-editor-engine.py --directory editor/Builds/Windows/Engine --receipt engine-windows.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: engine-windows-receipt
+          path: engine-windows.json
       - name: Native workspace and worker interaction
         shell: pwsh
         run: |
@@ -82,6 +88,12 @@ jobs:
         run: dotnet build editor/PackEngine.Editor.Android/PackEngine.Editor.Android.csproj -t:InstallAndroidDependencies -p:AcceptAndroidSdkLicenses=true -p:EngineTargetFramework=net10.0
       - name: Native Android editor build
         run: dotnet build editor/PackEngine.Editor.Android/PackEngine.Editor.Android.csproj -c Release -p:EngineTargetFramework=net10.0 -p:UseSharedCompilation=false -m:1 --nologo -v:minimal
+      - name: Packaged Android pack engine
+        run: python tools/verify-editor-engine.py --apk-directory editor/PackEngine.Editor.Android/bin/Release/net10.0-android --receipt engine-android.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: engine-android-receipt
+          path: engine-android.json
       - name: Report verification status
         if: always()
         uses: actions/github-script@v7
@@ -93,3 +105,22 @@ jobs:
               context: 'Confectory / Android', description: 'Native Android editor and external packs build',
               target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
             });
+  engine-compatibility:
+    needs: [windows, android]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: engine-*-receipt
+          merge-multiple: true
+      - name: Windows and Android share the engine declarations
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          windows = json.loads(Path('engine-windows.json').read_text())
+          android = json.loads(Path('engine-android.json').read_text())
+          assert windows['framework'] == 'net48' and android['framework'] == 'net10.0'
+          assert windows['id'] == android['id'] and windows['compatibility'] == android['compatibility']
+          print('ENGINE_CROSS_PLATFORM_COMPATIBILITY=PASS')
+          PY

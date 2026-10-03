@@ -12,7 +12,7 @@ public sealed partial class EditorWindow
     private string PackRoomPath => "editor:" + packOpenId + "/" + packOpenPath;
     private RoomDraft? UpdatePackRoomDraft(bool save)
     {
-        if (session is null || packOpenId.Length == 0 || packLoading) return null;
+        if (session is null || packOpenId.Length == 0 || packLoading || packSources.FirstOrDefault(p => p.Id == packOpenId)?.IsReadOnly == true) return null;
         var hub = session.Collaboration; var room = hub.Room(PackRoomPath);
         var draft = room.Drafts.FirstOrDefault(d => d.ParticipantId == "human" && d.RequestId.Length == 0);
         if (draft is null) { draft = new() { ParticipantId = "human", Path = PackRoomPath }; room.Drafts.Add(draft); }
@@ -23,7 +23,7 @@ public sealed partial class EditorWindow
     }
     private void RefreshPackStructure()
     {
-        bool structured = packOpenPath.EndsWith(".cs", StringComparison.OrdinalIgnoreCase) && !packWholeDocument;
+        bool structured = (packSources.FirstOrDefault(p => p.Id == packOpenId)?.IsReadOnly != true) && packOpenPath.EndsWith(".cs", StringComparison.OrdinalIgnoreCase) && !packWholeDocument;
         packDocument.Visibility = structured ? Visibility.Collapsed : Visibility.Visible; packMembers.Visibility = structured ? Visibility.Visible : Visibility.Collapsed; packMemberForm.Visibility = structured ? Visibility.Visible : Visibility.Collapsed;
         packStructureLoading = true; packMembers.ItemsSource = structured ? SemanticDocument.Members(packDocument.Text) : null; packStructureLoading = false;
         packMemberForm.Children.Clear();
@@ -75,6 +75,7 @@ public sealed partial class EditorWindow
     }
     private void AdoptPackHandoff(RoomDraft draft)
     {
+        packSources.Single(p => p.Id == draft.Path.Substring(7).Split('/')[0]).RequireWritable();
         session!.Collaboration.RequireControl("human", draft.ParticipantId);
         OpenExternalRoom(draft.Path);
         packDocument.Text = ChangeDifference.Merge(draft.Path, draft.BaseText, draft.Text, packDocument.Text, true);

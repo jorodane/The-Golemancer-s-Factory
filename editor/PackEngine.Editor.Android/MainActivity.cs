@@ -46,6 +46,7 @@ public sealed partial class MainActivity : Activity
         toolbar = new(this) { Orientation = Orientation.Horizontal };
         var strip = new HorizontalScrollView(this); strip.AddView(toolbar); layout.AddView(strip); strip.Visibility = ViewStates.Gone; mobileTools = strip;
         AddButton("XML 문서", Documents); AddButton("팩 재적용", () => Work(Reload));
+        AddButton("프로젝트팩 가져오기", ProjectPackImportPicker); AddButton("프로젝트팩 내보내기", () => { try { ProjectPackExportPicker(); } catch (Exception e) { Report(e.Message); } });
         AddButton("창 관리", WindowMenu); AddButton("팩 ZIP 가져오기", ImportPicker);
         AddButton("팩 ZIP 내보내기", ExportPicker); AddButton("되돌리기", () => Work(async () =>
         {
@@ -62,7 +63,7 @@ public sealed partial class MainActivity : Activity
         {
             string saved = Path.Combine(root, "window-state.json");
             if (File.Exists(saved)) SavedStates = JsonSerializer.Deserialize<Dictionary<string, EditorWindowState>>(File.ReadAllText(saved)) ?? new(StringComparer.Ordinal);
-            InstallAssets("Packs"); InstallAssets("Plugins"); PrepareAiConnections(); await Task.CompletedTask;
+            InstallAssets("Engine"); InstallAssets("Plugins"); _ = InstalledEngine; PrepareAiConnections(); await Task.CompletedTask;
         }
         catch (Exception e) { Report(e.Message); }
     }
@@ -70,19 +71,19 @@ public sealed partial class MainActivity : Activity
     {
         var button = new Button(this) { Text = title }; button.Click += (_, _) => action(); toolbar.AddView(button);
     }
-    private IReadOnlyList<EditorPackSource> Sources() => EditorPackSource.Discover(Path.Combine(root, "Packs"), "core")
+    private IReadOnlyList<EditorPackSource> Sources() => InstalledEngine.Sources
         .Concat(EditorPackSource.Discover(Path.Combine(root, "Plugins"), "plugin"))
         .Concat(MobileProject ? EditorPackSource.Discover(Path.Combine(studioSession.Project.Root, "EditorPacks"), "project") : []).ToArray();
     private async Task Reload()
     {
-        var next = await EditorPackRuntime.Prepare(host, ActiveSources(), lifetime.Token, runtime);
+        var next = await Execution.Prepare(ActiveSources(), lifetime.Token);
         Publish(next); Report($"에디터팩 {next.Hashes.Count}개 · 모듈 {next.Modules.Count}개를 적용했어.");
     }
     private void Publish(EditorPackRuntime next)
     {
         try { lifetime.Token.ThrowIfCancellationRequested(); windows.Refresh(next, definition => new AndroidPackWindow(this, definition, next)); }
         catch { next.Dispose(); throw; }
-        var previous = runtime; runtime = next; previous?.Dispose();
+        Execution.Commit(next); runtime = next;
         RefreshMobileNavigation();
         InitializeMobileWorkspace();
     }
@@ -151,6 +152,7 @@ public sealed partial class MainActivity : Activity
     }
     private void Edit(EditorPackSource source, string path)
     {
+        if (source.IsReadOnly) { ShowEngineDocument(source, path); return; }
         string before = source.Read(path);
         var input = new EditText(this) { Text = before, InputType = InputTypes.ClassText | InputTypes.TextFlagMultiLine, Gravity = GravityFlags.Top, TextSize = 13 };
         input.SetMinLines(12);
@@ -168,20 +170,22 @@ public sealed partial class MainActivity : Activity
     private async Task Apply(EditorPackChange change, bool undo = false)
     {
         string text = undo ? change.Before : change.After;
+        Sources().Single(s => s.Id == change.Pack).RequireWritable();
         EditorPackChange.Validate(change.Path, text, change.Pack);
         string stage = Path.Combine(root, "Preview", Guid.NewGuid().ToString("N"));
         EditorPackRuntime? candidate = null;
         try
         {
-            var sources = Sources().Select(source =>
+            var sources = ActiveSources().Select(source =>
             {
+                if (source.IsReadOnly) return source;
                 var copy = new EditorPackSource { Id = source.Id, Scope = source.Scope, Parent = source.Parent, Folder = Path.Combine(stage, source.Id) };
                 foreach (string path in source.RuntimeFiles().Distinct(StringComparer.Ordinal))
                 { string target = copy.PathFor(path); Directory.CreateDirectory(Path.GetDirectoryName(target)!); File.Copy(source.PathFor(path), target); }
                 if (source.Id == change.Pack) File.WriteAllText(copy.PathFor(change.Path), text);
                 return copy;
             }).ToArray();
-            candidate = await EditorPackRuntime.Prepare(host, sources, lifetime.Token, runtime);
+            candidate = await Execution.Prepare(sources, lifetime.Token);
             change.Apply(Path.Combine(root, "History"), undo);
             try { Publish(candidate); candidate = null; }
             catch { change.Apply(Path.Combine(root, "History"), !undo); throw; }
@@ -227,7 +231,7 @@ public sealed partial class MainActivity : Activity
         string target = Path.Combine(root, asset), baseline = Path.Combine(root, "AssetVersions", asset + ".hash");
         using var source = Assets.Open(asset); using var memory = new MemoryStream(); source.CopyTo(memory); byte[] bytes = memory.ToArray();
         string hash = WorkspaceProject.Hash(bytes);
-        bool unchanged = !File.Exists(target) || File.Exists(baseline) && File.ReadAllText(baseline) == WorkspaceProject.Hash(File.ReadAllBytes(target));
+        bool unchanged = asset.StartsWith("Engine/", StringComparison.Ordinal) || !File.Exists(target) || File.Exists(baseline) && File.ReadAllText(baseline) == WorkspaceProject.Hash(File.ReadAllBytes(target));
         if (unchanged || asset.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)) AtomicWrite(target, bytes);
         AtomicWrite(baseline, System.Text.Encoding.UTF8.GetBytes(hash));
     }
@@ -243,13 +247,13 @@ public sealed partial class MainActivity : Activity
         catch (IOException) { }
     }
     protected override void OnPause() { SaveWindowState(); if (studioSession is not null) { foreach (var doc in studioSession.Documents.Where(d => studioSession.CanEdit(d.Path)).ToArray()) studioSession.SaveRoom("human", doc.Path); } base.OnPause(); }
-    protected override void OnDestroy() { StopMobilePeers(); lifetime.Cancel(); editorAi?.Dispose(); studioRunner?.Dispose(); foreach (var worker in mobileWorkers) { worker.Cancellation?.Cancel(); worker.Assistant?.Dispose(); } windows.Dispose(); SaveWindowState(); runtime?.Dispose(); base.OnDestroy(); }
+    protected override void OnDestroy() { StopMobilePeers(); lifetime.Cancel(); editorAi?.Dispose(); studioRunner?.Dispose(); foreach (var worker in mobileWorkers) { worker.Cancellation?.Cancel(); worker.Assistant?.Dispose(); } windows.Dispose(); SaveWindowState(); packExecution?.Dispose(); runtime?.Dispose(); base.OnDestroy(); }
 
 #pragma warning disable CA1422, CS0618 // Framework document picker supports the app's API 26 deployment minimum.
     private void ImportPicker() => StartActivityForResult(new Intent(Intent.ActionOpenDocument).SetType("application/zip").AddCategory(Intent.CategoryOpenable), 1);
     private void ExportPicker()
     {
-        var sources = Sources().ToArray();
+        var sources = Sources().Where(s => !s.IsReadOnly).ToArray();
         new AlertDialog.Builder(this).SetTitle("팩 ZIP 내보내기")!.SetItems(sources.Select(s => s.Id).ToArray(), (_, e) =>
         {
             exporting = sources[e.Which];
@@ -260,7 +264,9 @@ public sealed partial class MainActivity : Activity
     protected override void OnActivityResult(int requestCode, Result resultCode, Intent? data)
     {
         base.OnActivityResult(requestCode, resultCode, data);
-        if (resultCode != Result.Ok || data?.Data is not { } uri) { if (requestCode == 3) pickingHelper = ""; if (requestCode == 5) exportingProject = null; return; }
+        if (resultCode != Result.Ok || data?.Data is not { } uri) { if (requestCode == 3) pickingHelper = ""; if (requestCode == 5) exportingProject = null; if (requestCode == 7) { projectPackExport = null; projectPackExportSources = null; } return; }
+        if (requestCode == 6) { ImportMobileProjectPack(uri); return; }
+        if (requestCode == 7) { ExportMobileProjectPack(uri); return; }
         if (requestCode == 3) { ReadHelperImage(uri); return; }
         if (requestCode == 4) { ImportMobileProject(uri); return; }
         if (requestCode == 5)
@@ -282,17 +288,20 @@ public sealed partial class MainActivity : Activity
             try { using var input = ContentResolver!.OpenInputStream(uri)!; imported = EditorPackPackage.Extract(input, stage); }
             catch { if (Directory.Exists(stage)) Directory.Delete(stage, true); throw; }
             if (Sources().Any(s => s.Id == imported.Id && s.Scope == "core"))
-            { Directory.Delete(stage, true); throw new InvalidDataException("내장 팩과 같은 ID야. 내장 XML은 문서 메뉴에서 수정할 수 있어."); }
+            { Directory.Delete(stage, true); throw new InvalidDataException("엔진 팩과 같은 ID야. 다른 ID의 프로젝트팩에서 상속해줘."); }
             var approval = new TaskCompletionSource<bool>();
             new AlertDialog.Builder(this).SetTitle("에디터팩 적용: " + imported.Id)!
                 .SetMessage("이 팩의 XML과 DLL을 설치하고 실행해. 프로젝트 파일을 열거나 C#를 컴파일하지는 않아.")!
                 .SetNegativeButton("취소", (_, _) => approval.TrySetResult(false))!.SetPositiveButton("설치·실행", (_, _) => approval.TrySetResult(true))!
                 .SetOnCancelListener(new CancelApproval(approval))!.Show();
+            ProjectPackSession? importedExecution = null;
             try
             {
                 if (!await approval.Task.WaitAsync(lifetime.Token)) return;
-                var sources = EditorPackSelection.WithDependencies(Sources().Where(s => s.Id != imported.Id).Append(imported).ToArray(), imported.Id);
-                var next = await EditorPackRuntime.Prepare(host, sources, lifetime.Token, runtime);
+                string plannedManifest = StandaloneEditorWorkspace.Prepare(Path.Combine(root, "Projects", WorkspaceProject.HashText(imported.Id)), "android", "net10.0");
+                importedExecution = new(InstalledEngine, host, WorkspaceProject.Open(plannedManifest).Identity);
+                var sources = EditorPackSelection.WithDependencies(Sources().Where(s => s.Scope != "project" && s.Id != imported.Id).Append(imported).ToArray(), imported.Id);
+                var next = await importedExecution.Prepare(sources, lifetime.Token);
                 string destination = Path.Combine(root, "Plugins", imported.Id), backup = Path.Combine(root, "ImportBackups", imported.Id + "-" + Guid.NewGuid().ToString("N"));
                 Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
                 string marker = Path.Combine(root, "ImportedPacks", imported.Id);
@@ -302,7 +311,7 @@ public sealed partial class MainActivity : Activity
                     if (Directory.Exists(destination)) { Directory.CreateDirectory(Path.GetDirectoryName(backup)!); Directory.Move(destination, backup); }
                     Directory.Move(imported.Folder, destination); installed = true;
                     if (!File.Exists(marker)) { AtomicWrite(marker, System.Text.Encoding.UTF8.GetBytes(imported.Id)); marked = true; }
-                    Publish(next);
+                    SwitchMobileProject(imported.Id); packExecution = importedExecution; Publish(next);
                 }
                 catch
                 {
@@ -312,10 +321,10 @@ public sealed partial class MainActivity : Activity
                     if (marked) File.Delete(marker);
                     throw;
                 }
-                SwitchMobileProject(imported.Id); aiConnections.SelectedPack = imported.Id; aiConnections.SetupCompleted = true; SaveAiConnections(); editorAi?.NewConversation();
+                aiConnections.SelectedPack = imported.Id; aiConnections.SetupCompleted = true; SaveAiConnections(); editorAi?.NewConversation();
                 Report("팩을 설치하고 적용했어: " + imported.Id);
             }
-            finally { if (Directory.Exists(stage)) Directory.Delete(stage, true); }
+            finally { if (!ReferenceEquals(packExecution, importedExecution)) importedExecution?.Dispose(); if (Directory.Exists(stage)) Directory.Delete(stage, true); }
         });
     }
 #pragma warning restore CA1422, CS0618

@@ -36,6 +36,7 @@ public sealed class EditorPackRuntime : IEditorPackRuntime
     private readonly Dictionary<string, EditorHandlerDescription> handlers = new(StringComparer.Ordinal);
     private readonly EditorPackCatalog definitions = new();
     private bool disposed;
+    public string ExecutionSession { get; internal set; } = "";
     public EditorPackSnapshot Snapshot => definitions.Snapshot;
     public UiCatalog Catalog { get; private set; } = null!;
     public IReadOnlyDictionary<string, string> Hashes { get; private set; } = null!;

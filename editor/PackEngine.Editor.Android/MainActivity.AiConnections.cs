@@ -175,7 +175,10 @@ public sealed partial class MainActivity
     {
         var sources = Sources(); string selected = MobileProject ? mobileEditorPackSelection : aiConnections.SelectedPack;
         if (MobileProject && selected.Length == 0 && EditorPackSelection.DeclarativeWorkspace(sources) is { } workspace) selected = workspace.Id;
-        return EditorPackSelection.WithDependencies(sources, selected);
+        var active = EditorPackSelection.WithDependencies(sources, selected).ToList();
+        foreach (string id in approvedProjectPacks)
+            foreach (var source in EditorPackSelection.WithDependencies(sources, id)) if (active.All(s => s.Id != source.Id)) active.Add(source);
+        return active;
     }
     private void ChooseInstalledPack()
     {

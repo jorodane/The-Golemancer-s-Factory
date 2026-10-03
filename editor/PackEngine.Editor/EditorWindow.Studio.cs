@@ -105,7 +105,7 @@ public sealed partial class EditorWindow
         {
             projectHome.VerticalAlignment = VerticalAlignment.Top;
             projectHome.Children.Add(Label("프로젝트", 27));
-            var actions = new WrapPanel(); actions.Children.Add(Action("팩 열기", ChooseProject)); actions.Children.Add(Action("새 프로젝트", CreateGameProject));
+            var actions = new WrapPanel(); actions.Children.Add(Action("팩 열기", ChooseProject)); actions.Children.Add(Action("새 프로젝트", CreateGameProject)); actions.Children.Add(Action("프로젝트팩 열기", ImportProjectPack));
             actions.Children.Add(Action("에디터팩 관리", () => { projectWorkspaceVisible = true; RefreshStudioShell(); SelectTab("에디터팩"); })); projectHome.Children.Add(actions);
             var recent = assistantSettings.Projects.Where(p => File.Exists(p.Manifest) && p.Manifest != session?.Project.Manifest).ToList();
             if (startupProject.Length > 0 && File.Exists(startupProject) && !recent.Any(p => p.Manifest == startupProject))

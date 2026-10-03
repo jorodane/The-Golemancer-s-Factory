@@ -13,6 +13,11 @@ public sealed class EditorPackSource
     public string Scope { get; set; } = "";
     public string Folder { get; set; } = "";
     public string Parent { get; set; } = "";
+    public bool IsReadOnly { get; internal set; }
+    public void RequireWritable()
+    {
+        if (IsReadOnly) throw new InvalidOperationException("배포된 엔진 팩은 읽기 전용이야. 새 프로젝트팩에서 상속·추가해줘.");
+    }
     public override string ToString() => Scope + " · " + Id;
     public string PathFor(string path)
     {
@@ -94,6 +99,7 @@ public sealed class EditorPackSource
     }
     public async Task Build(string dotnet, string sdk, CancellationToken cancellation)
     {
+        RequireWritable();
         await buildExecution.WaitAsync(cancellation).ConfigureAwait(false);
         try { await BuildCore(dotnet, sdk, cancellation).ConfigureAwait(false); }
         finally { buildExecution.Release(); }

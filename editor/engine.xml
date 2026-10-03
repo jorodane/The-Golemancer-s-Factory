@@ -1,0 +1,3 @@
+<EditorEngine version="1" id="confectory" release="1.0.0" contracts="editor-1">
+  <Pack id="editor.core.tools" path="Packs/CoreTools" />
+</EditorEngine>

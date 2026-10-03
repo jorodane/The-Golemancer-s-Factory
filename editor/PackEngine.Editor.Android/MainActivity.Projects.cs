@@ -30,6 +30,7 @@ public sealed partial class MainActivity
         foreach (var window in LiveWindows.ToArray()) CloseWindow(window.Id);
         mobileObjectWindows.Clear(); mobileEditorPackSelection = "";
         foreach (var worker in mobileWorkers) { worker.Log?.Dismiss(); worker.Assistant?.Dispose(); } mobileWorkers.Clear(); mobileWorkerLayer.RemoveAllViews(); selectedMobileWorker = "";
+        packExecution?.Dispose(); packExecution = null; runtime = null; approvedProjectPacks.Clear();
         studioSession.Persist(); studioSession.Collaboration.Changed -= RefreshMobilePresence; studioRunner.Dispose();
         studioSession = new(manifest); studioRunner = new(studioSession, "dotnet");
         mobileProjectManifest = project ? manifest : "";

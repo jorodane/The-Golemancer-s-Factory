@@ -79,6 +79,7 @@ public sealed partial class MainActivity
                 try { var project = WorkspaceProject.Open(manifest); welcome.AddView(AiAction(project.Name, () => OpenMobileProject(manifest))); }
                 catch (Exception e) { Report(e.Message); }
             }
+            welcome.AddView(AiAction("프로젝트팩 가져오기", ProjectPackImportPicker));
             welcome.AddView(AiAction("프로젝트 문서 ZIP 가져오기", ImportProjectPicker));
             welcome.AddView(AiAction("팩 ZIP 가져오기", ImportPicker)); return;
         }
@@ -191,7 +192,7 @@ public sealed partial class MainActivity
             var request = owner.PrepareContext(prompt); request.ParticipantId = worker.Participant.Id; request.ReviewChanges = true; request.Target = MobileProject ? owner.Project.DefaultTarget : "editor"; request.AllowProjectCommands = false; if (MobileProject) request.WritablePacks = owner.Index.Packs.Where(p => !owner.Project.Sources.TryGetValue(p.Id, out var source) || source.Editable).Select(p => p.Id).ToList(); request.PrivateIdentity = mobileDirectory.PrivateContext(worker.Participant.HelperId, owner.Project.Identity);
             request.PrivateIdentity += "\n이 작업자의 최근 비공개 경험:\n" + EditorSession.Serialize(worker.Turns.TakeLast(12).Select(t => new { t.Role, Text = t.Text.Substring(0, Math.Min(1600, t.Text.Length)) }));
             review = new(owner, request, OnAiUi); mobileReviews.Register(review);
-            request.WritableEditorPacks = Sources().Select(s => s.Id).ToList();
+            request.WritableEditorPacks = Sources().Where(s => !s.IsReadOnly).Select(s => s.Id).ToList();
             var packs = new EditorPackAgent(Sources(), request, () => runtime, async (_, _) => await OnAiUiAsync(Reload), change => lastChange = change,
                 (tool, subject, result) => OnAiUi(() => owner.RecordOperation(request.Id, "editor." + tool, subject, "staged")), root, "dotnet", Path.Combine(root, "History"), review: review, creationRoots: new Dictionary<string, string> { ["project"] = Path.Combine(owner.Project.Root, "EditorPacks"), ["plugin"] = Path.Combine(root, "Plugins") });
             using var tools = new AgentWorkspace(owner, request, studioRunner, OnAiUi, editorPacks: new AndroidEditorPackAccess(packs), review: review);
