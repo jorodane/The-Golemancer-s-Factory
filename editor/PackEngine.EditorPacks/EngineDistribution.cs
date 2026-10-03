@@ -1,5 +1,6 @@
 using System.Xml.Linq;
 using System.Reflection;
+using System.IO.Compression;
 using PackEngine.Runtime;
 using PackEngine.Workspace;
 
@@ -86,6 +87,53 @@ public sealed class EditorEngineDistribution
     internal static bool ProtectedAssembly(string path) => new[]
     { "PackEngine.Contracts", "PackEngine.Runtime", "PackEngine.Editor.Contracts", "PackEngine.EditorPacks", "PackEngine.Workspace", "PackEngine.PackHost", "PackEngine.Editor", "PackEngine.Assistant.Api" }
         .Any(name => string.Equals(Path.GetFileNameWithoutExtension(path), name, StringComparison.OrdinalIgnoreCase));
+
+    public void WriteArchive(Stream output)
+    {
+        Verify();
+        using var archive = new ZipArchive(output, ZipArchiveMode.Create, true);
+        foreach (string path in files.Keys.Concat(new[] { ManifestName }).OrderBy(p => p, StringComparer.Ordinal))
+        { using var entry = archive.CreateEntry(path).Open(); using var source = File.OpenRead(FilePath(path)); source.CopyTo(entry); }
+        Verify();
+    }
+    /// <summary>Install the engine archive shipped with the app; project import never calls this.</summary>
+    public static EditorEngineDistribution Install(Stream input, string directory)
+    {
+        string destination = Path.GetFullPath(directory), stage = destination + ".staging-" + Guid.NewGuid().ToString("N"), backup = destination + ".previous-" + Guid.NewGuid().ToString("N");
+        Directory.CreateDirectory(stage);
+        try
+        {
+            using (var archive = new ZipArchive(input, ZipArchiveMode.Read, true))
+            {
+                if (archive.Entries.Count > 4096) throw new InvalidDataException("Too many bundled engine files.");
+                var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase); long total = 0;
+                foreach (var entry in archive.Entries)
+                {
+                    string path = entry.FullName;
+                    if (!names.Add(path) || path.Contains('\\') || path.Contains(':') || path.StartsWith("/", StringComparison.Ordinal)
+                        || path.Split('/').Any(p => p.Length == 0 || p.StartsWith(".", StringComparison.Ordinal)) || ((entry.ExternalAttributes >> 16) & 0xF000) == 0xA000
+                        || entry.Length > 64 * 1024 * 1024 || (total += entry.Length) > 64 * 1024 * 1024) throw new InvalidDataException("Invalid bundled engine archive.");
+                    string target = new EditorPackSource { Folder = stage }.PathFor(path); Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+                    using var source = entry.Open(); using var output = File.Create(target); var buffer = new byte[81920]; long copied = 0; int read;
+                    while ((read = source.Read(buffer, 0, buffer.Length)) > 0)
+                    { copied += read; if (copied > entry.Length) throw new InvalidDataException("Invalid bundled engine file size."); output.Write(buffer, 0, read); }
+                }
+            }
+            var candidate = Open(stage);
+            if (Directory.GetFiles(stage, "*", SearchOption.AllDirectories).Length != candidate.files.Count + 1) throw new InvalidDataException("Undeclared bundled engine files.");
+            if (Directory.Exists(destination))
+            {
+                try { var existing = Open(destination); if (existing.Fingerprint == candidate.Fingerprint) return existing; }
+                catch (Exception e) when (e is IOException or InvalidDataException) { }
+                Directory.Move(destination, backup);
+            }
+            try { Directory.Move(stage, destination); }
+            catch { if (Directory.Exists(backup)) Directory.Move(backup, destination); throw; }
+            if (Directory.Exists(backup)) Directory.Delete(backup, true);
+            return Open(destination);
+        }
+        finally { if (Directory.Exists(stage)) Directory.Delete(stage, true); }
+    }
 
     /// <summary>Build tooling only. No pack DLL is loaded while creating the deployment.</summary>
     public static EditorEngineDistribution Bundle(string recipe, string output)

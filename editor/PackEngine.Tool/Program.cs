@@ -11,6 +11,7 @@ try
     if (args.Length > 0 && args[0] == "bundle-engine")
     {
         var engine = EditorEngineDistribution.Bundle(Need("--recipe"), Need("--output"));
+        if (Option("--archive") is { } archive) { using var output = File.Create(archive); engine.WriteArchive(output); }
         Console.WriteLine(EditorSession.Serialize(new { engine.Id, engine.Release, engine.Fingerprint, engine.Compatibility })); return 0;
     }
     if (args.Length > 0 && args[0] == "inspect-engine")

@@ -115,7 +115,7 @@ public sealed partial class MainActivity
     {
         var actions = new (string Title, Action Run)[] { ("선택한 항목의 XML", () => OpenMobileElementXml(studioSession.State.Selection)), ("Room 채팅", () => { if (studioSession.Index.Nodes.TryGetValue(studioSession.State.Selection, out var node)) ShowMobileRoomChat(node.File); }),
             ("프로젝트 메뉴", MobileNavigationMenu), ("창 관리", WindowMenu), ("에디터팩 선택", ChooseProjectEditorPack), ("인계 초안", MobileProjectHandoffs), ("공동 편집 연결", ShowMobilePeerConnection),
-            ("호스트 확정본 검토", ReviewPeerPublications), ("동시 수정 비교", () => { foreach (var pair in blockedRemote.ToArray()) ResolvePeerDraft(pair.Key, pair.Value); }), ("프로젝트 내보내기", ExportMobileProject), ("협의 기록", MobileResolutionHistory), ("신문고", MobileIncidents) };
+            ("호스트 확정본 검토", ReviewPeerPublications), ("동시 수정 비교", () => { foreach (var pair in blockedRemote.ToArray()) ResolvePeerDraft(pair.Key, pair.Value); }), ("프로젝트팩 내보내기", ProjectPackExportPicker), ("프로젝트팩 가져오기", ProjectPackImportPicker), ("프로젝트 문서 내보내기", ExportMobileProject), ("협의 기록", MobileResolutionHistory), ("신문고", MobileIncidents) };
         new AlertDialog.Builder(this).SetTitle("프로젝트 도구")!.SetItems(actions.Select(a => a.Title).ToArray(), (_, e) => { try { actions[e.Which].Run(); } catch (Exception error) { Report(error.Message); } })!.Show();
     }
     private void OpenMobileProjectChat(string initial = "")

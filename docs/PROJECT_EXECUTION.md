@@ -4,7 +4,7 @@
 
 ## 빌드와 설치
 
-`BuildEditor.bat`는 기존 솔루션을 빌드한 뒤 `PackEngine.Tool bundle-engine`으로 `editor/Builds/Windows/Engine`을 만든다. Android 빌드는 같은 명세를 사용해 `Engine/`을 APK 자산에 넣는다. Windows는 배포 폴더의 스냅샷, Android는 APK에서 설치한 스냅샷을 사용한다. 저장소의 `editor/Packs`는 엔진 개발용 소스이며 실행 중인 배포본의 편집 대상이 아니다.
+`BuildEditor.bat`는 기존 솔루션을 빌드한 뒤 `PackEngine.Tool bundle-engine`으로 `editor/Builds/Windows/Engine`을 만든다. Android 빌드는 같은 명세를 사용해 고정된 `Engine.zip` 배포 묶음을 APK 자산에 넣는다. 설치할 때 해시를 검사하고 `Engine/`에 푼다. Windows는 배포 폴더의 스냅샷, Android는 APK에서 설치한 스냅샷을 사용한다. 저장소의 `editor/Packs`는 엔진 개발용 소스이며 실행 중인 배포본의 편집 대상이 아니다.
 
 `distribution.xml`에는 엔진 ID·릴리스·실행 프레임워크, 팩 구성, 실제 DLL/XML/소스 파일의 SHA-256을 기록한다. 선언과 공개 소스의 호환성 해시는 줄바꿈 차이를 정규화해서 Windows와 Android가 공유한다. 파일 검사는 실제 설치 바이트를 기준으로 한다. 팩 DLL을 실행하지 않고 배포본을 만들고 검사한다.
 

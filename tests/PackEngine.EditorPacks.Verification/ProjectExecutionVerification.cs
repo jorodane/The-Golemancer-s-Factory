@@ -21,6 +21,14 @@ internal static class ProjectExecutionVerification
         var engine = EditorEngineDistribution.Bundle(recipe, Path.Combine(root, "InstalledEngine"));
         Check(engine.Sources.Single().IsReadOnly && engine.Sources.Single().Read("Commands.cs") == core.Read("Commands.cs"), "integrated engine distribution preserves pack manifests and inspectable source");
         Check(engine.Sources.Single().Fingerprint() == core.Fingerprint() && engine.Fingerprint.Length == 64, "deployment pins actual engine DLL and XML hashes");
+        using var engineArchive = new MemoryStream(); engine.WriteArchive(engineArchive); engineArchive.Position = 0;
+        var installed = EditorEngineDistribution.Install(engineArchive, Path.Combine(root, "AppInstalledEngine"));
+        Check(installed.Fingerprint == engine.Fingerprint && installed.Sources.Single().IsReadOnly, "app installs the exact archived pack-based engine deployment");
+        engineArchive.Position = 0; var sameInstall = EditorEngineDistribution.Install(engineArchive, installed.Root);
+        Check(sameInstall.Fingerprint == installed.Fingerprint, "reopening the app preserves a verified installed engine snapshot");
+        string damaged = installed.Sources.Single().PathFor("ui.xml"); File.AppendAllText(damaged, " "); engineArchive.Position = 0;
+        var repaired = EditorEngineDistribution.Install(engineArchive, installed.Root);
+        Check(repaired.Sources.Single().Fingerprint() == core.Fingerprint(), "app deployment installation restores changed engine bytes from its bundled archive");
         var reopened = EditorEngineDistribution.Open(engine.Root);
         Check(reopened.Compatibility == engine.Compatibility, "opening a deployment reads the same versioned pack composition");
         await Reject(() => engine.Sources.Single().Build("never-run", "", default), "installed engine cannot be rebuilt by the project pack authoring API");

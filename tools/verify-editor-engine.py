@@ -20,9 +20,12 @@ if args.apk_directory:
         apks = sorted(args.apk_directory.rglob('*.apk'))
     if not apks:
         raise RuntimeError('Android build did not produce an APK.')
-    archive = zipfile.ZipFile(apks[0])
+    apk = zipfile.ZipFile(apks[0])
+    import io
+    archive = zipfile.ZipFile(io.BytesIO(apk.read('assets/Engine.zip')))
+    apk.close()
     def read(path):
-        return archive.read('assets/Engine/' + path)
+        return archive.read(path)
 else:
     def read(path):
         return (args.directory / path).read_bytes()

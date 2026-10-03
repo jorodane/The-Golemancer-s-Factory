@@ -63,7 +63,8 @@ public sealed partial class MainActivity : Activity
         {
             string saved = Path.Combine(root, "window-state.json");
             if (File.Exists(saved)) SavedStates = JsonSerializer.Deserialize<Dictionary<string, EditorWindowState>>(File.ReadAllText(saved)) ?? new(StringComparer.Ordinal);
-            InstallAssets("Engine"); InstallAssets("Plugins"); _ = InstalledEngine; PrepareAiConnections(); await Task.CompletedTask;
+            using (var bundled = Assets!.Open("Engine.zip")) installedEngine = EditorEngineDistribution.Install(bundled, Path.Combine(root, "Engine"));
+            InstallAssets("Plugins"); PrepareAiConnections(); await Task.CompletedTask;
         }
         catch (Exception e) { Report(e.Message); }
     }
@@ -81,7 +82,7 @@ public sealed partial class MainActivity : Activity
     }
     private void Publish(EditorPackRuntime next)
     {
-        try { lifetime.Token.ThrowIfCancellationRequested(); windows.Refresh(next, definition => new AndroidPackWindow(this, definition, next)); }
+        try { lifetime.Token.ThrowIfCancellationRequested(); if (next.ExecutionSession != Execution.Identity) throw new InvalidOperationException("프로젝트 세션이 바뀌었어. 다시 적용해줘."); windows.Refresh(next, definition => new AndroidPackWindow(this, definition, next)); }
         catch { next.Dispose(); throw; }
         Execution.Commit(next); runtime = next;
         RefreshMobileNavigation();
