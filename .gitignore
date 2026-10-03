@@ -1,9 +1,7 @@
-**/bin/
+**/[Bb]in/
 **/obj/
-editor/Builds/**
+**/[Bb]uilds/
 StartEditor.exe
-Content/Packs/**/Bin/
-examples/**/Bin/
 node_modules/
 Assets/
 Saves/
