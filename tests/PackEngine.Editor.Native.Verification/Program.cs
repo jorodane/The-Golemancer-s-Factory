@@ -47,13 +47,15 @@ internal static class Program
             window.OpenProject(Path.Combine(args[0], "Golemancer/Golemancer.packproject"));
             Call(window, "CompleteStudioSetup");
             var host = Field<ContentControl>(window, "workspaceHost");
-            PumpUntil(() => !Field<bool>(window, "busy") && host.Content is not null && Descendants(host).OfType<TextBlock>().Any(t => t.Text == "공방의 설계"), "Project-owned main workspace did not finish loading.");
+            PumpUntil(() => !Field<bool>(window, "busy") && host.Content is not null && Descendants(host).OfType<TextBlock>().Any(t => t.Text.Contains("개 항목")), "Project-owned main workspace did not finish loading.");
             window.UpdateLayout();
-            Check(host.IsVisible && host.ActualWidth > 400 && host.ActualHeight > 200, "the real project main pack occupies the native work surface");
+            Check(host.IsVisible && host.ActualWidth > 400 && host.ActualHeight > 200 && Descendants(host).OfType<TextBlock>().Any(t => t.Text == "공방의 설계"), "the real project main pack occupies the native work surface");
             Check(VisualTreeHelper.GetParent(Field<Grid>(window, "editorBody")) is null && Field<ScrollViewer>(window, "aiManagementView").Visibility == Visibility.Collapsed, "the project opens with the work surface and keeps the explorer, inspector and AI directory in separate tools");
-            Check(Descendants(host).OfType<TextBlock>().Any(t => t.Text == "설명을 입력해.") && !Descendants(host).OfType<TextBox>().Any(t => t.IsVisible && t.Text.Contains("<ObjectPack")), "the native main view renders item cards instead of source documents");
-
             var session = Field<EditorSession>(window, "session");
+            var itemTitles = new HashSet<string>(session.Index.Nodes.Values.Where(n => n.Kind == "item").Select(n => n.Title));
+            Check(Descendants(host).Any(n => n.GetType().Name == "Card") && Descendants(host).OfType<TextBlock>().Any(t => itemTitles.Contains(t.Text))
+                && !Descendants(host).OfType<TextBox>().Any(t => t.IsVisible && t.Text.Contains("<ObjectPack")), "the native main view renders actual project item cards instead of source documents");
+
             var participant = session.Collaboration.Register("worker-native-smoke", "Native worker", ParticipantKind.AI, ParticipantPermission.Talk | ParticipantPermission.Work);
             participant.X = 100; participant.Y = 120; Call(window, "CreateWorker", participant);
             var layer = Field<Canvas>(window, "participantsCanvas"); window.UpdateLayout();

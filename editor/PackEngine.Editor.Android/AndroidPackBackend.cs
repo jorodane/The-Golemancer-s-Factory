@@ -141,7 +141,7 @@ internal sealed class AndroidPackBackend(Context context) : IUiBackend
                     case "enabled": native.Enabled = value.AsBoolean(); wrapper.Enabled = native.Enabled; if (native is InlineEditor enabledInline) enabledInline.Input.Enabled = native.Enabled; break;
                     case "visible": wrapper.Visibility = value.AsBoolean() ? ViewStates.Visible : ViewStates.Gone; break;
                     case "tooltip": native.TooltipText = value.Literal; break;
-                    case "fontSize": if (native is InlineEditor sizedInline) sizedInline.SetFont((float)value.AsNumber()); else ((TextView)native).TextSize = (float)value.AsNumber(); break;
+                    case "fontSize": if (native is InlineEditor sizedInline) sizedInline.SetFont((float)value.AsNumber()); else if (native is TextView sizedText) sizedText.TextSize = (float)value.AsNumber(); break;
                     case "selected": ((Card)native).Select(value.AsBoolean()); break;
                     case "placeholder": ((InlineEditor)native).Placeholder = value.Literal; ((InlineEditor)native).Refresh(); break;
                     case "multiline": ((InlineEditor)native).Input.SetSingleLine(!value.AsBoolean()); break;
