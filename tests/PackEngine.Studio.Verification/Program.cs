@@ -22,6 +22,16 @@ try
 
     var hub = new CollaborationWorkspace(Path.Combine(temp, "project"));
     foreach (string id in new[] { "a", "b", "c" }) hub.Register(id, id, ParticipantKind.AI, ParticipantPermission.Talk | ParticipantPermission.Work);
+    hub.Register("other-human", "Other viewer", ParticipantKind.Human, ParticipantPermission.Talk | ParticipantPermission.Work);
+    var localView = hub.View("human", "a"); localView.X = 160; localView.Y = 280;
+    var otherView = hub.View("other-human", "a"); otherView.X = 410; otherView.Y = 70; hub.Save();
+    var positions = new CollaborationWorkspace(Path.Combine(temp, "project"));
+    Check(positions.View("human", "a").X == 160 && positions.View("human", "a").Y == 280 && positions.View("other-human", "a").X == 410, "floating worker positions survive restart independently for each viewer");
+    hub.State.Participants.Single(p => p.Id == "a").OwnerId = "other-human";
+    hub.Display("human", "a", CharacterDisplay.Hidden);
+    Check(hub.View("other-human", "a").Display == CharacterDisplay.Full && !hub.CanControl("human", "a"), "hiding or moving another owner's worker never grants private control or changes their display");
+    hub.State.Participants.Single(p => p.Id == "a").OwnerId = "human";
+    hub.Display("human", "a", CharacterDisplay.Full);
     var change = new ChangeSet { Author = "a", Intent = "proposal", Operations = [new() { Path = "Packs/one/file.cs", Before = "a", After = "b", Target = "method" }] }; hub.State.Changes.Add(change);
     var incident = hub.Report("a", IncidentKind.Proposal, IncidentSeverity.Urgent, "review", "Packs/one/file.cs", "real evidence", "review this", "b"); hub.AttachProposal(incident.Id, "a", change);
     Reject(() => hub.ReviewProposal(incident.Id, "b", "approved", "urgent"), "urgency never grants approval permission");

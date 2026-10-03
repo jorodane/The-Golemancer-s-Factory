@@ -115,7 +115,10 @@ try
     var ui = new UiCatalog(new[] { coreDocument, dynamic }); var context = EditorNativeSchema.Context(new(), (_, _) => { }, "", "");
     EditorNativeSchema.PreflightView(ui, "author.child.dynamic.icons", context);
     Check(ui.Describe("editor.slot").Events.Single().Payload == PackEngine.Contracts.UI.UiValueKind.Text, "slot rows, item counts, tooltips, plus slot and text selection payload share a native contract");
-    await Reject(() => { EditorNativeSchema.PreflightView(ui, "author.child.dynamic.icons", context, "android"); return Task.CompletedTask; }, "unsupported platform widgets are rejected rather than silently rendered incorrectly");
+    EditorNativeSchema.PreflightView(ui, "author.child.dynamic.icons", context, "android");
+    Check(EditorNativeSchema.Supports("editor.slot", ui.Describe("editor.slot"), "android"), "declared item icons and selection payloads are supported on both native hosts");
+    var unsupported = UiXml.Read(new StringReader("<Ui version=\"1\" id=\"author.child.unsupported\"><Widget id=\"author.child.desktop\" extends=\"editor.slot\"><Renderer platform=\"android\" key=\"author.child.missing.renderer\" /></Widget><View id=\"author.child.unsupported\"><Node id=\"unsupported\" widget=\"author.child.desktop\" /></View></Ui>"));
+    await Reject(() => { EditorNativeSchema.PreflightView(new UiCatalog(new[] { coreDocument, unsupported }), "author.child.unsupported", context, "android"); return Task.CompletedTask; }, "unsupported platform renderers are rejected rather than silently rendered incorrectly");
     await Reject(() => { EditorNativeSchema.ValidateValue("image", PackEngine.Contracts.UI.UiValue.Text("https://example.org/private.png")); return Task.CompletedTask; }, "icon rendering cannot fetch arbitrary remote URLs");
 
     string windowFile = Path.Combine(root, "Device", "windows.json"); var windowStore = new WindowPlacementStore(windowFile);

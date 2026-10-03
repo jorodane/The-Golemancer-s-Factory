@@ -46,6 +46,14 @@ jobs:
       - name: Native Windows editor build
         shell: cmd
         run: BuildEditor.bat
+      - name: Native workspace and worker interaction
+        shell: pwsh
+        run: |
+          dotnet build tests/PackEngine.Editor.Native.Verification/PackEngine.Editor.Native.Verification.csproj -c Release -p:EngineTargetFramework=net48 -p:UseSharedCompilation=false -m:1 --nologo -v:minimal
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Copy-Item tests/PackEngine.Editor.Native.Verification/bin/Release/net48/PackEngine.Editor.Native.Verification.exe* editor/Builds/Windows/
+          & editor/Builds/Windows/PackEngine.Editor.Native.Verification.exe $env:GITHUB_WORKSPACE
+          exit $LASTEXITCODE
       - name: Report verification status
         if: always()
         uses: actions/github-script@v7
