@@ -6,6 +6,7 @@
 - 엔진 에디터: `git pull` → **`BuildEditor.bat`** → **`StartEditor.exe`**. 첫 화면은 AI 에이전트 연결과 아래 실행 콘솔이다. 연결하거나 **나중에**를 누르면 왼쪽 AI 관리와 프로젝트 목록이 나오며, 프로젝트에서 작업자·참여자·채팅·신문고를 사용한다. 내부 작업 AI만 지원한다. [새 구조](docs/INTERNAL_AI_STUDIO.md) · [AI 연결](docs/AI_CONNECTIONS.md) · [에디터 사용법](docs/EDITOR.md).
 - 게임 빌드: `Golemancer/Build.bat`. 게임팩만 빌드: `Golemancer/BuildPacks.bat`.
 - Linux: `Golemancer/BuildLinux.sh`, `Golemancer/StartLinux.sh`. iPhone: [Mac 빌드 절차](Golemancer/docs/IOS.md).
+- Google Play 제출용 Confectory AAB: `BuildEditorAndroidPlay.bat`. [업로드 키·버전·내부 테스트 안내](docs/EDITOR_ANDROID.md#google-play-제출용-aab-빌드).
 - Android 에디터팩 실험: `BuildEditorAndroid.bat`. [Windows에서 APK 빌드·같은 팩 테스트](docs/EDITOR_ANDROID.md).
 - [Confectory 제작 도구](docs/AUTHORING.md): 에디터팩 검색·새 파일/팩 생성·검토 적용, 아이콘 슬롯, 대화 복구·복사, 작업자별 Yogi 입력, 이미지 생성 연결.
 - [플랫폼 공통점 분석](Golemancer/docs/PLATFORMS.md).

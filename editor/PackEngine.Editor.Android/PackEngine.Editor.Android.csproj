@@ -3,17 +3,30 @@
     <TargetFramework>net10.0-android</TargetFramework>
     <OutputType>Exe</OutputType>
     <SupportedOSPlatformVersion>26</SupportedOSPlatformVersion>
+    <TargetPlatformVersion>36.0</TargetPlatformVersion>
     <ApplicationId>com.packengine.editor</ApplicationId>
     <ApplicationTitle>Confectory</ApplicationTitle>
     <ApplicationVersion>1</ApplicationVersion><ApplicationDisplayVersion>0.1.0</ApplicationDisplayVersion>
     <RuntimeIdentifiers>android-arm64;android-x64</RuntimeIdentifiers>
-    <AndroidPackageFormats>apk</AndroidPackageFormats><AndroidBuildApplicationPackage>true</AndroidBuildApplicationPackage>
+    <AndroidPackageFormats Condition="'$(AndroidPackageFormats)' == ''">apk</AndroidPackageFormats><AndroidBuildApplicationPackage>true</AndroidBuildApplicationPackage>
     <EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
     <PublishTrimmed>false</PublishTrimmed><RunAOTCompilation>false</RunAOTCompilation><PublishAot>false</PublishAot>
     <AndroidUseAssemblyStore>true</AndroidUseAssemblyStore><AndroidEnableAssemblyCompression>true</AndroidEnableAssemblyCompression>
     <AndroidEnableMarshalMethods>false</AndroidEnableMarshalMethods>
     <EditorEngineBundleRoot>$(MSBuildProjectDirectory)/obj/EngineBundle/$(Configuration)</EditorEngineBundleRoot>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(ConfectoryPlayBuild)' == 'true'">
+    <AndroidPackageFormats>aab</AndroidPackageFormats>
+    <AndroidKeyStore>true</AndroidKeyStore>
+    <AndroidUseApkSigner>false</AndroidUseApkSigner>
+    <AndroidDebuggable>false</AndroidDebuggable>
+  </PropertyGroup>
+  <Target Name="ValidatePlayBuild" BeforeTargets="PrepareForBuild" Condition="'$(ConfectoryPlayBuild)' == 'true'">
+    <Error Condition="'$(Configuration)' != 'Release'" Text="Play builds require Release." />
+    <Error Condition="'$(RuntimeIdentifier)' != 'android-arm64'" Text="Play builds require android-arm64." />
+    <Error Condition="'$(AndroidSigningKeyStore)' == '' Or !Exists('$(AndroidSigningKeyStore)')" Text="Supply an existing upload keystore." />
+    <Error Condition="'$(AndroidSigningKeyAlias)' == '' Or '$(AndroidSigningStorePass)' == '' Or '$(AndroidSigningKeyPass)' == ''" Text="Supply upload key alias and password files." />
+  </Target>
   <ItemGroup>
     <ProjectReference Include="../PackEngine.EditorPacks/PackEngine.EditorPacks.csproj" AdditionalProperties="EngineTargetFramework=net10.0" />
     <ProjectReference Include="../PackEngine.Assistant.Api/PackEngine.Assistant.Api.csproj" AdditionalProperties="EngineTargetFramework=net10.0" />

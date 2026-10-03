@@ -73,6 +73,44 @@ dotnet workload install android
 
 APK는 직접 설치하거나 `adb install -r editor\Builds\Android\PackEngine.Editor-arm64.apk`로 설치한다. 최소 Android 8.0/API 26, arm64 또는 x64를 지원한다. 업데이트 때 동일한 개발 키를 유지해야 기존 앱에 덮어 설치할 수 있다. APK와 Android SDK/JDK는 Git에 올리지 않는다. `StartEditor.exe`만 복사한 폴더에서는 소스 빌드를 할 수 없다.
 
+## Google Play 제출용 AAB 빌드
+
+루트의 **`BuildEditorAndroidPlay.bat`**는 Release / arm64 AAB를 만든다. 기존 `BuildEditorAndroid.bat`는 테스트 APK를 계속 만든다. 두 빌드는 동일한 팩 기반 통합 엔진을 포함하며 프로젝트팩 실행 모델을 유지한다. Android 대상 API는 **36 (Android 16)**이고 최소 실행 버전은 API 26이다. 최신 .NET 10 Android workload와 API 36 SDK가 필요하다.
+
+### 최초 업로드 키 준비
+
+이미 Play 앱이 있다면 해당 앱의 업로드 키를 사용한다. 새 앱의 키가 없다면 JDK의 `keytool`로 한 번 생성한다. 키·비밀번호 파일은 저장소 밖에 보관하고 키 파일을 백업한다. 다음 명령은 비밀번호를 대화형으로 입력받는다. 실제 JDK 경로로 바꿔 실행한다.
+
+```powershell
+New-Item -ItemType Directory -Force "$env:USERPROFILE\ConfectorySigning"
+& "C:\Program Files\Android\Android Studio\jbr\bin\keytool.exe" -genkeypair -v -keystore "$env:USERPROFILE\ConfectorySigning\upload.jks" -alias confectory-upload -keyalg RSA -keysize 2048 -validity 10000
+```
+
+빌드 예시:
+
+```powershell
+.\BuildEditorAndroidPlay.bat -ApplicationId com.yourcompany.confectory -VersionCode 1 -VersionName 0.1.0 -KeyStore "$env:USERPROFILE\ConfectorySigning\upload.jks" -KeyAlias confectory-upload
+```
+
+앱 ID는 최초 제출 전에 결정하고 업데이트에도 유지한다. 새 AAB를 제출할 때마다 `-VersionCode`를 이전 업로드보다 높인다. `-VersionName`은 사용자에게 표시되는 버전이다. 키 경로·별칭을 생략하면 대화형으로 물어보며 비밀번호는 숨겨서 입력받는다. 입력받은 비밀번호는 현재 Windows 계정만 접근할 수 있는 임시 파일을 통해 서명 도구에 전달하고 성공·실패 후 삭제한다. 비밀번호를 명령행 인자로 전달하지 않는다.
+
+자동 빌드는 `-NonInteractive -StorePasswordFile <외부 파일> -KeyPasswordFile <외부 파일>`을 추가한다. 각 파일에는 해당 비밀번호만 한 줄로 넣는다. 직접 준비한 파일은 자동 삭제하지 않는다. 서명 파일 경로·키 별칭·버전에는 MSBuild 구분 문자(`%`, `;`, 쉼표, 큰따옴표, 줄바꿈)를 사용할 수 없다. Debug 또는 x64 Play 빌드와 기본 `debug.keystore`는 거부한다.
+
+결과는 **`editor/Builds/Android/PlayStore/PackEngine.Editor-arm64.aab`**다. 같은 폴더의 `build-info.json`에 앱 ID·버전·커밋·패키지 SHA-256을 기록한다. 테스트 APK 결과와 분리한다. AAB는 직접 휴대폰에 설치하는 형식이 아니다.
+
+빌드 스크립트는 생성된 AAB의 JAR 서명, 통합 엔진 아카이브 포함 여부, arm64 네이티브 ELF의 모든 LOAD 세그먼트에 대한 16KB 정렬을 검사한다. 실제 서명된 AAB 빌드·검증은 로컬 Windows SDK 환경에서 수행해야 한다. 최종 APK ZIP 정렬과 16KB 기기 실행은 Play의 App Bundle Explorer 및 실제 기기에서 추가 확인한다. ELF 검사는 기기 실행을 대체하지 않는다.
+
+### Play Console에서 테스트
+
+1. Play Console에 앱을 만들고 **Play App Signing**을 설정한다. 직접 준비한 키는 업로드 키로 사용한다.
+2. **내부 테스트** 릴리스에 AAB를 올리고 Console의 패키지·대상 API·서명·호환성 검사 결과를 확인한다.
+3. 테스트 계정을 등록하고 참여 링크를 통해 설치한다. AI 연결, 엔진 설치/복구, 프로젝트팩 실행을 확인한다.
+4. 공개 배포 전에 스토어 설명·아이콘·스크린샷·개인정보처리방침·데이터 보안·콘텐츠 등급 등 Console에서 요구하는 앱 정보를 작성한다. 외부 AI에 보내는 데이터는 실제 동작에 맞게 기재한다.
+
+AAB 형식 지원은 스토어 심사 승인을 뜻하지 않는다. 프로젝트팩의 실행 코드 처리도 실제 동작을 기준으로 검토되므로, 최종 앱의 정책 적합성과 테스트 요건은 Play Console에서 확인해야 한다.
+
+공식 참고: [App Bundle](https://developer.android.com/guide/app-bundle), [대상 API 요구사항](https://developer.android.com/google/play/requirements/target-sdk), [16KB 페이지 지원](https://developer.android.com/guide/practices/page-sizes), [.NET Android 서명 속성](https://learn.microsoft.com/en-us/dotnet/android/building-apps/build-properties#androidsigningkeypass).
+
 ## 같은 팩으로 실험하기
 
 1. 앱에서 입력칸에 글을 쓴다. 상태줄의 `DLL 응답 1: ...`은 외부 명령 DLL이 받은 실제 이벤트이며 숫자는 모듈의 메모리 상태다.

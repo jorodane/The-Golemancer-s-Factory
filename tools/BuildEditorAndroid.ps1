@@ -4,6 +4,14 @@
     [string]$AndroidSdk = $env:ANDROID_HOME,
     [string]$JavaSdk = $env:JAVA_HOME,
     [string]$DotNet = 'dotnet',
+    [switch]$PlayStore,
+    [string]$ApplicationId = 'com.packengine.editor',
+    [ValidateRange(1, 2100000000)][int]$VersionCode = 1,
+    [string]$VersionName = '0.1.0',
+    [string]$KeyStore,
+    [string]$KeyAlias,
+    [string]$StorePasswordFile,
+    [string]$KeyPasswordFile,
     [switch]$InstallDependencies,
     [switch]$AcceptAndroidSdkLicenses,
     [switch]$NoPause,
@@ -18,6 +26,8 @@ $output = Join-Path $projectRoot 'editor/Builds/Android'
 $buildExit = 0
 $transcribing = $false
 $logPath = $null
+$signingTempDirectory = $null
+$playProperties = @()
 function Read-DotNet([string[]]$Arguments) {
     # Windows PowerShell 5.1 wraps redirected native stderr in ErrorRecord objects.
     # Collect diagnostics before inspecting the native exit code instead of aborting on stderr.
@@ -84,7 +94,15 @@ try {
     if ($logPath) { Write-Host "로그: $logPath" }
     . (Join-Path $PSScriptRoot 'AndroidBuildEnvironment.ps1')
     . (Join-Path $PSScriptRoot 'AndroidBuildSetup.ps1')
+    . (Join-Path $PSScriptRoot 'AndroidPlayBuild.ps1')
     $interactive = Test-AndroidBuildInteractive -NoPause $NoPause -NonInteractive $NonInteractive
+    if ($PlayStore) {
+        if ($Configuration -ne 'Release' -or $Architecture -ne 'arm64') { throw 'Play 빌드는 Release / arm64로 실행해줘.' }
+        $signing = Initialize-AndroidPlaySigning -Interactive $interactive -ProjectRoot $projectRoot -ApplicationId $ApplicationId -VersionCode $VersionCode -VersionName $VersionName -KeyStore $KeyStore -KeyAlias $KeyAlias -StorePasswordFile $StorePasswordFile -KeyPasswordFile $KeyPasswordFile
+        $signingTempDirectory = $signing.TempDirectory
+        $playProperties = $signing.Properties
+        $output = Join-Path $output 'PlayStore'
+    }
     $existingTools = Resolve-AndroidBuildEnvironment -RequestedSdk $AndroidSdk -RequestedJava $JavaSdk -SdkExplicit $PSBoundParameters.ContainsKey('AndroidSdk') -JavaExplicit $PSBoundParameters.ContainsKey('JavaSdk')
     $AndroidSdk = $existingTools.SdkPath
     $JavaSdk = $existingTools.JavaPath
@@ -152,12 +170,16 @@ try {
     $lab = 'editor/examples/MobileLab/PackEngine.Editor.MobileLab.csproj'
     Invoke-DotNet -Arguments @('build', $lab, '-c', 'Release', '-p:EngineTargetFramework=net48', '-p:UseSharedCompilation=false', '-m:1', '--disable-build-servers', '--nologo', '-v:minimal')
     $rid = 'android-' + $Architecture
-    Invoke-DotNet -Arguments (@('build', $project, '-t:SignAndroidPackage', '-c', $Configuration, ('-p:RuntimeIdentifier=' + $rid)) + $common + $sdk)
+    $packageFormat = if ($PlayStore) { 'aab' } else { 'apk' }
     $binaryDir = Join-Path $projectRoot ('editor/PackEngine.Editor.Android/bin/' + $Configuration + '/net10.0-android/' + $rid)
-    $apk = Get-ChildItem $binaryDir -Filter '*-Signed.apk' | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
-    if (!$apk) { throw "No signed APK was produced in $binaryDir." }
+    # Remove only this format's old signed output: never accept a stale artifact.
+    if (Test-Path $binaryDir) { Get-ChildItem $binaryDir -Filter ('*-Signed.' + $packageFormat) | Remove-Item -Force }
+    Invoke-DotNet -Arguments (@('build', $project, '-t:SignAndroidPackage', '-c', $Configuration, ('-p:RuntimeIdentifier=' + $rid), ('-p:AndroidPackageFormats=' + $packageFormat)) + $common + $sdk + $playProperties)
+    $apk = Get-ChildItem $binaryDir -Filter ('*-Signed.' + $packageFormat) | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
+    if (!$apk) { throw "No signed Android package was produced in $binaryDir." }
     [IO.Directory]::CreateDirectory($output) | Out-Null
-    $destination = Join-Path $output ('PackEngine.Editor-' + $Architecture + '.apk')
+    if ($PlayStore) { Test-AndroidPlayBundle -Bundle $apk.FullName -JavaSdk $JavaSdk }
+    $destination = Join-Path $output ('PackEngine.Editor-' + $Architecture + '.' + $packageFormat)
     Copy-Item $apk.FullName $destination -Force
     Add-Type -AssemblyName System.IO.Compression
     Add-Type -AssemblyName System.IO.Compression.FileSystem
@@ -174,9 +196,11 @@ try {
         $revision = & git rev-parse HEAD 2>$null
         if ($LASTEXITCODE -ne 0) { $revision = 'unknown' }
     } catch { $revision = 'unknown' }
-    @{ sourceCommit = $revision; target = 'net10.0-android'; runtime = $rid; configuration = $Configuration; deviceTested = $false; apkSha256 = (Get-FileHash $destination -Algorithm SHA256).Hash } |
-        ConvertTo-Json | Set-Content (Join-Path $output 'build-info.json') -Encoding UTF8
-    Write-Host "APK: $destination"
+    $receipt = @{ sourceCommit = $revision; target = 'net10.0-android'; runtime = $rid; configuration = $Configuration; packageFormat = $packageFormat; playStoreBuild = [bool]$PlayStore; applicationId = $ApplicationId; versionCode = $VersionCode; versionName = $VersionName; deviceTested = $false; packageSha256 = (Get-FileHash $destination -Algorithm SHA256).Hash }
+    if (!$PlayStore) { $receipt.apkSha256 = $receipt.packageSha256 }
+    $receipt | ConvertTo-Json | Set-Content (Join-Path $output 'build-info.json') -Encoding UTF8
+    Write-Host "${packageFormat}: $destination"
+    if ($PlayStore) { Write-Host 'Play Console의 내부 테스트에 AAB를 업로드해줘. 기기 실행과 심사는 별도 확인이 필요해.' }
     Write-Host "PC/Android pack ZIP: $zipPath"
 } catch {
     $buildExit = 1
@@ -184,6 +208,7 @@ try {
     Write-Host ('빌드를 완료하지 못했어: ' + $_.Exception.Message) -ForegroundColor Red
     Write-Host '설치와 실행 안내: docs/EDITOR_ANDROID.md'
 } finally {
+    if ($signingTempDirectory -and (Test-Path $signingTempDirectory)) { Remove-Item $signingTempDirectory -Recurse -Force }
     if ($transcribing) {
         Write-Host "전체 로그: $logPath"
         Stop-Transcript | Out-Null
