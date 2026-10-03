@@ -3,7 +3,7 @@ using PackEngine.Runtime.UI;
 
 namespace PackEngine.EditorPacks;
 
-// Host-only capability. The game SDK and editor-1 wire contract do not change.
+// Host-only reconciliation capability. The game SDK is unchanged.
 public interface IEditorViewElement : IUiElement
 {
     long InputRevision { get; }
@@ -27,6 +27,7 @@ public sealed class EditorLiveView : IDisposable
     private Version? current;
     private bool updating, disposed;
     public IUiElement Root { get; private set; } = null!;
+    public string EventNodeId { get; private set; } = "";
     public bool Contains(IUiElement element) => handles.Values.Any(h => ReferenceEquals(h.Native, element));
 
     public EditorLiveView(UiCatalog catalog, string view, UiContext context, IUiBackend backend)
@@ -72,7 +73,12 @@ public sealed class EditorLiveView : IDisposable
                 foreach (string name in node.Events.Keys.Where(name => !h.Events.ContainsKey(name)))
                 {
                     var target = h;
-                    h.Events.Add(name, h.Native.Listen(name, payload => { if (!updating && !disposed) target.Node?.Dispatch(name, payload); }));
+                    h.Events.Add(name, h.Native.Listen(name, payload =>
+                    {
+                        if (updating || disposed || target.Node is not { } origin) return;
+                        string previous = EventNodeId; EventNodeId = origin.Id;
+                        try { origin.Dispatch(name, payload); } finally { EventNodeId = previous; }
+                    }));
                     listeners.Add((h, name));
                 }
             }

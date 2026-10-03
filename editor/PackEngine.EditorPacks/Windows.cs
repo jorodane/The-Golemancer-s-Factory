@@ -38,12 +38,17 @@ public interface IEditorLiveWindowInstance : IEditorWindowInstance
     EditorViewEditSnapshot CaptureViewEdits();
     void UpdateView(EditorPreparedView view, EditorViewEditSnapshot? edits);
 }
+public interface IEditorObjectWindowInstance : IEditorWindowInstance
+{
+    void SetObject(EditorObjectContext value);
+}
 
 public sealed class EditorWindowRegistry : IDisposable
 {
     private Dictionary<string, EditorWindowDefinition> definitions = new(StringComparer.Ordinal);
     private readonly Dictionary<string, IEditorWindowInstance> instances = new(StringComparer.Ordinal);
     private readonly Dictionary<string, EditorWindowState> states = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, EditorObjectContext> objects = new(StringComparer.Ordinal);
     private IEditorPackRuntime? runtime;
     private Func<EditorWindowDefinition, IEditorWindowInstance>? factory;
     public IReadOnlyCollection<EditorWindowDefinition> Definitions => definitions.Values.ToArray();
@@ -76,6 +81,7 @@ public sealed class EditorWindowRegistry : IDisposable
                 if (open && before!.Fingerprint == definition.Fingerprint || !open && (existed || !definition.AutoOpen)) continue;
                 var saved = open ? instance!.Capture() : states.TryGetValue(definition.Id, out var state) ? state : null;
                 var replacement = create(definition); staged.Add(definition.Id, replacement);
+                if (objects.TryGetValue(definition.Id, out var bound) && replacement is IEditorObjectWindowInstance objectView) objectView.SetObject(bound);
                 if (saved is not null) replacement.Restore(saved);
             }
             // Construct and restore every candidate before changing existing registrations or views.
@@ -86,6 +92,7 @@ public sealed class EditorWindowRegistry : IDisposable
         foreach (var id in instances.Keys.Where(id => !incoming.ContainsKey(id) || staged.ContainsKey(id)).ToArray())
         { var old = instances[id]; instances.Remove(id); old.Dispose(); }
         foreach (var id in states.Keys.Where(id => !incoming.ContainsKey(id)).ToArray()) states.Remove(id);
+        foreach (var id in objects.Keys.Where(id => !incoming.ContainsKey(id)).ToArray()) objects.Remove(id);
         foreach (var item in staged) instances.Add(item.Key, item.Value);
         definitions = incoming; runtime = next; factory = create;
     }
@@ -106,10 +113,18 @@ public sealed class EditorWindowRegistry : IDisposable
         var instance = factory!(definition);
         try
         {
+            if (objects.TryGetValue(id, out var bound) && instance is IEditorObjectWindowInstance objectView) objectView.SetObject(bound);
             if (states.TryGetValue(id, out var state)) instance.Restore(state);
             instance.Activate(); instances.Add(id, instance);
         }
         catch { instance.Dispose(); throw; }
+    }
+    public void OpenObject(string id, EditorObjectContext value)
+    {
+        Open(id);
+        if (instances[id] is not IEditorObjectWindowInstance contextual) throw new NotSupportedException("The host cannot pass an element to this window.");
+        var detached = new EditorObjectContext { Key = value.Key, Kind = value.Kind, Title = value.Title, Pack = value.Pack };
+        contextual.SetObject(detached); objects[id] = detached;
     }
     public void Apply(string pack, EditorWindowAction action)
     {
@@ -161,7 +176,7 @@ public sealed class EditorWindowRegistry : IDisposable
     {
         if (!definitions.TryGetValue(id, out var definition)) return;
         if (!definition.Temporary) throw new InvalidOperationException("Persistent windows are registered by their pack definitions.");
-        Close(id); states.Remove(id); definitions.Remove(id);
+        Close(id); states.Remove(id); objects.Remove(id); definitions.Remove(id);
     }
     public void ClearTemporary()
     { foreach (var id in definitions.Values.Where(d => d.Temporary).Select(d => d.Id).ToArray()) UnregisterTemporary(id); }
@@ -176,6 +191,6 @@ public sealed class EditorWindowRegistry : IDisposable
     }
     public void Dispose()
     {
-        foreach (var instance in instances.Values) instance.Dispose(); instances.Clear(); states.Clear(); definitions.Clear(); runtime = null; factory = null;
+        foreach (var instance in instances.Values) instance.Dispose(); instances.Clear(); states.Clear(); objects.Clear(); definitions.Clear(); runtime = null; factory = null;
     }
 }

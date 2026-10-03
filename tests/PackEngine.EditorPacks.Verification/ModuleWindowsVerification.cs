@@ -46,7 +46,7 @@ internal static class ModuleWindowsVerification
             windows.Refresh(first, Factory(first));
             string childPanel = "panel." + first.Snapshot.Panels.Single(p => p.Pack == child.Id).Fields["slot"];
             string pluginPanel = "panel." + first.Snapshot.Panels.Single(p => p.Pack == plugin.Id).Fields["slot"];
-            Check(windows.Definitions.Count == 3 && windows.OpenIds.Count == 2 && !windows.OpenIds.Contains("test.project.window"), "window definitions register without opening or compiling ordinary windows");
+            Check(windows.Definitions.Count == 5 && windows.OpenIds.Count == 2 && !windows.OpenIds.Contains("test.project.window"), "window definitions register without opening or compiling ordinary windows");
             var panel = Current(childPanel); panel.State.Values["input"] = "user draft";
             windows.Close(childPanel);
             Check(panel.Disposed && panel.Probe.Live == 0 && panel.Probe.Listeners == 0 && windows.Definitions.Any(d => d.Id == childPanel), "closing a window removes its real mounted view and listeners while keeping its definition");

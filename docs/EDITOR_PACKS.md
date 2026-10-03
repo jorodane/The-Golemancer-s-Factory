@@ -4,10 +4,12 @@ PC와 같은 계약·XML·팩 DLL 소스를 사용하는 [Android 호스트와 W
 
 게임팩을 편집하는 WPF 셸에 `editor-1` 객체팩을 동적으로 장착한다. 게임의 DLL은 여전히 게임 프로세스에서만 로드한다. 에디터팩도 공통 `PackCompiler`와 `UiCatalog`를 사용하며, 에디터 전용 등록 계약은 `PackEngine.Editor.Contracts.dll`에 있다. 엔진 코어와 게임 SDK는 변경하지 않는다.
 
+[요소 탐색기·계층 편집·프로젝트 메뉴·전용 에디터 계약](ELEMENT_EDITOR.md)은 기본 UI팩과 프로젝트 인덱스 명세로 구성한다. 일반 탐색기에는 파일을 표시하지 않고 원문은 **XML 열기**에서 확인한다.
+
 ## 사용
 
 1. `StartEditor.exe`를 실행한다. 기본 제공 **작업 도구** 패널은 `editor.core.tools`의 실제 DLL/XML이다.
-2. **에디터팩** 탭에서 새 팩 ID와 저장 범위를 선택한다. **새 독립 패널 팩**은 기본 도구를 재사용하는 새 탭, **선택한 팩의 패널 상속**은 현재 활성 패널의 부분 수정본을 만든다.
+2. **프로젝트 메뉴 → 에디터팩 관리**에서 새 팩 ID와 저장 범위를 선택한다. **새 독립 패널 팩**은 기본 도구를 재사용하는 새 탭, **선택한 팩의 패널 상속**은 현재 활성 패널의 부분 수정본을 만든다.
 3. 파일을 선택해 XML을 편집하고 **변경 미리보기 → 검토한 변경 저장 → 선택한 팩 적용**으로 반영한다. 저장본 다시 읽기는 미저장 초안을 버린다. 마지막 변경은 버전이 맞으면 되돌릴 수 있다.
 4. **등록된 창 열기**는 이미 로드된 기능으로 화면을 만들거나 기존 창을 앞으로 가져온다. **임시 테스트 창**은 선택한 뷰를 별도 창으로 등록해서 열고, **임시 창 해제**는 그 창의 등록과 화면만 제거한다. 창을 닫아도 기능 DLL은 유지된다.
 5. 새 동작이 필요하면 **DLL 구현 추가**를 누른다. 생성된 `Commands.cs`를 수정하고 **선택 팩 빌드 → 선택한 팩 적용**을 사용한다. 명령은 `editor.xml`에 등록되며, 화면의 `On`에서 연결한다. DLL 빌드는 .NET SDK가 필요하다. XML 수정에는 컴파일러가 필요 없다.
@@ -132,7 +134,7 @@ AI는 `packengine_editor(operation="api")`로 이 실제 계약과 컴파일 가
 
 ## 현재 UI 제공 범위
 
-WPF는 `editor.stack`, `editor.text`, `editor.button`, `editor.input`, `editor.wrap`, `editor.slot`을 제공한다. `wrap`은 줄바꿈 흐름 배치, `slot`은 bitmap `data:` 이미지 또는 글리프, 색, 수량, 툴팁, 선택용 Text payload를 표시한다. 버튼으로 뒤쪽 `+` 슬롯을 구성할 수 있다. 외부 이미지 URL은 허용하지 않는다. 기존 활성·표시·글자 크기·여백, 크기 제한, `activate`/`changed`도 지원한다. 새 wrap/slot은 Windows용이며 Android에서는 미지원으로 보고한다. 사용자 정의 네이티브 컨트롤·렌더러는 아직 제공하지 않는다.
+Windows와 Android는 `editor.stack`, `editor.text`, `editor.button`, `editor.input`, `editor.wrap`, `editor.slot`을 제공한다. `wrap`은 줄바꿈 흐름 배치, `slot`은 bitmap `data:` 이미지 또는 글리프, 색, 수량, 툴팁, 선택용 Text payload를 표시한다. 버튼으로 뒤쪽 `+` 슬롯을 구성할 수 있다. 외부 이미지 URL은 허용하지 않는다. 기존 활성·표시·글자 크기·여백, 크기 제한, `activate`/`changed`도 지원한다. 사용자 정의 네이티브 컨트롤·렌더러는 아직 제공하지 않는다.
 
 선택적 `IEditorProjectCatalog`는 `ListObjects`, `ListAssets`, `ReadAsset`을 제공한다. 객체 종류와 아이템·레시피 의미는 소비자 색인 규칙에 남는다. bitmap 읽기는 팩의 `<Asset path="…"/>` 또는 소비자 `<IndexRules><Asset select="XPath" attribute="image"/></IndexRules>`가 선언한 경로만 허용한다. 기존 `IEditorProjectData` 계약은 유지한다. 팩 DLL은 `EditorCommandResult.PickObject`와 자기 소유 Text 명령으로 객체 선택을 요청하거나, `View`로 자기 팩의 `<pack>.dynamic.*` 뷰를 자기 창에 적용할 수 있다. 동적 뷰는 원본 XML을 저장하지 않으며 DLL 재로드 시 선언된 화면을 다시 사용한다.
 

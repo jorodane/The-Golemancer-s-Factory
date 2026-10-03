@@ -21,6 +21,8 @@ internal sealed class AndroidPackBackend(Context context) : IUiBackend
         AView native = renderer switch
         {
             "editor.stack" => new LinearLayout(context) { Orientation = Orientation.Vertical },
+            "editor.wrap" => new Flow(context),
+            "editor.slot" => new SlotButton(context),
             "editor.text" => new TextView(context),
             "editor.button" => new Button(context),
             "editor.input" => new EditText(context) { InputType = InputTypes.ClassText | InputTypes.TextFlagMultiLine },
@@ -121,7 +123,11 @@ internal sealed class AndroidPackBackend(Context context) : IUiBackend
             wrapper.SetMaximum(layout.MaxSize is { } max ? dp(max.X) : 0, layout.MaxSize is { } maximum ? dp(maximum.Y) : 0);
         }
         public Action PrepareSet(string property, UiValue value)
-        { EditorNativeSchema.ValidateValue(property, value); return () => Set(property, value); }
+        {
+            EditorNativeSchema.ValidateValue(property, value);
+            if (property == "image") SlotButton.ValidateImage(value.Literal);
+            return () => Set(property, value);
+        }
         public void Set(string property, UiValue value)
         {
             EditorNativeSchema.ValidateValue(property, value); setting = true;
@@ -136,7 +142,20 @@ internal sealed class AndroidPackBackend(Context context) : IUiBackend
                     case "margin":
                         var margins = (ViewGroup.MarginLayoutParams)wrapper.LayoutParameters!;
                         int amount = dp(value.AsNumber()); margins.SetMargins(amount, amount, amount, amount); wrapper.LayoutParameters = margins; break;
-                    case "orientation": ((LinearLayout)native).Orientation = value.Literal == "horizontal" ? Orientation.Horizontal : Orientation.Vertical; break;
+                    case "orientation":
+                        if (native is Flow flow) { flow.Vertical = value.Literal == "vertical"; flow.RequestLayout(); }
+                        else
+                        {
+                            var stack = (LinearLayout)native; stack.Orientation = value.Literal == "horizontal" ? Orientation.Horizontal : Orientation.Vertical;
+                            if (stack.Orientation == Orientation.Horizontal && stack.Parent is Bounds)
+                            {
+                                wrapper.RemoveView(stack); var scroller = new HorizontalScrollView(native.Context!);
+                                scroller.AddView(stack, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.WrapContent, ViewGroup.LayoutParams.WrapContent)); wrapper.AddView(scroller);
+                            }
+                            else if (stack.Orientation == Orientation.Vertical && stack.Parent is HorizontalScrollView scroller)
+                            { scroller.RemoveView(stack); wrapper.RemoveView(scroller); scroller.Dispose(); wrapper.AddView(stack); }
+                        }
+                        break;
                     case "text":
                         if (native is EditText input)
                         {
@@ -149,18 +168,19 @@ internal sealed class AndroidPackBackend(Context context) : IUiBackend
                         }
                         else ((TextView)native).Text = value.Literal;
                         break;
+                    case "image": case "glyph": case "value": case "count": case "tint": ((SlotButton)native).SetSlot(property, value); break;
                     default: throw new InvalidDataException("Unsupported Android editor property: " + property);
                 }
             }
             finally { setting = false; }
         }
         public void Add(string slot, IUiElement child)
-            => InsertChild(((LinearLayout)native).ChildCount, child);
-        public void RemoveChild(IUiElement child) => ((LinearLayout)native).RemoveView(((Element)child).Control);
+            => InsertChild(((ViewGroup)native).ChildCount, child);
+        public void RemoveChild(IUiElement child) => ((ViewGroup)native).RemoveView(((Element)child).Control);
         public void InsertChild(int index, IUiElement child)
         {
-            var stack = (LinearLayout)native; var control = ((Element)child).Control;
-            if (stack.Orientation == Orientation.Horizontal && control.LayoutParameters is ViewGroup.LayoutParams layout && layout.Width == ViewGroup.LayoutParams.MatchParent)
+            var stack = (ViewGroup)native; var control = ((Element)child).Control;
+            if ((stack is Flow || stack is LinearLayout { Orientation: Orientation.Horizontal }) && control.LayoutParameters is ViewGroup.LayoutParams layout && layout.Width == ViewGroup.LayoutParams.MatchParent)
                 layout.Width = ViewGroup.LayoutParams.WrapContent;
             stack.AddView(control, index);
         }
@@ -168,7 +188,7 @@ internal sealed class AndroidPackBackend(Context context) : IUiBackend
         {
             if (name == "activate" && native is Button button)
             {
-                EventHandler handler = (_, _) => callback(UiValue.None); button.Click += handler;
+                EventHandler handler = (_, _) => callback(button is SlotButton slot ? UiValue.Text(slot.Value) : UiValue.None); button.Click += handler;
                 return new Release(() => button.Click -= handler);
             }
             if (name == "changed" && native is EditText text)
@@ -182,10 +202,83 @@ internal sealed class AndroidPackBackend(Context context) : IUiBackend
         {
             if (disposed) return; disposed = true;
             if (native is EditText input) input.TextChanged -= InputChanged;
+            if (native is SlotButton slot) slot.ReleaseImage();
             cleanup(); if (native is ViewGroup group) group.RemoveAllViews(); wrapper.RemoveAllViews();
             if (wrapper.Parent is ViewGroup parent) parent.RemoveView(wrapper);
             native.Dispose(); wrapper.Dispose();
         }
         private sealed class Release(Action action) : IDisposable { public void Dispose() => action(); }
+    }
+    private sealed class SlotButton : Button
+    {
+        public SlotButton(Context context) : base(context) { SetTextColor(global::Android.Graphics.Color.White); }
+        private string glyph = "", value = "";
+        private int count;
+        private global::Android.Graphics.Drawables.BitmapDrawable? image;
+        public string Value => value;
+        public static void ValidateImage(string data)
+        {
+            if (data.Length == 0) return;
+            byte[] bytes = Convert.FromBase64String(data.Substring(data.IndexOf(',') + 1));
+            using var options = new global::Android.Graphics.BitmapFactory.Options { InJustDecodeBounds = true };
+            global::Android.Graphics.BitmapFactory.DecodeByteArray(bytes, 0, bytes.Length, options);
+            if (options.OutWidth is <= 0 or > 4096 || options.OutHeight is <= 0 or > 4096) throw new InvalidDataException("Slot image dimensions exceed the native preview limit.");
+        }
+        public void SetSlot(string property, UiValue content)
+        {
+            switch (property)
+            {
+                case "glyph": glyph = content.Literal; break;
+                case "value": value = content.Literal; break;
+                case "count": count = (int)content.AsNumber(); break;
+                case "tint": SetBackgroundColor(global::Android.Graphics.Color.ParseColor(content.Literal)); break;
+                case "image":
+                    SetCompoundDrawables(null, null, null, null); image?.Bitmap?.Dispose(); image?.Dispose(); image = null;
+                    if (content.Literal.Length > 0)
+                    {
+                        byte[] bytes = Convert.FromBase64String(content.Literal.Substring(content.Literal.IndexOf(',') + 1));
+                        using var options = new global::Android.Graphics.BitmapFactory.Options { InJustDecodeBounds = true };
+                        global::Android.Graphics.BitmapFactory.DecodeByteArray(bytes, 0, bytes.Length, options);
+                        if (options.OutWidth is <= 0 or > 4096 || options.OutHeight is <= 0 or > 4096) throw new InvalidDataException("Slot image dimensions exceed the native preview limit.");
+                        options.InJustDecodeBounds = false; options.InSampleSize = Math.Max(1, Math.Max(options.OutWidth, options.OutHeight) / 96);
+                        var bitmap = global::Android.Graphics.BitmapFactory.DecodeByteArray(bytes, 0, bytes.Length, options)!;
+                        image = new(Resources, bitmap); int size = (int)(40 * (Resources?.DisplayMetrics?.Density ?? 1)); image.SetBounds(0, 0, size, size);
+                        SetCompoundDrawables(null, image, null, null);
+                    }
+                    break;
+            }
+            Text = (image is null ? glyph : "") + (count > 0 ? " " + count : "");
+            ContentDescription = value.Length > 0 ? value : glyph;
+        }
+        public void ReleaseImage() { SetCompoundDrawables(null, null, null, null); image?.Bitmap?.Dispose(); image?.Dispose(); image = null; }
+    }
+    // Native flow layout keeps retained child controls; no row containers are recreated.
+    private sealed class Flow(Context context) : ViewGroup(context)
+    {
+        public bool Vertical;
+        private readonly List<(AView Child, int X, int Y)> positions = [];
+        protected override void OnMeasure(int widthMeasureSpec, int heightMeasureSpec)
+        {
+            positions.Clear();
+            int width = MeasureSpec.GetMode(widthMeasureSpec) == MeasureSpecMode.Unspecified ? Resources?.DisplayMetrics?.WidthPixels ?? 600 : MeasureSpec.GetSize(widthMeasureSpec);
+            int height = MeasureSpec.GetMode(heightMeasureSpec) == MeasureSpecMode.Unspecified ? int.MaxValue / 2 : MeasureSpec.GetSize(heightMeasureSpec);
+            int main = 0, cross = 0, line = 0, usedMain = 0;
+            for (int i = 0; i < ChildCount; i++)
+            {
+                var child = GetChildAt(i)!; if (child.Visibility == ViewStates.Gone) continue;
+                MeasureChild(child, widthMeasureSpec, heightMeasureSpec);
+                var margins = child.LayoutParameters as MarginLayoutParams;
+                int left = margins?.LeftMargin ?? 0, top = margins?.TopMargin ?? 0;
+                int w = child.MeasuredWidth + left + (margins?.RightMargin ?? 0), h = child.MeasuredHeight + top + (margins?.BottomMargin ?? 0);
+                int size = Vertical ? h : w, breadth = Vertical ? w : h, limit = Vertical ? height : width;
+                if (main > 0 && main + size > limit) { cross += line; main = line = 0; }
+                positions.Add((child, (Vertical ? cross : main) + left, (Vertical ? main : cross) + top));
+                main += size; line = Math.Max(line, breadth); usedMain = Math.Max(usedMain, main);
+            }
+            int total = cross + line;
+            SetMeasuredDimension(ResolveSize(Vertical ? total : usedMain, widthMeasureSpec), ResolveSize(Vertical ? usedMain : total, heightMeasureSpec));
+        }
+        protected override void OnLayout(bool changed, int left, int top, int right, int bottom)
+        { foreach (var item in positions) item.Child.Layout(item.X, item.Y, item.X + item.Child.MeasuredWidth, item.Y + item.Child.MeasuredHeight); }
     }
 }

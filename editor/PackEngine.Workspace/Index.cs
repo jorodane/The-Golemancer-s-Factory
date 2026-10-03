@@ -17,6 +17,9 @@ public sealed class WorkspaceNode
     public int Line { get; set; }
     public string Locator { get; set; } = "";
     public string Status { get; set; } = "resolved";
+    public string Category { get; set; } = "";
+    public string Icon { get; set; } = "";
+    public bool Browsable { get; set; } = true;
 }
 public sealed class WorkspaceLink
 {
@@ -79,6 +82,7 @@ public sealed class WorkspaceIndex
                         {
                             var doc = UiXml.Read(new StringReader(File.ReadAllText(project.Resolve(path)))); doc.Pack = pack.Id; doc.Source = relative;
                             uiDocuments.Add(doc); uiPaths.Add(doc.Id, path); IndexUi(data, path, pack.Id);
+                            if (schema is not null) IndexDomain(data, path, pack.Id, schema);
                         }
                         else if (schema is not null) IndexDomain(data, path, pack.Id, schema);
                     }
@@ -153,6 +157,7 @@ public sealed class WorkspaceIndex
         {
             string kind = e.Name == "Widget" ? "widget" : "view", id = WorkspaceProject.Required(e, "id");
             Definition(kind, e, path, pack, id, id);
+            Nodes[kind + ":" + id].Category = "ui/" + kind;
             if (e.Attribute("extends") is { } parent) Link(kind + ":" + id, kind + ":" + parent.Value, "inherits");
             foreach (var node in e.Descendants().Where(n => n.Attribute("widget") is not null)) Link(kind + ":" + id, "widget:" + (string)node.Attribute("widget")!, "uses");
             foreach (var renderer in e.Elements("Renderer")) Link(kind + ":" + id, "implementation:" + WorkspaceProject.Required(renderer, "key"), "renderer");
@@ -166,7 +171,19 @@ public sealed class WorkspaceIndex
                 string kind = WorkspaceProject.Required(rule, "kind"), id = (string?)element.Attribute(WorkspaceProject.Required(rule, "id")) ?? "";
                 if (id.Length == 0) continue;
                 string title = (string?)element.Attribute((string?)rule.Attribute("title") ?? "id") ?? id;
-                Definition(kind, element, path, pack, id, title);
+                string key = kind + ":" + id, locator = XmlLocator(element);
+                if (Nodes.TryGetValue(key, out var existing) && existing.File == path && existing.Locator == locator) existing.Title = title;
+                else Definition(kind, element, path, pack, id, title);
+                foreach (var alias in Nodes.Values.Where(n => n.Key != key && n.File == path && n.Locator == locator && n.Kind is "widget" or "view")) alias.Browsable = false;
+                if (Nodes.TryGetValue(kind + ":" + id, out var presentation))
+                {
+                    presentation.Category = (string?)rule.Attribute("category") ?? kind;
+                    if (rule.Attribute("categoryAttribute") is { } group && element.Attribute(group.Value) is { Value.Length: > 0 } subcategory)
+                        presentation.Category += "/" + subcategory.Value;
+                    presentation.Icon = (string?)rule.Attribute("icon") ?? (string?)element.Attribute((string?)rule.Attribute("iconAttribute") ?? "icon") ?? "";
+                    if (new[] { ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".svg" }.Contains(Path.GetExtension(presentation.Icon).ToLowerInvariant()))
+                        presentation.Icon = Project.Relative(PackCompiler.SafePath(Path.GetDirectoryName(Project.Resolve(Packs.Single(p => p.Id == pack).Manifest))!, presentation.Icon));
+                }
                 foreach (var reference in rule.Elements("Reference"))
                     foreach (var target in element.XPathSelectElements((string?)reference.Attribute("select") ?? "."))
                     {

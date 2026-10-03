@@ -2,13 +2,14 @@ using Android.App;
 using Android.Views;
 using Android.Widget;
 using PackEngine.Contracts.UI;
+using PackEngine.Editor.Contracts;
 using PackEngine.EditorPacks;
 using PackEngine.Runtime.UI;
 using AView = Android.Views.View;
 
 namespace PackEngine.Editor.Android;
 
-internal sealed class AndroidPackWindow : IEditorLiveWindowInstance
+internal sealed class AndroidPackWindow : IEditorLiveWindowInstance, IEditorObjectWindowInstance
 {
     private readonly MainActivity activity;
     private readonly EditorWindowDefinition definition;
@@ -24,7 +25,7 @@ internal sealed class AndroidPackWindow : IEditorLiveWindowInstance
     {
         this.activity = activity; this.definition = definition;
         backend = new(activity);
-        context = EditorNativeSchema.Context(runtime.Snapshot, (command, value) => activity.Dispatch(command, value), "모바일 에디터팩 작업공간", "");
+        context = EditorNativeSchema.Context(runtime.Snapshot, (command, value) => activity.Dispatch(command, value, activity.MobileWindowContext(definition.Id, mounted?.EventNodeId ?? "")), activity.ProjectTitle, "");
         mounted = new EditorLiveView(runtime.Catalog, definition.View, context, backend);
         page = new(activity) { Orientation = Orientation.Vertical };
         page.AddView(new TextView(activity) { Text = definition.Title, TextSize = 20 });
@@ -34,6 +35,7 @@ internal sealed class AndroidPackWindow : IEditorLiveWindowInstance
     public EditorWindowState Capture() => backend.Capture();
     public void Restore(EditorWindowState state) => backend.Restore(state);
     public EditorViewEditSnapshot CaptureViewEdits() => mounted.CaptureEdits();
+    public void SetObject(EditorObjectContext value) => EditorNativeSchema.SetObject(context, value);
     public void UpdateView(EditorPreparedView next, EditorViewEditSnapshot? edits)
     {
         var focus = page.FindFocus();

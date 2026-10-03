@@ -37,6 +37,8 @@ public sealed class EditorProjectQuery
     public string Kind { get; set; } = "";
     public string Query { get; set; } = "";
     public int MaximumCharacters { get; set; } = 200000;
+    public EditorElementEdit? ElementEdit { get; set; }
+    public EditorElementCreate? ElementCreate { get; set; }
     public object Answer(IEditorProjectData project) => Operation switch
     {
         "list" => project.ListDocuments(Pack),
@@ -44,6 +46,11 @@ public sealed class EditorProjectQuery
         "objects" when project is IEditorProjectCatalog catalog => catalog.ListObjects(Kind, Pack, Query),
         "assets" when project is IEditorProjectCatalog catalog => catalog.ListAssets(Pack),
         "asset" when project is IEditorProjectCatalog catalog => catalog.ReadAsset(Path),
+        "element-types" when project is IEditorProjectElements elements => elements.ListElementTypes(),
+        "element-packs" when project is IEditorProjectElements elements => elements.ListElementPacks(),
+        "element" when project is IEditorProjectElements elements => elements.ReadElement(Path),
+        "element-edit" when project is IEditorProjectElements elements => elements.ProposeElement(ElementEdit ?? throw new InvalidDataException("Missing element edit.")),
+        "element-create" when project is IEditorProjectElements elements => elements.ProposeNewElement(ElementCreate ?? throw new InvalidDataException("Missing element creation.")),
         _ => throw new InvalidDataException("Unknown editor project data operation.")
     };
 }

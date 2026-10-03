@@ -42,6 +42,7 @@ public sealed partial class EditorWindow : Window
         var actions = new WrapPanel { HorizontalAlignment = HorizontalAlignment.Right };
         var primary = new WrapPanel { HorizontalAlignment = HorizontalAlignment.Right };
         AddAiMenus(primary); primary.Children.Add(Action("새 게임팩", CreateGameProject)); primary.Children.Add(Action("게임팩 열기", ChooseProject));
+        AddProjectNavigation(primary);
         var builds = new Expander { Header = "빌드 · 실행", Foreground = TextInk, Content = actions, Margin = new Thickness(6) }; primary.Children.Add(builds); primary.Children.Add(Action("실행 기록", ShowOperationLog)); actions.Children.Add(targets);
         actions.Children.Add(Action("팩 빌드", () => Work(() => runner!.BuildPack(SelectedPack(), Target, operation!.Token)), true));
         actions.Children.Add(Action("프로젝트 빌드", () => Work(() => runner!.BuildProject(Target, operation!.Token)), true));
@@ -52,7 +53,7 @@ public sealed partial class EditorWindow : Window
         var body = new Grid { Margin = new Thickness(12, 0, 12, 8) };
         body.ColumnDefinitions.Add(new() { Width = new GridLength(250) }); body.ColumnDefinitions.Add(new() { Width = new GridLength(5) }); body.ColumnDefinitions.Add(new()); body.ColumnDefinitions.Add(new() { Width = new GridLength(5) }); body.ColumnDefinitions.Add(new() { Width = new GridLength(300) }); Grid.SetRow(body, 1); root.Children.Add(body);
         var browse = new DockPanel { Background = PanelInk };
-        var browseHead = new StackPanel { Margin = new Thickness(12) }; browseHead.Children.Add(Label("프로젝트 탐색", 16)); search.ToolTip = "팩 이름, 정의 ID, 파일 경로 검색"; browseHead.Children.Add(search); DockPanel.SetDock(browseHead, Dock.Top); browse.Children.Add(browseHead); browse.Children.Add(tree); body.Children.Add(browse);
+        var browseHead = new StackPanel { Margin = new Thickness(12) }; browseHead.Children.Add(Label("요소 탐색", 16)); search.ToolTip = "요소 이름, 종류, 소속 팩 검색"; browseHead.Children.Add(search); browseHead.Children.Add(projectNavigation); DockPanel.SetDock(browseHead, Dock.Top); browse.Children.Add(browseHead); browse.Children.Add(tree); body.Children.Add(browse);
         body.Children.Add(Splitter(1)); body.Children.Add(Splitter(3)); Grid.SetColumn(tabs, 2); body.Children.Add(tabs);
         var contextView = new DockPanel { Background = PanelInk }; var contextHead = new StackPanel { Margin = new Thickness(12) };
         contextHead.Children.Add(Label("함께 보는 문맥", 16)); contextHead.Children.Add(providerLabel);
@@ -84,9 +85,16 @@ public sealed partial class EditorWindow : Window
         changeActions.Children.Add(Action("최근 변경 불러오기", () => Guard(() => { pending = session!.Changes().FirstOrDefault(); ShowChange(); }))); changeHead.Children.Add(changeActions);
         DockPanel.SetDock(changeHead, Dock.Top); changes.Children.Add(changeHead); var affected = new ScrollViewer { Content = impact, Height = 130, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }; DockPanel.SetDock(affected, Dock.Bottom); changes.Children.Add(affected); changes.Children.Add(diff); AddTab("변경", changes);
         AddHistoryTab(); AddEditorPacksTab(root, body);
+        ((TabItem)tabs.Items[2]).Visibility = Visibility.Collapsed;
+        ((TabItem)tabs.Items[3]).Visibility = Visibility.Collapsed;
+        ((TabItem)tabs.Items[6]).Visibility = Visibility.Collapsed;
         var output = new DockPanel { Margin = new Thickness(14, 0, 14, 0) }; var outputHeader = OperationHeader(); DockPanel.SetDock(outputHeader, Dock.Top); output.Children.Add(outputHeader); output.Children.Add(log); Grid.SetRow(output, 2); root.Children.Add(output);
         status.Margin = new Thickness(18, 8, 18, 8); status.MaxHeight = 44; Grid.SetRow(status, 3); root.Children.Add(status);
-        tree.SelectedItemChanged += (_, e) => { if (e.NewValue is TreeViewItem { Tag: string key }) Guard(() => { SelectNode(key); if (!busy && !loading) PointObject(key, "tree"); }); };
+        tree.SelectedItemChanged += (_, e) => { if (e.NewValue is TreeViewItem { Tag: string key }) Guard(() =>
+        {
+            if (key.StartsWith("category:", StringComparison.Ordinal)) { OpenElementBrowser(key.Substring(9)); return; }
+            SelectNode(key); if (!busy && !loading) { PointObject(key, "tree"); OpenElementEditor(new() { Key = key }); }
+        }); };
         search.TextChanged += (_, _) => RebuildTree();
         openDocs.SelectionChanged += (_, _) => { if (!loading && openDocs.SelectedItem is string path) ShowDocument(path); };
         editor.TextChanged += (_, _) => { if (!loading && activeDocument is not null) { session!.UpdateWorkingCopy("human", activeDocument.Path, WorkspaceProject.HashText(activeDocument.Text), editor.Text); draftTimer.Stop(); draftTimer.Start(); SetStatus(activeDocument.Dirty ? "미적용 초안 · 변경 미리보기에서 검토한 뒤 적용해." : "문서가 디스크와 같아."); } };
@@ -201,25 +209,28 @@ public sealed partial class EditorWindow : Window
     private void RebuildTree()
     {
         tree.Items.Clear(); if (session is null) return; string filter = search.Text.Trim();
-        foreach (var pack in session.Index.Packs)
+        var groups = new Dictionary<string, TreeViewItem>(StringComparer.Ordinal);
+        foreach (var node in session.Index.Nodes.Values.Where(n => n.Browsable && n.Kind is not ("file" or "pack" or "implementation") && n.Locator.Length > 0)
+            .Where(n => filter.Length == 0 || (n.Key + " " + n.Title + " " + n.Pack + " " + n.Category).IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0).OrderBy(n => n.Title, StringComparer.Ordinal))
         {
-            var root = new TreeViewItem { Header = pack.Id, Tag = "pack:" + pack.Id, Foreground = TextInk, Padding = new Thickness(4) };
-            bool entire = filter.Length == 0 || pack.Id.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0;
-            foreach (var node in session.Index.Nodes.Values.Where(n => n.Pack == pack.Id && n.Kind != "pack").OrderBy(n => n.Kind).ThenBy(n => n.Id, StringComparer.Ordinal))
-                if (entire || (node.Key + " " + node.Title).IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0)
-                    root.Items.Add(new TreeViewItem { Header = node.Kind + " · " + (node.Kind == "file" ? Path.GetFileName(node.File) : node.Title), Tag = node.Key, ToolTip = node.Key, Foreground = TextInk, Padding = new Thickness(2) });
-            if (entire || root.Items.Count > 0) { root.IsExpanded = filter.Length > 0; tree.Items.Add(root); }
+            string category = node.Category.Length > 0 ? node.Category : node.Kind, prefix = ""; TreeViewItem? parent = null;
+            foreach (string part in category.Split('/'))
+            {
+                prefix = prefix.Length == 0 ? part : prefix + "/" + part;
+                if (!groups.TryGetValue(prefix, out var group))
+                {
+                    group = new() { Header = part, Tag = "category:" + prefix, Foreground = TextInk, IsExpanded = filter.Length > 0, Padding = new Thickness(4) };
+                    groups.Add(prefix, group); if (parent is null) tree.Items.Add(group); else parent.Items.Add(group);
+                }
+                parent = group;
+            }
+            parent!.Items.Add(new TreeViewItem { Header = node.Title, Tag = node.Key, ToolTip = node.Kind + " · " + node.Pack, Foreground = TextInk, Padding = new Thickness(2) });
         }
-        var documents = new TreeViewItem { Header = "프로젝트 계약", Foreground = MutedInk };
-        foreach (var file in session.Index.Nodes.Values.Where(n => n.Kind == "file" && n.Pack.Length == 0))
-            documents.Items.Add(new TreeViewItem { Header = file.File, Tag = file.Key, Foreground = TextInk });
-        tree.Items.Add(documents);
     }
     private void SelectNode(string key, bool remember = true)
     {
         if (session is null) return; if (remember) session.Select(key);
         var node = session.Index.Nodes[key]; contract.Text = EditorSession.Serialize(session.Index.Inspect(key)); DrawGraph(key);
-        if (node.File.Length > 0) { session.Open(node.File); RebuildDocuments(node.File); }
         RefreshContext();
         SetStatus(node.Key + (node.Status == "resolved" ? "" : " · " + node.Status));
     }

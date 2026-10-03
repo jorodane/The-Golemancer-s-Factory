@@ -21,12 +21,13 @@ try
 {
     string coreRoot = Path.Combine(temporary, "Core"), coreFolder = Path.Combine(coreRoot, "CoreTools"); Directory.CreateDirectory(coreFolder);
     string original = Path.Combine(repository, "editor/Packs/CoreTools");
-    foreach (string file in new[] { "pack.xml", "ui.xml", "editor.xml", "Commands.cs", "PackEngine.Editor.CoreTools.csproj", "Bin/net10.0/PackEngine.Editor.CoreTools.dll" })
+    foreach (string file in new[] { "pack.xml", "ui.xml", "editor.xml", "Commands.cs", "Elements.cs", "PackEngine.Editor.CoreTools.csproj", "Bin/net10.0/PackEngine.Editor.CoreTools.dll" })
     { string destination = Path.Combine(coreFolder, file); Directory.CreateDirectory(Path.GetDirectoryName(destination)!); File.Copy(Path.Combine(original, file), destination); }
     var core = EditorPackSource.Discover(coreRoot, "core").Single();
     Check(core.Documents().Contains("Commands.cs"), "source discovery indexes declared code without executing it");
     var first = await Load(core); Check(first.Snapshot.Panels.Single().Id == "editor.core.tools", "real external core DLL and native UI contract load");
     LiveViewVerification.Run(repository, first, Check);
+    await ElementVerification.Run(dotnet, worker, core, temporary, Check);
     Check((await first.Execute(new() { Command = "editor.core.focus" }, default)).Effects.Single().Value == "focus", "inherited command dispatch executes pack implementation");
 
     var child = EditorPackTemplates.Create(Path.Combine(temporary, "Project", "EditorPacks"), "project", "test.project", first.Snapshot.Panels.Single());

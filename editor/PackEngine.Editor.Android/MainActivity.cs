@@ -36,6 +36,7 @@ public sealed partial class MainActivity : Activity
     protected override async void OnCreate(Bundle? state)
     {
         base.OnCreate(state); root = FilesDir!.AbsolutePath;
+        mobileNavigation = new(this) { Orientation = Orientation.Vertical };
         var layout = new LinearLayout(this) { Orientation = Orientation.Vertical };
         layout.SetOnApplyWindowInsetsListener(new InsetsPadding());
         Window?.SetSoftInputMode(SoftInput.AdjustResize);
@@ -68,7 +69,8 @@ public sealed partial class MainActivity : Activity
         var button = new Button(this) { Text = title }; button.Click += (_, _) => action(); toolbar.AddView(button);
     }
     private IReadOnlyList<EditorPackSource> Sources() => EditorPackSource.Discover(Path.Combine(root, "Packs"), "core")
-        .Concat(EditorPackSource.Discover(Path.Combine(root, "Plugins"), "plugin")).ToArray();
+        .Concat(EditorPackSource.Discover(Path.Combine(root, "Plugins"), "plugin"))
+        .Concat(MobileProject ? EditorPackSource.Discover(Path.Combine(studioSession.Project.Root, "EditorPacks"), "project") : []).ToArray();
     private async Task Reload()
     {
         var next = await EditorPackRuntime.Prepare(host, ActiveSources(), lifetime.Token, runtime);
@@ -79,20 +81,36 @@ public sealed partial class MainActivity : Activity
         try { lifetime.Token.ThrowIfCancellationRequested(); windows.Refresh(next, definition => new AndroidPackWindow(this, definition, next)); }
         catch { next.Dispose(); throw; }
         var previous = runtime; runtime = next; previous?.Dispose();
+        RefreshMobileNavigation();
     }
-    internal async void Dispatch(string command, UiValue value)
+    internal async void Dispatch(string command, UiValue value, Dictionary<string, string>? context = null)
     {
-        var generation = runtime; var edits = windows.CaptureViewEdits();
+        var generation = runtime; var edits = windows.CaptureViewEdits(); var inputContext = context ?? MobileWindowContext("", "");
         await WorkAsync(async () =>
         {
             if (generation is null || !ReferenceEquals(generation, runtime)) return;
             string owner = generation.Snapshot.Commands.Single(c => c.Id == command).Pack;
-            var result = await generation.Execute(new() { Command = command, Payload = value.Literal ?? "" }, lifetime.Token);
+            inputContext["editorPack"] = owner;
+            using var project = new EditorPackProjectData(studioSession, owner, OnAiUi);
+            var result = await generation.Execute(new() { Command = command, Payload = value.Literal ?? "", Context = inputContext }, lifetime.Token, project);
             var prepared = result.View is null ? null : EditorDynamicViews.Prepare(generation, owner, result.View, "android");
-            if (result.DocumentChanges.Count > 0 || result.PickObject is not null) throw new NotSupportedException("이 에디터팩 명령의 프로젝트 데이터 동작은 Android 호스트에서 지원하지 않아.");
+            if (result.DocumentChanges.Count > 0)
+            {
+                var review = project.CreateReview(result.DocumentChanges); mobileFileReview = true;
+                try
+                {
+                    var selected = await ReviewAiChanges(review, lifetime.Token);
+                    bool handoff = peerClient is not null && MobileProject;
+                    Report(handoff ? StagePeerWorkerChanges(review, selected) : await review.Apply(selected, lifetime.Token));
+                    inputContext["reviewApplied"] = !handoff && selected.Count > 0 ? "true" : "false";
+                    studioSession.Refresh(); RefreshSharedEditor();
+                }
+                catch { review.Cancel(); throw; }
+                finally { mobileFileReview = false; }
+            }
             foreach (var effect in result.Effects)
             {
-                if (effect.Kind == "refresh") await Reload();
+                if (effect.Kind == "refresh") { studioSession.Refresh(); RefreshSharedEditor(); }
                 else if (effect.Kind == "tab" && effect.Value == "documents") Documents();
                 else if (effect.Kind == "layout") toolbar.Visibility = effect.Value == "focus" ? ViewStates.Gone : ViewStates.Visible;
                 else throw new NotSupportedException("이 Android 호스트가 지원하지 않는 효과야: " + effect.Kind);
@@ -105,6 +123,14 @@ public sealed partial class MainActivity : Activity
             }
             if (result.View is { } update)
                 windows.UpdateView(update.WindowId, owner, prepared!, edits.TryGetValue(update.WindowId, out var saved) ? saved : null);
+            if (result.OpenXml.Length > 0) OpenMobileElementXml(result.OpenXml);
+            if (result.OpenObject is { } openObject) OpenMobileElement(openObject);
+            if (result.PickObject is { } picker) PickMobileObject(generation, owner, picker, inputContext);
+            if (result.Continue is { } continuation)
+            {
+                if (!generation.Snapshot.Commands.Any(c => c.Id == continuation.Command && c.Pack == owner && string.Equals(c.Fields["payload"], "Text", StringComparison.OrdinalIgnoreCase))) throw new InvalidDataException("Continue uses an owned Text command.");
+                Dispatch(continuation.Command, UiValue.Text(continuation.Payload), inputContext);
+            }
             if (result.Message.Length > 0) Report(result.Message);
         });
     }
@@ -169,7 +195,7 @@ public sealed partial class MainActivity : Activity
                 var d = definitions[e.Which]; var actions = d.Temporary ? new[] { "열기", "닫기", "임시 등록 해제" } : new[] { "열기", "닫기" };
                 new AlertDialog.Builder(this).SetTitle(d.Title)!.SetItems(actions, (_, choice) =>
                 {
-                    try { if (choice.Which == 0) windows.Open(d.Id); else if (choice.Which == 1) CloseWindow(d.Id); else { windows.UnregisterTemporary(d.Id); SavedStates.Remove(d.Id); } }
+                    try { if (choice.Which == 0) OpenMobileWindow(d.Id); else if (choice.Which == 1) CloseWindow(d.Id); else { windows.UnregisterTemporary(d.Id); SavedStates.Remove(d.Id); } }
                     catch (Exception ex) { Report(ex.Message); }
                 })!.Show();
             })!.Show();

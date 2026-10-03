@@ -171,7 +171,7 @@ public sealed partial class MainActivity
             return inner.Call(args, token);
         }
     }
-    private IReadOnlyList<EditorPackSource> ActiveSources() => EditorPackSelection.WithDependencies(Sources(), aiConnections.SelectedPack);
+    private IReadOnlyList<EditorPackSource> ActiveSources() => EditorPackSelection.WithDependencies(Sources(), MobileProject ? mobileEditorPackSelection : aiConnections.SelectedPack);
     private void ChooseInstalledPack()
     {
         if (aiWorking || aiConnecting || operation.CurrentCount == 0) { Report("진행 중인 작업이 끝난 뒤 팩을 선택해줘."); return; }

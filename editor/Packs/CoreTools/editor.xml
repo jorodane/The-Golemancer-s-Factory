@@ -6,4 +6,18 @@
   <Command id="editor.core.focus" extends="editor.core.notice"><Argument name="kind" value="layout" /><Argument name="value" value="focus" /></Command>
   <Command id="editor.core.restore" extends="editor.core.focus"><Argument name="value" value="normal" /></Command>
   <Panel id="editor.core.tools" title="작업 도구" view="editor.core.tools" slot="workspace.tools" order="0" />
+  <Window id="editor.core.elements" title="요소 탐색기" view="editor.core.elements" />
+  <Window id="editor.core.inspector" title="요소 편집기" view="editor.core.inspector" />
+  <Command id="editor.core.elements.open" handler="editor.core.elements.open" payload="Text">
+    <Argument name="mode" value="browse" /><Argument name="window" value="editor.core.elements" /><Argument name="baseView" value="editor.core.elements" />
+    <Argument name="actionCommand" value="editor.core.elements.action" /><Argument name="inputCommand" value="editor.core.elements.input" />
+  </Command>
+  <Command id="editor.core.inspector.open" extends="editor.core.elements.open">
+    <Argument name="mode" value="inspect" /><Argument name="window" value="editor.core.inspector" /><Argument name="baseView" value="editor.core.inspector" />
+  </Command>
+  <Command id="editor.core.elements.action" handler="editor.core.elements.action" payload="None" />
+  <Command id="editor.core.elements.input" handler="editor.core.elements.input" payload="Text" />
+  <Navigation id="editor.core.browse" title="요소 탐색기" surface="menu" command="editor.core.elements.open" />
+  <Navigation id="editor.core.browse.hotbar" extends="editor.core.browse" surface="hotbar" />
+  <ObjectEditor id="editor.core.element.form" kind="*" title="기본 계층 편집기" window="editor.core.inspector" command="editor.core.inspector.open" priority="-100" />
 </EditorExtensions>

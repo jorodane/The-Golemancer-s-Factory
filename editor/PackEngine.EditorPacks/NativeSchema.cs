@@ -1,4 +1,5 @@
 using PackEngine.Contracts.UI;
+using PackEngine.Editor.Contracts;
 using PackEngine.Runtime.UI;
 
 namespace PackEngine.EditorPacks;
@@ -18,7 +19,6 @@ public static class EditorNativeSchema
     public static bool Supports(string renderer, UiWidgetDefinition widget, string platform = "windows")
     {
         if (renderer is not ("editor.stack" or "editor.text" or "editor.button" or "editor.input" or "editor.wrap" or "editor.slot")) return false;
-        if (platform != "windows" && renderer is "editor.wrap" or "editor.slot") return false;
         var properties = new Dictionary<string, UiValueKind> { ["enabled"] = UiValueKind.Boolean, ["visible"] = UiValueKind.Boolean,
             ["tooltip"] = UiValueKind.Text, ["fontSize"] = UiValueKind.Number, ["margin"] = UiValueKind.Number };
         if (renderer is "editor.stack" or "editor.wrap") properties.Add("orientation", UiValueKind.Text);
@@ -35,8 +35,14 @@ public static class EditorNativeSchema
     {
         var context = new UiContext(); context.AddValue("editor.project", new UiSignal(UiValue.Text(projectName)));
         context.AddValue("editor.selection", new UiSignal(UiValue.Text(selection)));
+        foreach (string field in new[] { "key", "kind", "title", "pack" }) context.AddValue("editor.object." + field, new UiSignal(UiValue.Text("")));
         foreach (var command in snapshot.Commands) { string id = command.Id; context.AddCommand(id, (UiValueKind)Enum.Parse(typeof(UiValueKind), command.Fields["payload"], true), value => execute(id, value)); }
         return context;
+    }
+    public static void SetObject(UiContext context, EditorObjectContext value)
+    {
+        foreach (var item in new[] { ("key", value.Key), ("kind", value.Kind), ("title", value.Title), ("pack", value.Pack) })
+            ((UiSignal)context.Value("editor.object." + item.Item1)).Set(UiValue.Text(item.Item2));
     }
     public static void ValidateLayout(UiLayout layout)
     {

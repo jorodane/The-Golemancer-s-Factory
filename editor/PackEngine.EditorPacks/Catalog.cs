@@ -28,6 +28,8 @@ public sealed class EditorPackSnapshot
     public List<ExtensionDefinition> Panels { get; set; } = [];
     public List<ExtensionDefinition> Commands { get; set; } = [];
     public List<ExtensionDefinition> Windows { get; set; } = [];
+    public List<ExtensionDefinition> Navigation { get; set; } = [];
+    public List<ExtensionDefinition> ObjectEditors { get; set; } = [];
     public List<EditorHandlerDescription> Handlers { get; set; } = [];
     public ExtensionDefinition? Shell { get; set; }
     public Dictionary<string, InheritanceTrace> Origins { get; set; } = new(StringComparer.Ordinal);
@@ -37,7 +39,7 @@ public sealed class EditorPackSnapshot
 public sealed class EditorPackCatalog : IEditorPackRegistry
 {
     private readonly Dictionary<string, IEditorPackCommand> handlers = new(StringComparer.Ordinal);
-    private readonly List<InheritedDefinition<ExtensionDefinition>> panels = [], commands = [], shells = [], windows = [];
+    private readonly List<InheritedDefinition<ExtensionDefinition>> panels = [], commands = [], shells = [], windows = [], navigation = [], objectEditors = [];
     public EditorPackSnapshot Snapshot { get; } = new();
     public void Command(string key, IEditorPackCommand command)
     {
@@ -50,19 +52,19 @@ public sealed class EditorPackCatalog : IEditorPackRegistry
         if (xml.Name != "EditorExtensions" || (string?)xml.Attribute("version") != "1") throw new InvalidDataException("Expected EditorExtensions version 1.");
         foreach (var e in xml.Elements())
         {
-            bool panel = e.Name == "Panel", shell = e.Name == "Shell", window = e.Name == "Window";
-            if (!panel && !shell && !window && e.Name != "Command") throw new InvalidDataException("Unknown editor extension: " + e.Name);
+            bool panel = e.Name == "Panel", shell = e.Name == "Shell", window = e.Name == "Window", entry = e.Name == "Navigation", editor = e.Name == "ObjectEditor";
+            if (!panel && !shell && !window && !entry && !editor && e.Name != "Command") throw new InvalidDataException("Unknown editor extension: " + e.Name);
             var d = new ExtensionDefinition { Id = Required(e, "id"), Parent = (string?)e.Attribute("extends") ?? "", Pack = pack, Document = path };
             EditorPackNames.Check(d.Id); if (e.Attribute("extends") is not null) EditorPackNames.Check(d.Parent);
-            var allowed = shell ? new[] { "sidebarWidth", "contextWidth", "logHeight" } : window ? new[] { "title", "view", "autoOpen" } : panel ? new[] { "title", "view", "slot", "order" } : new[] { "handler", "payload" };
+            var allowed = entry ? new[] { "title", "surface", "group", "order", "command", "window", "category", "payload" } : editor ? new[] { "kind", "category", "title", "window", "command", "priority" } : shell ? new[] { "sidebarWidth", "contextWidth", "logHeight" } : window ? new[] { "title", "view", "autoOpen" } : panel ? new[] { "title", "view", "slot", "order" } : new[] { "handler", "payload" };
             foreach (var a in e.Attributes().Where(a => a.Name != "id" && a.Name != "extends"))
             { if (!allowed.Contains(a.Name.LocalName)) throw new InvalidDataException("Unknown extension attribute: " + a.Name); d.Fields.Add(a.Name.LocalName, a.Value); }
             foreach (var arg in e.Elements())
             {
-                if (panel || shell || window || arg.Name != "Argument") throw new InvalidDataException("Unknown extension child: " + arg.Name);
+                if (panel || shell || window || entry || editor || arg.Name != "Argument") throw new InvalidDataException("Unknown extension child: " + arg.Name);
                 string name = Required(arg, "name"); EditorPackNames.Check(name); d.Fields.Add("argument." + name, (string?)arg.Attribute("value") ?? throw new InvalidDataException("Argument requires value."));
             }
-            (shell ? shells : window ? windows : panel ? panels : commands).Add(new(d.Id, d.Parent, new(pack, path, d.Id), d));
+            (entry ? navigation : editor ? objectEditors : shell ? shells : window ? windows : panel ? panels : commands).Add(new(d.Id, d.Parent, new(pack, path, d.Id), d));
         }
     }
     private static string Required(XElement e, string key) => (string?)e.Attribute(key) is { Length: > 0 } value ? value : throw new InvalidDataException(e.Name + " requires " + key);
@@ -83,6 +85,10 @@ public sealed class EditorPackCatalog : IEditorPackRegistry
         var resolvedCommands = DefinitionInheritance.Resolve(commands, Merge, Copy, out var commandOrigins);
         var resolvedShells = DefinitionInheritance.Resolve(shells, Merge, Copy, out var shellOrigins);
         var resolvedWindows = DefinitionInheritance.Resolve(windows, Merge, Copy, out var windowOrigins);
+        var resolvedNavigation = DefinitionInheritance.Resolve(navigation, Merge, Copy, out var navigationOrigins);
+        var resolvedEditors = DefinitionInheritance.Resolve(objectEditors, Merge, Copy, out var editorOrigins);
+        foreach (var p in navigationOrigins) Snapshot.Origins.Add("navigation:" + p.Key, p.Value);
+        foreach (var p in editorOrigins) Snapshot.Origins.Add("object-editor:" + p.Key, p.Value);
         foreach (var p in shellOrigins) Snapshot.Origins.Add("shell:" + p.Key, p.Value);
         var shellLeaves = resolvedShells.Values.Where(p => !resolvedShells.Values.Any(q => p.Id != q.Id && shellOrigins[q.Id].Lineage.Contains(p.Id))).ToArray();
         if (shellLeaves.Length > 1) throw new InvalidDataException("Competing editor shell layouts.");
@@ -122,6 +128,26 @@ public sealed class EditorPackCatalog : IEditorPackRegistry
             if (!w.Fields.ContainsKey("title") || !w.Fields.ContainsKey("view")) throw new InvalidDataException("Window needs title and view: " + w.Id);
             if (w.Fields.TryGetValue("autoOpen", out var autoOpen) && !bool.TryParse(autoOpen, out _)) throw new InvalidDataException("Window autoOpen must be true or false.");
             catalog.DescribeView(w.Fields["view"]); Snapshot.Windows.Add(w);
+        }
+        foreach (var n in resolvedNavigation.Values.Where(n => !resolvedNavigation.Values.Any(child => child.Id != n.Id && navigationOrigins[child.Id].Lineage.Contains(n.Id) && child.Fields.GetValueOrDefault("surface") == n.Fields.GetValueOrDefault("surface"))))
+        {
+            if (!n.Fields.ContainsKey("title") || !n.Fields.TryGetValue("surface", out var surface) || surface is not ("menu" or "hotbar" or "navigation")) throw new InvalidDataException("Navigation needs a title and menu/hotbar/navigation surface.");
+            if (n.Fields.TryGetValue("order", out var order) && !int.TryParse(order, out _)) throw new InvalidDataException("Navigation order must be an integer.");
+            if (new[] { "command", "window", "category" }.Count(n.Fields.ContainsKey) != 1) throw new InvalidDataException("Navigation declares one command, window or category target.");
+            if (n.Fields.TryGetValue("window", out var windowId) && !Snapshot.Windows.Any(w => w.Id == windowId)) throw new InvalidDataException("Navigation references an unregistered window.");
+            if (n.Fields.TryGetValue("command", out var commandId))
+            {
+                var command = Snapshot.Commands.SingleOrDefault(c => c.Id == commandId) ?? throw new InvalidDataException("Navigation references an undeclared command.");
+                if (!string.Equals(command.Fields["payload"], "Text", StringComparison.OrdinalIgnoreCase) && (!string.Equals(command.Fields["payload"], "None", StringComparison.OrdinalIgnoreCase) || n.Fields.TryGetValue("payload", out var payload) && payload.Length > 0)) throw new InvalidDataException("Navigation commands use None or Text payloads.");
+            }
+            Snapshot.Navigation.Add(n);
+        }
+        foreach (var e in resolvedEditors.Values.Where(e => !resolvedEditors.Values.Any(child => child.Id != e.Id && editorOrigins[child.Id].Lineage.Contains(e.Id) && child.Fields.GetValueOrDefault("kind") == e.Fields.GetValueOrDefault("kind") && child.Fields.GetValueOrDefault("category") == e.Fields.GetValueOrDefault("category"))))
+        {
+            if (!e.Fields.ContainsKey("kind") || !e.Fields.TryGetValue("window", out var windowId) || !Snapshot.Windows.Any(w => w.Id == windowId)) throw new InvalidDataException("ObjectEditor needs a kind and registered window.");
+            if (e.Fields.TryGetValue("priority", out var priority) && !int.TryParse(priority, out _)) throw new InvalidDataException("ObjectEditor priority must be an integer.");
+            if (e.Fields.TryGetValue("command", out var commandId) && !Snapshot.Commands.Any(c => c.Id == commandId && string.Equals(c.Fields["payload"], "Text", StringComparison.OrdinalIgnoreCase))) throw new InvalidDataException("ObjectEditor initialization uses a declared Text command.");
+            Snapshot.ObjectEditors.Add(e);
         }
     }
     public ExtensionDefinition PrepareInvocation(EditorInvocation invocation)

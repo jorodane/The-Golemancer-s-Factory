@@ -82,7 +82,11 @@ public sealed partial class MainActivity
         welcome.AddView(new TextView(this) { Text = (MobileProject ? studioSession.Project.Name : aiConnections.SelectedPack) + " · 프로젝트 채팅", TextSize = 20 });
         if (MobileProject)
         {
-            welcome.AddView(AiAction("프로젝트 문서", MobileProjectDocuments));
+            welcome.AddView(AiAction("요소 탐색기", () => OpenMobileBrowser("")));
+            welcome.AddView(AiAction("프로젝트 메뉴", MobileNavigationMenu));
+            welcome.AddView(AiAction("작업자가 만든 창", WindowMenu));
+            welcome.AddView(AiAction("프로젝트 에디터팩 적용", ChooseProjectEditorPack));
+            welcome.AddView(mobileNavigation);
             welcome.AddView(AiAction("인계받은 문서 초안", MobileProjectHandoffs));
             welcome.AddView(AiAction("함께 편집 · 연결", ShowMobilePeerConnection));
             peerStatus = new TextView(this); welcome.AddView(peerStatus); UpdatePeerStatus();

@@ -1,23 +1,48 @@
 <IndexRules version="1">
   <!-- These game semantics belong to the project, never the editor or engine. DLL registrations stay runtime-unknown until verified by the game. -->
-  <Symbol kind="action" select="/GameContent/Actions/Action" id="id" title="name">
+  <Symbol kind="action" select="/GameContent/Actions/Action" id="id" title="name" category="액션" icon="⚙">
     <Reference attribute="handler" kind="implementation" relation="implemented-by" />
     <Reference attribute="failure" kind="failure" />
   </Symbol>
-  <Symbol kind="failure" select="/GameContent/Failures/Failure" id="id">
+  <Symbol kind="failure" select="/GameContent/Failures/Failure" id="id" category="실패 정책" icon="↩">
     <Reference attribute="handler" kind="implementation" relation="implemented-by" />
   </Symbol>
-  <Symbol kind="object" select="/GameContent/Objects/Object" id="id" title="name">
+  <Symbol kind="object" select="/GameContent/Objects/Object" id="id" title="name" category="객체" icon="◇">
     <Reference attribute="actions" kind="action" separator="," />
     <Reference select="Data[@key='loot']" attribute="value" kind="item" relation="yields" />
   </Symbol>
-  <Symbol kind="item" select="/GameContent/Items/Item" id="id" title="name">
+  <Symbol kind="item" select="/GameContent/Items/Item" id="id" title="name" category="아이템" categoryAttribute="category" icon="▣">
     <Reference attribute="category" kind="category" relation="category" />
   </Symbol>
-  <Symbol kind="category" select="/GameContent/ItemCategories/Category" id="id" title="name" />
-  <Symbol kind="recipe" select="/GameContent/Recipes/Recipe" id="id" title="name" />
-  <Symbol kind="quest" select="/GameContent/Quests/Quest" id="id" title="name" />
-  <Symbol kind="input" select="/GameContent/InputActions/InputAction" id="id" title="name" />
+  <Symbol kind="category" select="/GameContent/ItemCategories/Category" id="id" title="name" category="아이템 분류" icon="▤" />
+  <Symbol kind="recipe" select="/GameContent/Recipes/Recipe" id="id" title="name" category="레시피" icon="⚒" />
+  <Symbol kind="quest" select="/GameContent/Quests/Quest" id="id" title="name" category="퀘스트" icon="☆" />
+  <Symbol kind="input" select="/GameContent/InputActions/InputAction" id="id" title="name" category="입력" icon="⌨" />
+  <Symbol kind="button" select="/Ui/Widget[contains(translate(@id,'BUTTON','button'),'button') or contains(translate(@extends,'BUTTON','button'),'button')]" id="id" category="버튼" icon="▰" />
+  <Authoring kind="button" parent="/Ui" element="Widget" document="ui.xml">
+    <Field name="extends" reference="widget" default="golemancer.button" />
+    <Field name="description" />
+    <Template><Widget extends="golemancer.button" /></Template>
+  </Authoring>
+  <Authoring kind="action" document="actions.xml">
+    <Field name="name" required="true" />
+    <Field name="handler" default="golem.select" />
+    <Field name="range" type="number" default="-1" />
+    <Field name="recordable" type="boolean" default="false" />
+    <Field name="description" />
+  </Authoring>
+  <Authoring kind="recipe" document="recipes.xml">
+    <Field name="name" required="true" />
+    <Field name="facility" reference="object" default="workbench" />
+    <Field name="output" reference="item" default="wood" />
+    <Field name="amount" type="number" default="1" />
+    <Field name="work" type="number" default="1" />
+    <Field name="defaultEfficiency" type="number" default="1" />
+    <Field name="id" element="Item" reference="item" required="true" />
+    <Field name="amount" element="Item" type="number" default="1" />
+    <Child parent="Recipe" name="Inputs" /><Child parent="Inputs" name="Item" />
+    <Template><Recipe><Inputs /></Recipe></Template>
+  </Authoring>
   <Asset select="/GameContent/Sprites/Sprite/Animation" attribute="image" />
   <Asset select="/GameContent/Tilesets/Tileset/Tile" attribute="image" />
 </IndexRules>

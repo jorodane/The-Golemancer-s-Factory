@@ -28,6 +28,7 @@ public sealed partial class MainActivity
     {
         RequireMobileIdle(); StopMobilePeers(); documentDialog?.Dismiss(); mobileDirectoryExpanded = false;
         foreach (var window in LiveWindows.ToArray()) CloseWindow(window.Id);
+        mobileObjectWindows.Clear(); mobileEditorPackSelection = "";
         foreach (var worker in mobileWorkers) worker.Assistant?.Dispose(); mobileWorkers.Clear();
         studioSession.Persist(); studioSession.Collaboration.Changed -= RefreshMobilePresence; studioRunner.Dispose();
         studioSession = new(manifest); studioRunner = new(studioSession, "dotnet");
@@ -42,6 +43,7 @@ public sealed partial class MainActivity
         {
             ReplaceMobileSession(manifest, true); aiConnections.SelectedPack = "project:" + studioSession.Project.Id;
             aiConnections.SetupCompleted = true; SaveAiConnections(); Report(studioSession.Project.Name + " 문서를 열었어.");
+            Work(Reload);
         }
         catch (Exception e) { Report(e.Message); }
     }
@@ -60,7 +62,8 @@ public sealed partial class MainActivity
             RequireMobileIdle(); string folder = Path.Combine(root, "ImportedProjects", Guid.NewGuid().ToString("N"));
             using var input = ContentResolver!.OpenInputStream(uri) ?? throw new IOException("ZIP을 열지 못했어.");
             string manifest = ProjectSourcePackage.Extract(input, folder);
-            OpenMobileProject(manifest); await Task.CompletedTask;
+            ReplaceMobileSession(manifest, true); aiConnections.SelectedPack = "project:" + studioSession.Project.Id;
+            aiConnections.SetupCompleted = true; SaveAiConnections(); await Reload(); Report(studioSession.Project.Name + " 요소를 열 수 있어.");
         });
     }
     private void MobileProjectDocuments()

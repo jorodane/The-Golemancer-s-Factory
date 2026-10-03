@@ -14,13 +14,14 @@ public sealed partial class EditorWindow
     private readonly ComboBox packWindowChoice = new() { MinWidth = 220, DisplayMemberPath = "Title", Margin = new Thickness(4) };
     private IEditorWindowInstance CreatePackWindow(IEditorPackRuntime runtime, EditorWindowDefinition definition)
     {
+        EditorLiveView? live = null;
         var context = EditorNativeSchema.Context(runtime.Snapshot, (id, value) =>
         {
-            if (packGeneration is { } current) ExecuteEditorCommand(current, id, value);
+            if (packGeneration is { } current) ExecuteEditorCommand(current, id, value, WindowCommandContext(definition.Id, live?.EventNodeId ?? ""));
         }, session?.Project.Name ?? "프로젝트를 열어줘", session?.State.Selection ?? "");
         string? transient = null;
         var backend = new EditorPackBackend(node => Guard(() => { if (transient is null) PointEditorNode(definition.View, node); else PointEditorPack(definition.Pack, "pack.xml", "runtime-view:" + transient); }), () => session?.Pointing.Mode is "single" or "range");
-        var view = new EditorLiveView(runtime.Catalog, definition.View, context, backend);
+        var view = live = new EditorLiveView(runtime.Catalog, definition.View, context, backend);
         try { return new PackWindowInstance(this, definition, backend, view, context, id => transient = id); }
         catch { view.Dispose(); throw; }
     }
@@ -30,6 +31,7 @@ public sealed partial class EditorWindow
         packWindowChoice.ItemsSource = packWindows.Definitions.OrderBy(d => d.Title, StringComparer.Ordinal).ToArray();
         packWindowChoice.SelectedItem = packWindows.Definitions.FirstOrDefault(d => d.Id == selected);
         if (packWindowChoice.SelectedIndex < 0 && packWindowChoice.Items.Count > 0) packWindowChoice.SelectedIndex = 0;
+        RefreshProjectNavigation();
     }
     private void OpenPackWindow(bool temporary) => Guard(() =>
     {
@@ -53,7 +55,7 @@ public sealed partial class EditorWindow
         RefreshPackWindowChoices(); return new { action.Id, action.Operation, Completed = true };
     }
 
-    private sealed class PackWindowInstance : IEditorLiveWindowInstance
+    private sealed class PackWindowInstance : IEditorLiveWindowInstance, IEditorObjectWindowInstance
     {
         private readonly EditorWindow owner;
         private readonly EditorWindowDefinition definition;
@@ -69,7 +71,7 @@ public sealed partial class EditorWindow
         public PackWindowInstance(EditorWindow owner, EditorWindowDefinition definition, EditorPackBackend backend, EditorLiveView view, UiContext context, Action<string> updated)
         {
             this.owner = owner; this.definition = definition; this.backend = backend; this.view = view; this.context = context; this.updated = updated;
-            scroll = new() { Content = ((EditorPackBackend.Element)view.Root).Control, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
+            scroll = new() { Content = ((EditorPackBackend.Element)view.Root).Control, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto };
             scroll.Loaded += ScrollLoaded;
             if (definition.Placement == "panel")
             {
@@ -93,6 +95,7 @@ public sealed partial class EditorWindow
         private void WindowClosed(object? sender, EventArgs e)
         { nativeClosed = true; owner.packWindows.Close(definition.Id); owner.RefreshPackWindowChoices(); }
         public EditorViewEditSnapshot CaptureViewEdits() => view.CaptureEdits();
+        public void SetObject(EditorObjectContext value) => EditorNativeSchema.SetObject(context, value);
         public void UpdateView(EditorPreparedView next, EditorViewEditSnapshot? edits)
         {
             double vertical = scroll.VerticalOffset, horizontal = scroll.HorizontalOffset;

@@ -180,13 +180,13 @@ public sealed partial class EditorWindow
         }
         finally { candidate?.Dispose(); }
     }
-    private sealed record PackCommandRequest(IEditorPackRuntime Generation, string Command, UiValue Value, Dictionary<string, EditorViewEditSnapshot> Edits);
+    private sealed record PackCommandRequest(IEditorPackRuntime Generation, string Command, UiValue Value, Dictionary<string, EditorViewEditSnapshot> Edits, Dictionary<string, string> Context);
     private readonly Queue<PackCommandRequest> pendingPackCommands = new();
     private bool executingPackCommand;
-    private async void ExecuteEditorCommand(IEditorPackRuntime generation, string command, UiValue value)
+    private async void ExecuteEditorCommand(IEditorPackRuntime generation, string command, UiValue value, Dictionary<string, string>? context = null)
     {
         if (!ReferenceEquals(generation, packGeneration) || busy && !executingPackCommand) return;
-        pendingPackCommands.Enqueue(new(generation, command, value, packWindows.CaptureViewEdits()));
+        pendingPackCommands.Enqueue(new(generation, command, value, packWindows.CaptureViewEdits(), context ?? WindowCommandContext("", "")));
         if (executingPackCommand) return;
         executingPackCommand = true;
         try
@@ -208,7 +208,8 @@ public sealed partial class EditorWindow
         {
             string ownerPack = generation.Snapshot.Commands.Single(c => c.Id == command).Pack;
             using var project = session is null ? null : new EditorPackProjectData(session, ownerPack, action => Dispatcher.Invoke(action));
-            var result = await generation.Execute(new() { Command = command, Payload = value.Literal, Context = new() { ["project"] = session?.Project.Name ?? "", ["selection"] = session?.State.Selection ?? "" } }, operation.Token, project);
+            request.Context["editorPack"] = ownerPack;
+            var result = await generation.Execute(new() { Command = command, Payload = value.Literal, Context = request.Context }, operation.Token, project);
             if (!ReferenceEquals(generation, packGeneration)) return;
             var preparedView = result.View is null ? null : EditorDynamicViews.Prepare(generation, ownerPack, result.View);
             var pickerObjects = result.PickObject is null ? null : project?.ListObjects(result.PickObject.Kind, result.PickObject.Pack) ?? throw new InvalidOperationException("먼저 프로젝트를 열어줘.");
@@ -223,6 +224,7 @@ public sealed partial class EditorWindow
                     {
                         var selected = await ReviewChanges(review, operation.Token, "에디터팩 변경안 검토 · " + ownerPack);
                         reviewOutcome = await review.Apply(selected, operation.Token);
+                        request.Context["reviewApplied"] = selected.Count > 0 ? "true" : "false";
                         RefreshProject(); RebuildDocuments(); RefreshContext();
                     }
                     else { review.Cancel(); reviewOutcome = "파일 내용이 같아서 저장할 변경이 없어."; }
@@ -233,7 +235,9 @@ public sealed partial class EditorWindow
                 switch (effect.Kind)
                 {
                     case "refresh": RefreshProject(); break;
-                    case "tab": tabs.SelectedIndex = effect.Value switch { "chat" => 0, "relations" => 1, "documents" => 2, "contract" => 3, "changes" => 4, "packs" => 6, _ => throw new InvalidDataException("Unknown editor tab.") }; break;
+                    case "tab":
+                        int tabIndex = effect.Value switch { "chat" => 0, "relations" => 1, "documents" => 2, "contract" => 3, "changes" => 4, "packs" => 6, _ => throw new InvalidDataException("Unknown editor tab.") };
+                        ((TabItem)tabs.Items[tabIndex]).Visibility = Visibility.Visible; tabs.SelectedIndex = tabIndex; break;
                     case "layout":
                         if (effect.Value is not ("focus" or "normal")) throw new InvalidDataException("Unknown editor layout.");
                         ApplyPackShell(effect.Value == "focus"); break;
@@ -242,6 +246,13 @@ public sealed partial class EditorWindow
             foreach (var action in result.Windows) ManagePackWindow(ownerPack, action);
             if (result.View is { } update)
                 packWindows.UpdateView(update.WindowId, ownerPack, preparedView!, request.Edits.TryGetValue(update.WindowId, out var edits) ? edits : null);
+            if (result.OpenXml.Length > 0) OpenElementXml(result.OpenXml);
+            if (result.OpenObject is { } openObject) OpenElementEditor(openObject);
+            if (result.Continue is { } continuation)
+            {
+                if (!generation.Snapshot.Commands.Any(c => c.Id == continuation.Command && c.Pack == ownerPack && string.Equals(c.Fields["payload"], "Text", StringComparison.OrdinalIgnoreCase))) throw new InvalidDataException("Continue uses a Text command owned by this pack.");
+                nextCommand = continuation.Command; nextPayload = continuation.Payload;
+            }
             if (result.PickObject is { } picker)
             {
                 if (project is null) throw new InvalidOperationException("먼저 프로젝트를 열어줘.");
@@ -253,7 +264,7 @@ public sealed partial class EditorWindow
         }
         catch (Exception e) { SetStatus(e.Message); AppendLog("에디터팩: " + e.Message); }
         finally { operation.Dispose(); operation = null; SetBusy(false); }
-        if (nextCommand.Length > 0) ExecuteEditorCommand(generation, nextCommand, UiValue.Text(nextPayload));
+        if (nextCommand.Length > 0) ExecuteEditorCommand(generation, nextCommand, UiValue.Text(nextPayload), request.Context);
     }
     private EditorProjectObject? ChooseCatalogObject(IReadOnlyList<EditorProjectObject> objects, EditorObjectPicker picker)
     {

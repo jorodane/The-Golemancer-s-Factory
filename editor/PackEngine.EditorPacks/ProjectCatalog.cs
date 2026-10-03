@@ -14,7 +14,7 @@ public sealed partial class EditorPackProjectData
             && (n.Key + " " + n.Title).IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0).Take(5001).ToArray();
         if (objects.Length > 5000) throw new InvalidDataException("Filter the object list to at most 5000 entries.");
         Record("objects", kind, objects.Length + " declared objects; saved metadata only, not runtime state.");
-        return (IReadOnlyList<EditorProjectObject>)objects.Select(n => new EditorProjectObject { Key = n.Key, Id = n.Id, Kind = n.Kind, Title = n.Title, Pack = n.Pack, Path = n.File, Status = n.Status }).ToArray();
+        return (IReadOnlyList<EditorProjectObject>)objects.Select(ObjectInfo).ToArray();
     });
     private EditorProjectAsset[] Assets(string pack)
     {

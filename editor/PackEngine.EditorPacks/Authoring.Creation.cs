@@ -54,6 +54,7 @@ public sealed partial class EditorPackAgent
         return new { Key = "editor:" + source.Id, source.Id, source.Scope, source.Parent, Contract = "editor-1", Files = Documents(source).Select(p => "editor:" + source.Id + "/" + p).ToArray(),
             Active = live?.Hashes.ContainsKey(source.Id) == true, LiveSnapshot = live?.Snapshot.Fingerprint,
             Panels = live?.Snapshot.Panels.Where(p => p.Pack == source.Id).ToArray(), Windows = live?.Snapshot.Windows.Where(w => w.Pack == source.Id).ToArray(), Commands = live?.Snapshot.Commands.Where(c => c.Pack == source.Id).ToArray(),
+            Navigation = live?.Snapshot.Navigation.Where(n => n.Pack == source.Id).ToArray(), ObjectEditors = live?.Snapshot.ObjectEditors.Where(e => e.Pack == source.Id).ToArray(),
             Api = "packengine_editor(operation=api) provides host contracts, supported widgets, extension registrations and examples. Use read for declared source files." };
     }
     private object CreateFiles(JsonElement args, bool newPack)

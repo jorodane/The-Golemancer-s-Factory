@@ -29,6 +29,14 @@ public sealed class EditorCommandResult
     public List<EditorDocumentChange> DocumentChanges { get; set; } = [];
     public EditorViewUpdate? View { get; set; }
     public EditorObjectPicker? PickObject { get; set; }
+    public EditorOpenObject? OpenObject { get; set; }
+    public string OpenXml { get; set; } = "";
+    public EditorCommandContinuation? Continue { get; set; }
+}
+public sealed class EditorCommandContinuation
+{
+    public string Command { get; set; } = "";
+    public string Payload { get; set; } = "";
 }
 // Complete transient definition, owned by one registered window of the command's pack.
 // Hosts reconcile stable (node ID, widget, renderer) identities in the existing window.
