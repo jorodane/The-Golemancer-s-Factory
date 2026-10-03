@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using PackEngine.Contracts;
 using PackEngine.Contracts.UI;
 using PackEngine.Editor.Contracts;
 using PackEngine.EditorPacks;
@@ -37,6 +38,7 @@ public sealed partial class EditorWindow
             var groups = new Dictionary<string, StackPanel>(StringComparer.Ordinal);
             foreach (var entry in EditorNavigation.Entries(generation.Snapshot, surface.Item1))
             {
+                if (surface.Item1 == "hotbar" && entry.Pack == "editor.core.tools") continue;
                 Panel target = surface.Item2;
                 if (surface.Item1 == "menu" && entry.Fields.TryGetValue("group", out var group) && group.Length > 0)
                 {

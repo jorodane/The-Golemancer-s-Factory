@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using PackEngine.Contracts;
 using PackEngine.Contracts.UI;
 
 namespace PackEngine.Editor;
@@ -27,7 +28,10 @@ public sealed partial class EditorWindow
         tools.Children.Add(Action("에디터팩", () => OpenNativeTool(6)));
         tools.Children.Add(Action("AI 관리", OpenAiDirectory));
         tools.Children.Add(Action("대화 기록", () => OpenNativeTool(5)));
+        tools.Children.Add(new Expander { Header = "프로젝트 메뉴", Content = projectMenu, Foreground = TextInk, Margin = new Thickness(4) });
+        tools.Children.Add(new Expander { Header = "팩 창", Content = windowMenu, Foreground = TextInk, Margin = new Thickness(4) });
         header.Children.Add(new Expander { Header = "도구", Content = tools, Foreground = TextInk, Margin = new Thickness(8) });
+        header.Children.Add(projectHotbar);
         DockPanel.SetDock(header, Dock.Top); workspaceView.Children.Add(header);
         if (participantNotifications.Parent is Panel old) old.Children.Remove(participantNotifications);
         DockPanel.SetDock(participantNotifications, Dock.Top); workspaceView.Children.Add(participantNotifications);

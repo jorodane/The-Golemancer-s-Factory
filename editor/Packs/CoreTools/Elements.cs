@@ -150,9 +150,10 @@ internal sealed class ElementTools
         string id = Get(invocation.Context, "projectId") + "/" + key;
         if (drafts.TryGetValue(id, out var draft) && draft.Changes.Count > 0)
         {
-            if (Get(invocation.Context, "reviewApplied") == "true" && Matches(draft, elements.ReadElement(key))) drafts[id] = draft = new(elements.ReadElement(key));
+            if (Get(invocation.Context, "reviewApplied") == "true") { var saved = elements.ReadElement(key); if (Matches(draft, saved)) drafts[id] = draft = new(saved); }
             return draft;
         }
+        if (draft is not null && expected.Length > 0 && expected == draft.Document.DocumentHash) return draft;
         var document = elements.ReadElement(key);
         if (expected.Length > 0 && expected != document.DocumentHash) throw new InvalidOperationException("항목이 다른 곳에서 바뀌었어. 새로고침한 뒤 다시 수정해줘.");
         if (draft is null || document.DocumentHash != draft.Document.DocumentHash) drafts[id] = draft = new(document);

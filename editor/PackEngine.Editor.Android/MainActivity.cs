@@ -88,10 +88,10 @@ public sealed partial class MainActivity : Activity
     }
     internal async void Dispatch(string command, UiValue value, Dictionary<string, string>? context = null)
     {
-        var generation = runtime; var edits = windows.CaptureViewEdits(); var inputContext = context ?? MobileWindowContext("", "");
+        var generation = runtime; var editorSession = studioSession; var edits = windows.CaptureViewEdits(); var inputContext = context ?? MobileWindowContext("", "");
         await WorkAsync(async () =>
         {
-            if (generation is null || !ReferenceEquals(generation, runtime)) return;
+            if (generation is null || !ReferenceEquals(generation, runtime) || !ReferenceEquals(editorSession, studioSession)) return;
             string owner = generation.Snapshot.Commands.Single(c => c.Id == command).Pack;
             inputContext["editorPack"] = owner;
             using var project = new EditorPackProjectData(studioSession, owner, OnAiUi);
