@@ -74,17 +74,12 @@ public sealed partial class MainActivity
                 try
                 {
                     RequireMobileIdle(); info.Description = description.Text ?? ""; var project = NewProject.CreateAt(parent, name.Text ?? "", info, "android", "net10.0"); if (icon is not null) ProjectCatalog.SetIcon(project, icon, ".png"); OpenMobileProject(project.Manifest);
-                    if (mobileProjectManifest != project.Manifest) throw new InvalidOperationException("프로젝트를 열지 못했어."); dialog.Dismiss(); FocusMobileFirstPrompt();
+                    if (mobileProjectManifest != project.Manifest) throw new InvalidOperationException("프로젝트를 열지 못했어."); dialog.Dismiss();
                 }
                 catch (Exception e) { error.Text = e.Message; error.Visibility = ViewStates.Visible; }
             };
             dialog.DismissEvent += (_, _) => { active = false; if (File.Exists(iconPath)) File.Delete(iconPath); }; dialog.SetContentView(panel); RefreshPath(); dialog.Show();
             dialog.Window?.SetLayout(Math.Min(Dp(540), (Resources?.DisplayMetrics?.WidthPixels ?? Dp(360)) - Dp(24)), Math.Min(Dp(720), (Resources?.DisplayMetrics?.HeightPixels ?? Dp(760)) - Dp(70))); dialog.Window?.SetSoftInputMode(SoftInput.AdjustResize); name.RequestFocus();
         });
-    }
-    private void FocusMobileFirstPrompt()
-    {
-        var main = mobileWorkers.FirstOrDefault(w => w.Participant.HelperId == mobileProjectStudio.MainHelperId);
-        if (main is not null) { SelectMobileWorker(main); for (int i = 0; i < main.Composer.ChildCount; i++) if (main.Composer.GetChildAt(i) is EditText input) { input.RequestFocus(); break; } }
     }
 }

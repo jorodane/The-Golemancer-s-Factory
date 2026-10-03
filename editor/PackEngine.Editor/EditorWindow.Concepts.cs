@@ -22,7 +22,7 @@ public sealed partial class EditorWindow
         var back = BareButton(Label("← 프로젝트", 11, MutedInk), CloseConceptPage); back.HorizontalAlignment = HorizontalAlignment.Left; back.Margin = new Thickness(18, 8, 0, 0); DockPanel.SetDock(back, Dock.Top); page.Children.Add(back); page.Children.Add(content);
         conceptPageHost.Content = page; conceptPageHost.Visibility = Visibility.Visible; return page;
     }
-    private void CloseConceptWindows() { CloseConceptPage(); foreach (var window in conceptWindows.ToArray()) window.Close(); projectPreview?.Close(); conceptSpace = null; }
+    private void CloseConceptWindows() { CloseConceptPage(); foreach (var window in conceptWindows.ToArray()) window.Close(); emptyProjectRunning = false; emptyProjectSurface.Visibility = Visibility.Collapsed; conceptSpace = null; }
     private Window ConceptWindow(string title, UIElement body, int width = 1040, int height = 680)
     {
         var window = new Window { Owner = this, Title = title, Width = width, Height = height, MinWidth = 600, MinHeight = 400, Background = BackgroundInk, Foreground = TextInk, Content = body };
@@ -30,8 +30,18 @@ public sealed partial class EditorWindow
     }
     private bool SaveSpace()
     {
-        try { Space.Save(session!); RefreshProject(); return true; }
+        try { if (peerClient is not null) throw new InvalidOperationException("공동 프로젝트의 확정은 호스트에서 진행해줘."); Space.Save(session!); RefreshProject(); return true; }
         catch (Exception e) { MessageBox.Show(this, e.Message, "Confectory", MessageBoxButton.OK, MessageBoxImage.Information); return false; }
+    }
+    private bool MoveSpace(IEnumerable<string> ids, string target)
+    {
+        try { if (peerClient is not null) throw new InvalidOperationException("공동 프로젝트의 확정은 호스트에서 진행해줘."); Space.MoveAndSave(session!, ids, target); RefreshProject(); return true; }
+        catch (Exception e) { MessageBox.Show(this, e.Message, "Confectory", MessageBoxButton.OK, MessageBoxImage.Information); return false; }
+    }
+    private ContextMenu ConceptElementMenu(IConceptElement element, Action changed)
+    {
+        var menu = new ContextMenu(); var rename = new MenuItem { Header = "이름 변경", IsEnabled = Space.Pack(element.Pack).Editable }; rename.Click += (_, _) => AskName("이름 변경", element.Name, name => { string previous = element.Name; element.Name = name; if (SaveSpace()) changed(); else element.Name = previous; }); menu.Items.Add(rename);
+        var move = new MenuItem { Header = "팩으로 이동", IsEnabled = Space.Pack(element.Pack).Editable }; foreach (var pack in Space.Packs.Where(p => p.Editable)) { var target = new MenuItem { Header = pack.Name }; target.Click += (_, _) => { if (MoveSpace(new[] { element.Id }, pack.Id)) changed(); }; move.Items.Add(target); } menu.Items.Add(move); return menu;
     }
     private void OpenConceptMenu(Button anchor)
     {
@@ -47,7 +57,7 @@ public sealed partial class EditorWindow
         void Entry(string text, Action click) { var item = new MenuItem { Header = text }; item.Click += (_, _) => HomeAction(click); menu.Items.Add(item); }
         Entry("개념", () => OpenConceptMap()); Entry("기능", OpenConceptFunctions); Entry("팩", OpenConceptPacks);
         menu.Items.Add(new Separator()); var tools = new MenuItem { Header = "도구" };
-        foreach (var pair in new (string, Action)[] { ("참여자", OpenParticipantList), ("작업자 추가", AddWorker), ("프로젝트 채팅", () => OpenPublicChat(false)), ("이거", () => ArmYogi(false)), ("같이 보기", () => ArmYogi(true)), ("실행 설정", OpenConceptExecution), ("실행 기록", OpenExecutionLog), ("기존 요소", () => OpenNativeTool(0)), ("에디터팩", () => OpenNativeTool(6)), ("신문고", OpenIncidents), ("프로젝트 목록", ShowProjectHome) })
+        foreach (var pair in new (string, Action)[] { ("참여자", OpenParticipantList), ("작업자 추가", AddWorker), ("프로젝트 채팅", () => OpenPublicChat(false)), ("이거", () => ArmYogi(false)), ("같이 보기", () => ArmYogi(true)), ("실행 설정", OpenConceptExecution), ("실행 기록", OpenExecutionLog), ("개념 다시 불러오기", CloseConceptWindows), ("기존 요소", () => OpenNativeTool(0)), ("에디터팩", () => OpenNativeTool(6)), ("신문고", OpenIncidents), ("프로젝트 목록", ShowProjectHome) })
         { var item = new MenuItem { Header = pair.Item1 }; item.Click += (_, _) => HomeAction(pair.Item2); tools.Items.Add(item); }
         var packMenu = new MenuItem { Header = "프로젝트의 추가 화면", ItemsSource = null }; foreach (var navigation in packGeneration is null ? [] : PackEngine.EditorPacks.EditorNavigation.Entries(packGeneration.Snapshot, "menu")) { var item = new MenuItem { Header = navigation.Fields["title"] }; item.Click += (_, _) => ExecuteEditorCommand(packGeneration!, navigation.Fields["command"], PackEngine.Contracts.UI.UiValue.Text(""), WindowCommandContext("", "")); packMenu.Items.Add(item); } if (packMenu.Items.Count > 0) tools.Items.Add(packMenu);
         menu.Items.Add(tools); menu.IsOpen = true;
@@ -85,7 +95,7 @@ public sealed partial class EditorWindow
                     var left = new StackPanel(); var right = new StackPanel(); choices.Children.Add(left); choices.Children.Add(right);
                     string group = Guid.NewGuid().ToString("N");
                     foreach (bool multiple in new[] { false, true }) { var option = new RadioButton { Content = multiple ? "다중" : "단일", GroupName = group + "multiple", IsChecked = multiple == field.Multiple, Margin = new Thickness(8) }; option.Checked += (_, _) => field.Multiple = multiple; left.Children.Add(option); }
-                    foreach (string kind in new[] { "normal", "composite", "function" }) { var option = new RadioButton { Content = kind == "normal" ? "일반" : kind == "composite" ? "복합" : "기능", GroupName = group + "kind", IsChecked = kind == field.Kind, Margin = new Thickness(8) }; option.Checked += (_, _) => { field.Kind = kind; if (kind == "normal") { field.Fields.Clear(); if (field.Type == "void") field.Type = "text"; } }; right.Children.Add(option); }
+                    foreach (string kind in new[] { "normal", "composite", "function" }) { var option = new RadioButton { Content = kind == "normal" ? "일반" : kind == "composite" ? "복합" : "기능", GroupName = group + "kind", IsChecked = kind == field.Kind, Margin = new Thickness(8) }; option.Checked += (_, _) => { field.Kind = kind; if (kind != "function" && field.Type == "void") field.Type = "text"; if (kind == "normal") field.Fields.Clear(); }; right.Children.Add(option); }
                     popup.Closed += (_, _) => Render();
                     popup.Child = new Border { Child = choices, Background = PanelInk, Padding = new Thickness(8), BorderBrush = MutedInk, BorderThickness = new Thickness(1) }; popup.IsOpen = true;
                 }); mode.IsEnabled = !inherited; DockPanel.SetDock(mode, Dock.Right); row.Children.Add(mode);
@@ -111,8 +121,8 @@ public sealed partial class EditorWindow
             {
                 var target = nodes.FirstOrDefault(n => n.Id == id);
                 if (target is null) { target = new() { X = canvas.Width - 180, Y = from.Y + hidden++ * 62, Name = Space.Concept(id).Name }; var label = Label(ConceptMark(id) + " " + target.Name, 12, AccentInk); Canvas.SetLeft(label, target.X); Canvas.SetTop(label, target.Y); canvas.Children.Add(label); references.Add(label); }
-                var line = new Line { X1 = from.X + 70, Y1 = from.Y + 25, X2 = target.X + 50, Y2 = target.Y + 25, Stroke = AccentInk, StrokeThickness = 1.5, StrokeDashArray = new DoubleCollection { 4, 3 }, IsHitTestVisible = false }; canvas.Children.Add(line); references.Add(line);
-                double dx = (reverse ? from.X : target.X) + 50, dy = (reverse ? from.Y : target.Y) + 25; var arrow = Label("›", 22, AccentInk); Canvas.SetLeft(arrow, dx); Canvas.SetTop(arrow, dy - 15); canvas.Children.Add(arrow); references.Add(arrow);
+                var line = new Line { X1 = (reverse ? target.X : from.X) + 70, Y1 = (reverse ? target.Y : from.Y) + 25, X2 = (reverse ? from.X : target.X) + 50, Y2 = (reverse ? from.Y : target.Y) + 25, Stroke = AccentInk, StrokeThickness = 1.5, StrokeDashArray = new DoubleCollection { 4, 3 }, IsHitTestVisible = false }; canvas.Children.Add(line); references.Add(line);
+                var arrow = Label(line.X2 >= line.X1 ? "›" : "‹", 22, AccentInk); Canvas.SetLeft(arrow, line.X2); Canvas.SetTop(arrow, line.Y2 - 15); canvas.Children.Add(arrow); references.Add(arrow);
             }
         }
         void Add(string parent, bool category)
@@ -123,7 +133,7 @@ public sealed partial class EditorWindow
         {
             schema?.SetCurrentValue(Popup.IsOpenProperty, false); ClearRelations(); hover = ""; canvas.Children.Clear(); top.Children.Clear();
             top.Children.Add(Action("전체", () => { layer = ""; path.Clear(); Draw(); }));
-            foreach (string id in path.ToArray()) { top.Children.Add(Label("›", 14, MutedInk)); top.Children.Add(Action(Space.Concept(id).Name, () => { layer = id; path = path.Take(path.IndexOf(id) + 1).ToList(); Draw(); })); }
+            if (layer.Length > 0) foreach (string categoryId in Space.Breadcrumb(layer).Where(id => Space.Categories.Any(c => c.Id == id))) top.Children.Add(Label("› " + Space.Categories.Single(c => c.Id == categoryId).Name, 12, MutedInk)); foreach (string id in path.ToArray()) { top.Children.Add(Label("›", 14, MutedInk)); top.Children.Add(Action(Space.Concept(id).Name, () => { layer = id; path = path.Take(path.IndexOf(id) + 1).ToList(); Draw(); })); }
             if (layer.Length == 0) top.Children.Add(Action("+ 카테고리", () => Add("", true))); top.Children.Add(Action(layer.Length == 0 ? "+ 개념" : "+ Variation", () => Add("", false)));
             var nodes = Space.Map(layer); canvas.Width = Math.Max(940, nodes.Select(n => n.X + 380).DefaultIfEmpty(940).Max()); canvas.Height = Math.Max(540, nodes.Select(n => n.Y + 120).DefaultIfEmpty(540).Max());
             foreach (var node in nodes.Where(n => n.Parent.Length > 0)) { var parent = nodes.Single(n => n.Id == node.Parent); canvas.Children.Add(new Polyline { Points = new PointCollection { new(parent.X + 145, parent.Y + 25), new(node.X - 28, parent.Y + 25), new(node.X - 28, node.Y + 25), new(node.X - 4, node.Y + 25) }, Stroke = MutedInk, StrokeThickness = 1, IsHitTestVisible = false }); var arrow = Label("›", 18, MutedInk); Canvas.SetLeft(arrow, node.X - 13); Canvas.SetTop(arrow, node.Y + 8); canvas.Children.Add(arrow); }
@@ -134,13 +144,13 @@ public sealed partial class EditorWindow
                 {
                     schema?.SetCurrentValue(Popup.IsOpenProperty, false);
                     if (node.Category) { var menu = new ContextMenu(); foreach (var action in new[] { ("+ 카테고리", true), ("+ 개념", false) }) { var item = new MenuItem { Header = action.Item1 }; item.Click += (_, _) => Add(node.Id, action.Item2); menu.Items.Add(item); } menu.IsOpen = true; return; }
-                    var concept = Space.Concept(node.Id); var fields = concept.Fields.Select(f => f.Copy()).ToList(); var panel = new StackPanel(); var name = Input(); name.Text = concept.Name; panel.Children.Add(name);
+                    var concept = Space.Concept(node.Id); bool editable = Space.Pack(concept.Pack).Editable; var fields = concept.Fields.Select(f => f.Copy()).ToList(); var panel = new StackPanel(); var name = Input(); name.Text = concept.Name; name.IsReadOnly = !editable; panel.Children.Add(name); var symbol = Input(); symbol.IsReadOnly = !editable; symbol.Text = concept.Symbol.Length == 0 ? concept.Id : concept.Symbol; symbol.ToolTip = "Namespace 안의 논리 이름"; panel.Children.Add(symbol);
                     if (concept.Base.Length > 0) { panel.Children.Add(Label("상속 · " + Space.Concept(concept.Base).Name, 11, MutedInk)); panel.Children.Add(FieldEditor(Space.Schema(concept.Base), inherited: true)); }
-                    panel.Children.Add(FieldEditor(fields)); var actions = new WrapPanel(); actions.Children.Add(Action("스키마 저장", () => { var old = concept.Fields; string oldName = concept.Name; concept.Fields = fields; concept.Name = name.Text; if (SaveSpace()) { schema!.IsOpen = false; Draw(); } else { concept.Fields = old; concept.Name = oldName; } })); actions.Children.Add(Action("객체 편집", () => OpenConceptObjects(concept.Id))); actions.Children.Add(PackButton(concept)); panel.Children.Add(actions);
+                    panel.Children.Add(FieldEditor(fields, inherited: !editable)); var actions = new WrapPanel(); actions.Children.Add(Action("스키마 저장", () => { var old = concept.Fields; string oldName = concept.Name, oldSymbol = concept.Symbol; concept.Fields = fields; concept.Name = name.Text; concept.Symbol = symbol.Text; if (SaveSpace()) { schema!.IsOpen = false; Draw(); } else { concept.Fields = old; concept.Name = oldName; concept.Symbol = oldSymbol; } })); actions.Children.Add(Action("객체 편집", () => OpenConceptObjects(concept.Id))); actions.Children.Add(PackButton(concept)); ((Button)actions.Children[0]).IsEnabled = editable; panel.Children.Add(actions);
                     schema = new Popup { PlacementTarget = buttonFor(node.Id), Placement = PlacementMode.Top, StaysOpen = true, AllowsTransparency = true, Child = new Border { Background = PanelInk, BorderBrush = AccentInk, BorderThickness = new Thickness(1), Padding = new Thickness(12), Child = new ScrollViewer { Content = panel, Width = 500, MaxHeight = 400, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } } };
                     if (schema.PlacementTarget.PointToScreen(new Point()).Y - SystemParameters.WorkArea.Top < 440) schema.Placement = PlacementMode.Bottom; schema.IsOpen = true;
                 });
-                button.Tag = node.Id; button.MouseDoubleClick += (_, e) => { if (!node.Category && node.Variations) { e.Handled = true; layer = node.Id; path.Add(layer); Draw(); } };
+                button.Tag = node.Id; var element = Space.Elements().Single(e => e.Id == node.Id); button.ToolTip = Space.Address(element); button.ContextMenu = ConceptElementMenu(element, Draw); button.MouseDoubleClick += (_, e) => { if (!node.Category && node.Variations) { e.Handled = true; layer = node.Id; path.Add(layer); Draw(); } };
                 if (!node.Category) { button.MouseEnter += (_, _) => { hover = node.Id; Relations(Keyboard.Modifiers.HasFlag(ModifierKeys.Shift)); }; button.MouseLeave += (_, _) => { hover = ""; ClearRelations(); }; }
                 Canvas.SetLeft(button, node.X); Canvas.SetTop(button, node.Y); canvas.Children.Add(button);
             }
@@ -154,9 +164,9 @@ public sealed partial class EditorWindow
     {
         Button? button = null; button = BareButton(Label(Space.Pack(element.Pack).Name, 11, MutedInk), () =>
         {
-            var menu = new ContextMenu { PlacementTarget = button }; foreach (var pack in Space.Packs.Where(p => p.Editable)) { var item = new MenuItem { Header = (element.Pack == pack.Id ? "✓ " : "") + pack.Name }; item.Click += (_, _) => HomeAction(() => { Space.Move(new[] { element.Id }, pack.Id); if (SaveSpace()) { button!.Content = Label(pack.Name, 11, MutedInk); changed?.Invoke(); } }); menu.Items.Add(item); }
-            menu.Items.Add(new Separator()); var add = new MenuItem { Header = "새 팩…" }; add.Click += (_, _) => NewConceptPack(changed); menu.Items.Add(add); menu.IsOpen = true;
-        }); button.ToolTip = "Source Pack · " + Space.Address(element); return button;
+            var menu = new ContextMenu { PlacementTarget = button }; foreach (var pack in Space.Packs.Where(p => p.Editable)) { var item = new MenuItem { Header = (element.Pack == pack.Id ? "✓ " : "") + pack.Name }; item.Click += (_, _) => HomeAction(() => { if (MoveSpace(new[] { element.Id }, pack.Id)) { button!.Content = Label(pack.Name, 11, MutedInk); changed?.Invoke(); } }); menu.Items.Add(item); }
+            menu.Items.Add(new Separator()); var add = new MenuItem { Header = "새 팩…" }; add.Click += (_, _) => NewConceptPack(null, pack => { if (MoveSpace(new[] { element.Id }, pack.Id)) { button!.Content = Label(pack.Name, 11, MutedInk); changed?.Invoke(); } }); menu.Items.Add(add); menu.IsOpen = true;
+        }); button.ToolTip = "Source Pack · " + Space.Address(element); button.IsEnabled = Space.Pack(element.Pack).Editable; return button;
     }
     private FrameworkElement ValueEditor(ConceptField field, ConceptValue value, bool item = false)
     {
@@ -168,8 +178,8 @@ public sealed partial class EditorWindow
         if (field.Kind == "function" || !ConceptSpace.PrimitiveTypes.Contains(field.Type))
         {
             Button? pick = null;
-            string Caption() => field.Kind == "function" ? Space.Implementations.FirstOrDefault(i => i.Id == value.Text)?.Name ?? "구현 선택" : Space.Objects.FirstOrDefault(o => o.Id == value.Text)?.Name ?? Space.TypeName(field.Type);
-            pick = BareButton(Label(Caption(), 12), () => { var menu = new ContextMenu { PlacementTarget = pick }; var choices = field.Kind == "function" ? Space.Matching(field).Select(i => (i.Id, i.Name + " · " + Space.Address(i))).ToArray() : Space.Choices(field.Type).Select(o => (o.Id, ConceptMark(o.Concept) + " " + o.Name + " · " + Space.Pack(o.Pack).Name)).ToArray(); foreach (var choice in new[] { ("", "비워 두기") }.Concat(choices)) { var option = new MenuItem { Header = choice.Item2 }; option.Click += (_, _) => { value.Text = choice.Item1; if (SaveSpace()) pick!.Content = Label(Caption(), 12); }; menu.Items.Add(option); } menu.IsOpen = true; }); return pick;
+            string Caption() => field.Kind == "function" ? Space.Implementations.FirstOrDefault(i => i.Id == value.Text)?.Name ?? "구현 선택" : Space.Objects.FirstOrDefault(o => o.Id == value.Text) is { } selected ? Space.DisplayName(selected) : Space.TypeName(field.Type);
+            pick = BareButton(Label(Caption(), 12), () => { var menu = new ContextMenu { PlacementTarget = pick }; var choices = field.Kind == "function" ? Space.Matching(field).Select(i => (i.Id, i.Name + " · " + Space.Address(i))).ToArray() : Space.Choices(field.Type).Select(o => (o.Id, ConceptMark(o.Concept) + " " + Space.DisplayName(o) + " · " + Space.Pack(o.Pack).Name)).ToArray(); foreach (var choice in new[] { ("", "비워 두기") }.Concat(choices)) { var option = new MenuItem { Header = choice.Item2 }; option.Click += (_, _) => { value.Text = choice.Item1; if (SaveSpace()) pick!.Content = Label(Caption(), 12); }; menu.Items.Add(option); } menu.IsOpen = true; }); return pick;
         }
         if (field.Type == "boolean") { var check = new CheckBox { IsChecked = value.Text == "true", Margin = new Thickness(8) }; check.Checked += (_, _) => { value.Text = "true"; SaveSpace(); }; check.Unchecked += (_, _) => { value.Text = "false"; SaveSpace(); }; return check; }
         var input = Input(); if (field.Type == "number") input.InputScope = new InputScope { Names = { new InputScopeName(InputScopeNameValue.Number) } }; input.Text = value.Text; input.MinWidth = 80; input.TextChanged += (_, _) => value.Text = input.Text; input.LostKeyboardFocus += (_, _) => SaveSpace(); return input;
@@ -182,32 +192,33 @@ public sealed partial class EditorWindow
         {
             controls.Children.Clear(); rows.Children.Clear(); controls.Children.Add(Label(concept.Name, 22));
             var views = new ComboBox { MinWidth = 145, Margin = new Thickness(8) };
-            views.Items.Add(new ComboBoxItem { Content = "기본 테이블", Tag = "" }); foreach (var v in Space.Editors(id)) views.Items.Add(new ComboBoxItem { Content = v.Name, Tag = v.Id }); views.SelectedIndex = Math.Max(0, views.Items.OfType<ComboBoxItem>().ToList().FindIndex(i => (string)i.Tag == viewId)); views.SelectionChanged += (_, _) => { viewId = (string)((ComboBoxItem)views.SelectedItem).Tag; Render(); }; controls.Children.Add(views);
+            views.Items.Add(new ComboBoxItem { Content = "기본 테이블", Tag = "" }); foreach (var v in Space.Editors(id)) views.Items.Add(new ComboBoxItem { Content = v.Name, Tag = v.Id, ContextMenu = ConceptElementMenu(v, Render) }); views.SelectedIndex = Math.Max(0, views.Items.OfType<ComboBoxItem>().ToList().FindIndex(i => (string)i.Tag == viewId)); views.SelectionChanged += (_, _) => { viewId = (string)((ComboBoxItem)views.SelectedItem).Tag; Render(); }; controls.Children.Add(views);
             var packs = new ComboBox { MinWidth = 115, Margin = new Thickness(8) }; packs.Items.Add(new ComboBoxItem { Content = "모든 팩", Tag = "" }); foreach (var pack in Space.Packs) packs.Items.Add(new ComboBoxItem { Content = pack.Name, Tag = pack.Id }); packs.SelectedIndex = Math.Max(0, packs.Items.OfType<ComboBoxItem>().ToList().FindIndex(p => (string)p.Tag == filter)); packs.SelectionChanged += (_, _) => { filter = (string)((ComboBoxItem)packs.SelectedItem).Tag; Render(); }; controls.Children.Add(packs);
-            var group = new CheckBox { Content = "팩별 정렬", IsChecked = grouped, Margin = new Thickness(8) }; group.Click += (_, _) => { grouped = group.IsChecked == true; Render(); }; controls.Children.Add(group); controls.Children.Add(Action("보기 추가", () => NewConceptView(id, Render))); controls.Children.Add(Action("+", () => { var value = Space.CreateObject(id); if (filter.Length > 0) value.Pack = filter; if (SaveSpace()) Render(); }));
+            var group = new CheckBox { Content = "팩별 정렬", IsChecked = grouped, Margin = new Thickness(8) }; group.Click += (_, _) => { grouped = group.IsChecked == true; Render(); }; controls.Children.Add(group); controls.Children.Add(Action("보기 추가", () => NewConceptView(id, Render))); var create = Action("+", () => { var value = Space.CreateObject(id); if (filter.Length > 0) value.Pack = filter; if (SaveSpace()) Render(); else Space.Objects.Remove(value); }); create.IsEnabled = Space.Pack(filter.Length == 0 ? Space.MainPack : filter).Editable; controls.Children.Add(create);
             var view = Space.Views.FirstOrDefault(v => v.Id == viewId); var schema = Space.Schema(id);
             if (view?.Layout == "pack") { controls.Children.Add(Action("전용 에디터 열기", () => { var value = Space.Rows(id, filter).FirstOrDefault(); if (value is not null) OpenElementEditor(new() { Key = "concept-object:" + value.Id, EditorId = view.Editor }); })); return; }
             if (view is not null && view.Fields.Any(f => Space.ResolveField(id, f.Path) is null)) { rows.Children.Add(Label("보기의 연결을 확인해줘. 기본 테이블로 편집할 수 있어.", 12, MutedInk)); view = null; }
             var columns = view is null || view.Fields.Count == 0 ? schema.Select(f => new ConceptViewField { Path = f.Id, Label = f.Name }).ToArray() : view.Fields.ToArray();
             bool table = view is null || view.Layout == "table";
-            var widths = new[] { 110d, 180d }.Concat(columns.Select(_ => 190d)).ToArray();
+            bool named = Space.NameField(id) is { } nameField && columns.Any(c => c.Path == nameField.Id), sourcePack = view is null || view.ShowSourcePack; int offset = (sourcePack ? 1 : 0) + (named ? 0 : 1);
+            var widths = (sourcePack ? new[] { 110d } : Array.Empty<double>()).Concat(named ? [] : new[] { 180d }).Concat(columns.Select(_ => 190d)).ToArray();
             Grid GridRow() { var grid = new Grid(); foreach (double width in widths) grid.ColumnDefinitions.Add(new() { Width = new GridLength(width) }); return grid; }
-            if (table) { var header = GridRow(); var labels = new[] { "소스 팩", "이름" }.Concat(columns.Select(c => c.Label.Length == 0 ? Space.ResolveField(id, c.Path)!.Name : c.Label)).ToArray(); for (int i = 0; i < labels.Length; i++) { var label = Label(labels[i], 12, AccentInk); Grid.SetColumn(label, i); header.Children.Add(label); } rows.Children.Add(header); }
+            if (table) { var header = GridRow(); var labels = (sourcePack ? new[] { "소스 팩" } : Array.Empty<string>()).Concat(named ? [] : new[] { "이름" }).Concat(columns.Select(c => c.Label.Length == 0 ? Space.ResolveField(id, c.Path)!.Name : c.Label)).ToArray(); for (int i = 0; i < labels.Length; i++) { var label = Label(labels[i], 12, AccentInk); Grid.SetColumn(label, i); header.Children.Add(label); } rows.Children.Add(header); }
             string previous = "";
             foreach (var value in Space.Rows(id, filter, grouped))
             {
                 if (grouped && previous != value.Pack) { rows.Children.Add(Label((value.Pack == Space.MainPack ? "MAIN · " : "") + Space.Pack(value.Pack).Name, 16, AccentInk)); rows.Children.Add(new Border { Height = 1, Background = MutedInk, Margin = new Thickness(3, 6, 3, 10) }); previous = value.Pack; }
-                var name = Input(); name.Text = value.Name; name.TextChanged += (_, _) => value.Name = name.Text; name.LostKeyboardFocus += (_, _) => SaveSpace();
+                var name = Input(); name.Text = Space.DisplayName(value); name.IsReadOnly = !Space.Pack(value.Pack).Editable || Space.HasNameField(value.Concept); name.TextChanged += (_, _) => { if (!Space.HasNameField(value.Concept)) value.Name = name.Text; }; name.LostKeyboardFocus += (_, _) => { if (!name.IsReadOnly) SaveSpace(); };
                 if (table)
                 {
-                    var row = GridRow(); row.Children.Add(PackButton(value, Render)); Grid.SetColumn(name, 1); row.Children.Add(name);
-                    for (int i = 0; i < columns.Length; i++) { var cell = BoundValue(value, columns[i]); Grid.SetColumn(cell, i + 2); row.Children.Add(cell); } rows.Children.Add(new Border { BorderBrush = MutedInk, BorderThickness = new Thickness(0, 0, 0, 1), Child = row, Padding = new Thickness(0, 8, 0, 8) });
+                    var row = GridRow(); if (sourcePack) row.Children.Add(PackButton(value, Render)); if (!named) { Grid.SetColumn(name, sourcePack ? 1 : 0); row.Children.Add(name); }
+                    for (int i = 0; i < columns.Length; i++) { var cell = BoundValue(value, columns[i]); Grid.SetColumn(cell, i + offset); row.Children.Add(cell); } row.IsEnabled = Space.Pack(value.Pack).Editable; rows.Children.Add(new Border { BorderBrush = MutedInk, BorderThickness = new Thickness(0, 0, 0, 1), Child = row, Padding = new Thickness(0, 8, 0, 8) });
                 }
                 else
                 {
-                    var card = new StackPanel(); card.Children.Add(name); if (view!.ShowSourcePack) card.Children.Add(PackButton(value, Render)); var flow = new StackPanel { Orientation = Orientation.Horizontal }; var input = new StackPanel(); var output = new StackPanel(); var extra = new StackPanel();
+                    var card = new StackPanel(); card.Children.Add(Space.HasNameField(id) ? Label(Space.DisplayName(value), 18) : name); if (view!.ShowSourcePack) card.Children.Add(PackButton(value, Render)); var flow = new StackPanel { Orientation = Orientation.Horizontal }; var input = new StackPanel(); var output = new StackPanel(); var extra = new StackPanel();
                     foreach (var column in columns) { var section = view.Layout == "slots" ? column.Side == "input" ? input : column.Side == "output" ? output : extra : extra; section.Children.Add(Label(column.Label.Length == 0 ? Space.ResolveField(id, column.Path)!.Name : column.Label, 11, MutedInk)); section.Children.Add(view.Layout == "slots" && column.Side is "input" or "output" ? SlotValue(value, column) : BoundValue(value, column)); }
-                    if (view.Layout == "slots") { flow.Children.Add(input); flow.Children.Add(Label("⟶", 30, AccentInk)); flow.Children.Add(output); card.Children.Add(flow); } card.Children.Add(extra); rows.Children.Add(new Border { Background = PanelInk, CornerRadius = new CornerRadius(12), Padding = new Thickness(16), Margin = new Thickness(0, 8, 0, 8), Child = card });
+                    if (view.Layout == "slots") { flow.Children.Add(input); flow.Children.Add(Label("⟶", 30, AccentInk)); flow.Children.Add(output); card.Children.Add(flow); } card.Children.Add(extra); card.IsEnabled = Space.Pack(value.Pack).Editable; rows.Children.Add(new Border { Background = PanelInk, CornerRadius = new CornerRadius(12), Padding = new Thickness(16), Margin = new Thickness(0, 8, 0, 8), Child = card });
                 }
             }
         }
@@ -219,20 +230,31 @@ public sealed partial class EditorWindow
     }
     private FrameworkElement SlotValue(ConceptObject value, ConceptViewField binding)
     {
-        var panel = new WrapPanel(); var resolved = Space.Bind(value, binding.Path);
-        foreach (var container in resolved.Values)
+        var panel = new WrapPanel();
+        void Render()
         {
-            var values = resolved.Field.Multiple ? container.Items : new List<ConceptValue> { container };
-            foreach (var item in values)
+            panel.Children.Clear(); var resolved = Space.Bind(value, binding.Path);
+            foreach (var container in resolved.Values)
             {
-                string reference = binding.Icon.Length == 0 ? item.Text : item.Members.TryGetValue(binding.Icon, out var icon) ? icon.Text : "";
-                var target = Space.Objects.FirstOrDefault(o => o.Id == reference); string path = target?.Icon is { Length: > 0 } source ? session!.Project.Resolve(source) : "";
-                var content = new StackPanel(); content.Children.Add(ProjectIcon(path, 52)); content.Children.Add(Label(target?.Name ?? "아이템 선택", 10)); if (binding.Quantity.Length > 0 && item.Members.TryGetValue(binding.Quantity, out var quantity)) content.Children.Add(Label(quantity.Text, 12));
-                var button = BareButton(content, () => { var popup = new Popup { Placement = PlacementMode.MousePoint, StaysOpen = false, AllowsTransparency = true, Child = new Border { Background = PanelInk, Padding = new Thickness(16), Child = ValueEditor(resolved.Field, item, true) } }; popup.IsOpen = true; }); button.Margin = new Thickness(6); panel.Children.Add(button);
+                var values = resolved.Field.Multiple ? container.Items : new List<ConceptValue> { container };
+                void Edit(ConceptValue item)
+                {
+                    var body = new StackPanel(); body.Children.Add(ValueEditor(resolved.Field, item, true));
+                    var popup = new Popup { Placement = PlacementMode.MousePoint, StaysOpen = false, AllowsTransparency = true, Child = new Border { Background = PanelInk, Padding = new Thickness(16), Child = body } };
+                    if (resolved.Field.Multiple) body.Children.Add(Action("삭제", () => { container.Items.Remove(item); if (SaveSpace()) popup.IsOpen = false; }));
+                    popup.Closed += (_, _) => Render(); popup.IsOpen = true;
+                }
+                foreach (var item in values)
+                {
+                    string reference = binding.Icon.Length == 0 ? item.Text : item.Members.TryGetValue(binding.Icon, out var icon) ? icon.Text : "";
+                    var target = Space.Objects.FirstOrDefault(o => o.Id == reference); string path = target?.Icon is { Length: > 0 } source ? session!.Project.Resolve(source) : "";
+                    var content = new StackPanel(); content.Children.Add(ProjectIcon(path, 52)); content.Children.Add(Label(target is null ? "객체 선택" : Space.DisplayName(target), 10)); if (binding.Quantity.Length > 0 && item.Members.TryGetValue(binding.Quantity, out var quantity)) content.Children.Add(Label(quantity.Text, 12));
+                    var button = BareButton(content, () => Edit(item)); button.Margin = new Thickness(6); panel.Children.Add(button);
+                }
+                if (resolved.Field.Multiple) panel.Children.Add(BareButton(Label("+", 26), () => { var item = ConceptSpace.Default(resolved.Field, true); container.Items.Add(item); if (SaveSpace()) { Render(); Edit(item); } }));
             }
-            if (resolved.Field.Multiple) panel.Children.Add(BareButton(Label("+", 26), () => { container.Items.Add(ConceptSpace.Default(resolved.Field, true)); if (SaveSpace()) { var popup = new Popup { Placement = PlacementMode.MousePoint, StaysOpen = false, Child = new Border { Background = PanelInk, Padding = new Thickness(12), Child = ValueEditor(resolved.Field, container) } }; popup.IsOpen = true; } }));
         }
-        return panel;
+        Render(); return panel;
     }
     private void NewConceptView(string concept, Action changed)
     {
@@ -242,9 +264,9 @@ public sealed partial class EditorWindow
         var source = new CheckBox { Content = "Source Pack 표시", Margin = new Thickness(8) }; panel.Children.Add(source); Window? dialog = null;
         panel.Children.Add(Action("만들기", () => { Space.Views.Add(new() { Id = ConceptSpace.NewId(), Pack = Space.MainPack, Name = name.Text, Concept = concept, Layout = (string)layout.SelectedItem, Editor = editor.Text, ShowSourcePack = source.IsChecked == true, Fields = fields }); if (SaveSpace()) { dialog!.Close(); changed(); } })); dialog = ConceptWindow("Editor View", new ScrollViewer { Content = panel }, 650, 540);
     }
-    private void NewConceptPack(Action? changed = null)
+    private void NewConceptPack(Action? changed = null, Action<ConceptPack>? created = null)
     {
-        var panel = new StackPanel { Margin = new Thickness(20) }; panel.Children.Add(Label("팩 이름", 12)); var name = Input(); panel.Children.Add(name); panel.Children.Add(Label("Namespace", 12)); var ns = Input(); panel.Children.Add(ns); Window? dialog = null; panel.Children.Add(Action("만들기", () => HomeAction(() => { var pack = Space.AddPack(name.Text, ns.Text); if (SaveSpace()) { dialog!.Close(); changed?.Invoke(); } else Space.Packs.Remove(pack); }))); dialog = ConceptWindow("팩 추가", panel, 620, 410);
+        var panel = new StackPanel { Margin = new Thickness(20) }; panel.Children.Add(Label("팩 이름", 12)); var name = Input(); panel.Children.Add(name); panel.Children.Add(Label("Namespace", 12)); var ns = Input(); panel.Children.Add(ns); Window? dialog = null; panel.Children.Add(Action("만들기", () => HomeAction(() => { var pack = Space.AddPack(name.Text, ns.Text); if (SaveSpace()) { dialog!.Close(); created?.Invoke(pack); changed?.Invoke(); } else Space.Packs.Remove(pack); }))); dialog = ConceptWindow("팩 추가", panel, 620, 410);
     }
     private void OpenConceptPacks()
     {
@@ -253,7 +275,7 @@ public sealed partial class EditorWindow
         {
             body.Children.Clear(); foreach (var pack in Space.Packs)
             {
-                var card = new StackPanel(); card.Children.Add(Label((pack.Id == Space.MainPack ? "MAIN · " : "") + pack.Name, 20, AccentInk)); var name = Input(); name.Text = pack.Name; var ns = Input(); ns.Text = pack.Namespace; var description = Input(); description.Text = pack.Description; card.Children.Add(name); card.Children.Add(Label("Namespace", 11)); card.Children.Add(ns); card.Children.Add(description); card.Children.Add(Label("의존성 · " + string.Join(", ", pack.Dependencies.Concat(Space.RequiredDependencies(pack.Id)).Distinct().Select(id => Space.Packs.FirstOrDefault(p => p.Id == id)?.Name ?? id)), 11, MutedInk));
+                var card = new StackPanel(); card.Children.Add(Label((pack.Id == Space.MainPack ? "MAIN · " : "") + pack.Name, 20, AccentInk)); var name = Input(); name.Text = pack.Name; var ns = Input(); ns.Text = pack.Namespace; var description = Input(); description.Text = pack.Description; name.IsReadOnly = ns.IsReadOnly = description.IsReadOnly = !pack.Editable; card.Children.Add(name); card.Children.Add(Label("Namespace", 11)); card.Children.Add(ns); card.Children.Add(description); card.Children.Add(Label("의존성 · " + string.Join(", ", pack.Dependencies.Concat(Space.RequiredDependencies(pack.Id)).Distinct().Select(id => Space.Packs.FirstOrDefault(p => p.Id == id)?.Name ?? id)), 11, MutedInk));
                 var actions = new WrapPanel(); var save = Action("저장", () => { pack.Name = name.Text; pack.Namespace = ns.Text; pack.Description = description.Text; if (SaveSpace()) Render(); }); save.IsEnabled = pack.Editable; actions.Children.Add(save); actions.Children.Add(Action("요소 이주", () => MigrateConceptElements(pack.Id, Render))); card.Children.Add(actions); body.Children.Add(new Border { Background = PanelInk, Padding = new Thickness(16), Margin = new Thickness(0, 8, 0, 8), Child = card });
             }
             body.Children.Add(Action("+ 팩 추가", () => NewConceptPack(Render)));
@@ -264,12 +286,12 @@ public sealed partial class EditorWindow
     {
         var panel = new StackPanel { Margin = new Thickness(20) }; var packs = new ComboBox(); foreach (var pack in Space.Packs.Where(p => p.Editable && p.Id != source)) packs.Items.Add(new ComboBoxItem { Content = pack.Name, Tag = pack.Id }); packs.SelectedIndex = 0; panel.Children.Add(packs); var selections = new List<CheckBox>();
         foreach (var element in Space.Elements().Where(e => e.Pack == source)) { var check = new CheckBox { Content = (element is ConceptDefinition ? "개념" : element is ConceptImplementation ? "기능" : element is ConceptEditorView ? "View" : element is ConceptObject ? "객체" : "카테고리") + " · " + element.Name, Tag = element.Id, Margin = new Thickness(6) }; selections.Add(check); panel.Children.Add(check); }
-        Window? dialog = null; panel.Children.Add(Action("이주", () => HomeAction(() => { if (packs.SelectedItem is not ComboBoxItem target) return; Space.Move(selections.Where(c => c.IsChecked == true).Select(c => (string)c.Tag), (string)target.Tag); if (SaveSpace()) { dialog!.Close(); changed(); } }))); dialog = ConceptWindow("요소 이주", new ScrollViewer { Content = panel }, 700, 600);
+        Window? dialog = null; panel.Children.Add(Action("이주", () => HomeAction(() => { if (packs.SelectedItem is not ComboBoxItem target) return; if (MoveSpace(selections.Where(c => c.IsChecked == true).Select(c => (string)c.Tag), (string)target.Tag)) { dialog!.Close(); changed(); } }))); dialog = ConceptWindow("요소 이주", new ScrollViewer { Content = panel }, 700, 600);
     }
     private void OpenConceptFunctions()
     {
         var dock = new DockPanel { Margin = new Thickness(20) }; var add = Action("+ 기능", () => AskName("새 기능", "", name => { Space.Implementations.Add(new() { Id = ConceptSpace.NewId(), Name = name, Symbol = "Functions." + ConceptSpace.NewId(), Pack = Space.MainPack }); if (SaveSpace()) OpenConceptFunctions(); })); DockPanel.SetDock(add, Dock.Bottom); dock.Children.Add(add); var tree = new TreeView { Background = BackgroundInk, Foreground = TextInk }; dock.Children.Add(tree); var groups = new Dictionary<string, TreeViewItem>();
-        foreach (var function in Space.Implementations.OrderBy(Space.Address)) { string address = Space.Address(function), prefix = ""; TreeViewItem? parent = null; foreach (string segment in address.Split('.').Take(address.Split('.').Length - 1)) { prefix += "." + segment; if (!groups.TryGetValue(prefix, out var group)) { group = new() { Header = segment, Foreground = TextInk, IsExpanded = true }; groups.Add(prefix, group); if (parent is null) tree.Items.Add(group); else parent.Items.Add(group); } parent = group; } var leaf = new TreeViewItem { Header = function.Name, Foreground = TextInk, Tag = function.Id }; leaf.MouseDoubleClick += (_, e) => { e.Handled = true; OpenConceptFunction(function); }; var context = new ContextMenu(); var move = new MenuItem { Header = "팩으로 이동" }; foreach (var pack in Space.Packs.Where(p => p.Editable)) { var item = new MenuItem { Header = pack.Name }; item.Click += (_, _) => HomeAction(() => { Space.Move(new[] { function.Id }, pack.Id); SaveSpace(); }); move.Items.Add(item); } context.Items.Add(move); leaf.ContextMenu = context; if (parent is null) tree.Items.Add(leaf); else parent.Items.Add(leaf); }
+        foreach (var function in Space.Implementations.OrderBy(Space.Address)) { string address = Space.Address(function), prefix = ""; TreeViewItem? parent = null; foreach (string segment in address.Split('.').Take(address.Split('.').Length - 1)) { prefix += "." + segment; if (!groups.TryGetValue(prefix, out var group)) { group = new() { Header = segment, Foreground = TextInk, IsExpanded = true }; groups.Add(prefix, group); if (parent is null) tree.Items.Add(group); else parent.Items.Add(group); } parent = group; } var leaf = new TreeViewItem { Header = function.Name, Foreground = TextInk, Tag = function.Id }; leaf.MouseDoubleClick += (_, e) => { e.Handled = true; OpenConceptFunction(function); }; var context = new ContextMenu(); var move = new MenuItem { Header = "팩으로 이동" }; foreach (var pack in Space.Packs.Where(p => p.Editable)) { var item = new MenuItem { Header = pack.Name }; item.Click += (_, _) => HomeAction(() => { MoveSpace(new[] { function.Id }, pack.Id); }); move.Items.Add(item); } context.Items.Add(move); leaf.ContextMenu = context; if (parent is null) tree.Items.Add(leaf); else parent.Items.Add(leaf); }
         OpenConceptPage(dock);
     }
     private void OpenConceptFunction(ConceptImplementation function)

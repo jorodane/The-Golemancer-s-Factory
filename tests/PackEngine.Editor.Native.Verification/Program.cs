@@ -128,9 +128,9 @@ internal static class Program
             PumpUntil(() => !character.IsVisible, "Worker conversation did not hide.");
             Check(session.Collaboration.View("human", second.Id).Display == CharacterDisplay.Full && layer.Children.OfType<Border>().Count(c => c.IsVisible) == 1,
                 "closing one conversation leaves the other worker open");
-            Check(Descendants(Field<StackPanel>(window, "aiManagement")).OfType<TextBlock>().Any(t => t.Text == "확인 필요")
+            Check(!Descendants(Field<StackPanel>(window, "aiManagement")).OfType<TextBlock>().Any(t => t.Text == "Worker")
                 && Field<StackPanel>(window, "participantNotifications").Children.Count > 0,
-                "hidden workers expose unread state in the sidebar and a clickable answer preview");
+                "the sidebar keeps its Agent and Helper sections while hidden workers expose clickable unread answer previews");
 
             NativeInputs(window);
             Console.WriteLine("NATIVE_WORKSPACE_CHECKS=" + checks); return 0;

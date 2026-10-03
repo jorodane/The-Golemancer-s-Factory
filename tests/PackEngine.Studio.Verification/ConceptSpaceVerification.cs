@@ -39,6 +39,7 @@ internal static class ConceptSpaceVerification
         check(map.Length == 4 && !map.Any(n => n.Id == variation.Id) && map.Single(n => n.Id == content.Id).Variations, "classification map contains categories and leaf concepts; Variations use a double circle and a deeper layer");
         check(map.Single(n => n.Id == resource.Id).X > map.Single(n => n.Id == nested.Id).X && map.Select(n => n.Y).Distinct().Count() == map.Length, "classification direction and node positions are deterministic without overlapping nodes");
         check(space.Map(content.Id).Single().Id == variation.Id && space.Map(variation.Id).Single().Id == deepVariation.Id && space.Map(content.Id).Single().Parent.Length == 0, "Variation layers have context depth without classification or inheritance edges");
+        check(space.Breadcrumb(deepVariation.Id).SequenceEqual(new[] { category.Id, content.Id, variation.Id, deepVariation.Id }), "Variation breadcrumbs retain category and inheritance context without mixing their edges");
         check(space.Schema(deepVariation.Id).Count == content.Fields.Count + 1, "Variation schema inherits values and additions across multiple levels");
         check(space.References(content.Id).SequenceEqual(new[] { resource.Id }) && space.References(resource.Id, true).Contains(content.Id), "forward and inverse references include nested schema types only when requested");
         nested.Parent = content.Id; reject(space.Validate, "a concept cannot become the parent of a category"); nested.Parent = category.Id;
@@ -80,6 +81,16 @@ internal static class ConceptSpaceVerification
         space.Views.Add(slots); space.Views.Add(new() { Id = "cards", Name = "Cards", Pack = main, Concept = content.Id, Layout = "cards", Fields = [new() { Path = "count", Label = "Count" }] }); space.Save(session);
         check(schemaBefore == File.ReadAllText(session.Project.Resolve(schemaPath)) && objectsBefore == File.ReadAllText(session.Project.Resolve(objectsPath)), "adding multiple Editor Views preserves both the schema document and object data byte for byte");
         check(space.Editors(variation.Id).Length == 2 && space.ResolveField(content.Id, "missing") is null, "Views inherit into Variations and a missing binding can select the universal table fallback");
+        content.Fields.Add(new() { Id = "later", Name = "Later", Type = "number" }); space.Save(session); string unchangedData = File.ReadAllText(session.Project.Resolve(objectsPath));
+        var missing = space.Bind(value, "later").Values.Single(); check(missing.Text == "0" && !value.Values.ContainsKey("later"), "rendering a newly added schema field exposes its default without mutating Object Data"); slots.Name = "New presentation"; space.Save(session);
+        check(File.ReadAllText(session.Project.Resolve(objectsPath)) == unchangedData, "changing a View preserves Object Data even after showing missing schema defaults");
+        missing.Text = "8"; space.Save(session); check(ConceptSpace.Open(session.Project).Objects.Single(o => o.Id == value.Id).Values["later"].Text == "8", "editing a deferred default materializes only the actual object edit");
+        content.Fields.Add(new() { Id = "laterList", Name = "Later List", Type = "number", Multiple = true }); space.Save(session); var missingList = space.Bind(value, "laterList").Values.Single(); missingList.Items.Add(new() { Text = "9" }); space.Save(session);
+        check(ConceptSpace.Open(session.Project).Objects.Single(o => o.Id == value.Id).Values["laterList"].Items.Single().Text == "9", "adding to a deferred repeated value commits the real list edit");
+        content.Fields.Add(new() { Id = "laterGroup", Name = "Later Group", Kind = "composite", Fields = [new() { Id = "left", Name = "Left", Type = "number" }, new() { Id = "right", Name = "Right", Type = "number" }] }); space.Save(session);
+        var left = space.Bind(value, "laterGroup/left").Values.Single(); var right = space.Bind(value, "laterGroup/right").Values.Single(); left.Text = "3"; right.Text = "4"; space.Save(session);
+        var editedGroup = ConceptSpace.Open(session.Project).Objects.Single(o => o.Id == value.Id).Values["laterGroup"];
+        check(editedGroup.Members["left"].Text == "3" && editedGroup.Members["right"].Text == "4", "separate View columns for a missing composite preserve both edits to the same deferred object value");
         space.Bind(value, "parts/quantity").Values.Single().Text = "7"; space.Save(session);
         check(ConceptSpace.Open(session.Project).Objects.Single(o => o.Id == value.Id).Values["parts"].Items.Single().Members["quantity"].Text == "7", "nested Custom View bindings edit the same persisted object values as the fallback table");
 
@@ -120,6 +131,8 @@ internal static class ConceptSpaceVerification
         check(!session.Project.Sources[other.Id].Projects.Any(p => p.EndsWith("Functions.csproj")) && XDocument.Load(session.Project.Resolve(other.Folder + "/pack.xml")).Root!.Element("FunctionAssembly") is null, "moving the last function removes the previous Pack's generated DLL and build registrations");
         await runner.BuildPack(main, "linux");
         check(File.Exists(session.Project.Resolve(space.Pack(main).Folder + "/Functions/bin/Release/net10.0/Functions_foundation.dll")), "migrated function code builds from its new owning Pack through linked physical source"); runner.Dispose();
+        var noReturn = new ConceptImplementation { Id = "noReturn", Name = "Notify", Pack = main, Returns = "void" }; space.Implementations.Add(noReturn); space.WriteImplementation(noReturn, space.ReadImplementation(noReturn)); space.Save(session);
+        check(ConceptSpace.Open(session.Project).Implementations.Single(i => i.Id == noReturn.Id).Returns == "void", "function contracts and generated implementation sources allow an absent return value");
 
         var clean = ConceptSpace.Open(session.Project); var concurrent = ConceptSpace.Open(session.Project);
         clean.Objects.Single(o => o.Id == value.Id).Name = "Concurrent"; clean.Save(session);
@@ -127,8 +140,22 @@ internal static class ConceptSpaceVerification
         check(ConceptSpace.Open(session.Project).Objects.Single(o => o.Id == value.Id).Name == "Concurrent", "conflict rejection preserves the newer object data");
         clean = ConceptSpace.Open(session.Project); string dirtyPath = clean.DocumentPaths.First(p => p.EndsWith("concept-objects.xml"));
         var dirty = session.Open(dirtyPath); dirty.Text += "\n<!-- pending -->"; clean.Objects[0].Name = "Blocked"; reject(() => clean.Save(session), "concept edits cannot overwrite a dirty open document"); session.Reload(dirtyPath);
+        clean = ConceptSpace.Open(session.Project); dirty.Text += "\n<!-- pending move -->"; var moving = clean.Objects.First(o => o.Pack == main); reject(() => clean.MoveAndSave(session, new[] { moving.Id }, other.Id), "a Pack move cannot overwrite a dirty source document"); check(moving.Pack == main, "a failed migration save restores in-memory ownership as well as disk files"); session.Reload(dirtyPath);
         var readonlyManifest = XDocument.Load(session.Project.Manifest); readonlyManifest.Root!.Elements("Pack").Single(e => (string?)e.Attribute("id") == main).SetAttributeValue("editable", "false"); readonlyManifest.Save(session.Project.Manifest); session.ReloadProject();
         var locked = ConceptSpace.Open(session.Project); locked.Objects[0].Name = "Unauthorized"; reject(() => locked.Save(session), "read-only Pack edits are rejected rather than silently discarded");
         reject(() => locked.Move([locked.Objects[0].Id], other.Id), "read-only source Packs cannot migrate their elements");
+
+        var namedProject = NewProject.CreateAt(Path.Combine(temp, "named-projects"), "Named", new(), "linux", "net10.0");
+        var namedSession = new EditorSession(namedProject.Manifest, Path.Combine(temp, "named-state")); var namedSpace = ConceptSpace.Open(namedProject);
+        namedSpace.Concepts.Add(new() { Id = "named", Name = "Named", Pack = namedSpace.MainPack, Fields = [new() { Id = "name", Name = "이름", Type = "text" }] });
+        var namedObject = namedSpace.CreateObject("named"); check(namedSpace.NameField("named")?.Id == "name" && namedSpace.DisplayName(namedObject) == namedObject.Name, "a schema name field owns the initial object display name without a duplicate system field");
+        namedObject.Values["name"].Text = "Edited name"; namedSpace.Save(namedSession);
+        check(namedSession.Index.Nodes["concept-object:" + namedObject.Id].Title == "Edited name" && namedSpace.DisplayName(ConceptSpace.Open(namedSession.Project).Objects.Single()) == "Edited name", "editing the schema name updates persisted object identity labels and the shared catalog");
+        string namedSchema = namedSpace.DocumentPaths.Single(p => p.EndsWith("concept-schema.xml")), namedObjects = namedSpace.DocumentPaths.Single(p => p.EndsWith("concept-objects.xml"));
+        string sourceSchema = File.ReadAllText(namedProject.Resolve(namedSchema)).Replace("  ", "    ");
+        string sourceObjects = File.ReadAllText(namedProject.Resolve(namedObjects)).Replace("name=\"Edited name\"", "name=\"Legacy label\"").Replace("  ", "    ");
+        File.WriteAllText(namedProject.Resolve(namedSchema), sourceSchema); File.WriteAllText(namedProject.Resolve(namedObjects), sourceObjects); namedSession.ReloadProject(); namedSpace = ConceptSpace.Open(namedSession.Project);
+        namedSpace.Views.Add(new() { Id = "name-cards", Name = "Cards", Concept = "named", Pack = namedSpace.MainPack, Layout = "cards" }); namedSpace.Save(namedSession);
+        check(File.ReadAllText(namedProject.Resolve(namedSchema)) == sourceSchema && File.ReadAllText(namedProject.Resolve(namedObjects)) == sourceObjects, "a View-only save preserves external schema formatting and legacy object labels byte for byte");
     }
 }

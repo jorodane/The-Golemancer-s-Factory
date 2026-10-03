@@ -193,7 +193,7 @@ public sealed partial class EditorWindow : Window
         runner?.Dispose(); provider?.Dispose(); provider = null; providerLabel.Text = "AI 제공자 미연결"; session = next; conversation = nextConversation;
         runner = new(session, Environment.GetEnvironmentVariable("PACKENGINE_DOTNET") ?? "dotnet"); runner.Output += AppendLog;
         if (!Standalone && !Directory.Exists(ProjectPackRoot)) PackEngine.EditorPacks.EditorPackTemplates.CreateWorkspace(ProjectPackRoot, empty: true);
-        activeDocument = null; pending = null; lastRequest = null; firstProjectPrompt.Clear(); CloseConceptWindows();
+        activeDocument = null; pending = null; lastRequest = null; CloseConceptWindows();
         Title = "Confectory — " + session.Project.Name; projectLabel.Text = session.Project.Name;
         targets.ItemsSource = session.Project.Targets.Select(t => t.Id).ToArray(); targets.SelectedItem = runner.PreferredTarget;
         transcript.Children.Clear(); Message("프로젝트", session.Project.Name + "을 열었어. 팩과 문서를 골라서 작업을 시작해.");

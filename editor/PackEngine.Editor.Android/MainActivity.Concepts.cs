@@ -20,17 +20,21 @@ public sealed partial class MainActivity
     private TextView? mobileSidebarMessages;
     private View? mobileProjectActions;
     private Button? mobileRunButton;
-    private Dialog? mobileProjectPlayer;
+    private bool mobileEmptyProjectRunning;
+    private FrameLayout mobileEmptyProjectSurface = null!;
     private bool mobileExternalProjectRunning;
     private const int ProjectActivityRequest = 81;
     private FrameLayout mobileConceptPageHost = null!;
     private Action? mobileConceptPageClosing;
+    private Action<bool>? mobileConceptShift;
     private void CloseMobileConceptPage() { mobileConceptPageClosing?.Invoke(); mobileConceptPageClosing = null; mobileConceptPageHost.RemoveAllViews(); mobileConceptPageHost.Visibility = ViewStates.Gone; }
     private void OpenMobileConceptPage(View content)
     {
         CloseMobileConceptPage(); var page = new LinearLayout(this) { Orientation = Orientation.Vertical }; page.SetBackgroundColor(HomeBackground); page.AddView(AiAction("← 프로젝트", CloseMobileConceptPage)); page.AddView(content, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, 0, 1)); mobileConceptPageHost.AddView(page); mobileConceptPageHost.Visibility = ViewStates.Visible;
     }
-    private void CloseMobileConceptWindows() { CloseMobileConceptPage(); foreach (var window in mobileConceptWindows.ToArray()) window.Dismiss(); mobileConceptSpace = null; mobileProjectPlayer?.Dismiss(); StopMobileProjectActivity(); }
+    public override bool OnKeyDown(Keycode keyCode, KeyEvent? e) { if (keyCode is Keycode.ShiftLeft or Keycode.ShiftRight) mobileConceptShift?.Invoke(true); return base.OnKeyDown(keyCode, e); }
+    public override bool OnKeyUp(Keycode keyCode, KeyEvent? e) { if (keyCode is Keycode.ShiftLeft or Keycode.ShiftRight) mobileConceptShift?.Invoke(false); return base.OnKeyUp(keyCode, e); }
+    private void CloseMobileConceptWindows() { CloseMobileConceptPage(); foreach (var window in mobileConceptWindows.ToArray()) window.Dismiss(); mobileConceptSpace = null; mobileEmptyProjectRunning = false; mobileEmptyProjectSurface.Visibility = ViewStates.Gone; StopMobileProjectActivity(); }
     private void ShowMobileProjectHome()
     {
         ReplaceMobileSession(StandaloneEditorWorkspace.Prepare(Path.Combine(root, "Studio"), "android", "net10.0"), false);
@@ -49,6 +53,16 @@ public sealed partial class MainActivity
         try { RequireMobileIdle(); if (peerClient is not null) throw new InvalidOperationException("접속 중인 공동 프로젝트의 확정은 호스트에서 진행해줘."); MobileSpace.Save(studioSession); return true; }
         catch (Exception e) { new AlertDialog.Builder(this).SetTitle("Confectory")!.SetMessage(e.Message)!.SetPositiveButton("확인", (_, _) => { })!.Show(); return false; }
     }
+    private bool MoveMobileSpace(IEnumerable<string> ids, string target)
+    {
+        try { RequireMobileIdle(); if (peerClient is not null) throw new InvalidOperationException("공동 프로젝트의 확정은 호스트에서 진행해줘."); MobileSpace.MoveAndSave(studioSession, ids, target); return true; }
+        catch (Exception e) { new AlertDialog.Builder(this).SetTitle("Confectory")!.SetMessage(e.Message)!.SetPositiveButton("확인", (_, _) => { })!.Show(); return false; }
+    }
+    private void MobileConceptElementMenu(IConceptElement element, Action? changed = null)
+    {
+        var packs = MobileSpace.Packs.Where(p => p.Editable).ToArray();
+        new AlertDialog.Builder(this).SetTitle(element.Name)!.SetItems(packs.Select(p => "팩으로 이동 · " + p.Name).ToArray(), (_, e) => { if (MoveMobileSpace(new[] { element.Id }, packs[e.Which].Id)) changed?.Invoke(); })!.Show();
+    }
     private void BuildMobileSidebarChat(LinearLayout sidebar)
     {
         var panel = mobileSidebarChat = new LinearLayout(this) { Orientation = Orientation.Vertical, Visibility = ViewStates.Gone }; panel.SetPadding(Dp(3), Dp(6), Dp(3), Dp(4)); panel.SetBackgroundColor(HomePanel);
@@ -66,13 +80,13 @@ public sealed partial class MainActivity
     {
         if (!MobileProject) return;
         if (mobileExternalProjectRunning) { StopMobileProjectActivity(); return; }
-        if (mobileProjectPlayer is not null) { mobileProjectPlayer.Dismiss(); return; }
+        if (mobileEmptyProjectRunning) { mobileEmptyProjectRunning = false; mobileEmptyProjectSurface.Visibility = ViewStates.Gone; MobileProjectActivityEnded(); return; }
         MobileHomeAction(() =>
         {
             RequireMobileIdle(); var target = studioSession.Project.Targets.FirstOrDefault(t => t.Platform == "android") ?? studioSession.Project.Target(studioSession.Project.DefaultTarget);
             if (target.AndroidApplication.Length > 0) { var intent = PackageManager?.GetLaunchIntentForPackage(target.AndroidApplication) ?? throw new InvalidOperationException("프로젝트의 Android 실행 빌드를 먼저 설치해줘."); intent.SetFlags((ActivityFlags)0); mobileExternalProjectRunning = true; if (mobileRunButton is not null) mobileRunButton.Text = "■"; try { LaunchMobileProjectActivity(intent); } catch { MobileProjectActivityEnded(); throw; } return; }
             if (MobileSpace.Objects.Count > 0 || MobileSpace.Implementations.Count > 0) throw new InvalidOperationException("프로젝트의 Android 실행 빌드를 만들고 실행 앱을 연결해줘.");
-            var player = mobileProjectPlayer = new Dialog(this); player.SetTitle(studioSession.Project.Name); var field = new FrameLayout(this); field.SetBackgroundColor(HomeBackground); player.SetContentView(field); player.DismissEvent += (_, _) => { mobileProjectPlayer = null; if (mobileRunButton is not null) mobileRunButton.Text = "▶"; }; player.Show(); player.Window?.SetLayout(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent); if (mobileRunButton is not null) mobileRunButton.Text = "■";
+            CloseMobileConceptPage(); mobileEmptyProjectRunning = true; mobileEmptyProjectSurface.Visibility = ViewStates.Visible; if (mobileRunButton is not null) mobileRunButton.Text = "■";
         });
     }
 #pragma warning disable CA1422, CS0618
@@ -102,7 +116,7 @@ public sealed partial class MainActivity
         var actions = new List<(string Name, Action Open)>();
         foreach (var c in MobileSpace.Categories.Where(c => c.Parent == category)) actions.Add((c.Name + " ›", () => OpenMobileConceptMenu(c.Id)));
         foreach (var c in MobileSpace.Concepts.Where(c => c.Category == category && c.Base.Length == 0)) actions.Add((MobileConceptMark(c.Id) + " " + c.Name, () => MobileConceptObjects(c.Id)));
-        if (category.Length == 0) { actions.Add(("────────", () => { })); actions.Add(("개념", () => MobileConceptMap())); actions.Add(("기능", () => MobileConceptFunctions())); actions.Add(("팩", MobileConceptPacks)); actions.Add(("실행 설정", MobileConceptExecution)); actions.Add(("도구", MobileWorkspaceTools)); actions.Add(("작업자 추가", () => { var worker = CreateMobileWorker(); if (worker is not null) SelectMobileWorker(worker); })); actions.Add(("참여자", MobileParticipants)); actions.Add(("프로젝트 목록", () => ShowMobileProjectHome())); }
+        if (category.Length == 0) { actions.Add(("────────", () => { })); actions.Add(("개념", () => MobileConceptMap())); actions.Add(("기능", () => MobileConceptFunctions())); actions.Add(("팩", MobileConceptPacks)); actions.Add(("실행 설정", MobileConceptExecution)); actions.Add(("다시 불러오기", CloseMobileConceptWindows)); actions.Add(("도구", MobileWorkspaceTools)); actions.Add(("작업자 추가", () => { var worker = CreateMobileWorker(); if (worker is not null) SelectMobileWorker(worker); })); actions.Add(("참여자", MobileParticipants)); actions.Add(("프로젝트 목록", () => ShowMobileProjectHome())); }
         new AlertDialog.Builder(this).SetTitle(category.Length == 0 ? "프로젝트" : MobileSpace.Categories.Single(c => c.Id == category).Name)!.SetItems(actions.Select(a => a.Name).ToArray(), (_, e) => MobileHomeAction(actions[e.Which].Open))!.SetNegativeButton("닫기", (_, _) => { })!.Show();
     }
     private string MobileConceptMark(string id) => MobileSpace.Concepts.Any(c => c.Base == id) ? "◎" : "○";
@@ -123,7 +137,7 @@ public sealed partial class MainActivity
                 {
                     var choices = new LinearLayout(this) { Orientation = Orientation.Horizontal }; var multiple = new RadioGroup(this); var kind = new RadioGroup(this); choices.AddView(multiple); choices.AddView(kind);
                     foreach (bool value in new[] { false, true }) { var radio = new RadioButton(this) { Text = value ? "다중" : "단일", Checked = value == field.Multiple }; radio.CheckedChange += (_, e) => { if (e.IsChecked) field.Multiple = value; }; multiple.AddView(radio); }
-                    foreach (string value in new[] { "normal", "composite", "function" }) { var radio = new RadioButton(this) { Text = value == "normal" ? "일반" : value == "composite" ? "복합" : "기능", Checked = field.Kind == value }; radio.CheckedChange += (_, e) => { if (e.IsChecked) { field.Kind = value; if (value == "normal") { field.Fields.Clear(); if (field.Type == "void") field.Type = "text"; } } }; kind.AddView(radio); }
+                    foreach (string value in new[] { "normal", "composite", "function" }) { var radio = new RadioButton(this) { Text = value == "normal" ? "일반" : value == "composite" ? "복합" : "기능", Checked = field.Kind == value }; radio.CheckedChange += (_, e) => { if (e.IsChecked) { field.Kind = value; if (value != "function" && field.Type == "void") field.Type = "text"; if (value == "normal") field.Fields.Clear(); } }; kind.AddView(radio); }
                     new AlertDialog.Builder(this).SetView(choices)!.SetPositiveButton("선택", (_, _) => Render())!.Show();
                 }); mode.Enabled = !inherited; row.AddView(mode); var remove = AiAction("×", () => { fields.Remove(field); Render(); }); remove.SetTextColor(HomeMain); remove.Enabled = !inherited; row.AddView(remove); body.AddView(row);
                 if (field.Kind is "composite" or "function") { var children = MobileFieldEditor(field.Fields, inherited); children.SetPadding(Dp(14), 0, 0, 0); if (field.Kind == "function") body.AddView(HomeLabel("입력 · 위 타입은 반환 타입", 10, true)); body.AddView(children); }
@@ -139,7 +153,7 @@ public sealed partial class MainActivity
         protected override void OnDraw(Canvas canvas)
         {
             base.OnDraw(canvas); using var paint = new Paint { Color = Color.Rgb(87, 138, 145), StrokeWidth = 2, AntiAlias = true }; using var dashed = new DashPathEffect(new float[] { 7, 5 }, 0);
-            foreach (var line in Lines) { paint.SetPathEffect(line.Reference ? dashed : null); canvas.DrawLine(line.X1, line.Y1, line.X2, line.Y2, paint); paint.SetPathEffect(null); canvas.DrawLine(line.X2 - 7, line.Y2 - 4, line.X2, line.Y2, paint); canvas.DrawLine(line.X2 - 7, line.Y2 + 4, line.X2, line.Y2, paint); }
+            foreach (var line in Lines) { paint.SetPathEffect(line.Reference ? dashed : null); canvas.DrawLine(line.X1, line.Y1, line.X2, line.Y2, paint); paint.SetPathEffect(null); double angle = Math.Atan2(line.Y2 - line.Y1, line.X2 - line.X1); foreach (double turn in new[] { -0.5, 0.5 }) canvas.DrawLine(line.X2 - (float)(9 * Math.Cos(angle + turn)), line.Y2 - (float)(9 * Math.Sin(angle + turn)), line.X2, line.Y2, paint); }
         }
     }
     private void MobileConceptMap(string initial = "")
@@ -150,15 +164,17 @@ public sealed partial class MainActivity
         { MobileName(category ? "새 카테고리" : layer.Length == 0 ? "새 개념" : "새 Variation", name => { string id = ConceptSpace.NewId(); if (category) MobileSpace.Categories.Add(new() { Id = id, Name = name, Parent = parent, Pack = MobileSpace.MainPack }); else MobileSpace.Concepts.Add(new() { Id = id, Name = name, Category = parent, Base = layer, Pack = MobileSpace.MainPack }); if (SaveMobileSpace()) Render(); }); }
         void Render()
         {
-            schema?.Dismiss(); map.RemoveAllViews(); breadcrumb.RemoveAllViews(); breadcrumb.AddView(AiAction("전체", () => { layer = ""; history.Clear(); Render(); })); foreach (string id in history.ToArray()) breadcrumb.AddView(AiAction("› " + MobileSpace.Concept(id).Name, () => { layer = id; history = history.Take(history.IndexOf(id) + 1).ToList(); Render(); })); if (layer.Length == 0) breadcrumb.AddView(AiAction("+ 카테고리", () => Add("", true))); breadcrumb.AddView(AiAction(layer.Length == 0 ? "+ 개념" : "+ Variation", () => Add("", false)));
+            schema?.Dismiss(); map.RemoveAllViews(); breadcrumb.RemoveAllViews(); breadcrumb.AddView(AiAction("전체", () => { layer = ""; history.Clear(); Render(); })); if (layer.Length > 0) foreach (string categoryId in MobileSpace.Breadcrumb(layer).Where(id => MobileSpace.Categories.Any(c => c.Id == id))) breadcrumb.AddView(HomeLabel("› " + MobileSpace.Categories.Single(c => c.Id == categoryId).Name, 12, true)); foreach (string id in history.ToArray()) breadcrumb.AddView(AiAction("› " + MobileSpace.Concept(id).Name, () => { layer = id; history = history.Take(history.IndexOf(id) + 1).ToList(); Render(); })); if (layer.Length == 0) breadcrumb.AddView(AiAction("+ 카테고리", () => Add("", true))); breadcrumb.AddView(AiAction(layer.Length == 0 ? "+ 개념" : "+ Variation", () => Add("", false)));
             var nodes = MobileSpace.Map(layer); int width = (int)Math.Max(900, nodes.Select(n => n.X + 360).DefaultIfEmpty(900).Max()), height = (int)Math.Max(500, nodes.Select(n => n.Y + 120).DefaultIfEmpty(500).Max()); map.LayoutParameters = new FrameLayout.LayoutParams(Dp(width), Dp(height)); var lines = new ConceptLines(this); map.AddView(lines, new FrameLayout.LayoutParams(Dp(width), Dp(height)));
             foreach (var node in nodes.Where(n => n.Parent.Length > 0)) { var parent = nodes.Single(n => n.Id == node.Parent); lines.Lines.Add((Dp((int)parent.X + 140), Dp((int)parent.Y + 25), Dp((int)node.X), Dp((int)node.Y + 25), false)); }
-            int structure = lines.Lines.Count;
+            int structure = lines.Lines.Count; var ghosts = new List<View>(); ConceptMapNode? hover = null;
             void Relations(ConceptMapNode from, bool reverse)
             {
                 if (lines.Lines.Count > structure) lines.Lines.RemoveRange(structure, lines.Lines.Count - structure);
-                foreach (string id in MobileSpace.References(from.Id, reverse)) { var target = nodes.FirstOrDefault(n => n.Id == id); if (target is null) continue; lines.Lines.Add(reverse ? (Dp((int)target.X + 140), Dp((int)target.Y + 25), Dp((int)from.X), Dp((int)from.Y + 25), true) : (Dp((int)from.X + 140), Dp((int)from.Y + 25), Dp((int)target.X), Dp((int)target.Y + 25), true)); } lines.Invalidate();
+                foreach (var ghost in ghosts) map.RemoveView(ghost); ghosts.Clear(); int hidden = 0;
+                foreach (string id in MobileSpace.References(from.Id, reverse)) { var target = nodes.FirstOrDefault(n => n.Id == id); if (target is null) { target = new() { X = width - 180, Y = from.Y + hidden++ * 62 }; var label = HomeLabel(MobileSpace.TypeName(id), 12); ghosts.Add(label); map.AddView(label, new FrameLayout.LayoutParams(Dp(170), Dp(45)) { LeftMargin = Dp((int)target.X), TopMargin = Dp((int)target.Y) }); } lines.Lines.Add(reverse ? (Dp((int)target.X + 140), Dp((int)target.Y + 25), Dp((int)from.X), Dp((int)from.Y + 25), true) : (Dp((int)from.X + 140), Dp((int)from.Y + 25), Dp((int)target.X), Dp((int)target.Y + 25), true)); } lines.Invalidate();
             }
+            mobileConceptShift = reverse => { if (hover is not null) Relations(hover, reverse); };
             foreach (var node in nodes)
             {
                 long lastClick = 0; var button = AiAction((node.Category ? "" : MobileConceptMark(node.Id) + " ") + node.Name, () => { }); button.SetBackgroundColor(HomePanel); button.SetTextColor(node.Category ? HomeText : HomeAccent);
@@ -167,20 +183,20 @@ public sealed partial class MainActivity
                     long time = Environment.TickCount64; bool twice = time - lastClick < 350; lastClick = time; schema?.Dismiss();
                     if (!node.Category && node.Variations && twice) { layer = node.Id; history.Add(layer); Render(); return; }
                     if (node.Category) { new AlertDialog.Builder(this).SetTitle(node.Name)!.SetItems(new[] { "+ 카테고리", "+ 개념" }, (_, e) => Add(node.Id, e.Which == 0))!.Show(); return; }
-                    var concept = MobileSpace.Concept(node.Id); var fields = concept.Fields.Select(f => f.Copy()).ToList(); var panel = ConceptColumn(); var name = ConceptInput(concept.Name); panel.AddView(name); if (concept.Base.Length > 0) { panel.AddView(HomeLabel("상속 · " + MobileSpace.Concept(concept.Base).Name, 11, true)); panel.AddView(MobileFieldEditor(MobileSpace.Schema(concept.Base), true)); } panel.AddView(MobileFieldEditor(fields)); panel.AddView(MobilePackButton(concept)); panel.AddView(AiAction("스키마 저장", () => { var previous = concept.Fields; string oldName = concept.Name; concept.Fields = fields; concept.Name = name.Text ?? ""; if (SaveMobileSpace()) { schema?.Dismiss(); Render(); } else { concept.Fields = previous; concept.Name = oldName; } })); panel.AddView(AiAction("객체 편집", () => { schema?.Dismiss(); MobileConceptObjects(node.Id); }));
+                    var concept = MobileSpace.Concept(node.Id); bool editable = MobileSpace.Pack(concept.Pack).Editable; var fields = concept.Fields.Select(f => f.Copy()).ToList(); var panel = ConceptColumn(); var name = ConceptInput(concept.Name); name.Enabled = editable; panel.AddView(name); var symbol = ConceptInput(concept.Symbol.Length == 0 ? concept.Id : concept.Symbol); symbol.Hint = "논리 이름"; symbol.Enabled = editable; panel.AddView(symbol); if (concept.Base.Length > 0) { panel.AddView(HomeLabel("상속 · " + MobileSpace.Concept(concept.Base).Name, 11, true)); panel.AddView(MobileFieldEditor(MobileSpace.Schema(concept.Base), true)); } panel.AddView(MobileFieldEditor(fields, !editable)); panel.AddView(MobilePackButton(concept)); var saveSchema = AiAction("스키마 저장", () => { var previous = concept.Fields; string oldName = concept.Name, oldSymbol = concept.Symbol; concept.Fields = fields; concept.Name = name.Text ?? ""; concept.Symbol = symbol.Text ?? ""; if (SaveMobileSpace()) { schema?.Dismiss(); Render(); } else { concept.Fields = previous; concept.Name = oldName; concept.Symbol = oldSymbol; } }); saveSchema.Enabled = editable; panel.AddView(saveSchema); panel.AddView(AiAction("객체 편집", () => { schema?.Dismiss(); MobileConceptObjects(node.Id); }));
                     int popupWidth = Math.Min(Dp(520), (Resources?.DisplayMetrics?.WidthPixels ?? Dp(360)) - Dp(24)), popupHeight = Math.Min(Dp(380), (Resources?.DisplayMetrics?.HeightPixels ?? Dp(700)) - Dp(48)); schema = new PopupWindow(ConceptScroll(panel), popupWidth, popupHeight, true) { OutsideTouchable = true, Elevation = Dp(10) }; schema.SetBackgroundDrawable(new ColorDrawable(HomePanel)); int[] location = new int[2]; button.GetLocationOnScreen(location); int screenHeight = Resources?.DisplayMetrics?.HeightPixels ?? Dp(700); schema.ShowAtLocation(map, GravityFlags.Top | GravityFlags.Left, Math.Max(0, Math.Min(location[0], (Resources?.DisplayMetrics?.WidthPixels ?? Dp(360)) - popupWidth)), Math.Max(0, Math.Min(location[1] >= popupHeight + Dp(12) ? location[1] - popupHeight - Dp(8) : location[1] + button.Height + Dp(8), screenHeight - popupHeight)));
                 };
-                button.Hover += (_, e) => { if (!node.Category && e.Event is { } ev) { if (ev.Action == MotionEventActions.HoverExit) { if (lines.Lines.Count > structure) lines.Lines.RemoveRange(structure, lines.Lines.Count - structure); lines.Invalidate(); } else Relations(node, ev.MetaState.HasFlag(MetaKeyStates.ShiftOn)); } };
-                button.LongClick += (_, _) => { if (!node.Category) new AlertDialog.Builder(this).SetTitle("관계")!.SetItems(new[] { "무엇을 사용하나?", "누가 사용하나?" }, (_, e) => { var ids = MobileSpace.References(node.Id, e.Which == 1); new AlertDialog.Builder(this).SetItems(ids.Select(id => MobileSpace.Concept(id).Name).ToArray(), (_, _) => { })!.Show(); Relations(node, e.Which == 1); })!.Show(); };
+                button.Hover += (_, e) => { if (!node.Category && e.Event is { } ev) { if (ev.Action == MotionEventActions.HoverExit) { hover = null; foreach (var ghost in ghosts) map.RemoveView(ghost); ghosts.Clear(); if (lines.Lines.Count > structure) lines.Lines.RemoveRange(structure, lines.Lines.Count - structure); lines.Invalidate(); } else { hover = node; Relations(node, ev.MetaState.HasFlag(MetaKeyStates.ShiftOn)); } } };
+                button.LongClick += (_, _) => { var element = MobileSpace.Elements().Single(e => e.Id == node.Id); if (node.Category) { MobileConceptElementMenu(element, Render); return; } new AlertDialog.Builder(this).SetTitle(node.Name)!.SetItems(new[] { "무엇을 사용하나?", "누가 사용하나?", "팩으로 이동" }, (_, e) => { if (e.Which == 2) { MobileConceptElementMenu(element, Render); return; } var ids = MobileSpace.References(node.Id, e.Which == 1); new AlertDialog.Builder(this).SetItems(ids.Select(id => MobileSpace.TypeName(id)).ToArray(), (_, _) => { })!.Show(); Relations(node, e.Which == 1); })!.Show(); };
                 map.AddView(button, new FrameLayout.LayoutParams(Dp(145), Dp(50)) { LeftMargin = Dp((int)node.X), TopMargin = Dp((int)node.Y) });
             }
             map.Click += (_, _) => schema?.Dismiss(); lines.Invalidate();
         }
-        mobileConceptPageClosing = () => schema?.Dismiss(); Render();
+        mobileConceptPageClosing = () => { schema?.Dismiss(); mobileConceptShift = null; }; Render();
     }
     private Button MobilePackButton(IConceptElement element, Action? changed = null)
     {
-        Button? button = null; button = AiAction(MobileSpace.Pack(element.Pack).Name, () => { var packs = MobileSpace.Packs.Where(p => p.Editable).ToArray(); new AlertDialog.Builder(this).SetTitle("소스 팩")!.SetItems(packs.Select(p => p.Name).Concat(new[] { "새 팩…" }).ToArray(), (_, e) => MobileHomeAction(() => { if (e.Which == packs.Length) { MobileNewConceptPack(changed); return; } MobileSpace.Move(new[] { element.Id }, packs[e.Which].Id); if (SaveMobileSpace()) { button!.Text = packs[e.Which].Name; changed?.Invoke(); } }))!.Show(); }); button.ContentDescription = "Source Pack · " + MobileSpace.Address(element); return button;
+        Button? button = null; button = AiAction(MobileSpace.Pack(element.Pack).Name, () => { var packs = MobileSpace.Packs.Where(p => p.Editable).ToArray(); new AlertDialog.Builder(this).SetTitle("소스 팩")!.SetItems(packs.Select(p => p.Name).Concat(new[] { "새 팩…" }).ToArray(), (_, e) => MobileHomeAction(() => { if (e.Which == packs.Length) { MobileNewConceptPack(null, pack => { if (MoveMobileSpace(new[] { element.Id }, pack.Id)) { button!.Text = pack.Name; changed?.Invoke(); } }); return; } if (MoveMobileSpace(new[] { element.Id }, packs[e.Which].Id)) { button!.Text = packs[e.Which].Name; changed?.Invoke(); } }))!.Show(); }); button.ContentDescription = "Source Pack · " + MobileSpace.Address(element); button.Enabled = MobileSpace.Pack(element.Pack).Editable; return button;
     }
     private View MobileValueEditor(ConceptField field, ConceptValue value, bool item = false)
     {
@@ -188,8 +204,8 @@ public sealed partial class MainActivity
         if (field.Kind == "composite") { var body = new LinearLayout(this) { Orientation = Orientation.Vertical }; foreach (var child in field.Fields) { body.AddView(HomeLabel(child.Name, 10, true)); body.AddView(MobileValueEditor(child, ConceptSpace.Value(value.Members, child))); } return body; }
         if (field.Kind == "function" || !ConceptSpace.PrimitiveTypes.Contains(field.Type))
         {
-            string Caption() => field.Kind == "function" ? MobileSpace.Implementations.FirstOrDefault(i => i.Id == value.Text)?.Name ?? "구현 선택" : MobileSpace.Objects.FirstOrDefault(o => o.Id == value.Text)?.Name ?? MobileSpace.TypeName(field.Type); Button? button = null;
-            button = AiAction(Caption(), () => { var choices = field.Kind == "function" ? MobileSpace.Matching(field).Select(i => (i.Id, i.Name + " · " + MobileSpace.Address(i))).ToArray() : MobileSpace.Choices(field.Type).Select(o => (o.Id, MobileConceptMark(o.Concept) + " " + o.Name + " · " + MobileSpace.Pack(o.Pack).Name)).ToArray(); choices = new[] { ("", "비워 두기") }.Concat(choices).ToArray(); new AlertDialog.Builder(this).SetTitle(field.Name)!.SetItems(choices.Select(c => c.Item2).ToArray(), (_, e) => { value.Text = choices[e.Which].Item1; if (SaveMobileSpace()) button!.Text = Caption(); })!.Show(); }); return button;
+            string Caption() => field.Kind == "function" ? MobileSpace.Implementations.FirstOrDefault(i => i.Id == value.Text)?.Name ?? "구현 선택" : MobileSpace.Objects.FirstOrDefault(o => o.Id == value.Text) is { } selected ? MobileSpace.DisplayName(selected) : MobileSpace.TypeName(field.Type); Button? button = null;
+            button = AiAction(Caption(), () => { var choices = field.Kind == "function" ? MobileSpace.Matching(field).Select(i => (i.Id, i.Name + " · " + MobileSpace.Address(i))).ToArray() : MobileSpace.Choices(field.Type).Select(o => (o.Id, MobileConceptMark(o.Concept) + " " + MobileSpace.DisplayName(o) + " · " + MobileSpace.Pack(o.Pack).Name)).ToArray(); choices = new[] { ("", "비워 두기") }.Concat(choices).ToArray(); new AlertDialog.Builder(this).SetTitle(field.Name)!.SetItems(choices.Select(c => c.Item2).ToArray(), (_, e) => { value.Text = choices[e.Which].Item1; if (SaveMobileSpace()) button!.Text = Caption(); })!.Show(); }); return button;
         }
         if (field.Type == "boolean") { var check = new CheckBox(this) { Checked = value.Text == "true" }; check.CheckedChange += (_, e) => { value.Text = e.IsChecked ? "true" : "false"; SaveMobileSpace(); }; return check; }
         var input = ConceptInput(value.Text); if (field.Type == "number") input.InputType = InputTypes.ClassNumber | InputTypes.NumberFlagDecimal | InputTypes.NumberFlagSigned; input.TextChanged += (_, _) => value.Text = input.Text ?? ""; input.FocusChange += (_, e) => { if (!e.HasFocus) SaveMobileSpace(); }; input.EditorAction += (_, _) => SaveMobileSpace(); return input;
@@ -202,37 +218,56 @@ public sealed partial class MainActivity
         {
             controls.RemoveAllViews(); rows.RemoveAllViews(); var view = MobileSpace.Views.FirstOrDefault(v => v.Id == viewId);
             controls.AddView(AiAction(view?.Name ?? "기본 테이블", () => { var editors = MobileSpace.Editors(id); new AlertDialog.Builder(this).SetTitle("보기")!.SetItems(new[] { "기본 테이블" }.Concat(editors.Select(v => v.Name)).ToArray(), (_, e) => { viewId = e.Which == 0 ? "" : editors[e.Which - 1].Id; Render(); })!.Show(); }));
-            controls.AddView(AiAction(filter.Length == 0 ? "모든 팩" : MobileSpace.Pack(filter).Name, () => { var packs = MobileSpace.Packs.ToArray(); new AlertDialog.Builder(this).SetTitle("소스 팩 필터")!.SetItems(new[] { "모든 팩" }.Concat(packs.Select(p => p.Name)).ToArray(), (_, e) => { filter = e.Which == 0 ? "" : packs[e.Which - 1].Id; Render(); })!.Show(); })); controls.AddView(AiAction(grouped ? "팩별 정렬 ✓" : "팩별 정렬", () => { grouped = !grouped; Render(); })); controls.AddView(AiAction("보기 추가", () => MobileNewConceptView(id, Render))); controls.AddView(AiAction("+", () => { var value = MobileSpace.CreateObject(id); if (filter.Length > 0) value.Pack = filter; if (SaveMobileSpace()) Render(); }));
+            controls.AddView(AiAction(filter.Length == 0 ? "모든 팩" : MobileSpace.Pack(filter).Name, () => { var packs = MobileSpace.Packs.ToArray(); new AlertDialog.Builder(this).SetTitle("소스 팩 필터")!.SetItems(new[] { "모든 팩" }.Concat(packs.Select(p => p.Name)).ToArray(), (_, e) => { filter = e.Which == 0 ? "" : packs[e.Which - 1].Id; Render(); })!.Show(); })); controls.AddView(AiAction(grouped ? "팩별 정렬 ✓" : "팩별 정렬", () => { grouped = !grouped; Render(); })); controls.AddView(AiAction("보기 추가", () => MobileNewConceptView(id, Render))); var create = AiAction("+", () => { var value = MobileSpace.CreateObject(id); if (filter.Length > 0) value.Pack = filter; if (SaveMobileSpace()) Render(); else MobileSpace.Objects.Remove(value); }); create.Enabled = MobileSpace.Pack(filter.Length == 0 ? MobileSpace.MainPack : filter).Editable; controls.AddView(create);
             if (view?.Layout == "pack") { controls.AddView(AiAction("전용 에디터 열기", () => { var value = MobileSpace.Rows(id, filter).FirstOrDefault(); if (value is not null) OpenMobileElement(new() { Key = "concept-object:" + value.Id, EditorId = view.Editor }); })); return; }
             if (view is not null && view.Fields.Any(f => MobileSpace.ResolveField(id, f.Path) is null)) { rows.AddView(HomeLabel("연결이 바뀐 보기 · 기본 테이블로 편집할 수 있어", 12, true)); view = null; }
-            var columns = view is null || view.Fields.Count == 0 ? MobileSpace.Schema(id).Select(f => new ConceptViewField { Path = f.Id, Label = f.Name }).ToArray() : view.Fields.ToArray(); bool table = view is null || view.Layout == "table";
-            if (table) { var header = new LinearLayout(this) { Orientation = Orientation.Horizontal }; foreach (string name in new[] { "소스 팩", "이름" }.Concat(columns.Select(c => c.Label.Length == 0 ? MobileSpace.ResolveField(id, c.Path)!.Name : c.Label))) header.AddView(HomeLabel(name, 12), new LinearLayout.LayoutParams(Dp(180), ViewGroup.LayoutParams.WrapContent)); rows.AddView(header); }
+            var columns = view is null || view.Fields.Count == 0 ? MobileSpace.Schema(id).Select(f => new ConceptViewField { Path = f.Id, Label = f.Name }).ToArray() : view.Fields.ToArray(); bool table = view is null || view.Layout == "table"; bool named = MobileSpace.NameField(id) is { } nameField && columns.Any(c => c.Path == nameField.Id), sourcePack = view is null || view.ShowSourcePack;
+            if (table) { var header = new LinearLayout(this) { Orientation = Orientation.Horizontal }; foreach (string name in (sourcePack ? new[] { "소스 팩" } : Array.Empty<string>()).Concat(named ? [] : new[] { "이름" }).Concat(columns.Select(c => c.Label.Length == 0 ? MobileSpace.ResolveField(id, c.Path)!.Name : c.Label))) header.AddView(HomeLabel(name, 12), new LinearLayout.LayoutParams(Dp(180), ViewGroup.LayoutParams.WrapContent)); rows.AddView(header); }
             string previous = "";
             foreach (var value in MobileSpace.Rows(id, filter, grouped))
             {
                 if (grouped && previous != value.Pack) { rows.AddView(HomeLabel((value.Pack == MobileSpace.MainPack ? "MAIN · " : "") + MobileSpace.Pack(value.Pack).Name, 18)); previous = value.Pack; }
-                var row = new LinearLayout(this) { Orientation = table ? Orientation.Horizontal : Orientation.Vertical }; var name = ConceptInput(value.Name); name.TextChanged += (_, _) => value.Name = name.Text ?? ""; name.FocusChange += (_, e) => { if (!e.HasFocus) SaveMobileSpace(); };
-                if (table) { row.AddView(MobilePackButton(value, Render), new LinearLayout.LayoutParams(Dp(180), ViewGroup.LayoutParams.WrapContent)); row.AddView(name, new LinearLayout.LayoutParams(Dp(180), ViewGroup.LayoutParams.WrapContent)); foreach (var column in columns) row.AddView(MobileBoundValue(value, column), new LinearLayout.LayoutParams(Dp(180), ViewGroup.LayoutParams.WrapContent)); }
-                else { row.SetPadding(Dp(12), Dp(12), Dp(12), Dp(12)); row.SetBackgroundColor(HomePanel); row.AddView(name); if (view!.ShowSourcePack) row.AddView(MobilePackButton(value, Render)); var flow = new LinearLayout(this) { Orientation = Orientation.Horizontal }; var input = new LinearLayout(this) { Orientation = Orientation.Vertical }; var output = new LinearLayout(this) { Orientation = Orientation.Vertical }; var extra = new LinearLayout(this) { Orientation = Orientation.Vertical }; foreach (var column in columns) { var target = view.Layout == "slots" ? column.Side == "input" ? input : column.Side == "output" ? output : extra : extra; target.AddView(HomeLabel(column.Label, 11, true)); target.AddView(view.Layout == "slots" && column.Side is "input" or "output" ? MobileSlotValue(value, column) : MobileBoundValue(value, column)); } if (view.Layout == "slots") { flow.AddView(input); flow.AddView(HomeLabel("⟶", 28)); flow.AddView(output); row.AddView(flow); } row.AddView(extra); }
-                rows.AddView(row, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WrapContent, ViewGroup.LayoutParams.WrapContent) { BottomMargin = Dp(12) });
+                var row = new LinearLayout(this) { Orientation = table ? Orientation.Horizontal : Orientation.Vertical }; var name = ConceptInput(MobileSpace.DisplayName(value)); name.Enabled = !MobileSpace.HasNameField(value.Concept); name.TextChanged += (_, _) => { if (!MobileSpace.HasNameField(value.Concept)) value.Name = name.Text ?? ""; }; name.FocusChange += (_, e) => { if (!e.HasFocus && name.Enabled) SaveMobileSpace(); };
+                if (table) { if (sourcePack) row.AddView(MobilePackButton(value, Render), new LinearLayout.LayoutParams(Dp(180), ViewGroup.LayoutParams.WrapContent)); if (!named) row.AddView(name, new LinearLayout.LayoutParams(Dp(180), ViewGroup.LayoutParams.WrapContent)); foreach (var column in columns) row.AddView(MobileBoundValue(value, column), new LinearLayout.LayoutParams(Dp(180), ViewGroup.LayoutParams.WrapContent)); }
+                else { row.SetPadding(Dp(12), Dp(12), Dp(12), Dp(12)); row.SetBackgroundColor(HomePanel); row.AddView(MobileSpace.HasNameField(id) ? HomeLabel(MobileSpace.DisplayName(value), 18) : name); if (view!.ShowSourcePack) row.AddView(MobilePackButton(value, Render)); var flow = new LinearLayout(this) { Orientation = Orientation.Horizontal }; var input = new LinearLayout(this) { Orientation = Orientation.Vertical }; var output = new LinearLayout(this) { Orientation = Orientation.Vertical }; var extra = new LinearLayout(this) { Orientation = Orientation.Vertical }; foreach (var column in columns) { var target = view.Layout == "slots" ? column.Side == "input" ? input : column.Side == "output" ? output : extra : extra; target.AddView(HomeLabel(column.Label, 11, true)); target.AddView(view.Layout == "slots" && column.Side is "input" or "output" ? MobileSlotValue(value, column) : MobileBoundValue(value, column)); } if (view.Layout == "slots") { flow.AddView(input); flow.AddView(HomeLabel("⟶", 28)); flow.AddView(output); row.AddView(flow); } row.AddView(extra); }
+                if (!MobileSpace.Pack(value.Pack).Editable) MobileConceptEditable(row, false); rows.AddView(row, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WrapContent, ViewGroup.LayoutParams.WrapContent) { BottomMargin = Dp(12) });
             }
         }
         Render();
     }
     private View MobileBoundValue(ConceptObject value, ConceptViewField binding)
     { var body = new LinearLayout(this) { Orientation = Orientation.Vertical }; var resolved = MobileSpace.Bind(value, binding.Path); foreach (var v in resolved.Values) body.AddView(MobileValueEditor(resolved.Field, v)); return body; }
+    private static void MobileConceptEditable(View view, bool editable)
+    {
+        view.Enabled = editable;
+        if (view is ViewGroup group) for (int i = 0; i < group.ChildCount; i++) if (group.GetChildAt(i) is { } child) MobileConceptEditable(child, editable);
+    }
     private View MobileSlotValue(ConceptObject value, ConceptViewField binding)
     {
-        var body = new LinearLayout(this) { Orientation = Orientation.Horizontal }; var resolved = MobileSpace.Bind(value, binding.Path);
-        foreach (var container in resolved.Values)
+        var body = new LinearLayout(this) { Orientation = Orientation.Horizontal };
+        void Render()
         {
-            foreach (var item in resolved.Field.Multiple ? container.Items : new List<ConceptValue> { container })
+            body.RemoveAllViews(); var resolved = MobileSpace.Bind(value, binding.Path);
+            foreach (var container in resolved.Values)
             {
-                string reference = binding.Icon.Length == 0 ? item.Text : item.Members.TryGetValue(binding.Icon, out var icon) ? icon.Text : ""; var obj = MobileSpace.Objects.FirstOrDefault(o => o.Id == reference); var slot = new LinearLayout(this) { Orientation = Orientation.Vertical }; slot.AddView(MobileProjectIcon(obj?.Icon.Length > 0 ? studioSession.Project.Resolve(obj.Icon) : "", 52)); slot.AddView(HomeLabel(obj?.Name ?? "아이템 선택", 10)); if (binding.Quantity.Length > 0 && item.Members.TryGetValue(binding.Quantity, out var quantity)) slot.AddView(HomeLabel(quantity.Text, 12)); slot.Click += (_, _) => new AlertDialog.Builder(this).SetTitle(resolved.Field.Name)!.SetView(ConceptScroll(MobileValueEditor(resolved.Field, item, true)))!.SetPositiveButton("닫기", (_, _) => { })!.Show(); body.AddView(slot);
+                void Edit(ConceptValue item)
+                {
+                    var panel = ConceptColumn(); panel.AddView(MobileValueEditor(resolved.Field, item, true));
+                    AlertDialog? dialog = null;
+                    if (resolved.Field.Multiple) panel.AddView(AiAction("삭제", () => { container.Items.Remove(item); if (SaveMobileSpace()) dialog!.Dismiss(); }));
+                    dialog = new AlertDialog.Builder(this).SetTitle(resolved.Field.Name)!.SetView(ConceptScroll(panel))!.SetPositiveButton("닫기", (_, _) => { })!.Create();
+                    dialog!.DismissEvent += (_, _) => Render(); dialog.Show();
+                }
+                foreach (var item in resolved.Field.Multiple ? container.Items : new List<ConceptValue> { container })
+                {
+                    string reference = binding.Icon.Length == 0 ? item.Text : item.Members.TryGetValue(binding.Icon, out var icon) ? icon.Text : ""; var obj = MobileSpace.Objects.FirstOrDefault(o => o.Id == reference);
+                    var slot = new LinearLayout(this) { Orientation = Orientation.Vertical }; slot.SetPadding(Dp(6), Dp(6), Dp(6), Dp(6)); slot.AddView(MobileProjectIcon(obj?.Icon is { Length: > 0 } path ? studioSession.Project.Resolve(path) : "", 52)); slot.AddView(HomeLabel(obj is null ? "객체 선택" : MobileSpace.DisplayName(obj), 10));
+                    if (binding.Quantity.Length > 0 && item.Members.TryGetValue(binding.Quantity, out var quantity)) slot.AddView(HomeLabel(quantity.Text, 12)); slot.Click += (_, _) => Edit(item); body.AddView(slot);
+                }
+                if (resolved.Field.Multiple) body.AddView(AiAction("+", () => { var item = ConceptSpace.Default(resolved.Field, true); container.Items.Add(item); if (SaveMobileSpace()) { Render(); Edit(item); } }));
             }
-            if (resolved.Field.Multiple) body.AddView(AiAction("+", () => { container.Items.Add(ConceptSpace.Default(resolved.Field, true)); if (SaveMobileSpace()) new AlertDialog.Builder(this).SetTitle(resolved.Field.Name)!.SetView(ConceptScroll(MobileValueEditor(resolved.Field, container)))!.SetPositiveButton("닫기", (_, _) => { })!.Show(); }));
         }
-        return body;
+        Render(); return body;
     }
     private void MobileNewConceptView(string id, Action changed)
     {
@@ -241,20 +276,20 @@ public sealed partial class MainActivity
         foreach (var field in fields) { var row = new LinearLayout(this) { Orientation = Orientation.Horizontal }; row.AddView(HomeLabel(field.Label, 12)); Button? side = null; side = AiAction(field.Side.Length == 0 ? "기타" : field.Side, () => new AlertDialog.Builder(this).SetItems(new[] { "기타", "입력", "출력" }, (_, e) => { field.Side = new[] { "", "input", "output" }[e.Which]; side!.Text = new[] { "기타", "입력", "출력" }[e.Which]; })!.Show()); row.AddView(side); body.AddView(row); }
         Dialog? dialog = null; body.AddView(AiAction("만들기", () => { MobileSpace.Views.Add(new() { Id = ConceptSpace.NewId(), Pack = MobileSpace.MainPack, Concept = id, Name = name.Text ?? "새 보기", Layout = layout, Editor = editor.Text ?? "", ShowSourcePack = source.Checked, Fields = fields }); if (SaveMobileSpace()) { dialog!.Dismiss(); changed(); } })); dialog = MobileConceptWindow("Editor View", ConceptScroll(body));
     }
-    private void MobileNewConceptPack(Action? changed = null)
-    { var body = ConceptColumn(); var name = ConceptInput(""); name.Hint = "팩 이름"; body.AddView(name); var ns = ConceptInput(""); ns.Hint = "Namespace"; body.AddView(ns); Dialog? dialog = null; body.AddView(AiAction("만들기", () => MobileHomeAction(() => { var pack = MobileSpace.AddPack(name.Text ?? "", ns.Text ?? ""); if (SaveMobileSpace()) { dialog!.Dismiss(); changed?.Invoke(); } else MobileSpace.Packs.Remove(pack); }))); dialog = MobileConceptWindow("팩 추가", body); }
+    private void MobileNewConceptPack(Action? changed = null, Action<ConceptPack>? created = null)
+    { var body = ConceptColumn(); var name = ConceptInput(""); name.Hint = "팩 이름"; body.AddView(name); var ns = ConceptInput(""); ns.Hint = "Namespace"; body.AddView(ns); Dialog? dialog = null; body.AddView(AiAction("만들기", () => MobileHomeAction(() => { var pack = MobileSpace.AddPack(name.Text ?? "", ns.Text ?? ""); if (SaveMobileSpace()) { dialog!.Dismiss(); created?.Invoke(pack); changed?.Invoke(); } else MobileSpace.Packs.Remove(pack); }))); dialog = MobileConceptWindow("팩 추가", body); }
     private void MobileConceptPacks()
     {
         var body = ConceptColumn(); OpenMobileConceptPage(ConceptScroll(body));
         void Render()
         {
-            body.RemoveAllViews(); foreach (var pack in MobileSpace.Packs) { body.AddView(HomeLabel((pack.Id == MobileSpace.MainPack ? "MAIN · " : "") + pack.Name, 20)); var name = ConceptInput(pack.Name); var ns = ConceptInput(pack.Namespace); var description = ConceptInput(pack.Description); body.AddView(name); body.AddView(HomeLabel("Namespace", 11, true)); body.AddView(ns); body.AddView(description); body.AddView(HomeLabel("의존성 · " + string.Join(", ", pack.Dependencies.Concat(MobileSpace.RequiredDependencies(pack.Id)).Distinct().Select(id => MobileSpace.Packs.FirstOrDefault(p => p.Id == id)?.Name ?? id)), 11, true)); var save = AiAction("저장", () => { pack.Name = name.Text ?? ""; pack.Namespace = ns.Text ?? ""; pack.Description = description.Text ?? ""; if (SaveMobileSpace()) Render(); }); save.Enabled = pack.Editable; body.AddView(save); body.AddView(AiAction("요소 이주", () => MobileMigrateConceptElements(pack.Id, Render))); } body.AddView(AiAction("+ 팩 추가", () => MobileNewConceptPack(Render)));
+            body.RemoveAllViews(); foreach (var pack in MobileSpace.Packs) { body.AddView(HomeLabel((pack.Id == MobileSpace.MainPack ? "MAIN · " : "") + pack.Name, 20)); var name = ConceptInput(pack.Name); var ns = ConceptInput(pack.Namespace); var description = ConceptInput(pack.Description); name.Enabled = ns.Enabled = description.Enabled = pack.Editable; body.AddView(name); body.AddView(HomeLabel("Namespace", 11, true)); body.AddView(ns); body.AddView(description); body.AddView(HomeLabel("의존성 · " + string.Join(", ", pack.Dependencies.Concat(MobileSpace.RequiredDependencies(pack.Id)).Distinct().Select(id => MobileSpace.Packs.FirstOrDefault(p => p.Id == id)?.Name ?? id)), 11, true)); var save = AiAction("저장", () => { pack.Name = name.Text ?? ""; pack.Namespace = ns.Text ?? ""; pack.Description = description.Text ?? ""; if (SaveMobileSpace()) Render(); }); save.Enabled = pack.Editable; body.AddView(save); body.AddView(AiAction("요소 이주", () => MobileMigrateConceptElements(pack.Id, Render))); } body.AddView(AiAction("+ 팩 추가", () => MobileNewConceptPack(Render)));
         }
         Render();
     }
     private void MobileMigrateConceptElements(string source, Action changed)
     {
-        var body = ConceptColumn(); var packs = MobileSpace.Packs.Where(p => p.Editable && p.Id != source).ToArray(); string target = packs.FirstOrDefault()?.Id ?? ""; Button? pick = null; pick = AiAction(packs.FirstOrDefault()?.Name ?? "대상 팩 추가가 필요해", () => new AlertDialog.Builder(this).SetItems(packs.Select(p => p.Name).ToArray(), (_, e) => { target = packs[e.Which].Id; pick!.Text = packs[e.Which].Name; })!.Show()); body.AddView(pick); var checks = new List<(CheckBox Check, string Id)>(); foreach (var element in MobileSpace.Elements().Where(e => e.Pack == source)) { var check = new CheckBox(this) { Text = element.Name + " · " + (element is ConceptDefinition ? "개념" : element is ConceptImplementation ? "기능" : element is ConceptEditorView ? "View" : element is ConceptObject ? "객체" : "카테고리") }; checks.Add((check, element.Id)); body.AddView(check); } Dialog? dialog = null; body.AddView(AiAction("이주", () => MobileHomeAction(() => { if (target.Length == 0) return; MobileSpace.Move(checks.Where(c => c.Check.Checked).Select(c => c.Id), target); if (SaveMobileSpace()) { dialog!.Dismiss(); changed(); } }))); dialog = MobileConceptWindow("요소 이주", ConceptScroll(body));
+        var body = ConceptColumn(); var packs = MobileSpace.Packs.Where(p => p.Editable && p.Id != source).ToArray(); string target = packs.FirstOrDefault()?.Id ?? ""; Button? pick = null; pick = AiAction(packs.FirstOrDefault()?.Name ?? "대상 팩 추가가 필요해", () => new AlertDialog.Builder(this).SetItems(packs.Select(p => p.Name).ToArray(), (_, e) => { target = packs[e.Which].Id; pick!.Text = packs[e.Which].Name; })!.Show()); body.AddView(pick); var checks = new List<(CheckBox Check, string Id)>(); foreach (var element in MobileSpace.Elements().Where(e => e.Pack == source)) { var check = new CheckBox(this) { Text = element.Name + " · " + (element is ConceptDefinition ? "개념" : element is ConceptImplementation ? "기능" : element is ConceptEditorView ? "View" : element is ConceptObject ? "객체" : "카테고리") }; checks.Add((check, element.Id)); body.AddView(check); } Dialog? dialog = null; body.AddView(AiAction("이주", () => MobileHomeAction(() => { if (target.Length == 0) return; if (MoveMobileSpace(checks.Where(c => c.Check.Checked).Select(c => c.Id), target)) { dialog!.Dismiss(); changed(); } }))); dialog = MobileConceptWindow("요소 이주", ConceptScroll(body));
     }
     private void MobileConceptFunctions(string prefix = "")
     {

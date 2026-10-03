@@ -97,12 +97,6 @@ public sealed partial class MainActivity
             agents.Add(circle); mobileProfileIcons.Add(circle);
         }
         agents.Add(MobileAiCircle("Agent 추가", "", () => { mobileEditingAgent = ""; ShowEditorAiSetup(); }, empty: true)); CirclePairs(mobileManagement, agents); HomeDivider(mobileManagement);
-        if (MobileProject)
-        {
-            mobileManagement.AddView(HomeLabel("Worker", 11, true)); var workers = new List<View>();
-            foreach (var worker in mobileWorkers.Where(w => !studioSession.Collaboration.CanControl("human", w.Participant.Id) || !mobileDirectory.Helpers.Any(h => h.Id == w.Participant.HelperId && h.Enabled))) workers.Add(MobileWorkerSidebarItem(worker));
-            workers.Add(MobileAiCircle("Worker 추가", "", () => { var worker = CreateMobileWorker(); if (worker is not null) SelectMobileWorker(worker); }, empty: true)); CirclePairs(mobileManagement, workers); HomeDivider(mobileManagement);
-        }
         mobileManagement.AddView(HomeLabel("Helper", 11, true)); var helpers = new List<View>();
         foreach (var helper in mobileDirectory.Helpers.Where(h => h.Enabled))
         {

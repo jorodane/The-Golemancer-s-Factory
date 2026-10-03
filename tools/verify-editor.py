@@ -130,6 +130,11 @@ print(json.dumps({'type':'reply','text':'PROVIDER_PROTOCOL_OK'}),flush=True)
             response = call('assist', '--provider', provider, '--select', 'view:golemancer.purchase', '--prompt', '읽기 프로토콜 확인', env=dict(os.environ, PACKENGINE_ASSISTANT_CONFIG=str(config)))
             check('PROVIDER_PROTOCOL_OK' in response.stdout and len(json.loads((state / 'session.json').read_text())['Reads']) == 3, 'an independently loaded assistant provider exchanges real read and inspection requests over JSON lines')
 
+            # Prepare every declared implementation and native host in this isolated copy.
+            # The campaign and smoke commands require these outputs; they must not rely
+            # on generated binaries left in the developer's checkout.
+            call('build-project', '--target', 'linux')
+            check(frozen == {p: digest(game / p) for p in locked}, 'building the declared project prepares all external packs and the Linux host without changing the frozen SDK')
             source = next((game / 'modules/Golemancer.Commerce').glob('*.cs'))
             source_bytes = source.read_bytes()
             all_modules = {str(p.relative_to(game)): digest(p) for p in (game / 'Content/Packs').glob('*/Bin/net10.0/*.dll')}

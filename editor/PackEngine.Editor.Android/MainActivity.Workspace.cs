@@ -18,6 +18,7 @@ public sealed partial class MainActivity
     private View BuildMobileWorkspace(View scroll)
     {
         var field = new FrameLayout(this); field.AddView(scroll, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent));
+        mobileEmptyProjectSurface = new FrameLayout(this) { Visibility = ViewStates.Gone }; mobileEmptyProjectSurface.SetBackgroundColor(HomeBackground); field.AddView(mobileEmptyProjectSurface, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent));
         mobileConceptPageHost = new FrameLayout(this) { Visibility = ViewStates.Gone }; field.AddView(mobileConceptPageHost, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent) { BottomMargin = Dp(80) });
         mobileWorkerLayer = new(this); field.AddView(mobileWorkerLayer, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent));
         mobileParticipantNotices = new LinearLayout(this) { Orientation = Orientation.Vertical }; field.AddView(mobileParticipantNotices, new FrameLayout.LayoutParams(Dp(300), ViewGroup.LayoutParams.WrapContent, GravityFlags.Top | GravityFlags.Right) { RightMargin = Dp(8), TopMargin = Dp(8) });

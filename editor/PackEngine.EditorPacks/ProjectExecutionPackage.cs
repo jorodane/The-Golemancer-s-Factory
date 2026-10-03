@@ -23,9 +23,10 @@ public static class ProjectExecutionPackage
     {
         var packs = engine.Compose(sources).Where(s => !s.IsReadOnly).OrderBy(s => s.Id, StringComparer.Ordinal).ToArray();
         var before = packs.ToDictionary(s => s.Id, s => s.Fingerprint(), StringComparer.Ordinal);
+        var functions = project.Index.Packs.SelectMany(pack => PackCompiler.ReadXml(project.Project.Resolve(pack.Manifest)).Root!.Elements("FunctionAssembly").Select(e => project.Project.Relative(PackCompiler.SafePath(Path.GetDirectoryName(project.Project.Resolve(pack.Manifest))!, WorkspaceProject.Required(e, "path").Replace("{framework}", PackCompiler.RuntimeFolder))))).ToArray();
         var document = new XElement("ProjectExecution", new XAttribute("version", "1"), new XAttribute("engine", engine.Id),
             new XAttribute("release", engine.Release), new XAttribute("compatibility", engine.Compatibility),
-            new XAttribute("framework", packs.Any(s => s.Manifest().Root!.Elements("Assembly").Any()) ? PackCompiler.RuntimeFolder : "any"),
+            new XAttribute("framework", functions.Length > 0 || packs.Any(s => s.Manifest().Root!.Elements("Assembly").Any()) ? PackCompiler.RuntimeFolder : "any"),
             new XAttribute("project", Path.GetFileName(project.Project.Manifest)));
         var paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase); long total = 0;
         using var archive = new ZipArchive(output, ZipArchiveMode.Create, true);
@@ -52,6 +53,12 @@ public static class ProjectExecutionPackage
                 Add("Project/EditorPacks/" + source.Id + "/" + path, File.ReadAllBytes(source.PathFor(path)));
             if (source.Fingerprint() != before[source.Id]) throw new IOException("Project pack changed during export: " + source.Id);
             document.Add(new XElement("Pack", new XAttribute("id", source.Id)));
+        }
+        foreach (string path in functions.Distinct(StringComparer.Ordinal))
+        {
+            if (!File.Exists(project.Project.Resolve(path))) throw new FileNotFoundException("프로젝트 팩을 내보내기 전에 기능을 빌드해줘: " + path);
+            Add("Project/" + path, File.ReadAllBytes(project.Project.Resolve(path)));
+            string dependencies = Path.ChangeExtension(path, ".deps.json"); if (File.Exists(project.Project.Resolve(dependencies))) Add("Project/" + dependencies, File.ReadAllBytes(project.Project.Resolve(dependencies)));
         }
         engine.Verify();
         using var descriptor = archive.CreateEntry(Descriptor).Open(); new XDocument(document).Save(descriptor);

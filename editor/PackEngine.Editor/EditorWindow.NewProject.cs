@@ -80,17 +80,11 @@ public sealed partial class EditorWindow
                 if (icon.Length > 0) ProjectCatalog.SetIcon(project, File.ReadAllBytes(icon), System.IO.Path.GetExtension(icon));
                 ReadyForPackSelection(); OpenProject(project.Manifest);
                 if (session?.Project.Manifest != project.Manifest) throw new InvalidOperationException("프로젝트를 열지 못했어. 진행 중인 작업을 확인해줘.");
-                dialog.Close(); FocusFirstProjectPrompt();
+                dialog.Close();
             }
             catch (Exception e) { error.Text = e.Message; error.Visibility = Visibility.Visible; }
         };
         dialog.PreviewKeyDown += (_, e) => { if (e.Key == Key.Escape) dialog.Close(); };
         dialog.Loaded += (_, _) => { name.Focus(); Keyboard.Focus(name); }; RefreshPath(); dialog.ShowDialog();
-    }
-    private void FocusFirstProjectPrompt()
-    {
-        var main = workers.FirstOrDefault(w => w.Participant.HelperId == projectStudio.MainHelperId);
-        if (main is not null) { SelectWorker(main); var input = main.Composer.Children.OfType<TextBox>().FirstOrDefault(); input?.Focus(); }
-        else firstProjectPromptPanel.Visibility = Visibility.Collapsed;
     }
 }

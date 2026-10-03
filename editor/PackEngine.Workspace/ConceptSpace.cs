@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Xml;
 using System.Xml.Linq;
@@ -45,9 +46,26 @@ public sealed class ConceptDefinition : ConceptElement
 }
 public sealed class ConceptValue
 {
-    public string Text { get; set; } = "";
+    private string text = "";
+    private Action? changed;
+    public string Text { get => text; set { if (text == value) return; text = value; changed?.Invoke(); } }
     public Dictionary<string, ConceptValue> Members { get; set; } = new(StringComparer.Ordinal);
-    public List<ConceptValue> Items { get; set; } = [];
+    public ConceptItems Items { get; set; } = [];
+    internal void Track(Action commit) { changed = commit; foreach (var value in Members.Values) value.Track(commit); Items.Track(commit); }
+}
+public sealed class ConceptItems : List<ConceptValue>
+{
+    private Action? changed;
+    public ConceptItems() { }
+    public ConceptItems(IEnumerable<ConceptValue> items) : base(items) { }
+    internal void Track(Action commit) { changed = commit; foreach (var value in this) value.Track(commit); }
+    public new void Add(ConceptValue value) { base.Add(value); if (changed is not null) value.Track(changed); changed?.Invoke(); }
+    public new void AddRange(IEnumerable<ConceptValue> values) { foreach (var value in values) Add(value); }
+    public new bool Remove(ConceptValue value) { bool removed = base.Remove(value); if (removed) changed?.Invoke(); return removed; }
+    public new void RemoveAt(int index) { base.RemoveAt(index); changed?.Invoke(); }
+    public new void Clear() { if (Count == 0) return; base.Clear(); changed?.Invoke(); }
+    public new void Insert(int index, ConceptValue value) { base.Insert(index, value); if (changed is not null) value.Track(changed); changed?.Invoke(); }
+    public new ConceptValue this[int index] { get => base[index]; set { base[index] = value; if (changed is not null) value.Track(changed); changed?.Invoke(); } }
 }
 public sealed class ConceptObject : ConceptElement
 {
@@ -100,10 +118,12 @@ public sealed partial class ConceptSpace
     public List<ConceptPack> Packs { get; set; } = [];
     public string MainPack { get; set; } = "";
     public static readonly string[] PrimitiveTypes = ["text", "number", "boolean"];
+    private static readonly ConditionalWeakTable<Dictionary<string, ConceptValue>, Dictionary<string, (string Signature, ConceptValue Value)>> deferredValues = new();
     private WorkspaceProject project;
     private readonly Dictionary<string, string> observed = new(StringComparer.Ordinal);
     private string manifestText = "";
     private readonly Dictionary<string, string[]> documents = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> layerStates = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> sourceEdits = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> readonlyStates = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> implementationChecks = new(StringComparer.Ordinal);
@@ -147,6 +167,7 @@ public sealed partial class ConceptSpace
             space.Views.AddRange(space.RequiredDocument(paths[2], "ConceptViews").Elements("View").Select(e => new ConceptEditorView { Id = A(e, "id"), Name = A(e, "name"), Concept = A(e, "concept"), Layout = A(e, "layout", "cards"), Editor = A(e, "editor"), ShowSourcePack = A(e, "sourcePack") == "true", Fields = e.Elements("Field").Select(f => new ConceptViewField { Path = A(f, "path"), Label = A(f, "label"), Side = A(f, "side"), Icon = A(f, "icon"), Quantity = A(f, "quantity") }).ToList(), Pack = pack, Symbol = A(e, "symbol", A(e, "id")) }));
         }
         space.Validate();
+        space.RememberLayers();
         foreach (var pack in space.Packs.Where(p => !p.Editable)) space.readonlyStates.Add(pack.Id, space.PackState(pack));
         return space;
     }
@@ -165,15 +186,25 @@ public sealed partial class ConceptSpace
     private static ConceptValue ReadValue(XElement e, int depth = 0)
     {
         if (depth > 42) throw new InvalidDataException("객체 값이 너무 깊어.");
-        return new() { Text = A(e, "text"), Members = ReadValues(e, depth), Items = e.Elements("Item").Select(v => ReadValue(v, depth + 1)).ToList() };
+        return new() { Text = A(e, "text"), Members = ReadValues(e, depth), Items = new(e.Elements("Item").Select(v => ReadValue(v, depth + 1))) };
     }
     private static XElement FieldXml(ConceptField f) => new("Field", new XAttribute("id", f.Id), new XAttribute("name", f.Name), new XAttribute("type", f.Type), new XAttribute("kind", f.Kind), new XAttribute("multiple", f.Multiple), f.Fields.Select(FieldXml));
     private static XElement ValueXml(string tag, ConceptValue v, string? field = null) => new(tag, field is null ? null : new XAttribute("field", field), new XAttribute("text", v.Text), v.Members.Select(p => ValueXml("Value", p.Value, p.Key)), v.Items.Select(i => ValueXml("Item", i)));
     private static XElement Root(string name, IEnumerable<XElement> children) => new(name, new XAttribute("version", "1"), children);
     private static XElement Element(string tag, IConceptElement e, params object[] content) => new(tag, new XAttribute("id", e.Id), new XAttribute("name", e.Name), new XAttribute("symbol", e.Symbol.Length == 0 ? e.Id : e.Symbol), content);
     private XElement SchemaXml(string pack) => Root("ConceptSchema", Categories.Where(c => c.Pack == pack).Select(c => Element("Category", c, new XAttribute("parent", c.Parent))).Concat(Concepts.Where(c => c.Pack == pack).Select(c => Element("Concept", c, new XAttribute("category", c.Category), new XAttribute("extends", c.Base), c.Fields.Select(FieldXml)))));
-    private XElement ObjectsXml(string pack) => Root("ConceptObjects", Objects.Where(o => o.Pack == pack).Select(o => Element("Object", o, new XAttribute("concept", o.Concept), new XAttribute("icon", o.Icon), o.Values.Select(p => ValueXml("Value", p.Value, p.Key)))).Concat(Implementations.Where(i => i.Pack == pack).Select(i => Element("Implementation", i, new XAttribute("handler", i.Handler), new XAttribute("returns", i.Returns), new XAttribute("source", i.Source), i.Parameters.Select(FieldXml)))));
+    private XElement ObjectsXml(string pack) => Root("ConceptObjects", Objects.Where(o => o.Pack == pack).Select(o => { var xml = Element("Object", o, new XAttribute("concept", o.Concept), new XAttribute("icon", o.Icon), o.Values.Select(p => ValueXml("Value", p.Value, p.Key))); xml.SetAttributeValue("name", DisplayName(o)); return xml; }).Concat(Implementations.Where(i => i.Pack == pack).Select(i => Element("Implementation", i, new XAttribute("handler", i.Handler), new XAttribute("returns", i.Returns), new XAttribute("source", i.Source), i.Parameters.Select(FieldXml)))));
     private XElement ViewsXml(string pack) => Root("ConceptViews", Views.Where(v => v.Pack == pack).Select(v => Element("View", v, new XAttribute("concept", v.Concept), new XAttribute("layout", v.Layout), new XAttribute("editor", v.Editor), new XAttribute("sourcePack", v.ShowSourcePack), v.Fields.Select(f => new XElement("Field", new XAttribute("path", f.Path), new XAttribute("label", f.Label), new XAttribute("side", f.Side), new XAttribute("icon", f.Icon), new XAttribute("quantity", f.Quantity))))));
+    private void RememberLayers()
+    {
+        layerStates.Clear();
+        foreach (var pair in documents)
+        {
+            layerStates[pair.Value[0]] = SchemaXml(pair.Key).ToString();
+            layerStates[pair.Value[1]] = ObjectsXml(pair.Key).ToString();
+            layerStates[pair.Value[2]] = ViewsXml(pair.Key).ToString();
+        }
+    }
     private string PackState(ConceptPack pack) => new XElement("State", new XAttribute("name", pack.Name), new XAttribute("namespace", pack.Namespace), new XAttribute("description", pack.Description), new XAttribute("folder", pack.Folder), pack.Dependencies.Select(d => new XElement("Dependency", d)), SchemaXml(pack.Id), ObjectsXml(pack.Id), ViewsXml(pack.Id)).ToString();
     public TextFileProposal[] ProposeSave()
     {
@@ -190,6 +221,7 @@ public sealed partial class ConceptSpace
         registration.SetAttributeValue("mainPack", MainPack); registration.Elements("Pack").Remove();
         void Add(string path, string text)
         {
+            if (layerStates.TryGetValue(path, out var unchanged) && unchanged == text) return;
             if (!observed.ContainsKey(path)) { if (File.Exists(project.Resolve(path))) throw new IOException("다른 문서가 이미 이 경로에 있어: " + path); observed[path] = FileProposalBundle.Absent; }
             files.Add(new() { Path = path, ExpectedHash = observed[path], Text = text });
         }
@@ -216,7 +248,7 @@ public sealed partial class ConceptSpace
             bool registeredSource = mapping?.Elements("Source").Any(e => A(e, "project") == sourceProject && A(e, "reason") == "concept-space") == true;
             if (functions.Length > 0 || registeredSource)
             {
-                var csproj = new XElement("Project", new XAttribute("Sdk", "Microsoft.NET.Sdk"), new XElement("PropertyGroup", new XElement("TargetFramework", "net10.0"), new XElement("AssemblyName", assembly), new XElement("LangVersion", "latest"), new XElement("EnableDefaultCompileItems", "false")), new XElement("ItemGroup", functions.Select(f => new XElement("Compile", new XAttribute("Include", RelativeFile(project.Resolve(pack.Folder + "/Functions"), project.Resolve(f.Source)))))));
+                var csproj = new XElement("Project", new XAttribute("Sdk", "Microsoft.NET.Sdk"), new XElement("PropertyGroup", new XElement("EngineTargetFramework", new XAttribute("Condition", "'$(EngineTargetFramework)' == ''"), "net10.0"), new XElement("TargetFramework", "$(EngineTargetFramework)"), new XElement("AssemblyName", assembly), new XElement("LangVersion", "latest"), new XElement("EnableDefaultCompileItems", "false")), new XElement("ItemGroup", functions.Select(f => new XElement("Compile", new XAttribute("Include", RelativeFile(project.Resolve(pack.Folder + "/Functions"), project.Resolve(f.Source)))))));
                 if (!observed.ContainsKey(sourceProject) && project.Sources.Values.Any(p => p.Projects.Contains(sourceProject))) _ = Read(sourceProject);
                 Add(sourceProject, csproj.ToString());
                 if (mapping is null) { mapping = new XElement("Pack", new XAttribute("id", pack.Id)); manifest.Root.Add(mapping); }
@@ -246,11 +278,12 @@ public sealed partial class ConceptSpace
         manifestText = File.ReadAllText(project.Manifest); sourceEdits.Clear();
         var saved = Xml(manifestText).Root!.Element("ConceptSpace")!;
         documents.Clear(); foreach (var entry in saved.Elements("Pack")) documents.Add(A(entry, "id"), new[] { A(entry, "schema"), A(entry, "objects"), A(entry, "views") });
+        RememberLayers();
         session.ReloadProject(); project = session.Project;
     }
     public static string NewId() => "n" + Guid.NewGuid().ToString("N");
     public ConceptDefinition Concept(string id) => Concepts.Single(c => c.Id == id);
-    public string TypeName(string type) => type switch { "text" => "문자열", "number" => "숫자", "boolean" => "논리", "void" => "없음", _ => (Concepts.Any(c => c.Base == type) ? "◎ " : "○ ") + Concept(type).Name };
+    public string TypeName(string type) => type switch { "text" => "문자열", "number" => "숫자", "boolean" => "논리", "void" => "없음", _ => (Concepts.Any(c => c.Base == type) ? "◎ " : "○ ") + Concept(type).Name + (Concepts.Count(c => c.Name == Concept(type).Name) > 1 ? " · " + Address(Concept(type)) : "") };
     public bool IsA(string concept, string target)
     {
         for (int i = 0; concept.Length > 0 && i <= 64; i++) { if (concept == target) return true; concept = Concept(concept).Base; }
@@ -280,10 +313,16 @@ public sealed partial class ConceptSpace
     }
     public static ConceptValue Default(ConceptField f, bool item = false) => f.Multiple && !item ? new() : f.Kind == "composite" ? new() { Members = f.Fields.ToDictionary(c => c.Id, c => Default(c), StringComparer.Ordinal) } : new() { Text = f.Kind == "function" ? "" : f.Type == "number" ? "0" : f.Type == "boolean" ? "false" : "" };
     public static ConceptValue Value(Dictionary<string, ConceptValue> values, ConceptField field)
-    { if (!values.TryGetValue(field.Id, out var value)) values.Add(field.Id, value = Default(field)); return value; }
+    {
+        if (values.TryGetValue(field.Id, out var value)) return value;
+        var defaults = deferredValues.GetValue(values, _ => new(StringComparer.Ordinal));
+        string signature = Signature(field) + string.Join(",", Walk(new[] { field }).Select(f => f.Id));
+        if (defaults.TryGetValue(field.Id, out var pending) && pending.Signature == signature) return pending.Value;
+        value = Default(field); value.Track(() => values[field.Id] = value); defaults[field.Id] = (signature, value); return value;
+    }
     public ConceptObject CreateObject(string concept)
     {
-        var value = new ConceptObject { Id = NewId(), Pack = MainPack, Concept = concept, Name = Concept(concept).Name + " " + (Objects.Count(o => o.Concept == concept) + 1), Values = Schema(concept).ToDictionary(f => f.Id, f => Default(f), StringComparer.Ordinal) }; Objects.Add(value); return value;
+        var value = new ConceptObject { Id = NewId(), Pack = MainPack, Concept = concept, Name = Concept(concept).Name + " " + (Objects.Count(o => o.Concept == concept) + 1), Values = Schema(concept).ToDictionary(f => f.Id, f => Default(f), StringComparer.Ordinal) }; if (NameField(concept) is { } name) value.Values[name.Id].Text = value.Name; Objects.Add(value); return value;
     }
     private static IEnumerable<ConceptField> Walk(IEnumerable<ConceptField> fields) => fields.SelectMany(f => new[] { f }.Concat(Walk(f.Fields)));
     public string[] References(string id, bool inverse = false)

@@ -10,6 +10,12 @@ internal static class WorkspaceVerification
         int checks = 0;
         void Check(bool value, string name) { check(value, name); checks++; }
         var workspace = EditorPackTemplates.CreateWorkspace(Path.Combine(temporary, "WorkspacePacks"), "test.workspace");
+        var empty = EditorPackTemplates.CreateWorkspace(Path.Combine(temporary, "EmptyWorkspacePacks"), "test.empty", empty: true);
+        using (var emptyRuntime = await EditorPackRuntime.Prepare(worker, dotnet, [core, empty], default))
+        {
+            Check(emptyRuntime.Catalog.DescribeView(empty.Id + ".view").Slots["children"].Count == 0, "a new project workspace contains no inherited headings, onboarding or management panels");
+            Check(emptyRuntime.Snapshot.ObjectEditors.All(e => e.Pack != empty.Id), "the empty MainScreen does not replace the existing universal object editor with a screen-only command");
+        }
         Check(EditorPackSelection.DeclarativeWorkspace([core, workspace])?.Id == workspace.Id, "a project-owned XML workspace starts without discovering or executing a new DLL");
         string manifest = workspace.Read("pack.xml");
         File.WriteAllText(workspace.PathFor("pack.xml"), manifest.Replace("</ObjectPack>", "<Assembly path=\"unapproved.dll\" /></ObjectPack>"));

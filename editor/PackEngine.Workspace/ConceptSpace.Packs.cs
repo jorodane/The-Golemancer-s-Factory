@@ -10,6 +10,13 @@ public sealed partial class ConceptSpace
     public IEnumerable<IConceptElement> Elements() => Categories.Cast<IConceptElement>().Concat(Concepts).Concat(Objects).Concat(Implementations).Concat(Views);
     public ConceptPack Pack(string id) => Packs.Single(p => p.Id == id);
     public string Address(IConceptElement e) => Pack(e.Pack).Namespace + "." + (e.Symbol.Length == 0 ? e.Id : e.Symbol);
+    public string[] Breadcrumb(string concept)
+    {
+        var definitions = new List<string>(); while (concept.Length > 0) { definitions.Insert(0, concept); concept = Concept(concept).Base; }
+        var categories = new List<string>(); string parent = definitions.Count == 0 ? "" : Concept(definitions[0]).Category;
+        while (parent.Length > 0) { categories.Insert(0, parent); parent = Categories.Single(c => c.Id == parent).Parent; }
+        return categories.Concat(definitions).ToArray();
+    }
     public ConceptPack AddPack(string name, string ns)
     {
         var pack = new ConceptPack { Id = NewId(), Name = ProjectCatalog.ValidateName(name), Namespace = ns, Folder = project.Packs + "/" + NewId() }; Packs.Add(pack); return pack;
@@ -21,6 +28,13 @@ public sealed partial class ConceptSpace
         if (elements.Any(e => !Pack(e.Pack).Editable)) throw new UnauthorizedAccessException("읽기 전용 팩의 요소는 이주할 수 없어.");
         var previous = elements.Select(e => e.Pack).ToArray();
         try { foreach (var e in elements) e.Pack = target; Validate(); ValidateDependencies(); }
+        catch { for (int i = 0; i < elements.Length; i++) elements[i].Pack = previous[i]; throw; }
+    }
+    public void MoveAndSave(EditorSession session, IEnumerable<string> ids, string target)
+    {
+        var elements = ids.Select(id => Elements().Single(e => e.Id == id)).ToArray(); var previous = elements.Select(e => e.Pack).ToArray();
+        Move(elements.Select(e => e.Id), target);
+        try { Save(session); }
         catch { for (int i = 0; i < elements.Length; i++) elements[i].Pack = previous[i]; throw; }
     }
     public string[] RequiredDependencies(string pack)
@@ -104,7 +118,10 @@ public sealed partial class ConceptSpace
         if (!valid) throw new InvalidDataException("구현의 public static 함수, 입력 타입과 반환 타입을 기능 계약에 맞춰줘.");
     }
     public ConceptObject[] Rows(string concept, string pack = "", bool grouped = false) => Objects.Where(o => IsA(o.Concept, concept) && (pack.Length == 0 || o.Pack == pack))
-        .OrderBy(o => grouped ? (o.Pack == MainPack ? "" : Pack(o.Pack).Name) : "", StringComparer.Ordinal).ThenBy(o => o.Name, StringComparer.Ordinal).ToArray();
+        .OrderBy(o => grouped ? (o.Pack == MainPack ? "" : Pack(o.Pack).Name) : "", StringComparer.Ordinal).ThenBy(DisplayName, StringComparer.Ordinal).ToArray();
+    public bool HasNameField(string concept) => NameField(concept) is not null;
+    public ConceptField? NameField(string concept) => Schema(concept).FirstOrDefault(f => f.Kind == "normal" && !f.Multiple && f.Type == "text" && (f.Name == "이름" || f.Name.Equals("Name", StringComparison.OrdinalIgnoreCase)));
+    public string DisplayName(ConceptObject value) => NameField(value.Concept) is { } field && value.Values.TryGetValue(field.Id, out var name) && !string.IsNullOrWhiteSpace(name.Text) ? name.Text : value.Name;
     public string[] DocumentPaths => documents.Values.SelectMany(p => p).ToArray();
     public (ConceptField Field, List<ConceptValue> Values) Bind(ConceptObject value, string path)
     {

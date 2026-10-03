@@ -101,7 +101,6 @@ public sealed partial class EditorWindow
         if (project) projectWorkspaceVisible = true;
         bool workspace = studioReady && projectWorkspaceVisible;
         workspaceView.Visibility = workspace ? Visibility.Visible : Visibility.Collapsed;
-        firstProjectPromptPanel.Visibility = Visibility.Collapsed;
         projectCommands.Visibility = Visibility.Collapsed;
         projectHomeView.Visibility = workspace ? Visibility.Collapsed : Visibility.Visible;
         aiManagementView.Visibility = studioReady ? Visibility.Visible : Visibility.Collapsed;

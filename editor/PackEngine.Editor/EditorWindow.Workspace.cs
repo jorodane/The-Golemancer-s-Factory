@@ -11,43 +11,27 @@ public sealed partial class EditorWindow
     private readonly DockPanel workspaceView = new();
     private Window? toolsWindow;
     private bool workspaceInitializationPending;
-    private readonly StackPanel firstProjectPromptPanel = new() { Margin = new Thickness(24, 8, 24, 12) };
-    private readonly TextBox firstProjectPrompt = Input(true);
-
     private Button projectMenuButton = null!;
     private Button projectRunButton = null!;
-    private Window? projectPreview;
+    private readonly Grid emptyProjectSurface = new() { Visibility = Visibility.Collapsed, Background = BackgroundInk };
+    private bool emptyProjectRunning;
     private void ToggleProjectRun() => HomeAction(() =>
     {
         if (runner?.GameRunning == true) { runner.Stop(); return; }
-        if (projectPreview is not null) { projectPreview.Close(); return; }
+        if (emptyProjectRunning) { emptyProjectRunning = false; emptyProjectSurface.Visibility = Visibility.Collapsed; return; }
         if (session is null || busy) return;
         string target = targets.SelectedItem as string ?? runner!.PreferredTarget;
         if (session.Project.Target(target).Run.Count > 0) { runner!.Launch(target); return; }
         if (Space.Objects.Count > 0 || Space.Implementations.Count > 0) throw new InvalidOperationException("실행할 화면과 프로젝트 실행 대상을 연결해줘. 프로젝트 도구에서 실행 설정을 확인할 수 있어.");
-        var preview = projectPreview = new Window { Owner = this, Title = session.Project.Name, Background = BackgroundInk, Width = 960, Height = 600, Content = new Grid { Background = BackgroundInk } };
-        preview.Closed += (_, _) => projectPreview = null; preview.Show();
+        CloseConceptPage(); emptyProjectRunning = true; emptyProjectSurface.Visibility = Visibility.Visible;
     });
 
     private void BuildWorkspaceSurface()
     {
-        firstProjectPrompt.Height = 70; firstProjectPrompt.ToolTip = "첫 요청"; firstProjectPromptPanel.Children.Add(firstProjectPrompt);
-        firstProjectPromptPanel.Children.Add(Action("보내기", async () =>
-        {
-            if (session is null || string.IsNullOrWhiteSpace(firstProjectPrompt.Text)) return;
-            try
-            {
-                if (busy) return;
-                var worker = workers.FirstOrDefault(w => w.Participant.HelperId == projectStudio.MainHelperId && session.Collaboration.CanControl("human", w.Participant.Id)) ?? workers.FirstOrDefault(w => w.Participant.Id == selectedWorker && session.Collaboration.CanControl("human", w.Participant.Id));
-                if (worker is null) { AddWorker(); worker = workers.Last(); }
-                string text = firstProjectPrompt.Text; firstProjectPrompt.Clear(); firstProjectPromptPanel.Visibility = Visibility.Collapsed; await RunWorker(worker, text);
-            }
-            catch (Exception e) { SetStatus(e.Message); }
-        }));
-        firstProjectPromptPanel.Visibility = Visibility.Collapsed;
         var field = new Grid { ClipToBounds = true, Background = BackgroundInk };
         workspaceHost.Margin = new Thickness(8); field.Children.Add(workspaceHost);
         participantsCanvas.Background = null; participantsCanvas.MinWidth = 0; participantsCanvas.MinHeight = 0;
+        field.Children.Add(emptyProjectSurface);
         field.Children.Add(conceptPageHost);
         field.Children.Add(participantsCanvas);
         if (participantNotifications.Parent is Panel old) old.Children.Remove(participantNotifications);
@@ -56,7 +40,7 @@ public sealed partial class EditorWindow
         var menu = BareButton(Label("≡", 30), () => OpenConceptMenu(projectMenuButton));
         projectMenuButton = menu; menu.Width = 56; menu.Height = 56; menu.HorizontalAlignment = HorizontalAlignment.Right; menu.VerticalAlignment = VerticalAlignment.Bottom; menu.Margin = new Thickness(20);
         var run = projectRunButton = BareButton(Label("▶", 26), ToggleProjectRun); run.Width = 56; run.Height = 56; run.HorizontalAlignment = HorizontalAlignment.Right; run.VerticalAlignment = VerticalAlignment.Bottom; run.Margin = new Thickness(20, 20, 86, 20); run.ToolTip = "프로젝트 실행";
-        var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) }; timer.Tick += (_, _) => { run.Content = Label(runner?.GameRunning == true || projectPreview?.IsVisible == true ? "■" : "▶", 26); }; timer.Start(); Closed += (_, _) => { timer.Stop(); projectPreview?.Close(); };
+        var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) }; timer.Tick += (_, _) => { bool running = runner?.GameRunning == true || emptyProjectRunning; string glyph = running ? "■" : "▶"; if ((run.Content as TextBlock)?.Text != glyph) run.Content = Label(glyph, 26); run.ToolTip = running ? "프로젝트 중지" : "프로젝트 실행"; }; timer.Start(); Closed += (_, _) => timer.Stop();
         field.Children.Add(run); field.Children.Add(menu); workspaceView.Children.Add(field);
         field.SizeChanged += (_, _) => { foreach (var worker in workers) PlaceWorker(worker); };
         studioSurface.Children.Add(workspaceView);

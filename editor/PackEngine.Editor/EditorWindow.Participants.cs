@@ -153,7 +153,7 @@ public sealed partial class EditorWindow
     {
         session!.Collaboration.RequireControl("human", worker.Participant.Id);
         if (session.Collaboration.View("human", worker.Participant.Id).Display != CharacterDisplay.Full) session.Collaboration.Display("human", worker.Participant.Id, CharacterDisplay.Full);
-        firstProjectPromptPanel.Visibility = Visibility.Collapsed; selectedWorker = worker.Participant.Id; participantSelection.Text = "선택: " + worker.Participant.Name;
+        selectedWorker = worker.Participant.Id; participantSelection.Text = "선택: " + worker.Participant.Name;
         foreach (var item in workers) { item.Character.BorderBrush = item == worker ? AccentInk : PanelInk; Panel.SetZIndex(item.Character, item == worker ? 1 : 0); RenderWorker(item); }
         yogiRecipient.SelectedValue = selectedWorker;
         ReadWorkerBubble(worker); RefreshAiManagement();

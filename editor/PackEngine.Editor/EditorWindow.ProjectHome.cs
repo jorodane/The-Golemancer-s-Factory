@@ -139,19 +139,13 @@ public sealed partial class EditorWindow
             agents.Children.Add(circle);
         }
         agents.Children.Add(AiCircle("Agent 추가", "", () => { editingAgentId = ""; ShowEditorAiSetup(); }, empty: true)); aiManagement.Children.Add(agents);
-        if (session is not null && !Standalone)
-        {
-            aiManagement.Children.Add(Label("Worker", 11, MutedInk)); var workerSlots = new UniformGrid { Columns = 2 };
-            foreach (var worker in workers.Where(w => !session.Collaboration.CanControl("human", w.Participant.Id) || !aiDirectory.Helpers.Any(h => h.Id == w.Participant.HelperId && h.Enabled))) workerSlots.Children.Add(WorkerSidebarItem(worker));
-            workerSlots.Children.Add(AiCircle("Worker 추가", "", AddWorker, empty: true)); aiManagement.Children.Add(workerSlots);
-        }
         aiManagement.Children.Add(new Border { Height = 1, Background = MutedInk, Opacity = .3, Margin = new Thickness(4, 18, 4, 16) });
         aiManagement.Children.Add(Label("Helper", 11, MutedInk)); var helpers = new UniformGrid { Columns = 2 };
         foreach (var helper in aiDirectory.Helpers.Where(h => h.Enabled))
         {
             var worker = workers.FirstOrDefault(w => w.Participant.HelperId == helper.Id && session?.Collaboration.CanControl("human", w.Participant.Id) == true);
             if (worker is not null) { helpers.Children.Add(WorkerSidebarItem(worker)); continue; }
-            Button? circle = null; circle = AiCircle(helper.Name, helper.AvatarPath, () => ShowAiProfile(circle!, null, helper)); circle.Tag = "ai-profile";
+            Button? circle = null; circle = AiCircle(helper.Name, helper.AvatarPath, () => ShowAiProfile(circle!, null, helper), main: session is not null && !Standalone && helper.Id == projectStudio.MainHelperId); circle.Tag = "ai-profile";
             circle.MouseDoubleClick += (_, e) => { e.Handled = true; aiProfile?.SetCurrentValue(Popup.IsOpenProperty, false); HomeAction(() => JoinHelper(helper)); }; helpers.Children.Add(circle);
         }
         helpers.Children.Add(AiCircle("Helper 추가", "", AddHelper, empty: true)); aiManagement.Children.Add(helpers);

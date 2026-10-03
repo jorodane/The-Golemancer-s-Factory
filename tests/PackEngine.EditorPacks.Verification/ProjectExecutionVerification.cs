@@ -6,7 +6,7 @@ using PackEngine.Workspace;
 
 internal static class ProjectExecutionVerification
 {
-    public static async Task Run(string repository, EditorPackSource core, string temporary, Action<bool, string> check)
+    public static async Task Run(string repository, string dotnet, EditorPackSource core, string temporary, Action<bool, string> check)
     {
         int count = 0;
         void Check(bool value, string message) { check(value, message); count++; }
@@ -96,6 +96,14 @@ internal static class ProjectExecutionVerification
         { using var entry = inspect.GetEntry("project-run.xml")!.Open(); Check((string?)XDocument.Load(entry).Root!.Attribute("framework") == "any", "XML-only project packs do not require a platform-specific DLL target"); }
         xmlPackage.Position = 0; var xmlImported = ProjectExecutionPackage.Extract(engine, xmlPackage, Path.Combine(root, "ImportedXml"));
         Check(!xmlImported.Sources.Single().Manifest().Root!.Elements("Assembly").Any(), "XML-only project export preserves its inherited engine implementation");
+
+        var functionProject = new EditorSession(NewProject.CreateAt(root, "FunctionProject", new(), "linux", "net10.0").Manifest);
+        var functions = ConceptSpace.Open(functionProject.Project); var function = new ConceptImplementation { Id = "callable", Name = "Callable", Symbol = "Work.Callable", Pack = functions.MainPack }; functions.Implementations.Add(function); _ = functions.ReadImplementation(function); functions.Save(functionProject);
+        using (var runner = new ProjectRunner(functionProject, dotnet)) await runner.BuildPack(functions.MainPack, "linux");
+        using var functionPackage = new MemoryStream(); ProjectExecutionPackage.Write(engine, functionProject, [], functionPackage);
+        using (var inspect = new ZipArchive(new MemoryStream(functionPackage.ToArray()), ZipArchiveMode.Read)) Check(inspect.Entries.Any(e => e.FullName.EndsWith("Functions_foundation.dll")), "project execution export includes declared function DLLs independently of editor modules");
+        functionPackage.Position = 0; var functionImported = ProjectExecutionPackage.Extract(engine, functionPackage, Path.Combine(root, "ImportedFunctions"));
+        var importedFunctions = ConceptSpace.Open(WorkspaceProject.Open(functionImported.Manifest)); Check(importedFunctions.Implementations.Single().Id == function.Id && File.Exists(Path.Combine(Path.GetDirectoryName(functionImported.Manifest)!, "Packs/00.Foundation/Functions/bin/Release/net10.0/Functions_foundation.dll")), "function metadata, stable IDs and compiled libraries survive executable Pack export and import");
 
         string fixedUi = engine.Sources.Single().PathFor("ui.xml"); byte[] fixedBytes = File.ReadAllBytes(fixedUi); File.AppendAllText(fixedUi, " "); started = host.Starts;
         await Reject(() => a.Prepare(new[] { lab }, default), "changed installed engine bytes block a new project execution");
