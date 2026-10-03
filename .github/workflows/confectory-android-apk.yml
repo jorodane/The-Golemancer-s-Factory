@@ -1,0 +1,70 @@
+name: Confectory Android APK
+on:
+  push:
+    branches: ['codex/android-apk-20261003-1618']
+  workflow_dispatch:
+permissions:
+  contents: read
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: '57ca6ba8c7be735d4cc67f0ca84f239474587a42'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Install Android workload
+        run: dotnet workload install android
+      - name: Install Android SDK dependencies
+        run: dotnet build editor/PackEngine.Editor.Android/PackEngine.Editor.Android.csproj -t:InstallAndroidDependencies -p:AcceptAndroidSdkLicenses=true -p:EngineTargetFramework=net10.0 -p:RuntimeIdentifier=android-arm64
+      - name: Build signed phone APK
+        run: dotnet build editor/PackEngine.Editor.Android/PackEngine.Editor.Android.csproj -t:SignAndroidPackage -c Release -p:RuntimeIdentifier=android-arm64 -p:RuntimeIdentifiers=android-arm64 -p:EngineTargetFramework=net10.0 -p:UseSharedCompilation=false -m:1 --nologo -v:minimal
+      - name: Verify and collect APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p apk-output
+          apk="$(find editor/PackEngine.Editor.Android/bin/Release/net10.0-android/android-arm64 -maxdepth 1 -name '*-Signed.apk' -print -quit)"
+          test -n "$apk"
+          cp "$apk" apk-output/Confectory-Android-arm64-57ca6ba.apk
+          build_tools="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          "$build_tools/apksigner" verify --verbose --print-certs "$apk" > apk-output/signature.txt
+          cat apk-output/signature.txt
+          "$build_tools/aapt" dump badging "$apk" > apk-output/android-package.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json, zipfile
+          apk = next(Path("apk-output").glob("*.apk"))
+          with zipfile.ZipFile(apk) as archive:
+              assert archive.testzip() is None, "Corrupt APK"
+              names = set(archive.namelist())
+              expected = ["AndroidManifest.xml", "assets/Packs/CoreTools/pack.xml", "assets/Packs/CoreTools/editor.xml", "assets/Packs/CoreTools/ui.xml", "assets/Packs/CoreTools/Bin/net10.0/PackEngine.Editor.CoreTools.dll", "assets/Plugins/editor.lab.mobile/Bin/net10.0/PackEngine.Editor.MobileLab.dll"]
+              for name in expected:
+                  assert name in names, "Missing required APK entry: " + name
+              for relative in ["pack.xml", "editor.xml", "ui.xml", "Bin/net10.0/PackEngine.Editor.CoreTools.dll"]:
+                  original = Path("editor/Packs/CoreTools") / relative
+                  assert archive.read("assets/Packs/CoreTools/" + relative) == original.read_bytes(), "Stale core pack: " + relative
+              assert any(n.startswith("lib/arm64-v8a/") for n in names), "Missing phone native runtime"
+          badging = Path("apk-output/android-package.txt").read_text()
+          assert "package: name='com.packengine.editor'" in badging, "Wrong Android app"
+          assert "sdkVersion:'26'" in badging, "Unexpected minimum Android API"
+          info = {"sourceCommit": "57ca6ba8c7be735d4cc67f0ca84f239474587a42", "appId": "com.packengine.editor", "target": "net10.0-android", "runtime": "android-arm64", "configuration": "Release", "apkSha256": hashlib.sha256(apk.read_bytes()).hexdigest(), "apkBytes": apk.stat().st_size, "signatureVerified": True, "bundledPacksVerified": True, "deviceTested": False}
+          Path("apk-output/build-info.json").write_text(json.dumps(info, indent=2) + "\n")
+          print(json.dumps(info, indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Confectory-Android-arm64-57ca6ba
+          path: apk-output/
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
