@@ -11,6 +11,8 @@ public sealed partial class EditorWindow
     private readonly DockPanel workspaceView = new();
     private Window? toolsWindow;
     private bool workspaceInitializationPending;
+    private readonly StackPanel firstProjectPromptPanel = new() { Margin = new Thickness(24, 8, 24, 12) };
+    private readonly TextBox firstProjectPrompt = Input(true);
 
     private void BuildWorkspaceSurface()
     {
@@ -32,9 +34,24 @@ public sealed partial class EditorWindow
         tools.Children.Add(new Expander { Header = "팩 창", Content = windowMenu, Foreground = TextInk, Margin = new Thickness(4) });
         header.Children.Add(new Expander { Header = "도구", Content = tools, Foreground = TextInk, Margin = new Thickness(8) });
         header.Children.Add(projectHotbar);
+        header.Children.Add(projectAiRoles);
         DockPanel.SetDock(header, Dock.Top); workspaceView.Children.Add(header);
         if (participantNotifications.Parent is Panel old) old.Children.Remove(participantNotifications);
         DockPanel.SetDock(participantNotifications, Dock.Top); workspaceView.Children.Add(participantNotifications);
+        firstProjectPrompt.Height = 70; firstProjectPrompt.ToolTip = "첫 요청"; firstProjectPromptPanel.Children.Add(firstProjectPrompt);
+        firstProjectPromptPanel.Children.Add(Action("보내기", async () =>
+        {
+            if (session is null || string.IsNullOrWhiteSpace(firstProjectPrompt.Text)) return;
+            try
+            {
+                if (busy) return;
+                var worker = workers.FirstOrDefault(w => w.Participant.HelperId == projectStudio.MainHelperId && session.Collaboration.CanControl("human", w.Participant.Id)) ?? workers.FirstOrDefault(w => w.Participant.Id == selectedWorker && session.Collaboration.CanControl("human", w.Participant.Id));
+                if (worker is null) { AddWorker(); worker = workers.Last(); }
+                string text = firstProjectPrompt.Text; firstProjectPrompt.Clear(); firstProjectPromptPanel.Visibility = Visibility.Collapsed; await RunWorker(worker, text);
+            }
+            catch (Exception e) { SetStatus(e.Message); }
+        }));
+        DockPanel.SetDock(firstProjectPromptPanel, Dock.Bottom); workspaceView.Children.Add(firstProjectPromptPanel);
         var field = new Grid { ClipToBounds = true, Background = BackgroundInk };
         workspaceHost.Margin = new Thickness(8); field.Children.Add(workspaceHost);
         participantsCanvas.Background = null; participantsCanvas.MinWidth = 0; participantsCanvas.MinHeight = 0;

@@ -40,7 +40,7 @@ public sealed partial class MainActivity : Activity
         var layout = new LinearLayout(this) { Orientation = Orientation.Vertical };
         layout.SetBackgroundColor(global::Android.Graphics.Color.Rgb(17, 23, 31));
         Window?.SetSoftInputMode(SoftInput.AdjustResize);
-        layout.AddView(new TextView(this) { Text = "Confectory · Android", TextSize = 22 });
+        mobileBrand = new TextView(this) { Text = "Confectory", TextSize = 22 }; layout.AddView(mobileBrand);
         AddAiToolbar(layout);
         toolbar = new(this) { Orientation = Orientation.Horizontal };
         var strip = new HorizontalScrollView(this); strip.AddView(toolbar); layout.AddView(strip); strip.Visibility = ViewStates.Gone; mobileTools = strip;
@@ -57,7 +57,7 @@ public sealed partial class MainActivity : Activity
         var scroll = new ScrollView(this); scroll.AddView(Panels);
         var field = BuildMobileWorkspace(scroll);
         var content = new LinearLayout(this) { Orientation = Orientation.Horizontal }; mobileManagement = new(this) { Orientation = Orientation.Vertical }; var sidebar = new ScrollView(this); sidebar.AddView(mobileManagement); mobileSidebar = sidebar; sidebar.Visibility = ViewStates.Gone; mobileContent = content; mobilePrimary = field; content.AddView(sidebar, new LinearLayout.LayoutParams(Dp(220), ViewGroup.LayoutParams.MatchParent)); content.AddView(field, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MatchParent, 1));
-        layout.AddView(content, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, 0, 1)); var console = new ScrollView(this); console.AddView(status); layout.AddView(console, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(88))); AddMobileStartPage(layout);
+        layout.AddView(content, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, 0, 1)); var console = new ScrollView(this); mobileConsole = console; console.AddView(status); layout.AddView(console, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(88))); AddMobileStartPage(layout);
         try
         {
             string saved = Path.Combine(root, "window-state.json");
@@ -247,7 +247,7 @@ public sealed partial class MainActivity : Activity
         catch (IOException) { }
     }
     protected override void OnPause() { SaveWindowState(); if (studioSession is not null) { foreach (var doc in studioSession.Documents.Where(d => studioSession.CanEdit(d.Path)).ToArray()) studioSession.SaveRoom("human", doc.Path); } base.OnPause(); }
-    protected override void OnDestroy() { StopMobileStartPage(); StopMobilePeers(); lifetime.Cancel(); editorAi?.Dispose(); studioRunner?.Dispose(); foreach (var worker in mobileWorkers) { worker.Cancellation?.Cancel(); worker.Assistant?.Dispose(); } windows.Dispose(); SaveWindowState(); packExecution?.Dispose(); runtime?.Dispose(); base.OnDestroy(); }
+    protected override void OnDestroy() { mobileProfile?.Dismiss(); mobileImageChosen = null; StopMobileStartPage(); StopMobilePeers(); lifetime.Cancel(); editorAi?.Dispose(); studioRunner?.Dispose(); foreach (var worker in mobileWorkers) { worker.Cancellation?.Cancel(); worker.Assistant?.Dispose(); } windows.Dispose(); SaveWindowState(); packExecution?.Dispose(); runtime?.Dispose(); base.OnDestroy(); }
 
 #pragma warning disable CA1422, CS0618 // Framework document picker supports the app's API 26 deployment minimum.
     private void ImportPicker() => StartActivityForResult(new Intent(Intent.ActionOpenDocument).SetType("application/zip").AddCategory(Intent.CategoryOpenable), 1);
@@ -264,7 +264,9 @@ public sealed partial class MainActivity : Activity
     protected override void OnActivityResult(int requestCode, Result resultCode, Intent? data)
     {
         base.OnActivityResult(requestCode, resultCode, data);
-        if (resultCode != Result.Ok || data?.Data is not { } uri) { if (requestCode == 3) pickingHelper = ""; if (requestCode == 5) exportingProject = null; if (requestCode == 7) { projectPackExport = null; projectPackExportSources = null; } return; }
+        if (resultCode != Result.Ok || data?.Data is not { } uri) { if (requestCode == 20) mobileImageChosen = null; if (requestCode == 21) mobileExportingFile = ""; if (requestCode == 3) pickingHelper = ""; if (requestCode == 5) exportingProject = null; if (requestCode == 7) { projectPackExport = null; projectPackExportSources = null; } return; }
+        if (requestCode == 21) { ExportMobileFolderFile(uri); return; }
+        if (requestCode == 20) { ReadMobileImage(uri); return; }
         if (requestCode == 6) { ImportMobileProjectPack(uri); return; }
         if (requestCode == 7) { ExportMobileProjectPack(uri); return; }
         if (requestCode == 3) { ReadHelperImage(uri); return; }

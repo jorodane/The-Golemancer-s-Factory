@@ -144,7 +144,7 @@ public sealed partial class EditorWindow
             var assistant = await ConnectWorker(temporary, cancel.Token);
             if (assistant is IResidentAssistant resident) { resident.NewConversation(); if (temporary.Model.Length > 0) resident.Model = temporary.Model; }
             var context = owner.Collaboration.PublicContext(source.Participant.Id, message.Channel, message.Room);
-            var request = new ContextRequest { Id = Guid.NewGuid().ToString("N"), Project = owner.Project.Identity, ParticipantId = source.Participant.Id,
+            var request = new ContextRequest { Id = Guid.NewGuid().ToString("N"), Project = owner.Project.Identity, ProjectDescription = ProjectStudio.Load(owner.Project).Description, ParticipantId = source.Participant.Id,
                 Prompt = "공개 프로젝트 대화에 답해. 아래 공개 상태만 사용할 수 있어. 작업을 할당·중단·이동하거나 비공개 대화를 참조할 권한은 없어. 실제로 하지 않은 작업을 했다고 말하지 마.\n" + EditorSession.Serialize(context) + "\n질문: " + message.Text };
             string reply = await assistant.ReplyAsync(request, new PublicConversationAccess(context), cancel.Token);
             if (message.Channel == "room") owner.Collaboration.Move(source.Participant.Id, message.Room);

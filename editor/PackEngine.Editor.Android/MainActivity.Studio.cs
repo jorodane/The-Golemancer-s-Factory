@@ -59,7 +59,11 @@ public sealed partial class MainActivity
     {
         RefreshMobileStartPage();
         editorAiButton.Text = "AI 관리"; welcome.RemoveAllViews(); welcome.Visibility = ViewStates.Visible; peerStatus = null;
-        aiToolbar.Visibility = mobileSidebar.Visibility = aiConnections.SetupCompleted ? ViewStates.Visible : ViewStates.Gone;
+        bool workspace = aiConnections.SetupCompleted && aiConnections.SelectedPack.Length > 0;
+        aiToolbar.Visibility = workspace ? ViewStates.Visible : ViewStates.Gone;
+        if (mobileBrand is not null) mobileBrand.Visibility = workspace ? ViewStates.Visible : ViewStates.Gone;
+        if (mobileConsole is not null) mobileConsole.Visibility = workspace ? ViewStates.Visible : ViewStates.Gone;
+        welcome.SetPadding(0, 0, 0, 0);
         mobileTools.Visibility = aiConnections.SetupCompleted && aiConnections.SelectedPack.Length > 0 && !MobileProject ? ViewStates.Visible : ViewStates.Gone;
         AdjustMobileLayout(); mobileWorkerLayer.Visibility = aiConnections.SetupCompleted && aiConnections.SelectedPack.Length > 0 ? ViewStates.Visible : ViewStates.Gone;
         if (!aiConnections.SetupCompleted)
@@ -69,16 +73,7 @@ public sealed partial class MainActivity
         RefreshMobileManagement();
         if (aiConnections.SelectedPack.Length == 0)
         {
-            welcome.AddView(new TextView(this) { Text = "프로젝트 · 팩 선택", TextSize = 24 });
-            foreach (var source in Sources()) welcome.AddView(AiAction(source.Id, () => Work(async () => { SwitchMobileProject(source.Id); aiConnections.SelectedPack = source.Id; await Reload(); SaveAiConnections(); })));
-            foreach (string manifest in MobileProjects())
-            {
-                try { var project = WorkspaceProject.Open(manifest); welcome.AddView(AiAction(project.Name, () => OpenMobileProject(manifest))); }
-                catch (Exception e) { Report(e.Message); }
-            }
-            welcome.AddView(AiAction("프로젝트팩 가져오기", ProjectPackImportPicker));
-            welcome.AddView(AiAction("프로젝트 문서 ZIP 가져오기", ImportProjectPicker));
-            welcome.AddView(AiAction("팩 ZIP 가져오기", ImportPicker)); return;
+            BuildMobileProjectHome(); return;
         }
         welcome.AddView(new TextView(this) { Text = MobileProject ? studioSession.Project.Name : aiConnections.SelectedPack, TextSize = 22 });
         var commands = new LinearLayout(this) { Orientation = Orientation.Horizontal };
@@ -86,39 +81,18 @@ public sealed partial class MainActivity
         commands.AddView(AiAction("작업자 추가", () => { var worker = CreateMobileWorker(); if (worker is not null) SelectMobileWorker(worker); }));
         commands.AddView(AiAction("프로젝트 채팅", () => OpenMobileProjectChat())); commands.AddView(AiAction("도구", MobileWorkspaceTools));
         var strip = new HorizontalScrollView(this); strip.AddView(commands); welcome.AddView(strip);
+        if (MobileProject)
+        {
+            welcome.AddView(MobileProjectRoleBar());
+            if (!mobileWorkers.Any(w => studioSession.Collaboration.CanControl("human", w.Participant.Id)))
+            {
+                var input = mobileFirstPrompt = new EditText(this) { Hint = "첫 요청", InputType = InputTypes.ClassText | InputTypes.TextFlagMultiLine }; welcome.AddView(input);
+                welcome.AddView(AiAction("보내기", async () => { string text = input.Text?.Trim() ?? ""; if (text.Length == 0) return; var worker = CreateMobileWorker(); if (worker is null) return; SelectMobileWorker(worker); input.Text = ""; input.Visibility = ViewStates.Gone; await RunMobileWorker(worker, text); }));
+            }
+        }
         mobileWorkerLayer.Visibility = ViewStates.Visible; RefreshMobilePresence();
     }
-    private void RefreshMobileManagement()
-    {
-        mobileManagement.RemoveAllViews(); mobileManagement.AddView(new TextView(this) { Text = "AI 관리", TextSize = 20 });
-        mobileManagement.AddView(AiAction("프로젝트 목록", () => { RequireMobileIdle(); StopMobilePeers(); documentDialog?.Dismiss(); foreach (var window in LiveWindows.ToArray()) CloseWindow(window.Id); aiConnections.SelectedPack = ""; mobileProjectManifest = ""; mobileDirectoryExpanded = false; SaveAiConnections(); }));
-        mobileManagement.AddView(AiAction("+ 에이전트", ShowEditorAiSetup));
-        foreach (var agent in mobileDirectory.Agents) mobileManagement.AddView(AiAction(agent.ToString(), () => ManageMobileAgent(agent)));
-        mobileManagement.AddView(AiAction("+ 도우미", () => MobileName("도우미 이름", name => { mobileDirectory.CreateHelper(mobileDirectory.SelectedAgentId, name); SaveMobileDirectory(); RefreshMobileManagement(); })));
-        foreach (var helper in mobileDirectory.Helpers)
-        {
-            var row = new LinearLayout(this) { Orientation = Orientation.Horizontal };
-            if (File.Exists(helper.AvatarPath)) { var avatar = new ImageView(this); avatar.SetImageURI(global::Android.Net.Uri.FromFile(new Java.IO.File(helper.AvatarPath))); row.AddView(avatar, new LinearLayout.LayoutParams(Dp(40), Dp(40))); }
-            row.AddView(AiAction(helper.Name, () => OpenMobileHelper(helper))); mobileManagement.AddView(row);
-        }
-        void Option(string title, bool enabled, Action<bool> set)
-        {
-            var choice = new CheckBox(this) { Text = title, Checked = enabled };
-            choice.CheckedChange += (_, args) => { set(args.IsChecked); SaveMobileDirectory(); }; mobileManagement.AddView(choice);
-        }
-        Option("성격 추론", mobileDirectory.PersonalityInference, value => mobileDirectory.PersonalityInference = value);
-        Option("캐릭터 말투", mobileDirectory.CharacterExpression, value => mobileDirectory.CharacterExpression = value);
-        Option("관계 표현", mobileDirectory.RelationshipExpression, value => mobileDirectory.RelationshipExpression = value);
-        if (aiConnections.SelectedPack.Length > 0)
-        {
-            mobileManagement.AddView(new TextView(this) { Text = "프로젝트 참여자", TextSize = 17 });
-            mobileManagement.AddView(AiAction("+ 작업자", () => { var worker = CreateMobileWorker(); if (worker is not null) OpenMobileWorker(worker); }));
-            mobileManagement.AddView(new TextView(this) { Text = "나" });
-            foreach (var worker in mobileWorkers) mobileManagement.AddView(AiAction(worker.Participant.Name + (studioSession.Collaboration.Unread("human", worker.Participant.Id).Count > 0 ? " ●" : ""), () => OpenMobileWorker(worker)));
-            foreach (var participant in studioSession.Collaboration.State.Participants.Where(p => p.Id != "human" && p.OwnerId != "human"))
-                mobileManagement.AddView(new TextView(this) { Text = participant.Name + (studioSession.Collaboration.Presence(participant.Id).Connected ? " · 연결됨" : " · 오프라인") });
-        }
-    }
+    private void RefreshMobileManagement() => BuildMobileAiSidebar();
     private void RefreshMobilePresence()
     {
         if (studioSession is null || IsDestroyed || mobilePresenceQueued) return; mobilePresenceQueued = true;
@@ -133,13 +107,14 @@ public sealed partial class MainActivity
         try
         {
             if (aiConnections.SelectedPack.Length == 0) throw new InvalidOperationException("먼저 프로젝트를 열어줘.");
-            string agentId = helper?.AgentId ?? mobileDirectory.SelectedAgentId; var agent = mobileDirectory.Agent(agentId);
+            if (helper is not null) { helper.Enabled = true; SaveMobileDirectory(); }
+            string agentId = helper?.AgentId ?? (MobileProject ? mobileProjectStudio.WorkerAgent(mobileDirectory) : mobileDirectory.SelectedAgentId); var agent = mobileDirectory.Agent(agentId);
             if (!agent.Connection.IsApi) throw new InvalidOperationException("Android에서는 API 에이전트를 선택해줘.");
             var old = helper is null ? null : mobileWorkers.FirstOrDefault(w => w.Participant.HelperId == helper.Id); if (old is not null) return old;
             var p = studioSession.Collaboration.Register("worker-" + Guid.NewGuid().ToString("N"), helper?.Name ?? "작업자 " + (mobileWorkers.Count + 1), ParticipantKind.AI, ParticipantPermission.Talk | ParticipantPermission.Work);
-            p.AgentId = agentId; p.HelperId = helper?.Id ?? ""; p.X = 24 + mobileWorkers.Count % 2 * 165; p.Y = Math.Max(70, mobileWorkerLayer.Height / (Resources?.DisplayMetrics?.Density ?? 1) - 290 - mobileWorkers.Count / 2 * 140); var worker = LoadMobileWorker(p); studioSession.Collaboration.Save(); RefreshMobileManagement(); return worker;
+            p.AgentId = agentId; p.HelperId = helper?.Id ?? ""; p.X = 24 + mobileWorkers.Count % 2 * 165; p.Y = Math.Max(70, mobileWorkerLayer.Height / (Resources?.DisplayMetrics?.Density ?? 1) - 290 - mobileWorkers.Count / 2 * 140); var worker = LoadMobileWorker(p); studioSession.Collaboration.Save(); if (helper is not null && MobileProject) { mobileProjectStudio.AddHelper(helper.Id); mobileProjectStudio.Save(studioSession.Project); } RefreshMobileManagement(); return worker;
         }
-        catch (Exception e) { Report(e.Message); return null; }
+        catch (Exception e) { Report(e.Message); Toast.MakeText(this, e.Message, ToastLength.Long)?.Show(); return null; }
     }
     private MobileWorker LoadMobileWorker(Participant participant)
     {
@@ -167,7 +142,7 @@ public sealed partial class MainActivity
             if (worker.Cancellation is not null) throw new InvalidOperationException("작업이 끝난 뒤 승격해줘.");
             var helper = mobileDirectory.CreateHelper(worker.Participant.AgentId, name, studioSession.Project.Identity, worker.Participant.Id);
             AtomicWrite(Path.Combine(root, "Helpers", helper.Id, "first-experience.json"), Encoding.UTF8.GetBytes(EditorSession.Serialize(worker.Turns)));
-            worker.Participant.HelperId = helper.Id; worker.Participant.Name = name; SaveMobileDirectory(); studioSession.Collaboration.Save(); RefreshMobileManagement();
+            worker.Participant.HelperId = helper.Id; worker.Participant.Name = name; if (MobileProject) { mobileProjectStudio.AddHelper(helper.Id); mobileProjectStudio.Save(studioSession.Project); } SaveMobileDirectory(); studioSession.Collaboration.Save(); RefreshMobileManagement();
         })));
         layout.AddView(AiAction("제안 승인 범위", () => MobileName("승인 경로 · 쉼표 구분, *는 전체", scopes => studioSession.Collaboration.GrantProposalAuthority("human", worker.Participant.Id, scopes.Split(',')))));
         var dialog = worker.Log = new Dialog(this); dialog.SetTitle(worker.Participant.Name + " · 대화 기록"); dialog.SetContentView(layout); dialog.Show(); dialog.Window?.SetLayout(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent);
@@ -180,6 +155,7 @@ public sealed partial class MainActivity
         worker.Completed = false; var owner = studioSession; ChangeReviewBatch? review = null;
         try
         {
+            if (worker.Participant.HelperId.Length > 0 && mobileDirectory.Helpers.FirstOrDefault(h => h.Id == worker.Participant.HelperId)?.Enabled != true) throw new InvalidOperationException("이 Helper의 연결을 다시 활성화해줘.");
             var profile = mobileDirectory.Agent(worker.Participant.AgentId);
             if (worker.Assistant is null)
             {

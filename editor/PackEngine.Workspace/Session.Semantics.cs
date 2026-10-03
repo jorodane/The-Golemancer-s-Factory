@@ -102,7 +102,7 @@ public sealed partial class EditorSession
         if (string.IsNullOrWhiteSpace(prompt)) throw new ArgumentException("Write a request first.");
         if (budget < 1000 || budget > 200000) throw new ArgumentOutOfRangeException(nameof(budget));
         Refresh();
-        var request = new ContextRequest { Id = Guid.NewGuid().ToString("N"), Project = Project.Id, Prompt = prompt, CreatedUtc = DateTime.UtcNow.ToString("O"),
+        var request = new ContextRequest { Id = Guid.NewGuid().ToString("N"), Project = Project.Id, ProjectDescription = ProjectStudio.Load(Project).Description, Prompt = prompt, CreatedUtc = DateTime.UtcNow.ToString("O"),
             CharacterBudget = budget, OpenFiles = Documents.Select(d => d.Path).ToList(), Input = new() { Mode = Pointing.Mode, CapturedUtc = DateTime.UtcNow.ToString("O") } };
         foreach (var open in Documents)
         {

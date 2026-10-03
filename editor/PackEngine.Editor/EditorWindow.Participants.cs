@@ -86,7 +86,7 @@ public sealed partial class EditorWindow
     private void AddWorker()
     {
         if (session is null) return;
-        var agent = aiDirectory.Agent(aiDirectory.SelectedAgentId);
+        var agent = aiDirectory.Agent(Standalone ? aiDirectory.SelectedAgentId : projectStudio.WorkerAgent(aiDirectory));
         var participant = session.Collaboration.Register("worker-" + Guid.NewGuid().ToString("N"), "AI " + (workers.Count + 1), ParticipantKind.AI, ParticipantPermission.Talk | ParticipantPermission.Work);
         participant.AgentId = agent.Id; participant.Model = agent.Connection.Model;
         participant.X = Math.Max(24, participantsCanvas.ActualWidth - 310 - workers.Count % 3 * 190); participant.Y = Math.Max(28, participantsCanvas.ActualHeight - 300 - workers.Count / 3 * 150);
@@ -143,7 +143,7 @@ public sealed partial class EditorWindow
     private void SelectWorker(EditorWorker worker)
     {
         session!.Collaboration.RequireControl("human", worker.Participant.Id);
-        selectedWorker = worker.Participant.Id; participantSelection.Text = "선택: " + worker.Participant.Name;
+        firstProjectPromptPanel.Visibility = Visibility.Collapsed; selectedWorker = worker.Participant.Id; participantSelection.Text = "선택: " + worker.Participant.Name;
         foreach (var item in workers) { item.Character.BorderBrush = item == worker ? AccentInk : PanelInk; RenderWorker(item); }
         Panel.SetZIndex(worker.Character, 10); yogiRecipient.SelectedValue = selectedWorker;
     }
@@ -218,6 +218,7 @@ public sealed partial class EditorWindow
     {
         session?.Collaboration.RequireControl("human", worker.Participant.Id);
         if (session is null || CurrentAccess is not { } access || !assistantSettings.ConnectionEnabled || !access.Enabled) throw new InvalidOperationException("이 프로젝트의 에디터 AI 접근을 먼저 허용해줘.");
+        if (worker.Participant.HelperId.Length > 0 && aiDirectory.Helpers.FirstOrDefault(h => h.Id == worker.Participant.HelperId)?.Enabled != true) throw new InvalidOperationException("이 Helper의 연결을 다시 활성화해줘.");
         var profileAgent = aiDirectory.Agent(worker.Participant.AgentId);
         var connection = profileAgent.Connection;
         if (!connection.Enabled) throw new InvalidOperationException("위쪽 에디터 AI 메뉴에서 연결을 준비해줘.");

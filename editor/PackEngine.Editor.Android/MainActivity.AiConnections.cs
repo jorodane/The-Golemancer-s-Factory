@@ -36,6 +36,8 @@ public sealed partial class MainActivity
     {
         aiCredentials = new(root); aiConnections = AiConnections.Restore(AiSettingsPath, Report); aiConnections.DisconnectConversation(); aiConnections.SetupCompleted = false; aiConnections.SelectedPack = "";
         mobileDirectory = AiDirectory.Load(Path.Combine(root, "ai-directory.json"));
+        mobileProjects = AssistantSettings.Load(MobileProjectsPath);
+        foreach (string manifest in MobileProjects().Where(p => !p.Contains(".ConfectoryTrash"))) { try { mobileProjects.Register(WorkspaceProject.Open(manifest)); } catch (IOException e) { Report(e.Message); } }
         if (mobileDirectory.Agents.Count == 0 && aiConnections.Editor.Enabled) { mobileDirectory.AddAgent(aiConnections.Editor.Name, aiConnections.Editor, aiConnections.Editor.Provider); SaveMobileDirectory(); }
         if (aiConnections.SelectedPack.Length > 0 && !Sources().Any(s => s.Id == aiConnections.SelectedPack))
         { aiConnections.SelectedPack = ""; aiConnections.Save(AiSettingsPath); Report("이전에 연 팩을 찾지 못했어. 팩 열기에서 다시 선택해줘."); }
@@ -106,7 +108,10 @@ public sealed partial class MainActivity
                 candidate = new(); candidate.Configure(next, secret); await candidate.ConnectAsync(AndroidAiOptions(), token); token.ThrowIfCancellationRequested();
 
                 editorAi?.Dispose(); editorAi = candidate; candidate = null; aiConnections.Editor = next; SaveAiConnections();
-                var profile = mobileDirectory.AddAgent(next.Name + " " + (mobileDirectory.Agents.Count + 1), next); profile.CredentialKey = profile.Id; aiCredentials.Write(profile.Id, secret); SaveMobileDirectory();
+                var profile = mobileDirectory.Agents.FirstOrDefault(a => a.Id == mobileEditingAgent);
+                if (profile is null) profile = mobileDirectory.AddAgent(next.Name + " " + (mobileDirectory.Agents.Count + 1), next);
+                else { profile.Connection = next; profile.Enabled = true; mobileDirectory.SelectedAgentId = profile.Id; foreach (var worker in mobileWorkers.Where(w => w.Participant.AgentId == profile.Id)) { worker.Assistant?.Dispose(); worker.Assistant = null; } }
+                mobileEditingAgent = ""; profile.CredentialKey = profile.Id; aiCredentials.Write(profile.Id, secret); SaveMobileDirectory();
                 aiConnections.SetupCompleted = true; SaveAiConnections(); dialog.Dismiss(); Report("에이전트 연결됨 · " + next.Name);
             }
             catch (Exception e) { note.Text = e is OperationCanceledException ? "연결을 취소했어." : e.Message; }

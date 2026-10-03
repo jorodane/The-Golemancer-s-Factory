@@ -108,7 +108,7 @@ public sealed class ApiAssistant : IResidentAssistant
             if (messages.Count > 200) throw new InvalidOperationException("대화가 길어졌어. 에디터 AI의 새 대화로 이어가줘.");
             if (request.Images.Count > 0) throw new NotSupportedException("이 API 어댑터는 현재 텍스트·객체 문맥을 지원해. 화면 이미지는 웹 대화에 직접 첨부해줘.");
             request.ThreadId = ThreadId;
-            string context = EditorSession.Serialize(new { request.Id, request.Project, request.Input, request.OpenFiles, request.Documents, request.Context, request.Omitted,
+            string context = EditorSession.Serialize(new { request.Id, request.Project, request.ProjectDescription, request.Input, request.OpenFiles, request.Documents, request.Context, request.Omitted,
                 request.EditorInput, request.UiTargets, request.WritablePacks, request.WritableEditorPacks, request.AllowEditorReload, request.AllowProjectCommands, request.ReviewChanges, request.Target,
                 PrivateIdentity = request.PrivateIdentity, SharedChats = SharedChatReference.ForModel(request.SharedChats) });
             var working = new List<object>(messages);

@@ -52,11 +52,7 @@ public sealed partial class MainActivity
     }
     private void AddHelperImage(LinearLayout panel, AiHelper helper)
     {
-        if (File.Exists(helper.AvatarPath))
-        {
-            var image = new ImageView(this); image.SetImageURI(global::Android.Net.Uri.FromFile(new Java.IO.File(helper.AvatarPath)));
-            image.SetAdjustViewBounds(true); panel.AddView(image, new LinearLayout.LayoutParams(Dp(128), Dp(128)));
-        }
+        panel.AddView(MobileAiCircle(helper.Name, helper.AvatarPath, () => { }, main: MobileProject && helper.Id == mobileProjectStudio.MainHelperId, size: 64));
         panel.AddView(AiAction("이미지 선택·변경", () => PickHelperImage(helper)));
         if (helper.AvatarPath.Length > 0) panel.AddView(AiAction("이미지 제거", () => { helper.AvatarPath = ""; SaveMobileDirectory(); RefreshMobileManagement(); Report("도우미 이미지를 제거했어."); }));
     }

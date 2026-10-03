@@ -6,6 +6,7 @@ namespace PackEngine.Workspace;
 /// <summary>Device-owned AI identities. Credentials and private memory never enter project presence.</summary>
 public sealed class AiAgentProfile
 {
+    public string AvatarPath { get; set; } = "";
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string Name { get; set; } = "";
     public EditorAiConnection Connection { get; set; } = new();
@@ -23,6 +24,8 @@ public sealed class HelperMemory
 }
 public sealed class AiHelper
 {
+    public bool Enabled { get; set; } = true;
+    public string CharacterPath { get; set; } = "";
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string AgentId { get; set; } = "";
     public string Name { get; set; } = "";

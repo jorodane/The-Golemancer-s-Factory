@@ -55,7 +55,7 @@ public sealed partial class MainActivity
         var profile = mobileDirectory.Agent(worker.Participant.AgentId); using var assistant = new ApiAssistant();
         assistant.Configure(profile.Connection, aiCredentials.Read(profile.CredentialKey.Length > 0 ? profile.CredentialKey : profile.Connection.Provider)); await assistant.ConnectAsync(AndroidAiOptions(), token);
         var context = new { Incident = incident, Change = change };
-        string reply = await assistant.ReplyAsync(new() { Id = Guid.NewGuid().ToString("N"), Project = studioSession.Project.Identity, ParticipantId = worker.Participant.Id,
+        string reply = await assistant.ReplyAsync(new() { Id = Guid.NewGuid().ToString("N"), Project = studioSession.Project.Identity, ProjectDescription = ProjectStudio.Load(studioSession.Project).Description, ParticipantId = worker.Participant.Id,
             Prompt = "공개 변경안만 검토하고 실제로 실행하지 않은 검증은 통과했다고 하지 마. JSON 하나로 답해: {\"decision\":\"approved|changes-requested|rejected\",\"reason\":\"근거\"}\n" + EditorSession.Serialize(context) }, new PublicConversationAccess(context), token);
         string text = reply.Trim(); if (text.StartsWith("```", StringComparison.Ordinal)) { int start = text.IndexOf('\n'), end = text.LastIndexOf("```", StringComparison.Ordinal); if (start > 0 && end > start) text = text.Substring(start + 1, end - start - 1); }
         using var json = JsonDocument.Parse(text); hub.ReviewProposal(incident.Id, worker.Participant.Id, json.RootElement.GetProperty("decision").GetString()!, json.RootElement.GetProperty("reason").GetString()!);

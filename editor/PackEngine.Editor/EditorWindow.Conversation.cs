@@ -11,16 +11,7 @@ public sealed partial class EditorWindow
 {
     private ProjectConversation? conversation;
     private readonly TextBlock conversationModeLabel = Label("게임팩의 대화 방식을 선택해줘.", 13, AccentInk);
-    private void CreateGameProject() => Guard(() =>
-    {
-        if (busy || runner?.GameRunning == true) return;
-        ReadyForPackSelection();
-        var dialog = new SaveFileDialog { Title = "새 게임팩 · 빈 폴더를 만들고 파일 이름을 정해줘", Filter = "Confectory 프로젝트|*.packproject", FileName = "NewGame.packproject", DefaultExt = ".packproject" };
-        if (dialog.ShowDialog(this) != true) return;
-        var project = NewProject.Create(dialog.FileName);
-        PackEngine.EditorPacks.EditorPackTemplates.CreateWorkspace(Path.Combine(Path.GetDirectoryName(project.Manifest)!, "EditorPacks"));
-        OpenProject(project.Manifest);
-    });
+    private void CreateGameProject() => ShowNewProject();
     private void UseLocalChat() => Guard(() => { ShowProjectWorkspace(); tabs.SelectedIndex = 0; });
     private void ApplyConversationMode() { conversationModeLabel.Text = "내부 작업 AI · " + aiConnections.Editor.Name; RefreshStudioShell(); }
     private void OpenConversationFolder() => Guard(() =>

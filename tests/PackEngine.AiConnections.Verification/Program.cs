@@ -57,7 +57,7 @@ try
     File.WriteAllText(sources[0].PathFor("pack.xml"), "<ObjectPack id=\"" + packs[0] + "\" version=\"1.0.0\" contracts=\"editor-1\"><Data path=\"editor.xml\" /></ObjectPack>");
     foreach (string provider in new[] { "anthropic", "openai" })
     {
-        var session = new EditorSession(manifest, Path.Combine(root, provider)); var request = session.PrepareContext("두 팩의 제목을 바꿔줘."); request.ReviewChanges = true;
+        var session = new EditorSession(manifest, Path.Combine(root, provider)); var request = session.PrepareContext("두 팩의 제목을 바꿔줘."); request.ReviewChanges = true; request.ProjectDescription = "INITIAL_PROJECT_EXPLANATION_FIXTURE";
         request.SharedChats = [new() { Shared = false, Id = Guid.NewGuid().ToString("N"), Title = "private reference", Url = "https://chatgpt.com/c/reference", Content = "DO_NOT_IMPLICITLY_ATTACH_REFERENCE" },
             new() { Shared = true, Id = Guid.NewGuid().ToString("N"), Title = "selected excerpt", Url = "https://chatgpt.com/c/shared", Content = "EXPLICIT_SHARED_BODY_FIXTURE" }];
         var review = new ChangeReviewBatch(session, request, action => action()); var editor = new EditorPackAgent(sources, request, () => null, (_, _) => Task.CompletedTask, _ => { }, (_, _, _) => { }, root, "dotnet", Path.Combine(root, "history"), review: review);
@@ -69,6 +69,7 @@ try
         Check(reply == "변경안을 준비했어." && review.Items.Count == 2 && sources.All(s => s.Read("editor.xml").Contains("title=\"Before\"")), provider + " parallel tool calls stage two real pack changes without touching files");
         Check(handler.ProtocolVerified && handler.Bodies.All(b => !b.Contains("SECRET_FIXTURE_KEY") && !b.Contains("DO_NOT_IMPLICITLY_ATTACH_REFERENCE") && !b.Contains(root)), provider + " maps authentication, tool schemas and tool results without leaking keys, absolute paths or unrequested reference bodies");
         Check(handler.Bodies.Any(b => b.Contains("EXPLICIT_SHARED_BODY_FIXTURE")), provider + " sends the selected shared body through the real provider request schema");
+        Check(handler.Bodies.Any(b => b.Contains("INITIAL_PROJECT_EXPLANATION_FIXTURE")), provider + " sends the saved initial project explanation through the actual provider payload builder");
         await review.Apply(new[] { review.Items.Single(i => i.Pack == packs[0]).Id }, default);
         Check(sources[0].Read("editor.xml").Contains("title=\"After\"") && sources[1].Read("editor.xml").Contains("title=\"Before\""), provider + " applies only the human-selected pack and excludes the other proposal");
         File.WriteAllText(sources[0].PathFor("editor.xml"), sources[0].Read("editor.xml").Replace("title=\"After\"", "title=\"Before\""));

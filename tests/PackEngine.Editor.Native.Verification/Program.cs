@@ -60,6 +60,18 @@ internal static class Program
             later.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
             Check(!intro.IsVisible && Field<Grid>(window, "studioRoot").IsVisible,
                 "Later leaves the intro through the existing studio setup flow");
+            window.UpdateLayout();
+            var home = Field<StackPanel>(window, "projectHome");
+            var slots = Descendants(home).OfType<System.Windows.Controls.Primitives.UniformGrid>().Single();
+            Check(slots.Columns == 2 && slots.Children[0] is Button && Descendants(slots.Children[0]).OfType<TextBlock>().Any(t => t.Text == "새 프로젝트 만들기")
+                && Descendants(slots.Children[0]).OfType<System.Windows.Shapes.Rectangle>().Any(r => r.StrokeDashArray?.Count > 0), "native home reserves the first of two columns for a dashed new-project slot");
+            Check(!Field<TextBox>(window, "log").IsVisible && !Field<TextBlock>(window, "status").IsVisible
+                && !Descendants(home).OfType<Button>().Any(b => (string?)b.Content is "팩 열기" or "에디터팩 관리"), "project home hides the old menus, console, status and pack-selection toolbar");
+            var directory = Field<StackPanel>(window, "aiManagement");
+            Check(Descendants(directory).OfType<System.Windows.Controls.Primitives.UniformGrid>().All(g => g.Columns == 2)
+                && Descendants(directory).OfType<TextBlock>().Count(t => t.Text == "+") == 2
+                && Descendants(directory).OfType<System.Windows.Shapes.Ellipse>().Count(e => e.StrokeDashArray?.Count > 0) == 2,
+                "native Agent and Helper sections share circular dashed empty slots and stay two icons wide");
             window.OpenProject(Path.Combine(args[0], "Golemancer/Golemancer.packproject"));
             Call(window, "CompleteStudioSetup");
             var host = Field<ContentControl>(window, "workspaceHost");

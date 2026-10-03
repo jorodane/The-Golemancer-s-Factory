@@ -4,7 +4,7 @@ using PackEngine.Workspace;
 string temp = Path.Combine(Path.GetTempPath(), "confectory-studio-checks-" + Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(temp); int checks = 0;
 void Check(bool value, string message) { if (!value) throw new Exception(message); checks++; Console.WriteLine("PASS " + message); }
-void Reject(Action action, string message) { try { action(); } catch (Exception e) when (e is InvalidOperationException or ArgumentException or IOException or UnauthorizedAccessException) { Check(true, message); return; } throw new Exception("Not rejected: " + message); }
+void Reject(Action action, string message) { try { action(); } catch (Exception e) when (e is InvalidOperationException or ArgumentException or IOException or InvalidDataException or UnauthorizedAccessException) { Check(true, message); return; } throw new Exception("Not rejected: " + message); }
 try
 {
     var identities = new AiDirectory(); var a = identities.AddAgent("A", new() { Provider = "openai", Model = "fixture-model" }, "credential-a"); var b = identities.AddAgent("B", new() { Provider = "openai", Model = "other-fixture" }, "credential-b");
@@ -86,6 +86,7 @@ try
     Reject(() => SharedTextMerge.Merge("abc", "axc", "ayc"), "overlapping edits preserve conflict instead of overwriting");
     Check(SharedTextMerge.Merge("a", "a(", "a") == "a(", "human typing can synchronize incomplete syntax");
 
+    ProjectHomeVerification.Run(temp, Check, Reject);
     await MobileStudioVerification.Run(temp, Check);
 
     if (args.Contains("--network"))

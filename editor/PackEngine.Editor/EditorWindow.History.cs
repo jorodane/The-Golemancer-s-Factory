@@ -87,7 +87,7 @@ public sealed partial class EditorWindow
     private void RegisterProject()
     {
         if (session is null) return;
-        assistantSettings.Register(session.Project); SaveSettings(); updatingHistory = true;
+        var registered = assistantSettings.Register(session.Project); if (!Standalone) registered.LastOpenedUtc = DateTime.UtcNow.ToString("O"); SaveSettings(); updatingHistory = true;
         historyProjects.ItemsSource = assistantSettings.Projects.ToArray(); historyProjects.SelectedItem = CurrentAccess; updatingHistory = false;
         RefreshAccessControls(); ClearThreadList(); historyMessages.Clear(); messageCursor = ""; conversationTitle.Text = "새 대화";
         if (!assistantSettings.ConnectionEnabled || CurrentAccess?.Enabled != true) { providerLabel.Text = "Codex 접근 차단"; accountDetails.Text = "설정에서 이 프로젝트의 Codex 사용을 허용하면 연결할 수 있어."; }

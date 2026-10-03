@@ -20,7 +20,7 @@ public sealed partial class MainActivity
         var profile = mobileDirectory.Agent(worker.Participant.AgentId);
         using var assistant = new ApiAssistant(); assistant.Configure(profile.Connection, aiCredentials.Read(profile.CredentialKey.Length > 0 ? profile.CredentialKey : profile.Connection.Provider));
         await assistant.ConnectAsync(new() { ProjectIdentity = owner.Project.Identity, StateDirectory = owner.StateDirectory, AccessEnabled = true, HistoryEnabled = false }, token);
-        return await assistant.ReplyAsync(new() { Id = Guid.NewGuid().ToString("N"), Project = owner.Project.Identity, ParticipantId = worker.Participant.Id, Prompt = prompt }, new PublicConversationAccess(context), token);
+        return await assistant.ReplyAsync(new() { Id = Guid.NewGuid().ToString("N"), Project = owner.Project.Identity, ProjectDescription = ProjectStudio.Load(owner.Project).Description, ParticipantId = worker.Participant.Id, Prompt = prompt }, new PublicConversationAccess(context), token);
     }
     private static JsonDocument MobileDecision(string reply)
     {

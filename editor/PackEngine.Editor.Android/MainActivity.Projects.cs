@@ -33,11 +33,11 @@ public sealed partial class MainActivity
         packExecution?.Dispose(); packExecution = null; runtime = null; approvedProjectPacks.Clear();
         studioSession.Persist(); studioSession.Collaboration.Changed -= RefreshMobilePresence; studioRunner.Dispose();
         studioSession = new(manifest); studioRunner = new(studioSession, "dotnet");
-        mobileProjectManifest = project ? manifest : "";
+        mobileProjectManifest = project ? manifest : ""; mobileProjectStudio = ProjectStudio.Load(studioSession.Project); mobileProjectStudio.RestoreLegacyHelpers(studioSession.Collaboration.State.Participants); RegisterMobileProject();
         ObserveMobileIncidents(); studioSession.Collaboration.Changed += RefreshMobilePresence;
         if (project && !Directory.Exists(Path.Combine(studioSession.Project.Root, "EditorPacks"))) PackEngine.EditorPacks.EditorPackTemplates.CreateWorkspace(Path.Combine(studioSession.Project.Root, "EditorPacks"));
         foreach (var participant in studioSession.Collaboration.State.Participants.Where(p => p.Kind == ParticipantKind.AI)) LoadMobileWorker(participant);
-        editorAi?.NewConversation();
+        editorAi?.NewConversation(); SyncMobileProjectHelpers();
     }
     private void OpenMobileProject(string manifest)
     {

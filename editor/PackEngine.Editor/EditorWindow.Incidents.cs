@@ -105,7 +105,7 @@ public sealed partial class EditorWindow
         {
             var assistant = await ConnectWorker(temporary, token);
             if (assistant is IResidentAssistant resident) { resident.NewConversation(); if (temporary.Model.Length > 0) resident.Model = temporary.Model; }
-            return await assistant.ReplyAsync(new() { Id = Guid.NewGuid().ToString("N"), Project = session.Project.Identity, ParticipantId = source.Participant.Id, Prompt = promptText }, new PublicConversationAccess(context), token);
+            return await assistant.ReplyAsync(new() { Id = Guid.NewGuid().ToString("N"), Project = session.Project.Identity, ProjectDescription = ProjectStudio.Load(session.Project).Description, ParticipantId = source.Participant.Id, Prompt = promptText }, new PublicConversationAccess(context), token);
         }
         finally { temporary.Assistant?.Dispose(); }
     }

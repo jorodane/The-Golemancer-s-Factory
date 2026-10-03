@@ -127,6 +127,6 @@ public sealed partial class MainActivity
         panel.AddView(AiAction("보내기", async () => { if (!string.IsNullOrWhiteSpace(input.Text)) { var message = owner.Collaboration.Post("human", input.Text.Trim(), "project"); input.Text = ""; await ReplyMobileMentions(message); } }));
         void Refresh() => RunOnUiThread(() => text.Text = string.Join("\n\n", owner.Collaboration.State.Messages.Where(m => m.Channel == "project").Select(m => MobileParticipantName(m.Author) + "\n" + m.Text)));
         var dialog = new Dialog(this); dialog.SetTitle("프로젝트 채팅"); dialog.SetContentView(panel); dialog.Show(); dialog.Window?.SetLayout(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent);
-        owner.Collaboration.Changed += Refresh; Refresh(); dialog.DismissEvent += (_, _) => owner.Collaboration.Changed -= Refresh;
+        input.RequestFocus(); owner.Collaboration.Changed += Refresh; Refresh(); dialog.DismissEvent += (_, _) => owner.Collaboration.Changed -= Refresh;
     }
 }

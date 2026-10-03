@@ -28,6 +28,7 @@ public sealed class AssistantSettings
 }
 public sealed class ProjectAssistantAccess
 {
+    public string LastOpenedUtc { get; set; } = "";
     public string Identity { get; set; } = "";
     public string Manifest { get; set; } = "";
     public string Name { get; set; } = "";
