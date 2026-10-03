@@ -102,9 +102,11 @@ public sealed partial class MainActivity
         {
             var worker = MobileProject ? mobileWorkers.FirstOrDefault(w => w.Participant.HelperId == helper.Id && studioSession.Collaboration.CanControl("human", w.Participant.Id)) : null;
             if (worker is not null) { helpers.Add(MobileWorkerSidebarItem(worker)); continue; }
-            View? circle = null; circle = MobileAiCircle(helper.Name, helper.AvatarPath, () => ShowMobileProfile(circle!, null, helper), main: MobileProject && helper.Id == mobileProjectStudio.MainHelperId); helpers.Add(circle); mobileProfileIcons.Add(circle);
+            View? circle = null; long tap = 0; circle = MobileAiCircle(helper.Name, helper.AvatarPath, () => { long now = global::Android.OS.SystemClock.UptimeMillis(); if (now - tap < 320) { tap = 0; var joined = CreateMobileWorker(helper); if (joined is not null) ShowMobileWorkerAnswers(joined); } else { tap = now; circle!.PostDelayed(() => { if (tap == now) ShowMobileProfile(circle, null, helper); }, 320); } }, main: MobileProject && helper.Id == mobileProjectStudio.MainHelperId); BindMobileYogiDrop(circle, box => { var joined = CreateMobileWorker(helper); if (joined is not null) ReceiveMobileYogi(joined, box); }); helpers.Add(circle); mobileProfileIcons.Add(circle);
         }
+        if (MobileProject) foreach (var worker in mobileWorkers.Where(w => !studioSession.Collaboration.CanControl("human", w.Participant.Id) || !mobileDirectory.Helpers.Any(h => h.Id == w.Participant.HelperId && h.Enabled))) helpers.Add(MobileWorkerSidebarItem(worker));
         helpers.Add(MobileAiCircle("Helper 추가", "", AddMobileHelper, empty: true)); CirclePairs(mobileManagement, helpers);
+        if (MobileProject) { mobileManagement.AddView(AiAction("📦 YogiBox", OpenMobileYogiBox)); foreach (var person in studioSession.Collaboration.State.Participants.Where(p => p.Kind == ParticipantKind.Human && p.Id != "human")) { var slot = AiAction(person.Name, () => OpenMobileInbox(person.Id)); BindMobileYogiDrop(slot, box => studioSession.Collaboration.DeliverYogi("human", box, "direct", person.Id)); mobileManagement.AddView(slot); } }
     }
     private void ShowMobileProfile(View anchor, AiAgentProfile? agent, AiHelper? helper)
     {

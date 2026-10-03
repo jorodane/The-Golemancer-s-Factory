@@ -4,6 +4,7 @@ public enum IncidentSeverity { Notice, Warning, Blocked, Urgent }
 public enum IncidentKind { Incident, Proposal }
 public sealed class IncidentRecord
 {
+    public YogiBox? Yogi { get; set; }
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public IncidentKind Kind { get; set; }
     public string Reporter { get; set; } = "";
@@ -20,6 +21,7 @@ public sealed class IncidentRecord
     public string State { get; set; } = "open";
     public string Result { get; set; } = "";
     public List<ResolutionEntry> Log { get; set; } = [];
+    public object ForModel() => new { Id, Kind, Reporter, Assignee, Target, Title, Evidence, Request, Severity, BlockedTask, ChangeSetId, ChangeFingerprint, Reviewer, State, Result, Log, Yogi = Yogi?.ForModel() };
 }
 public sealed class ProposalAuthority
 {
@@ -40,14 +42,15 @@ public sealed class WorkCheckpoint
 
 public sealed partial class CollaborationWorkspace
 {
-    public IncidentRecord Report(string reporter, IncidentKind kind, IncidentSeverity severity, string title, string target, string evidence, string request, string assignee = "", string blockedTask = "")
+    public IncidentRecord Report(string reporter, IncidentKind kind, IncidentSeverity severity, string title, string target, string evidence, string request, string assignee = "", string blockedTask = "", YogiBox? yogi = null)
     {
         Require(reporter, ParticipantPermission.Talk);
+        yogi?.Validate(true);
         if (!Enum.IsDefined(typeof(IncidentKind), kind) || !Enum.IsDefined(typeof(IncidentSeverity), severity)) throw new ArgumentException("Unknown incident kind/severity.");
         if (string.IsNullOrWhiteSpace(title) || title.Length > 200 || evidence.Length > 16000 || request.Length > 16000 || target.Length > 1000) throw new ArgumentException("사건 제목과 근거의 길이를 확인해줘.");
         if (assignee.Length > 0) Require(assignee, ParticipantPermission.Talk);
         if (blockedTask.Length > 0 && Work(blockedTask).ParticipantId != reporter) throw new InvalidOperationException("다른 작업자의 비공개 작업을 보고에 첨부할 수 없어.");
-        var incident = new IncidentRecord { Reporter = reporter, Kind = kind, Severity = severity, Title = title, Target = target, Evidence = evidence, Request = request, Assignee = assignee, BlockedTask = blockedTask };
+        var incident = new IncidentRecord { Reporter = reporter, Yogi = yogi?.Copy(), Kind = kind, Severity = severity, Title = title, Target = target, Evidence = evidence, Request = request, Assignee = assignee, BlockedTask = blockedTask };
         incident.Log.Add(new() { Author = reporter, Text = "등록 · " + severity }); State.Incidents.Add(incident); Save(); return incident;
     }
     public void Triage(string id, string actor, string assignee, IncidentSeverity severity, string reason)

@@ -24,7 +24,7 @@ internal sealed class AndroidPackWindow : IEditorLiveWindowInstance, IEditorObje
     public AndroidPackWindow(MainActivity activity, EditorWindowDefinition definition, IEditorPackRuntime runtime)
     {
         this.activity = activity; this.definition = definition;
-        backend = new(activity);
+        backend = new(activity, definition.View);
         context = EditorNativeSchema.Context(runtime.Snapshot, (command, value) => activity.Dispatch(command, value, activity.MobileWindowContext(definition.Id, mounted?.EventNodeId ?? "")), activity.ProjectTitle, "");
         mounted = new EditorLiveView(runtime.Catalog, definition.View, context, backend);
         page = new(activity) { Orientation = Orientation.Vertical };

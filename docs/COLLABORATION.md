@@ -1,5 +1,7 @@
 # Confectory 멀티 작업자
 
+**대화·Yogi 후속 설계:** [대화 Timeline · YogiBox](COLLABORATION_CONTEXT.md). 수신자를 먼저 고르는 Yogi와 이전 대화창/알림 동작은 이 문서의 새 흐름으로 대체한다.
+
 **2026-10-03:** [내부 AI Studio](INTERNAL_AI_STUDIO.md)가 현재 설계다. Agent–Worker–Helper, 신문고, HP/10턴 협의와 Windows 원격 프로젝트 연결을 추가했다. 아래는 이전 구현 계약의 기록이다.
 
 2026-10-02 후속 변경은 [Document Rooms · 저장과 확정](COLLABORATION_ROOMS.md)에 정리했다. 아래는 첫 구현의 계약과 기존 검토 흐름이며, 새 문서가 저장·구조 편집·알림·인계 동작을 확장한다.

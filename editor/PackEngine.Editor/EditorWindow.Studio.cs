@@ -156,13 +156,13 @@ public sealed partial class EditorWindow
         });
     });
     private static string HelperDirectory(string id) { AiDirectory.CheckId(id); return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PackEngine", "Helpers", id); }
-    private void JoinHelper(AiHelper helper)
+    private void JoinHelper(AiHelper helper, bool open = true)
     {
         if (session is null) return; _ = aiDirectory.Agent(helper.AgentId); helper.Enabled = true; SaveAiDirectory();
         var p = session.Collaboration.State.Participants.FirstOrDefault(p => p.HelperId == helper.Id && p.OwnerId == "human");
         if (p is null) { p = session.Collaboration.Register("worker-" + Guid.NewGuid().ToString("N"), helper.Name, ParticipantKind.AI, ParticipantPermission.Talk | ParticipantPermission.Work); p.AgentId = helper.AgentId; p.HelperId = helper.Id; CreateWorker(p); session.Collaboration.Save(); }
         if (!Standalone) { projectStudio.AddHelper(helper.Id); projectStudio.Save(session.Project); RefreshProjectAiRoles(); }
-        var worker = workers.Single(w => w.Participant.Id == p.Id); SelectWorker(worker); ShowProjectWorkspace(); tabs.SelectedIndex = 0;
+        var worker = workers.Single(w => w.Participant.Id == p.Id); if (open) SelectWorker(worker); ShowProjectWorkspace(); tabs.SelectedIndex = 0;
         SetStatus(helper.Name + "가 참여했어. 개인 기억은 이 도우미에게만 전달돼.");
     }
     private void EditHelperMemory(AiHelper helper)
@@ -203,12 +203,12 @@ public sealed partial class EditorWindow
         var root = new DockPanel { Margin = new Thickness(3) }; var bottom = new StackPanel(); projectMessage.Height = 48; projectMessage.FontSize = 11; projectMessage.TextWrapping = TextWrapping.Wrap; bottom.Children.Add(projectMessage);
         var title = BareButton(Label("프로젝트 채팅 ↗", 10), () => OpenPublicChat(false)); DockPanel.SetDock(title, Dock.Top); root.Children.Add(title);
         var buttons = new WrapPanel(); buttons.Children.Add(Action("보내기", SendProjectMessage)); bottom.Children.Add(buttons);
-        DockPanel.SetDock(bottom, Dock.Bottom); root.Children.Add(bottom); projectChat.TextWrapping = TextWrapping.Wrap; projectChat.FontSize = 11; projectChat.HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled; root.Children.Add(projectChat); return root;
+        DockPanel.SetDock(bottom, Dock.Bottom); root.Children.Add(bottom); projectChat.TextWrapping = TextWrapping.Wrap; projectChat.FontSize = 11; projectChat.HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled; root.Children.Add(new ScrollViewer { Content = projectChatRows, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }); BindYogiDrop(root, box => session!.Collaboration.DeliverYogi("human", box, "project")); return root;
     }
     private void RefreshEmbeddedChat()
     {
         if (session is null) return;
-        projectChat.Text = string.Join("\n\n", session.Collaboration.State.Messages.Where(m => m.Channel == "project").Select(m => session.Collaboration.State.Participants.FirstOrDefault(p => p.Id == m.Author)?.Name + "\n" + m.Text)); projectChat.ScrollToEnd();
+        RenderChatRows(projectChatRows, session.Collaboration.State.Messages.Where(m => m.Channel == "project"));
     }
     private async void SendProjectMessage()
     {

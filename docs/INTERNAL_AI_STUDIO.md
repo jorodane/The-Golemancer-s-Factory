@@ -1,5 +1,7 @@
 # 내부 AI Studio
 
+**대화·Yogi 후속 설계:** [대화 Timeline · YogiBox](COLLABORATION_CONTEXT.md). 수신자를 먼저 고르는 Yogi와 이전 대화창/알림 동작은 이 문서의 새 흐름으로 대체한다.
+
 2026-10-03 설계·구현 기준. 새 빌드는 Git에 올리지 않는다. 소스를 pull한 뒤 Windows는 `BuildEditor.bat` → `StartEditor.exe`, Android는 `BuildEditorAndroid.bat`으로 로컬 빌드한다. `.gitignore`와 게임의 고정 SDK는 그대로 유지한다.
 
 ## 화면 순서

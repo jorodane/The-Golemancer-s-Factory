@@ -156,6 +156,7 @@ public sealed partial class MainActivity
     private readonly Dictionary<string, HashSet<string>> peerObserved = new(StringComparer.Ordinal);
     private bool peerApplying, peerPolling;
     private string lastPeerPresence = "";
+    private readonly Dictionary<string, string> peerIncidents = [];
 
     private object[] PeerRoster(bool localOnly) => studioSession.Collaboration.State.Participants.Where(p => p.Kind is ParticipantKind.Human or ParticipantKind.AI && (!localOnly || p.Id == "human" || p.OwnerId == "human"))
         .Select(p => { var presence = studioSession.Collaboration.Presence(p.Id); return (object)new { p.Id, p.Name, p.Kind, p.OwnerId, p.PublicTask, presence.Room, presence.Scope, presence.Activity, presence.Connected }; }).ToArray();
@@ -172,12 +173,22 @@ public sealed partial class MainActivity
                 else if (peerClient is not null) await peerClient.Send(new() { Kind = "presence", Text = presence }, token);
                 lastPeerPresence = presence;
             }
-            foreach (var message in studioSession.Collaboration.State.Messages.Where(m => m.Channel is "project" or "room" && !peerMessages.Contains(m.Id)).ToArray())
+            foreach (var message in studioSession.Collaboration.State.Messages.Where(m => (m.Channel is "project" or "room" || m.Channel == "direct" && m.Author == "human" && studioSession.Collaboration.State.Participants.Any(p => p.Id == m.Recipient && p.Kind == ParticipantKind.Human && p.Id != "human")) && !peerMessages.Contains(m.Id)).ToArray())
             {
-                peerMessages.Add(message.Id);
-                var wire = new ProjectPeerMessage { Kind = "chat", Id = message.Id, Actor = message.Author, Path = message.Room, Scope = message.Channel, Text = message.Text };
-                if (peerHost is not null) await peerHost.Broadcast(wire, token);
+                var wire = new ProjectPeerMessage { Kind = "chat", Id = message.Id, Actor = message.Author, Path = message.Room, Scope = message.Channel, Text = message.Text, Yogi = message.Yogi, Recipient = peerClient is not null && message.Recipient == "host" ? "human" : message.Recipient };
+                if (peerHost is not null) { if (message.Channel == "direct") await peerHost.SendTo(message.Recipient, wire, token); else await peerHost.Broadcast(wire, token); }
                 else if (peerClient is not null && (message.Author == "human" || studioSession.Collaboration.CanControl("human", message.Author))) await peerClient.Send(wire, token);
+                peerMessages.Add(message.Id);
+            }
+            foreach (var incident in studioSession.Collaboration.State.Incidents.Where(i => i.Kind == IncidentKind.Incident && i.ChangeSetId.Length == 0).ToArray())
+            {
+                var export = ProjectPeerIncidents.Export(incident); string fingerprint = EditorSession.Serialize(export);
+                if (peerIncidents.TryGetValue(incident.Id, out var sent) && sent == fingerprint) continue;
+                string actor = incident.Log.LastOrDefault()?.Author ?? incident.Reporter;
+                var wire = new ProjectPeerMessage { Kind = "incident", Actor = actor, Incident = export };
+                if (peerHost is not null) await peerHost.Broadcast(wire, token);
+                else if (peerClient is not null && (actor == "human" || studioSession.Collaboration.CanControl("human", actor))) await peerClient.Send(wire, token);
+                peerIncidents[incident.Id] = fingerprint;
             }
             if (peerHost is not null)
             {
@@ -203,16 +214,28 @@ public sealed partial class MainActivity
         try
         {
             var hub = studioSession.Collaboration;
+            if (message.Kind == "incident" && message.Incident is { } incident)
+            {
+                string actor = message.Actor == "human" ? peer.Id : peer.Id + "/" + message.Actor;
+                if (actor != peer.Id && hub.Require(actor, ParticipantPermission.Talk).OwnerId != peer.Id) throw new UnauthorizedAccessException();
+                string Map(string id) => id == "human" ? peer.Id : id == "host" ? "human" : id.StartsWith("worker-", StringComparison.Ordinal) ? peer.Id + "/" + id : id;
+                incident.Reporter = Map(incident.Reporter); incident.Assignee = Map(incident.Assignee);
+                var accepted = ProjectPeerIncidents.Receive(hub, incident, actor); var export = ProjectPeerIncidents.Export(accepted);
+                await peerHost.Broadcast(new() { Kind = "incident", Actor = actor, Incident = export }, peerLifetime.Token); peerIncidents[accepted.Id] = EditorSession.Serialize(export); return;
+            }
             if (message.Kind == "presence") { ApplyPeerRoster(message.Text, peer.Id); return; }
             if (message.Kind == "chat")
             {
                 if (peerMessages.Contains(message.Id)) return;
                 string actor = message.Actor == "human" ? peer.Id : peer.Id + "/" + message.Actor;
                 if (actor != peer.Id && hub.Require(actor, ParticipantPermission.Talk).OwnerId != peer.Id) throw new UnauthorizedAccessException();
-                if (message.Scope is not ("project" or "room")) throw new UnauthorizedAccessException();
+                if (message.Scope is not ("project" or "room" or "direct")) throw new UnauthorizedAccessException();
                 if (message.Scope == "room") { RequirePeerDocument(message.Path); hub.Move(actor, message.Path); }
-                var received = hub.Post(actor, message.Text, message.Scope, message.Path); peerMessages.Add(message.Id); peerMessages.Add(received.Id);
-                await peerHost.Broadcast(new() { Kind = "chat", Id = message.Id, Actor = actor, Text = message.Text, Scope = message.Scope, Path = message.Path }, peerLifetime.Token); _ = ReplyMobileMentions(received); return;
+                if (message.Scope == "direct" && (actor != peer.Id || hub.Require(message.Recipient, ParticipantPermission.Talk).Kind != ParticipantKind.Human)) throw new UnauthorizedAccessException("사람 사이의 명시적 전달만 공유해.");
+                var received = hub.Post(actor, message.Text, message.Scope, message.Path, recipient: message.Recipient, yogi: message.Yogi); peerMessages.Add(message.Id); peerMessages.Add(received.Id);
+                var wire = new ProjectPeerMessage { Kind = "chat", Id = message.Id, Actor = actor, Text = message.Text, Scope = message.Scope, Path = message.Path, Recipient = message.Recipient, Yogi = message.Yogi };
+                if (message.Scope == "direct") { if (message.Recipient != "human") await peerHost.SendTo(message.Recipient, wire, peerLifetime.Token); }
+                else await peerHost.Broadcast(wire, peerLifetime.Token); if (message.Scope != "direct") _ = ReplyMobileMentions(received); return;
             }
             RequirePeerDocument(message.Path); hub.Require(peer.Id, ParticipantPermission.Work); var doc = studioSession.Open(message.Path);
             string observeKey = peer.Id + ":" + message.Path;
@@ -253,13 +276,20 @@ public sealed partial class MainActivity
         try
         {
             var hub = studioSession.Collaboration;
-            if (message.Kind == "roster") ApplyPeerRoster(message.Text, "host");
+            if (message.Kind == "incident" && message.Incident is { } incident)
+            {
+                incident = ProjectPeerIncidents.Export(incident); incident.Yogi?.Validate(true);
+                incident.Reporter = MapPeerId(incident.Reporter); incident.Assignee = MapPeerId(incident.Assignee); foreach (var entry in incident.Log) entry.Author = MapPeerId(entry.Author);
+                hub.State.Incidents.RemoveAll(i => i.Id == incident.Id); hub.State.Incidents.Add(incident); peerIncidents[incident.Id] = EditorSession.Serialize(incident); hub.Save();
+            }
+            else if (message.Kind == "roster") ApplyPeerRoster(message.Text, "host");
             else if (message.Kind == "chat" && peerMessages.Add(message.Id))
             {
                 string actor = MapPeerId(message.Actor); if (!hub.State.Participants.Any(p => p.Id == actor)) hub.Register(actor, actor, ParticipantKind.Human, ParticipantPermission.Talk | ParticipantPermission.Work);
-                if (message.Scope is not ("project" or "room")) throw new InvalidDataException("공개 채널만 동기화할 수 있어.");
+                if (message.Scope is not ("project" or "room" or "direct")) throw new InvalidDataException("공개 채널만 동기화할 수 있어.");
                 if (message.Scope == "room") { RequirePeerDocument(message.Path); hub.Move(actor, message.Path); }
-                var received = hub.Post(actor, message.Text, message.Scope, message.Path); peerMessages.Add(received.Id); if (actor != "human" && !hub.CanControl("human", actor)) _ = ReplyMobileMentions(received);
+                if (message.Scope == "direct" && MapPeerId(message.Recipient) != "human") throw new UnauthorizedAccessException("다른 사람의 대화야.");
+                var received = hub.Post(actor, message.Text, message.Scope, message.Path, recipient: MapPeerId(message.Recipient), yogi: message.Yogi); peerMessages.Add(received.Id); if (message.Scope != "direct" && actor != "human" && !hub.CanControl("human", actor)) _ = ReplyMobileMentions(received);
             }
             else if (message.Kind == "document" && peerDocuments.TryGetValue(message.Path, out var previous))
             {

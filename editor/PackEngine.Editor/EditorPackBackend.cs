@@ -8,7 +8,7 @@ using PackEngine.EditorPacks;
 
 namespace PackEngine.Editor;
 
-internal sealed class EditorPackBackend(Action<string> point, Func<bool> pointing) : IUiBackend
+internal sealed class EditorPackBackend(Action<string> point, Func<bool> pointing, string viewId = "") : IUiBackend
 {
     private readonly Dictionary<Element, string> elements = new();
     public string Platform => "windows";
@@ -26,6 +26,7 @@ internal sealed class EditorPackBackend(Action<string> point, Func<bool> pointin
             "editor.button" => new Button { Padding = new Thickness(10, 7, 10, 7), HorizontalAlignment = HorizontalAlignment.Stretch, Foreground = Brushes.WhiteSmoke, Background = new SolidColorBrush(Color.FromRgb(41, 59, 77)), BorderThickness = new Thickness(0) },
             "editor.input" => new TextBox { Padding = new Thickness(8), MinWidth = 180, Foreground = Brushes.WhiteSmoke, Background = new SolidColorBrush(Color.FromRgb(17, 23, 31)), CaretBrush = Brushes.WhiteSmoke },
             _ => throw new InvalidDataException("Unsupported editor renderer.") };
+        if (viewId.Length > 0) control.SetValue(EditorWindow.YogiKeyProperty, EditorYogiContext.Prefix + viewId + "/" + nodeId);
         System.Windows.Input.MouseButtonEventHandler capture = (_, e) => { if (pointing()) { point(nodeId); e.Handled = true; } };
         // Bubble from the deepest control, so a container does not steal its child's pointing target.
         control.MouseLeftButtonDown += capture;

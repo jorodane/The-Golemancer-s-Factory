@@ -9,7 +9,7 @@ using AView = Android.Views.View;
 
 namespace PackEngine.Editor.Android;
 
-internal sealed class AndroidPackBackend(Context context) : IUiBackend
+internal sealed class AndroidPackBackend(Context context, string viewId = "") : IUiBackend
 {
     private readonly Dictionary<Element, string> elements = new();
     public string Platform => "android";
@@ -30,6 +30,7 @@ internal sealed class AndroidPackBackend(Context context) : IUiBackend
             "editor.input" => new EditText(context) { InputType = InputTypes.ClassText | InputTypes.TextFlagMultiLine },
             _ => throw new InvalidDataException("Unsupported Android editor renderer: " + renderer)
         };
+        if (viewId.Length > 0 && context is MainActivity activity) activity.MarkMobileYogi(native, EditorYogiContext.Prefix + viewId + "/" + nodeId);
         var wrapper = new Bounds(context, layout.MaxSize is { } max ? Dp(max.X) : 0, layout.MaxSize is { } maximum ? Dp(maximum.Y) : 0)
         {
             LayoutParameters = new LinearLayout.LayoutParams(layout.Size.X > 0 ? Dp(layout.Size.X) : ViewGroup.LayoutParams.MatchParent,

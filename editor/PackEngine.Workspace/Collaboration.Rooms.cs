@@ -18,7 +18,7 @@ public sealed class ParticipantView
     public double? Y { get; set; }
     public string Viewer { get; set; } = "";
     public string ParticipantId { get; set; } = "";
-    public CharacterDisplay Display { get; set; }
+    public CharacterDisplay Display { get; set; } = CharacterDisplay.Hidden;
     public List<string> ReadMessages { get; set; } = [];
 }
 public sealed class SemanticNotice
@@ -50,6 +50,7 @@ public sealed class DocumentRoom
 }
 public sealed class CollaborationMessage
 {
+    public YogiBox? Yogi { get; set; }
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string Author { get; set; } = "";
     public string Channel { get; set; } = "project";
@@ -135,9 +136,10 @@ public sealed partial class CollaborationWorkspace
         }
         Save();
     }
-    public CollaborationMessage Post(string author, string text, string channel = "project", string room = "", string recipient = "", string parentId = "", MessageImportance importance = MessageImportance.Reply)
+    public CollaborationMessage Post(string author, string text, string channel = "project", string room = "", string recipient = "", string parentId = "", MessageImportance importance = MessageImportance.Reply, YogiBox? yogi = null)
     {
         var actor = Require(author, ParticipantPermission.Talk);
+        yogi?.Validate(true);
         if (string.IsNullOrWhiteSpace(text) || text.Length > 32000) throw new ArgumentException("Message must contain 1–32000 characters.");
         if (channel is not "project" and not "room" and not "direct") throw new ArgumentException("Unknown conversation channel.");
         if (channel == "room" && !Room(room).Participants.Contains(author)) throw new InvalidOperationException("먼저 해당 Room에 들어와줘.");
@@ -149,7 +151,7 @@ public sealed partial class CollaborationWorkspace
         }
         CollaborationMessage? parent = parentId.Length == 0 ? null : State.Messages.Single(m => m.Id == parentId);
         if (parent is not null && (parent.Channel != channel || parent.Room != room || !CanRead(author, parent))) throw new InvalidOperationException("Conversation boundary mismatch.");
-        var message = new CollaborationMessage { Author = author, Text = text, Channel = channel, Room = room, Recipient = recipient, Importance = importance,
+        var message = new CollaborationMessage { Author = author, Text = text, Yogi = yogi?.Copy(), Channel = channel, Room = room, Recipient = recipient, Importance = importance,
             AiDepth = actor.Kind == ParticipantKind.AI ? (parent?.AiDepth ?? 0) + 1 : 0 };
         if (parent is not null) message.ThreadId = parent.ThreadId;
         foreach (var p in State.Participants.Where(p => p.Kind == ParticipantKind.AI))
@@ -166,7 +168,7 @@ public sealed partial class CollaborationWorkspace
     {
         var p = Require(participant, ParticipantPermission.Talk); var presence = Presence(participant);
         return new { p.Id, p.Name, p.OwnerId, p.PublicTask, presence.Room, presence.Scope, presence.Activity,
-            Messages = State.Messages.Where(m => m.Channel == channel && m.Channel != "direct" && (channel != "room" || m.Room == room)).Skip(Math.Max(0, State.Messages.Count(m => m.Channel == channel && (channel != "room" || m.Room == room)) - 20)).Select(m => new { m.Author, m.Text }).ToArray() };
+            Messages = State.Messages.Where(m => m.Channel == channel && m.Channel != "direct" && (channel != "room" || m.Room == room)).Skip(Math.Max(0, State.Messages.Count(m => m.Channel == channel && (channel != "room" || m.Room == room)) - 20)).Select(m => new { m.Author, m.Text, Yogi = m.Yogi?.ForModel() }).ToArray() };
     }
     public void Checkpoint(string author, string path, string text)
     {

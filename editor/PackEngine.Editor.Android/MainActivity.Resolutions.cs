@@ -14,13 +14,15 @@ public sealed partial class MainActivity
     private readonly SemaphoreSlim mobileReviewGate = new(1, 1);
     private readonly Dictionary<string, Dialog> mobileResolutionDialogs = new(StringComparer.Ordinal);
     private bool mobileResolving;
-    private async Task<string> IsolatedMobileReply(MobileWorker worker, string prompt, object context, CancellationToken token)
+    private async Task<string> IsolatedMobileReply(MobileWorker worker, string prompt, object context, CancellationToken token, YogiBox? yogi = null)
     {
         var owner = studioSession; owner.Collaboration.RequireControl("human", worker.Participant.Id);
         var profile = mobileDirectory.Agent(worker.Participant.AgentId);
         using var assistant = new ApiAssistant(); assistant.Configure(profile.Connection, aiCredentials.Read(profile.CredentialKey.Length > 0 ? profile.CredentialKey : profile.Connection.Provider));
         await assistant.ConnectAsync(new() { ProjectIdentity = owner.Project.Identity, StateDirectory = owner.StateDirectory, AccessEnabled = true, HistoryEnabled = false }, token);
-        return await assistant.ReplyAsync(new() { Id = Guid.NewGuid().ToString("N"), Project = owner.Project.Identity, ProjectDescription = ProjectStudio.Load(owner.Project).Description, ParticipantId = worker.Participant.Id, Prompt = prompt }, new PublicConversationAccess(context), token);
+        var request = new ContextRequest { Id = Guid.NewGuid().ToString("N"), Project = owner.Project.Identity, ProjectDescription = ProjectStudio.Load(owner.Project).Description, ParticipantId = worker.Participant.Id, Prompt = prompt };
+        if (yogi is not null) { owner.ApplyYogi(request, yogi); PackEngine.EditorPacks.EditorYogiContext.Apply(request, yogi, runtime, Sources()); ApplyMobileNativeYogi(request, yogi); }
+        return await assistant.ReplyAsync(request, new PublicConversationAccess(context), token);
     }
     private static JsonDocument MobileDecision(string reply)
     {
@@ -121,7 +123,7 @@ public sealed partial class MainActivity
                 var worker = mobileWorkers.FirstOrDefault(w => w.Participant.Id == id);
                 if (worker is null || !owner.Collaboration.CanControl("human", id)) continue;
                 var context = owner.Collaboration.PublicContext(id, message.Channel, message.Room);
-                string answer = await IsolatedMobileReply(worker, "공개 문맥만으로 답해. 개인 기억·대화는 참조하지 마.\n" + EditorSession.Serialize(context) + "\n" + message.Text, context, lifetime.Token);
+                string answer = await IsolatedMobileReply(worker, "공개 문맥만으로 답해. 개인 기억·대화는 참조하지 마.\n" + EditorSession.Serialize(context) + "\n" + message.Text, context, lifetime.Token, message.Yogi);
                 if (!ReferenceEquals(owner, studioSession)) return;
                 owner.Collaboration.Post(id, answer, message.Channel, message.Room, parentId: message.Id);
             }

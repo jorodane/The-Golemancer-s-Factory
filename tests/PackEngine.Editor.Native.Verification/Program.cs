@@ -98,10 +98,10 @@ internal static class Program
                 "new workers wait in the sidebar without covering the project surface");
             Call(window, "ShowParticipantAnswers", participant.Id); window.UpdateLayout();
             Check(layer.Background is null && character.IsVisible && character.ActualWidth > 0, "workers float directly above the workspace while empty space passes pointer input");
-            var avatar = Descendants(character).OfType<Border>().Single(b => b.Width == 48);
+            var avatar = Descendants(character).OfType<Border>().Single(b => b.Width == 100);
             avatar.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left) { RoutedEvent = UIElement.MouseLeftButtonDownEvent });
             window.UpdateLayout();
-            Check(Descendants(character).OfType<TextBox>().Any(t => t.IsVisible && t.ToolTip is string hint && hint.Contains("이 작업자에게 요청")), "clicking an owned worker exposes its direct request composer in place");
+            Check(Descendants(character).OfType<TextBox>().Any(t => t.IsVisible && t.ToolTip is string hint && hint.Contains("대화")), "clicking an owned worker exposes its direct request composer in place");
             var drag = Descendants(character).OfType<Thumb>().Single();
             double before = Canvas.GetLeft(character);
             drag.RaiseEvent(new DragDeltaEventArgs(35, 25) { RoutedEvent = Thumb.DragDeltaEvent });
@@ -128,9 +128,8 @@ internal static class Program
             PumpUntil(() => !character.IsVisible, "Worker conversation did not hide.");
             Check(session.Collaboration.View("human", second.Id).Display == CharacterDisplay.Full && layer.Children.OfType<Border>().Count(c => c.IsVisible) == 1,
                 "closing one conversation leaves the other worker open");
-            Check(!Descendants(Field<StackPanel>(window, "aiManagement")).OfType<TextBlock>().Any(t => t.Text == "Worker")
-                && Field<StackPanel>(window, "participantNotifications").Children.Count > 0,
-                "the sidebar keeps its Agent and Helper sections while hidden workers expose clickable unread answer previews");
+            Check(!Descendants(Field<StackPanel>(window, "aiManagement")).OfType<TextBlock>().Any(t => t.Text == "Worker") && session.Collaboration.Unread("human", participant.Id).Count > 0 && Descendants(Field<StackPanel>(window, "aiManagement")).OfType<System.Windows.Shapes.Ellipse>().Any(e => e.Width == 8) && Field<StackPanel>(window, "participantNotifications").Children.Count == 0,
+                "unread dots stay in the sidebar without opening project overlays or replacing activity status");
 
             NativeInputs(window);
             Console.WriteLine("NATIVE_WORKSPACE_CHECKS=" + checks); return 0;

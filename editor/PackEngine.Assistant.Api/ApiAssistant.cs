@@ -106,15 +106,19 @@ public sealed class ApiAssistant : IResidentAssistant
         {
             if (!connection.HistoryEnabled) NewConversation();
             if (messages.Count > 200) throw new InvalidOperationException("대화가 길어졌어. 에디터 AI의 새 대화로 이어가줘.");
-            if (request.Images.Count > 0) throw new NotSupportedException("이 API 어댑터는 현재 텍스트·객체 문맥을 지원해. 화면 이미지는 웹 대화에 직접 첨부해줘.");
             request.ThreadId = ThreadId;
             string context = EditorSession.Serialize(new { request.Id, request.Project, request.ProjectDescription, request.Input, request.OpenFiles, request.Documents, request.Context, request.Omitted,
                 request.EditorInput, request.UiTargets, request.WritablePacks, request.WritableEditorPacks, request.AllowEditorReload, request.AllowProjectCommands, request.ReviewChanges, request.Target,
-                PrivateIdentity = request.PrivateIdentity, SharedChats = SharedChatReference.ForModel(request.SharedChats) });
+                Yogi = request.Yogi?.ForModel(), PrivateIdentity = request.PrivateIdentity, SharedChats = SharedChatReference.ForModel(request.SharedChats) });
             var working = new List<object>(messages);
             if (previousRequest?.ReviewChanges == true)
                 working.Add(new { role = "user", content = "[Host review result for the previous request]\n" + (previousRequest.ReviewOutcome.Length > 0 ? previousRequest.ReviewOutcome : "The prior proposals were not confirmed as applied. Read current versions before making another change.") });
-            working.Add(new { role = "user", content = request.Prompt + "\n\n[Editor context captured at send time]\n" + context });
+            string prompt = request.Prompt + "\n\n[Editor context captured at send time]\n" + context;
+            var content = new List<object>();
+            foreach (var image in request.Images)
+                content.Add(profile.Provider == "anthropic" ? (object)new { type = "image", source = new { type = "base64", media_type = "image/png", data = image.Data } } : new { type = "image_url", image_url = new { url = "data:image/png;base64," + image.Data } });
+            content.Add(new { type = "text", text = prompt });
+            working.Add(new { role = "user", content = request.Images.Count == 0 ? (object)prompt : content });
             var definitions = Tools(workspace); var allowed = new HashSet<string>(workspace.ToolDefinitions.Select(t => JsonSerializer.SerializeToElement(t).GetProperty("name").GetString()!), StringComparer.Ordinal);
             int calls = 0;
             for (int step = 0; step < 32; step++)
@@ -126,10 +130,10 @@ public sealed class ApiAssistant : IResidentAssistant
                 var toolCalls = new List<(string Id, string Name, JsonElement Arguments)>(); string answer;
                 if (profile.Provider == "anthropic")
                 {
-                    var content = response.GetProperty("content").Clone();
-                    answer = string.Join("\n", content.EnumerateArray().Where(c => Text(c, "type") == "text").Select(c => Text(c, "text")));
-                    foreach (var call in content.EnumerateArray().Where(c => Text(c, "type") == "tool_use")) toolCalls.Add((Text(call, "id"), Text(call, "name"), call.GetProperty("input").Clone()));
-                    working.Add(new { role = "assistant", content });
+                    var responseContent = response.GetProperty("content").Clone();
+                    answer = string.Join("\n", responseContent.EnumerateArray().Where(c => Text(c, "type") == "text").Select(c => Text(c, "text")));
+                    foreach (var call in responseContent.EnumerateArray().Where(c => Text(c, "type") == "tool_use")) toolCalls.Add((Text(call, "id"), Text(call, "name"), call.GetProperty("input").Clone()));
+                    working.Add(new { role = "assistant", content = responseContent });
                     if (Text(response, "stop_reason") == "max_tokens") throw new InvalidDataException("AI 응답이 길이 제한으로 중단됐어. 변경안은 적용하지 않았으니 요청을 나눠서 다시 보내줘.");
                 }
                 else

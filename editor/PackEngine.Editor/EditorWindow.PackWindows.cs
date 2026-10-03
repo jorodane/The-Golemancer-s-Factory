@@ -20,7 +20,7 @@ public sealed partial class EditorWindow
             if (packGeneration is { } current) ExecuteEditorCommand(current, id, value, WindowCommandContext(definition.Id, live?.EventNodeId ?? ""));
         }, session?.Project.Name ?? "프로젝트를 열어줘", session?.State.Selection ?? "");
         string? transient = null;
-        var backend = new EditorPackBackend(node => Guard(() => { if (transient is null) PointEditorNode(definition.View, node); else PointEditorPack(definition.Pack, "pack.xml", "runtime-view:" + transient); }), () => session?.Pointing.Mode is "single" or "range");
+        var backend = new EditorPackBackend(node => Guard(() => { if (transient is null) PointEditorNode(definition.View, node); else PointEditorPack(definition.Pack, "pack.xml", "runtime-view:" + transient); }), () => session?.Pointing.Mode is "single" or "range", definition.View);
         var view = live = new EditorLiveView(runtime.Catalog, definition.View, context, backend);
         try { return new PackWindowInstance(this, definition, backend, view, context, id => transient = id); }
         catch { view.Dispose(); throw; }

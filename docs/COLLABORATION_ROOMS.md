@@ -1,5 +1,7 @@
 # Confectory Document Rooms · 저장과 확정
 
+**대화·Yogi 후속 설계:** [대화 Timeline · YogiBox](COLLABORATION_CONTEXT.md). 수신자를 먼저 고르는 Yogi와 이전 대화창/알림 동작은 이 문서의 새 흐름으로 대체한다.
+
 이 변경은 기존 독립 작업자·WorkContext·ChangeSet·Resolution 구현 위에 [추가 확정 설계](COLLABORATION_ROOMS_SPEC.md)를 통합한다. Human, AI, 에디터팩은 같은 Participant와 Room을 사용한다. 현재 Windows 호스트 안에서 공유 작업본을 사용하며, 원격 Human의 접속·인증·네트워크 전송은 아직 연결하지 않았다.
 
 ## 사용

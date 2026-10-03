@@ -60,6 +60,8 @@ try
         var session = new EditorSession(manifest, Path.Combine(root, provider)); var request = session.PrepareContext("두 팩의 제목을 바꿔줘."); request.ReviewChanges = true; request.ProjectDescription = "INITIAL_PROJECT_EXPLANATION_FIXTURE";
         request.SharedChats = [new() { Shared = false, Id = Guid.NewGuid().ToString("N"), Title = "private reference", Url = "https://chatgpt.com/c/reference", Content = "DO_NOT_IMPLICITLY_ATTACH_REFERENCE" },
             new() { Shared = true, Id = Guid.NewGuid().ToString("N"), Title = "selected excerpt", Url = "https://chatgpt.com/c/shared", Content = "EXPLICIT_SHARED_BODY_FIXTURE" }];
+        byte[] image = VisionPng();
+        request.Images = [new() { Data = Convert.ToBase64String(image), Sha256 = WorkspaceProject.Hash(image), Width = 1, Height = 1 }, new() { Data = Convert.ToBase64String(image), Sha256 = WorkspaceProject.Hash(image), Width = 1, Height = 1 }];
         var review = new ChangeReviewBatch(session, request, action => action()); var editor = new EditorPackAgent(sources, request, () => null, (_, _) => Task.CompletedTask, _ => { }, (_, _, _) => { }, root, "dotnet", Path.Combine(root, "history"), review: review);
         var workspace = new EditorTools(editor); var handler = new FixtureHandler(provider, packs, sources);
         using var api = new ApiAssistant(handler); api.Configure(new() { Provider = provider, Model = "fixture-model" }, "SECRET_FIXTURE_KEY");
@@ -69,6 +71,12 @@ try
         Check(reply == "변경안을 준비했어." && review.Items.Count == 2 && sources.All(s => s.Read("editor.xml").Contains("title=\"Before\"")), provider + " parallel tool calls stage two real pack changes without touching files");
         Check(handler.ProtocolVerified && handler.Bodies.All(b => !b.Contains("SECRET_FIXTURE_KEY") && !b.Contains("DO_NOT_IMPLICITLY_ATTACH_REFERENCE") && !b.Contains(root)), provider + " maps authentication, tool schemas and tool results without leaking keys, absolute paths or unrequested reference bodies");
         Check(handler.Bodies.Any(b => b.Contains("EXPLICIT_SHARED_BODY_FIXTURE")), provider + " sends the selected shared body through the real provider request schema");
+        using (var sent = JsonDocument.Parse(handler.Bodies[0]))
+        {
+            var content = sent.RootElement.GetProperty("messages").EnumerateArray().First(m => m.GetProperty("role").GetString() == "user").GetProperty("content").EnumerateArray().ToArray();
+            var images = content.Where(p => p.GetProperty("type").GetString() == (provider == "anthropic" ? "image" : "image_url")).ToArray();
+            Check(images.Length == 2 && images.All(p => provider == "anthropic" ? p.GetProperty("source").GetProperty("data").GetString() == Convert.ToBase64String(image) && p.GetProperty("source").GetProperty("media_type").GetString() == "image/png" : p.GetProperty("image_url").GetProperty("url").GetString() == "data:image/png;base64," + Convert.ToBase64String(image)), provider + " sends every actual LaY image through native vision content blocks");
+        }
         Check(handler.Bodies.Any(b => b.Contains("INITIAL_PROJECT_EXPLANATION_FIXTURE")), provider + " sends the saved initial project explanation through the actual provider payload builder");
         await review.Apply(new[] { review.Items.Single(i => i.Pack == packs[0]).Id }, default);
         Check(sources[0].Read("editor.xml").Contains("title=\"After\"") && sources[1].Read("editor.xml").Contains("title=\"Before\""), provider + " applies only the human-selected pack and excludes the other proposal");
@@ -94,6 +102,13 @@ try
 }
 finally { Directory.Delete(root, true); }
 
+static byte[] VisionPng()
+    {
+        using var stream = new MemoryStream(); stream.Write(new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 });
+        void UInt(uint value) { stream.WriteByte((byte)(value >> 24)); stream.WriteByte((byte)(value >> 16)); stream.WriteByte((byte)(value >> 8)); stream.WriteByte((byte)value); }
+        void Chunk(string type, byte[] data) { byte[] name = Encoding.ASCII.GetBytes(type); UInt((uint)data.Length); stream.Write(name); stream.Write(data); uint crc = 0xffffffff; foreach (byte b in name.Concat(data)) { crc ^= b; for (int i = 0; i < 8; i++) crc = (crc >> 1) ^ ((crc & 1) == 0 ? 0u : 0xedb88320u); } UInt(crc ^ 0xffffffff); }
+        var header = new byte[13]; header[3] = header[7] = 1; header[8] = 8; header[9] = 6; Chunk("IHDR", header); using var pixels = new MemoryStream(); using (var zlib = new System.IO.Compression.ZLibStream(pixels, System.IO.Compression.CompressionLevel.Fastest, true)) zlib.Write(new byte[] { 0, 240, 210, 120, 255 }); Chunk("IDAT", pixels.ToArray()); Chunk("IEND", []); return stream.ToArray();
+    }
 sealed class EditorTools(IEditorPackAccess editor) : IAgentWorkspace
 {
     public IReadOnlyList<object> ToolDefinitions => AgentWorkspace.Definitions.Where(tool => JsonSerializer.SerializeToElement(tool).GetProperty("name").GetString() == "packengine_editor").ToArray();

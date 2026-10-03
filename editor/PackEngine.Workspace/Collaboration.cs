@@ -89,6 +89,7 @@ public sealed class ConflictSet
 }
 public sealed class CollaborationState
 {
+    public List<YogiBox> YogiBoxes { get; set; } = [];
     public List<IncidentRecord> Incidents { get; set; } = [];
     public List<ProposalAuthority> Authorities { get; set; } = [];
     public List<WorkCheckpoint> Checkpoints { get; set; } = [];

@@ -41,7 +41,7 @@ public sealed partial class EditorWindow
         projectMenuButton = menu; menu.Width = 56; menu.Height = 56; menu.HorizontalAlignment = HorizontalAlignment.Right; menu.VerticalAlignment = VerticalAlignment.Bottom; menu.Margin = new Thickness(20);
         var run = projectRunButton = BareButton(Label("▶", 26), ToggleProjectRun); run.Width = 56; run.Height = 56; run.HorizontalAlignment = HorizontalAlignment.Right; run.VerticalAlignment = VerticalAlignment.Bottom; run.Margin = new Thickness(20, 20, 86, 20); run.ToolTip = "프로젝트 실행";
         var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) }; timer.Tick += (_, _) => { bool running = runner?.GameRunning == true || emptyProjectRunning; string glyph = running ? "■" : "▶"; if ((run.Content as TextBlock)?.Text != glyph) run.Content = Label(glyph, 26); run.ToolTip = running ? "프로젝트 중지" : "프로젝트 실행"; }; timer.Start(); Closed += (_, _) => timer.Stop();
-        field.Children.Add(run); field.Children.Add(menu); workspaceView.Children.Add(field);
+        field.Children.Add(run); field.Children.Add(menu); field.Children.Add(BuildIncidentBubble()); workspaceView.Children.Add(field);
         field.SizeChanged += (_, _) => { foreach (var worker in workers) PlaceWorker(worker); };
         studioSurface.Children.Add(workspaceView);
     }
@@ -80,7 +80,10 @@ public sealed partial class EditorWindow
     private void PlaceWorker(EditorWorker worker)
     {
         if (participantsCanvas.ActualWidth <= 0 || participantsCanvas.ActualHeight <= 0) return;
+        worker.Character.LayoutTransform = System.Windows.Media.Transform.Identity;
         worker.Character.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        double scale = Math.Min(1, Math.Max(.5, Math.Min((participantsCanvas.ActualHeight - 18) / Math.Max(1, worker.Character.DesiredSize.Height), (participantsCanvas.ActualWidth - 18) / Math.Max(1, worker.Character.DesiredSize.Width))));
+        worker.Character.LayoutTransform = new System.Windows.Media.ScaleTransform(scale, scale); worker.Character.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
         var placement = session!.Collaboration.View("human", worker.Participant.Id);
         double Finite(double? value, double fallback) => value is { } n && !double.IsNaN(n) && !double.IsInfinity(n) ? n : fallback;
         placement.X = Math.Max(0, Math.Min(Finite(placement.X, worker.Participant.X), participantsCanvas.ActualWidth - worker.Character.DesiredSize.Width));

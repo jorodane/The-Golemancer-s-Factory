@@ -146,9 +146,12 @@ public sealed partial class EditorWindow
             var worker = workers.FirstOrDefault(w => w.Participant.HelperId == helper.Id && session?.Collaboration.CanControl("human", w.Participant.Id) == true);
             if (worker is not null) { helpers.Children.Add(WorkerSidebarItem(worker)); continue; }
             Button? circle = null; circle = AiCircle(helper.Name, helper.AvatarPath, () => ShowAiProfile(circle!, null, helper), main: session is not null && !Standalone && helper.Id == projectStudio.MainHelperId); circle.Tag = "ai-profile";
-            circle.MouseDoubleClick += (_, e) => { e.Handled = true; aiProfile?.SetCurrentValue(Popup.IsOpenProperty, false); HomeAction(() => JoinHelper(helper)); }; helpers.Children.Add(circle);
+            BindYogiDrop(circle, box => { JoinHelper(helper, false); ReceiveWorkerYogi(workers.Single(w => w.Participant.HelperId == helper.Id && session!.Collaboration.CanControl("human", w.Participant.Id)), box); });
+            circle.PreviewMouseLeftButtonDown += (_, e) => { if (e.ClickCount != 2) return; e.Handled = true; aiProfile?.SetCurrentValue(Popup.IsOpenProperty, false); HomeAction(() => JoinHelper(helper)); }; helpers.Children.Add(circle);
         }
+        if (session is not null && !Standalone) foreach (var worker in workers.Where(w => !session.Collaboration.CanControl("human", w.Participant.Id) || !aiDirectory.Helpers.Any(h => h.Id == w.Participant.HelperId && h.Enabled))) helpers.Children.Add(WorkerSidebarItem(worker));
         helpers.Children.Add(AiCircle("Helper 추가", "", AddHelper, empty: true)); aiManagement.Children.Add(helpers);
+        if (session is not null) { aiManagement.Children.Add(BareButton(Label("📦 YogiBox", 11), OpenYogiBox)); foreach (var person in session.Collaboration.State.Participants.Where(p => p.Kind == ParticipantKind.Human && p.Id != "human")) { var slot = BareButton(Label(person.Name, 11), () => OpenParticipantInbox(person.Id)); BindYogiDrop(slot, box => session.Collaboration.DeliverYogi("human", box, "direct", person.Id)); aiManagement.Children.Add(slot); } }
     }
     private FrameworkElement WorkerSidebarItem(EditorWorker worker)
     {
@@ -156,14 +159,14 @@ public sealed partial class EditorWindow
         bool main = !Standalone && helper?.Id == projectStudio.MainHelperId;
         int unread = session!.Collaboration.Unread("human", worker.Participant.Id).Count;
         string state = worker.Turns.LastOrDefault()?.State ?? "";
-        string status = worker.Running ? "작업 중" : state == "failed" ? "작업 실패" : unread > 0 ? "확인 필요" : "대기 중";
-        Brush ink = worker.Running ? Brush("#F0B866") : state == "failed" ? MainInk : unread > 0 ? AccentInk : MutedInk;
+        string status = ConversationTimeline.Activity(state, worker.Running, worker.Activity);
+        Brush ink = worker.Running ? Brush("#F0B866") : state is "failed" or "interrupted" or "cancelled" or "suspended" ? MainInk : state is "review" or "needs-user" or "handoff" ? AccentInk : MutedInk;
         Button? circle = null;
         circle = AiCircle(worker.Participant.Name, helper?.AvatarPath ?? "", () =>
         {
-            if (helper is not null) ShowAiProfile(circle!, null, helper);
-            else { var menu = circle!.ContextMenu!; menu.PlacementTarget = circle; menu.IsOpen = true; }
+            ShowWorkerProfile(circle!, worker);
         }, main: main);
+        circle.Tag = "ai-profile"; BindYogiDrop(circle, box => ReceiveWorkerYogi(worker, box));
         var icon = (Grid)circle.Content;
         icon.Children.OfType<Ellipse>().First().Stroke = ink;
         if (main) icon.Children.Add(new Ellipse { Width = 34, Height = 34, Margin = new Thickness(0, 0, 0, 3), VerticalAlignment = VerticalAlignment.Bottom, Stroke = MainInk, StrokeThickness = 1, IsHitTestVisible = false });
@@ -179,7 +182,7 @@ public sealed partial class EditorWindow
         }
         else Entry("프로젝트에서 호출", () => OpenPublicChat(false, "@" + worker.Participant.Id + " "));
         Entry("대화창 닫기", () => session.Collaboration.Display("human", worker.Participant.Id, CharacterDisplay.Hidden)); circle.ContextMenu = menu;
-        circle.MouseDoubleClick += (_, e) => { e.Handled = true; menu.IsOpen = false; aiProfile?.SetCurrentValue(Popup.IsOpenProperty, false); HomeAction(() => ShowParticipantAnswers(worker.Participant.Id)); };
+        circle.PreviewMouseLeftButtonDown += (_, e) => { if (e.ClickCount != 2) return; e.Handled = true; menu.IsOpen = false; aiProfile?.SetCurrentValue(Popup.IsOpenProperty, false); HomeAction(() => ShowParticipantAnswers(worker.Participant.Id)); };
         circle.ToolTip = worker.Participant.Name + " · " + status + (unread > 0 ? "\n" + session.Collaboration.Unread("human", worker.Participant.Id).Last().Text.Substring(0, Math.Min(120, session.Collaboration.Unread("human", worker.Participant.Id).Last().Text.Length)) : "");
         var panel = new StackPanel { Width = 44, Margin = new Thickness(2, 0, 2, 10), Tag = "worker-sidebar:" + worker.Participant.Id }; circle.Margin = new Thickness(2, 0, 2, 2); panel.Children.Add(circle);
         var name = Label(worker.Participant.Name, 9); name.TextAlignment = TextAlignment.Center; name.Margin = new Thickness(0); name.TextWrapping = TextWrapping.NoWrap; name.TextTrimming = TextTrimming.CharacterEllipsis; panel.Children.Add(name);

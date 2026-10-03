@@ -38,6 +38,7 @@ public sealed partial class EditorWindow
                 var card = new StackPanel(); card.Children.Add(Label(incident.Title + " · " + incident.Severity + " · " + incident.State, 16, AccentInk));
                 card.Children.Add(Label("보고: " + hub.State.Participants.FirstOrDefault(p => p.Id == incident.Reporter)?.Name + " / 담당: " + hub.State.Participants.FirstOrDefault(p => p.Id == incident.Assignee)?.Name));
                 var detail = ReadBox(); detail.Text = incident.Evidence + "\n" + incident.Request + "\n" + incident.Result; detail.MaxHeight = 150; detail.TextWrapping = TextWrapping.Wrap; card.Children.Add(detail);
+                if (incident.Yogi is { } box) card.Children.Add(Action("📦 " + box.Caption, () => ShowYogiContents(box)));
                 var actions = new WrapPanel();
                 actions.Children.Add(Action("담당자에게 처리 요청", () => DispatchIncident(incident)));
                 actions.Children.Add(Action("담당·치명도 변경", () => Guard(() => hub.Triage(incident.Id, "human", assignee.SelectedValue as string ?? "human", (IncidentSeverity)severity.SelectedItem, "사용자가 신문고에서 재분류"))));
@@ -81,7 +82,8 @@ public sealed partial class EditorWindow
             if (incident.Kind == IncidentKind.Proposal && incident.ChangeSetId.Length > 0)
             { await ReviewIncidentWithAi(worker, incident, CancellationToken.None); return; }
             hub.UpdateIncident(incident.Id, "human", "working", "담당자에게 전달");
-            await RunWorker(worker, "신문고 사건 " + incident.Id + "를 처리해. 실제 결과를 packengine_incident update로 기록하고 판단할 수 없다면 needs-user로 남겨.\n" + EditorSession.Serialize(incident));
+            worker.PendingYogi = incident.Yogi?.Copy();
+            await RunWorker(worker, "신문고 사건 " + incident.Id + "를 처리해. 실제 결과를 packengine_incident update로 기록하고 판단할 수 없다면 needs-user로 남겨.\n" + EditorSession.Serialize(incident.ForModel()));
             foreach (var checkpoint in hub.State.Checkpoints.Where(c => c.IncidentId == incident.Id && c.State == "suspended").ToArray())
                 if (incident.State == "resolved") await ResumeCheckpointTask(checkpoint);
         }
@@ -92,7 +94,7 @@ public sealed partial class EditorWindow
     {
         if (session is null) return; var hub = session.Collaboration; var change = hub.State.Changes.Single(c => c.ChangeSetId == incident.ChangeSetId);
         if (!hub.CanReview(reviewer.Participant.Id, change)) throw new InvalidOperationException("이 AI에게 변경 범위의 승인 권한을 먼저 지정해줘.");
-        var context = new { Incident = incident, Change = change, Instructions = "공개 제안의 근거와 변경 내용만 검토해. 실행하지 않은 검증을 통과했다고 말하지 마." };
+        var context = new { Incident = incident.ForModel(), Change = change, Instructions = "공개 제안의 근거와 변경 내용만 검토해. 실행하지 않은 검증을 통과했다고 말하지 마." };
         string reply = await IsolatedWorkerReply(reviewer, "변경안을 검토하고 JSON 하나로 답해: {\"decision\":\"approved|changes-requested|rejected\",\"reason\":\"구체적 근거\"}\n" + EditorSession.Serialize(context), context, token);
         using var json = ParseAiDecision(reply); var result = json.RootElement;
         hub.ReviewProposal(incident.Id, reviewer.Participant.Id, result.GetProperty("decision").GetString()!, result.GetProperty("reason").GetString()!);

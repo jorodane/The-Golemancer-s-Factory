@@ -29,7 +29,7 @@ try
     Check(positions.View("human", "a").X == 160 && positions.View("human", "a").Y == 280 && positions.View("other-human", "a").X == 410, "floating worker positions survive restart independently for each viewer");
     hub.State.Participants.Single(p => p.Id == "a").OwnerId = "other-human";
     hub.Display("human", "a", CharacterDisplay.Hidden);
-    Check(hub.View("other-human", "a").Display == CharacterDisplay.Full && !hub.CanControl("human", "a"), "hiding or moving another owner's worker never grants private control or changes their display");
+    Check(hub.View("other-human", "a").Display == CharacterDisplay.Hidden && !hub.CanControl("human", "a"), "hiding or moving another owner's worker never grants private control or changes their display");
     hub.State.Participants.Single(p => p.Id == "a").OwnerId = "human";
     hub.Display("human", "a", CharacterDisplay.Full);
     var change = new ChangeSet { Author = "a", Intent = "proposal", Operations = [new() { Path = "Packs/one/file.cs", Before = "a", After = "b", Target = "method" }] }; hub.State.Changes.Add(change);
@@ -86,6 +86,7 @@ try
     Reject(() => SharedTextMerge.Merge("abc", "axc", "ayc"), "overlapping edits preserve conflict instead of overwriting");
     Check(SharedTextMerge.Merge("a", "a(", "a") == "a(", "human typing can synchronize incomplete syntax");
 
+    YogiBoxVerification.Run(temp, Check, Reject);
     ProjectHomeVerification.Run(temp, Check, Reject);
     int dotnetArgument = Array.IndexOf(args, "--dotnet");
     await ConceptSpaceVerification.Run(temp, dotnetArgument >= 0 ? args[dotnetArgument + 1] : "dotnet", Check, Reject);
@@ -95,18 +96,27 @@ try
     {
         using var host = new ProjectPeerHost("fixture-project", IPAddress.Loopback); using var cancel = new CancellationTokenSource(TimeSpan.FromSeconds(25));
         var received = new TaskCompletionSource<ProjectPeerMessage>(TaskCreationOptions.RunContinuationsAsynchronously);
-        host.Received += (peer, msg) => { received.TrySetResult(msg); return peer.Send(new() { Kind = "echo", Text = msg.Text }, cancel.Token); };
+        host.Received += (peer, msg) => { received.TrySetResult(msg); return peer.Send(new() { Kind = "echo", Text = msg.Text, Yogi = msg.Yogi }, cancel.Token); };
         var invitation = ProjectInvitation.Decode(host.Invitation("127.0.0.1").Encode());
         using var client = await ProjectPeer.Connect(invitation, "fixture-user", cancel.Token);
         var echo = new TaskCompletionSource<ProjectPeerMessage>(TaskCreationOptions.RunContinuationsAsynchronously); client.Received += (_, msg) => { echo.TrySetResult(msg); return Task.CompletedTask; };
-        var loop = client.Run(cancel.Token); await client.Send(new() { Kind = "chat", Text = "real TLS roundtrip" }, cancel.Token);
+        var package = new YogiBox { Author = "human", Explanation = "Context over TLS" }; byte[] captured = YogiBoxVerification.Png(); package.Looks.Add(new() { Image = new() { Data = Convert.ToBase64String(captured), Sha256 = WorkspaceProject.Hash(captured), Width = 1, Height = 1 } }); package.Seal();
+        var loop = client.Run(cancel.Token); await client.Send(new() { Kind = "chat", Text = "real TLS roundtrip", Yogi = package }, cancel.Token);
         Check((await received.Task.WaitAsync(cancel.Token)).Text == "real TLS roundtrip" && (await echo.Task.WaitAsync(cancel.Token)).Kind == "echo", "two actual sockets exchange authenticated TLS messages");
+        Check((await echo.Task).Yogi!.Looks[0].Image.Data == Convert.ToBase64String(captured), "structured YogiBox and actual LaY bytes survive authenticated peer transport");
+        using var observer = await ProjectPeer.Connect(host.Invitation("127.0.0.1"), "other-person", cancel.Token);
+        var outsiderMessages = new List<string>(); var privateDelivery = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously); var barrier = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        client.Received += (_, m) => { if (m.Kind == "private-box") privateDelivery.TrySetResult(m.Yogi?.Id == package.Id); return Task.CompletedTask; };
+        observer.Received += (_, m) => { outsiderMessages.Add(m.Kind); if (m.Kind == "barrier") barrier.TrySetResult(true); return Task.CompletedTask; };
+        var observerLoop = observer.Run(cancel.Token);
+        await host.SendTo(client.Id, new() { Kind = "private-box", Recipient = client.Id, Yogi = package }, cancel.Token); await host.Broadcast(new() { Kind = "barrier" }, cancel.Token);
+        Check(await privateDelivery.Task.WaitAsync(cancel.Token) && await barrier.Task.WaitAsync(cancel.Token) && outsiderMessages.SequenceEqual(new[] { "barrier" }), "direct human Yogi delivery is routed only to its recipient, not broadcast");
         invitation.Token = Convert.ToBase64String(new byte[32]); bool denied = false;
         try { using var invalid = await ProjectPeer.Connect(invitation, "uninvited", cancel.Token); } catch (Exception) { denied = true; }
         Check(denied, "wrong invitation token is rejected");
         invitation = host.Invitation("127.0.0.1"); invitation.Fingerprint = new string('0', 64); denied = false;
         try { using var invalid = await ProjectPeer.Connect(invitation, "wrong-server", cancel.Token); } catch (Exception) { denied = true; }
-        Check(denied, "certificate pin rejects a different server"); cancel.Cancel(); await loop;
+        Check(denied, "certificate pin rejects a different server"); cancel.Cancel(); await Task.WhenAll(loop, observerLoop);
     }
     Console.WriteLine($"STUDIO CHECKS: {checks}");
 }

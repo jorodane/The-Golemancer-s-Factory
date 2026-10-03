@@ -1,5 +1,7 @@
 # Confectory 멀티 작업자·충돌/격돌 시스템
 
+**대화·Yogi 후속 설계:** [대화 Timeline · YogiBox](COLLABORATION_CONTEXT.md). 수신자를 먼저 고르는 Yogi와 이전 대화창/알림 동작은 이 문서의 새 흐름으로 대체한다.
+
 ## 1. 목표
 
 Confectory의 편집 시스템을 단일 사용자 + 단일 AI 구조에서 벗어나 다음 작업자가 동시에 같은 게임팩을 편집할 수 있는 구조로 확장한다.

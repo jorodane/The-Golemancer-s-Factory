@@ -34,7 +34,8 @@ public sealed partial class MainActivity
             }
             if (incident.Kind == IncidentKind.Proposal) { await ReviewMobileIncident(worker, incident, lifetime.Token); return; }
             hub.UpdateIncident(incident.Id, "human", "working", "담당자에게 전달");
-            await RunMobileWorker(worker, "신문고 사건을 처리하고 packengine_incident update로 실제 결과를 남겨. 판단할 수 없으면 needs-user로 표시해.\n" + EditorSession.Serialize(incident));
+            worker.PendingYogi = incident.Yogi?.Copy();
+            await RunMobileWorker(worker, "신문고 사건을 처리하고 packengine_incident update로 실제 결과를 남겨. 판단할 수 없으면 needs-user로 표시해.\n" + EditorSession.Serialize(incident.ForModel()));
             if (incident.State == "resolved") foreach (var checkpoint in hub.State.Checkpoints.Where(c => c.IncidentId == incident.Id && c.State == "suspended").ToArray()) await ResumeMobileCheckpoint(checkpoint);
         }
         catch (Exception e) { if (incident.Kind == IncidentKind.Incident) hub.UpdateIncident(incident.Id, "human", "needs-user", e.Message); Report(e.Message); }
@@ -54,7 +55,7 @@ public sealed partial class MainActivity
         if (!hub.CanReview(worker.Participant.Id, change)) throw new InvalidOperationException("변경 범위의 승인 권한이 필요해.");
         var profile = mobileDirectory.Agent(worker.Participant.AgentId); using var assistant = new ApiAssistant();
         assistant.Configure(profile.Connection, aiCredentials.Read(profile.CredentialKey.Length > 0 ? profile.CredentialKey : profile.Connection.Provider)); await assistant.ConnectAsync(AndroidAiOptions(), token);
-        var context = new { Incident = incident, Change = change };
+        var context = new { Incident = incident.ForModel(), Change = change };
         string reply = await assistant.ReplyAsync(new() { Id = Guid.NewGuid().ToString("N"), Project = studioSession.Project.Identity, ProjectDescription = ProjectStudio.Load(studioSession.Project).Description, ParticipantId = worker.Participant.Id,
             Prompt = "공개 변경안만 검토하고 실제로 실행하지 않은 검증은 통과했다고 하지 마. JSON 하나로 답해: {\"decision\":\"approved|changes-requested|rejected\",\"reason\":\"근거\"}\n" + EditorSession.Serialize(context) }, new PublicConversationAccess(context), token);
         string text = reply.Trim(); if (text.StartsWith("```", StringComparison.Ordinal)) { int start = text.IndexOf('\n'), end = text.LastIndexOf("```", StringComparison.Ordinal); if (start > 0 && end > start) text = text.Substring(start + 1, end - start - 1); }
@@ -76,6 +77,7 @@ public sealed partial class MainActivity
         {
             var body = new LinearLayout(this) { Orientation = Orientation.Vertical }; var view = new ScrollView(this); view.AddView(body);
             body.AddView(new TextView(this) { Text = "보고: " + incident.Reporter + " · 담당: " + incident.Assignee + "\n" + incident.Evidence + "\n" + incident.Request + "\n" + incident.Result });
+            if (incident.Yogi is { } box) body.AddView(AiAction("📦 " + box.Caption, () => ShowMobileYogiContents(box)));
             body.AddView(AiAction("담당·치명도 변경", () => TriageMobileIncident(incident))); body.AddView(AiAction("담당자 처리", () => DispatchMobileIncident(incident)));
             if (incident.ChangeSetId.Length > 0)
             {

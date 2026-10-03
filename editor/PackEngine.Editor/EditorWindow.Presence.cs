@@ -80,23 +80,16 @@ public sealed partial class EditorWindow
     }
     private void ShowParticipantAnswers(string id)
     {
-        if (session is null) return; var hub = session.Collaboration; var p = hub.Require(id, ParticipantPermission.None); var unread = hub.Unread("human", id);
-        hub.Display("human", id, CharacterDisplay.Full);
+        if (session is null) return;
         var worker = workers.FirstOrDefault(w => w.Participant.Id == id);
-        if (worker is not null)
-        {
-            worker.Turn = Math.Max(0, worker.Turns.Count - 1);
-            worker.DisplayedAnswer = string.Join("\n\n", unread.Select(m => p.Name + " · " + m.Importance + "\n" + m.Text));
-            worker.DisplayedMessageIds = unread.Select(m => m.Id).ToArray();
-            if (hub.CanControl("human", p.Id)) SelectWorker(worker); RenderWorker(worker);
-        }
-        else
-        {
-            var window = new Window { Owner = this, Title = p.Name + " · 공개 답변", Width = 640, Height = 500, Background = PanelInk, Foreground = TextInk };
-            var text = ReadBox(); text.Text = string.Join("\n\n", unread.Select(m => m.Text)); window.Content = text; window.Show();
-        }
-        if (unread.Count > 0) hub.Acknowledge("human", id, unread.Select(m => m.Id));
-        foreach (var notice in participantNotifications.Children.OfType<FrameworkElement>().Where(n => (string?)n.Tag == id).ToArray()) participantNotifications.Children.Remove(notice);
+        if (worker is null) { OpenParticipantInbox(id); return; }
+        bool alreadyOpen = session.Collaboration.View("human", id).Display == CharacterDisplay.Full;
+        RenderWorker(worker);
+        if (!alreadyOpen) worker.Turn = Math.Max(0, worker.Turns.Count - 1);
+        session.Collaboration.Display("human", id, CharacterDisplay.Full);
+        if (session.Collaboration.CanControl("human", id)) SelectWorker(worker);
+        else { Panel.SetZIndex(worker.Character, 2); RenderWorker(worker); }
+        ReadWorkerBubble(worker);
     }
     private void ReadWorkerBubble(EditorWorker worker)
     {
@@ -110,19 +103,10 @@ public sealed partial class EditorWindow
     }
     private void RefreshParticipantNotices()
     {
-        participantNotifications.Children.Clear();
-        if (session is null) return;
-        var hub = session.Collaboration;
-        var notices = workers.Where(w => hub.View("human", w.Participant.Id).Display != CharacterDisplay.Full)
-            .Select(w => new { Worker = w, Message = hub.Unread("human", w.Participant.Id).LastOrDefault() })
-            .Where(n => n.Message is not null).OrderByDescending(n => n.Message!.Utc, StringComparer.Ordinal).Take(4);
-        foreach (var notice in notices)
-        {
-            string text = notice.Message!.Text, id = notice.Worker.Participant.Id;
-            var button = Action(notice.Worker.Participant.Name + " · " + text.Substring(0, Math.Min(90, text.Length)) + " · 보기", () => ShowParticipantAnswers(id));
-            button.Tag = id; participantNotifications.Children.Add(button);
-        }
+        // New speech belongs to the sidebar; it never adds a window or a toast over the project.
+        RefreshIncidentBubble();
     }
+
     private void OpenPublicChat(bool roomChat, string initial = "", string roomPath = "")
     {
         if (session is null) return; var owner = session; string room = roomChat ? roomPath.Length > 0 ? roomPath : activeDocument?.Path ?? "" : "";
@@ -148,8 +132,9 @@ public sealed partial class EditorWindow
             }
             catch (Exception e) { info.Text = e.Message; }
         }); bottom.Children.Add(send); DockPanel.SetDock(bottom, Dock.Bottom); root.Children.Add(bottom);
-        var messages = ReadBox(); messages.TextWrapping = TextWrapping.Wrap; root.Children.Add(messages); window.Content = root;
-        void Refresh() { messages.Text = string.Join("\n\n", owner.Collaboration.State.Messages.Where(m => m.Channel == channel && m.Room == room).Select(m => owner.Collaboration.State.Participants.FirstOrDefault(p => p.Id == m.Author)?.Name + " · " + m.State + "\n" + m.Text)); messages.ScrollToEnd(); }
+        var messages = new StackPanel(); root.Children.Add(new ScrollViewer { Content = messages, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }); window.Content = root;
+        BindYogiDrop(root, box => { if (roomChat) owner.Collaboration.Move("human", room); owner.Collaboration.Post("human", box.Explanation.Length > 0 ? box.Explanation : box.Caption, channel, room, yogi: box); });
+        void Refresh() => RenderChatRows(messages, owner.Collaboration.State.Messages.Where(m => m.Channel == channel && m.Room == room));
         publicChats.Add((window, Refresh)); Refresh(); window.Closed += (_, _) => publicChats.RemoveAll(c => c.Window == window); window.Show(); entry.Focus();
     }
     private async Task RunPublicMention(EditorWorker source, CollaborationMessage message, TextBlock info)
@@ -168,6 +153,7 @@ public sealed partial class EditorWindow
             var context = owner.Collaboration.PublicContext(source.Participant.Id, message.Channel, message.Room);
             var request = new ContextRequest { Id = Guid.NewGuid().ToString("N"), Project = owner.Project.Identity, ProjectDescription = ProjectStudio.Load(owner.Project).Description, ParticipantId = source.Participant.Id,
                 Prompt = "공개 프로젝트 대화에 답해. 아래 공개 상태만 사용할 수 있어. 작업을 할당·중단·이동하거나 비공개 대화를 참조할 권한은 없어. 실제로 하지 않은 작업을 했다고 말하지 마.\n" + EditorSession.Serialize(context) + "\n질문: " + message.Text };
+            if (message.Yogi is not null) { owner.ApplyYogi(request, message.Yogi); PackEngine.EditorPacks.EditorYogiContext.Apply(request, message.Yogi, packGeneration, packSources); ApplyNativeYogi(request, message.Yogi); }
             string reply = await assistant.ReplyAsync(request, new PublicConversationAccess(context), cancel.Token);
             if (message.Channel == "room") owner.Collaboration.Move(source.Participant.Id, message.Room);
             owner.Collaboration.Post(source.Participant.Id, reply, message.Channel, message.Room, parentId: message.Id);

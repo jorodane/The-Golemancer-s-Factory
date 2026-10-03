@@ -31,6 +31,7 @@ public sealed class ContextItem
 }
 public sealed class ContextRequest
 {
+    public YogiBox? Yogi { get; set; }
     public string ProjectDescription { get; set; } = "";
     [System.Text.Json.Serialization.JsonIgnore]
     public string PrivateIdentity { get; set; } = "";

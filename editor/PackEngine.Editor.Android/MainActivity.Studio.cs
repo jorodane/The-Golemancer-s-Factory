@@ -23,6 +23,13 @@ public sealed partial class MainActivity
         public ApiAssistant? Assistant;
         public CancellationTokenSource? Cancellation;
         public List<AssistantChatMessage> Turns = [];
+        public List<ConversationExchange> Exchanges = [];
+        public int Turn;
+        public TextView Question = null!;
+        public LinearLayout Dots = null!, Package = null!;
+        public Button Previous = null!, Next = null!;
+        public YogiBox? PendingYogi;
+        public readonly Queue<YogiBox> YogiQueue = new();
         public TextView? Transcript;
         public Dialog? Log;
         public LinearLayout Character = null!, Composer = null!;
@@ -108,6 +115,11 @@ public sealed partial class MainActivity
     {
         var worker = new MobileWorker { Participant = participant }; string file = Path.Combine(studioSession.StateDirectory, "participants", participant.Id, "turns-mobile.json");
         if (studioSession.Collaboration.CanControl("human", participant.Id) && File.Exists(file)) worker.Turns = JsonSerializer.Deserialize<List<AssistantChatMessage>>(File.ReadAllText(file), EditorSession.Json) ?? [];
+        string exchanges = Path.Combine(studioSession.StateDirectory, "participants", participant.Id, "exchanges-mobile.json");
+        if (studioSession.Collaboration.CanControl("human", participant.Id) && File.Exists(exchanges)) worker.Exchanges = JsonSerializer.Deserialize<List<ConversationExchange>>(File.ReadAllText(exchanges), EditorSession.Json) ?? [];
+        if (worker.Exchanges.Count == 0) { ConversationExchange? exchange = null; foreach (var turn in worker.Turns) { if (turn.Role == "나") { exchange = new() { User = turn.Text }; worker.Exchanges.Add(exchange); } else if (exchange is not null) { exchange.Answer = turn.Text; exchange.State = turn.Role == "실행" ? "interrupted" : "completed"; } } }
+        foreach (var exchange in worker.Exchanges.Where(e => e.State is "working" or "review")) exchange.State = "interrupted";
+        worker.Turn = Math.Max(0, worker.Exchanges.Count - 1);
         bool newView = !studioSession.Collaboration.State.Views.Any(v => v.Viewer == "human" && v.ParticipantId == participant.Id);
         if (newView) studioSession.Collaboration.View("human", participant.Id).Display = CharacterDisplay.Hidden;
         mobileWorkers.Add(worker); AttachMobileWorker(worker); return worker;
@@ -143,7 +155,10 @@ public sealed partial class MainActivity
     {
         studioSession.Collaboration.RequireControl("human", worker.Participant.Id);
         if (worker.Cancellation is not null) return; worker.DisplayedAnswer = ""; worker.DisplayedMessageIds = []; worker.Cancellation = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token); var token = worker.Cancellation.Token; RenderMobileWorker(worker); RefreshMobileManagement();
-        worker.Completed = false; worker.ResultState = "working"; var owner = studioSession; ChangeReviewBatch? review = null;
+        worker.Completed = false; worker.ResultState = "working"; var package = worker.PendingYogi; worker.PendingYogi = null;
+        string contextId = package is null ? "" : studioSession.Collaboration.State.Messages.LastOrDefault(m => m.Author == "human" && m.Recipient == worker.Participant.Id && m.Yogi?.Id == package.Id && m.Yogi.Revision == package.Revision && !worker.Exchanges.Any(t => t.ContextMessageId == m.Id && t.State != "delivered"))?.Id ?? "";
+        var exchange = worker.Exchanges.FirstOrDefault(t => contextId.Length > 0 && t.ContextMessageId == contextId) ?? new ConversationExchange(); exchange.User = prompt; exchange.State = "working"; exchange.Yogi = package?.Copy(); exchange.ContextMessageId = contextId;
+        int before = worker.Exchanges.Count; if (!worker.Exchanges.Contains(exchange)) worker.Exchanges.Add(exchange); worker.Turn = ConversationTimeline.AfterAppend(worker.Turn, before, worker.Exchanges.Count); RenderMobileWorker(worker); var owner = studioSession; ChangeReviewBatch? review = null;
         try
         {
             if (worker.Participant.HelperId.Length > 0 && mobileDirectory.Helpers.FirstOrDefault(h => h.Id == worker.Participant.HelperId)?.Enabled != true) throw new InvalidOperationException("이 Helper의 연결을 다시 활성화해줘.");
@@ -153,13 +168,17 @@ public sealed partial class MainActivity
                 worker.Assistant = new(); worker.Assistant.Configure(profile.Connection, aiCredentials.Read(profile.CredentialKey.Length > 0 ? profile.CredentialKey : profile.Connection.Provider));
                 await worker.Assistant.ConnectAsync(new() { ProjectIdentity = owner.Project.Identity, StateDirectory = Path.Combine(owner.StateDirectory, "participants", worker.Participant.Id), AccessEnabled = true, HistoryEnabled = true }, token);
             }
-            var request = owner.PrepareContext(prompt); request.ParticipantId = worker.Participant.Id; request.ReviewChanges = true; request.Target = MobileProject ? owner.Project.DefaultTarget : "editor"; request.AllowProjectCommands = false; if (MobileProject) request.WritablePacks = owner.Index.Packs.Where(p => !owner.Project.Sources.TryGetValue(p.Id, out var source) || source.Editable).Select(p => p.Id).ToList(); request.PrivateIdentity = mobileDirectory.PrivateContext(worker.Participant.HelperId, owner.Project.Identity);
+            string mode = owner.Pointing.Mode; var targets = owner.Pointing.Targets.ToArray(); owner.SetPointingMode("none"); ContextRequest request;
+            try { request = owner.PrepareContext(prompt); } finally { owner.Pointing.Mode = mode; owner.Pointing.Targets.AddRange(targets); }
+            if (exchange.Yogi is not null) { owner.ApplyYogi(request, exchange.Yogi); EditorYogiContext.Apply(request, exchange.Yogi, runtime, Sources()); ApplyMobileNativeYogi(request, exchange.Yogi); }
+            request.ParticipantId = worker.Participant.Id; request.ReviewChanges = true; request.Target = MobileProject ? owner.Project.DefaultTarget : "editor"; request.AllowProjectCommands = false; if (MobileProject) request.WritablePacks = owner.Index.Packs.Where(p => !owner.Project.Sources.TryGetValue(p.Id, out var source) || source.Editable).Select(p => p.Id).ToList(); request.PrivateIdentity = mobileDirectory.PrivateContext(worker.Participant.HelperId, owner.Project.Identity);
             request.PrivateIdentity += "\n이 작업자의 최근 비공개 경험:\n" + EditorSession.Serialize(worker.Turns.TakeLast(12).Select(t => new { t.Role, Text = t.Text.Substring(0, Math.Min(1600, t.Text.Length)) }));
             review = new(owner, request, OnAiUi); mobileReviews.Register(review);
             request.WritableEditorPacks = Sources().Where(s => !s.IsReadOnly).Select(s => s.Id).ToList();
             var packs = new EditorPackAgent(Sources(), request, () => runtime, async (_, _) => await OnAiUiAsync(Reload), change => lastChange = change,
                 (tool, subject, result) => OnAiUi(() => owner.RecordOperation(request.Id, "editor." + tool, subject, "staged")), root, "dotnet", Path.Combine(root, "History"), review: review, creationRoots: new Dictionary<string, string> { ["project"] = Path.Combine(owner.Project.Root, "EditorPacks"), ["plugin"] = Path.Combine(root, "Plugins") });
             using var tools = new AgentWorkspace(owner, request, studioRunner, OnAiUi, editorPacks: new AndroidEditorPackAccess(packs), review: review);
+            tools.CaptureYogi = CaptureMobileProjectYogi;
             tools.HelperMemory = args =>
             {
                 if (worker.Participant.HelperId.Length == 0) throw new InvalidOperationException("도우미 승격이 필요해.");
@@ -200,11 +219,14 @@ public sealed partial class MainActivity
             if (review is not null) mobileReviews.Remove(review.Request.Id);
             review?.Cancel(); worker.Cancellation.Dispose(); worker.Cancellation = null;
             string notification = worker.Turns.LastOrDefault(t => t.Role != "나")?.Text ?? "";
-            if (notification.Length > 0) owner.Collaboration.Post(worker.Participant.Id, notification.Substring(0, Math.Min(32000, notification.Length)), "direct", recipient: "human", importance: worker.Completed ? MessageImportance.Completed : MessageImportance.NeedsReply);
+            exchange.Answer = notification; exchange.State = worker.ResultState;
+            if (notification.Length > 0) exchange.MessageId = owner.Collaboration.Post(worker.Participant.Id, notification.Substring(0, Math.Min(32000, notification.Length)), "direct", recipient: "human", parentId: exchange.ContextMessageId, importance: worker.Completed ? MessageImportance.Completed : MessageImportance.NeedsReply).Id;
+            AtomicWrite(Path.Combine(owner.StateDirectory, "participants", worker.Participant.Id, "exchanges-mobile.json"), Encoding.UTF8.GetBytes(EditorSession.Serialize(worker.Exchanges)));
             AtomicWrite(Path.Combine(owner.StateDirectory, "participants", worker.Participant.Id, "turns-mobile.json"), Encoding.UTF8.GetBytes(EditorSession.Serialize(worker.Turns)));
             if (worker.Participant.HelperId.Length > 0) AtomicWrite(Path.Combine(root, "Helpers", worker.Participant.HelperId, "projects", WorkspaceProject.HashText(owner.Project.Identity) + ".json"), Encoding.UTF8.GetBytes(EditorSession.Serialize(worker.Turns)));
             if (worker.Transcript is not null) worker.Transcript.Text = string.Join("\n\n", worker.Turns.Select(t => t.Role + "\n" + t.Text));
             RefreshMobilePresence();
+            if (worker.Completed && worker.YogiQueue.Count > 0) { var next = worker.YogiQueue.Dequeue(); worker.PendingYogi = next; _ = RunMobileWorker(worker, next.Explanation.Length > 0 ? next.Explanation : next.Caption); }
         }
     }
 }

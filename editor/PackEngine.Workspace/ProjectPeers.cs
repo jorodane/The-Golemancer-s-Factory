@@ -27,6 +27,9 @@ public sealed class ProjectInvitation
 }
 public sealed class ProjectPeerMessage
 {
+    public YogiBox? Yogi { get; set; }
+    public IncidentRecord? Incident { get; set; }
+    public string Recipient { get; set; } = "";
     public string Kind { get; set; } = "";
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string Actor { get; set; } = "";
@@ -163,6 +166,12 @@ public sealed class ProjectPeerHost : IDisposable
     {
         byte[] x = Encoding.UTF8.GetBytes(a), y = Encoding.UTF8.GetBytes(b); if (x.Length != y.Length) return false;
         int difference = 0; for (int i = 0; i < x.Length; i++) difference |= x[i] ^ y[i]; return difference == 0;
+    }
+    public async Task SendTo(string recipient, ProjectPeerMessage message, CancellationToken token)
+    {
+        ProjectPeer? peer; lock (gate) peer = peers.FirstOrDefault(p => p.Id == recipient);
+        if (peer is null) throw new IOException("받는 참여자가 오프라인이야. 연결되면 다시 전달해.");
+        await peer.Send(message, token).ConfigureAwait(false);
     }
     public async Task Broadcast(ProjectPeerMessage message, CancellationToken token)
     {
