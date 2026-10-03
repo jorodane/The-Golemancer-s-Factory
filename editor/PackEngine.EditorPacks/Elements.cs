@@ -12,7 +12,7 @@ namespace PackEngine.EditorPacks;
 public sealed partial class EditorPackProjectData
 {
     private static EditorProjectObject ObjectInfo(WorkspaceNode n) => new() { Key = n.Key, Id = n.Id, Kind = n.Kind, Title = n.Title,
-        Pack = n.Pack, Path = n.File, Status = n.Status, Category = n.Category.Length == 0 ? n.Kind : n.Category, Icon = n.Icon, Browsable = n.Browsable };
+        Pack = n.Pack, Path = n.File, Status = n.Status, Category = n.Category.Length == 0 ? n.Kind : n.Category, Icon = n.Icon, Browsable = n.Browsable, Description = n.Description, TitleAttribute = n.TitleAttribute, DescriptionAttribute = n.DescriptionAttribute };
     private XElement? indexRules;
     private XElement Rules() => indexRules ??= session.Project.Schema.Length == 0 ? new XElement("IndexRules") : PackCompiler.ReadXml(session.Project.Resolve(session.Project.Schema)).Root!;
     private XElement? Symbol(string kind) => Rules().Elements("Symbol").FirstOrDefault(s => (string?)s.Attribute("kind") == kind);

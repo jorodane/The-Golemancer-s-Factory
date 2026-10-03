@@ -5,6 +5,20 @@ namespace PackEngine.EditorPacks;
 /// <summary>Choosing a pack reads declarations; it never executes unselected modules.</summary>
 public static class EditorPackSelection
 {
+    public static EditorPackSource? DeclarativeWorkspace(IReadOnlyList<EditorPackSource> sources)
+    {
+        // Only this XML-only inheritance path can start with a project. Unknown executable packs remain opt-in.
+        var candidates = sources.Where(s => s.Scope == "project" && s.Parent == "editor.core.tools").Where(s =>
+        {
+            var manifest = s.Manifest().Root!;
+            if (manifest.Elements("Assembly").Any() || manifest.Elements("Source").Any() || manifest.Elements("Depends").Any()) return false;
+            return manifest.Elements("Data").Select(e => PackEngine.Runtime.PackCompiler.ReadXml(s.PathFor(WorkspaceProject.Required(e, "path"))))
+                .Any(d => d.Root is { } data && data.Elements("Panel").Any(p => (string?)p.Attribute("extends") == "editor.core.tools")
+                    && data.Elements("Command").Any(c => (string?)c.Attribute("extends") == "editor.core.workspace.open"));
+        }).ToArray();
+        if (candidates.Length > 1) throw new InvalidDataException("프로젝트의 기본 작업 공간 팩은 하나만 지정해줘.");
+        return candidates.SingleOrDefault();
+    }
     public static IReadOnlyList<EditorPackSource> WithDependencies(IReadOnlyList<EditorPackSource> sources, string selected)
     {
         var byId = sources.ToDictionary(s => s.Id, StringComparer.Ordinal);

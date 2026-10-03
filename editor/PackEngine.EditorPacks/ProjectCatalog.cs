@@ -14,7 +14,18 @@ public sealed partial class EditorPackProjectData
             && (n.Key + " " + n.Title).IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0).Take(5001).ToArray();
         if (objects.Length > 5000) throw new InvalidDataException("Filter the object list to at most 5000 entries.");
         Record("objects", kind, objects.Length + " declared objects; saved metadata only, not runtime state.");
-        return (IReadOnlyList<EditorProjectObject>)objects.Select(ObjectInfo).ToArray();
+        var hashes = new Dictionary<string, string>(StringComparer.Ordinal);
+        return (IReadOnlyList<EditorProjectObject>)objects.Select(n =>
+        {
+            var item = ObjectInfo(n);
+            item.Editable = n.File.Length > 0 && session.CanEdit(n.File);
+            if (n.Locator.Length > 0 && n.File.Length > 0)
+            {
+                if (!hashes.TryGetValue(n.File, out var hash)) hashes[n.File] = hash = session.ReadDocumentSnapshot(n.File).DocumentHash;
+                item.DocumentHash = hash;
+            }
+            return item;
+        }).ToArray();
     });
     private EditorProjectAsset[] Assets(string pack)
     {

@@ -1,0 +1,12 @@
+<EditorExtensions version="1">
+  <Panel id="golemancer.workspace.panel" extends="editor.core.tools" title="공방" view="golemancer.workspace.view" />
+  <Command id="golemancer.workspace.open" extends="editor.core.workspace.open">
+    <Argument name="baseView" value="golemancer.workspace.view" />
+    <Argument name="actionCommand" value="golemancer.workspace.action" /><Argument name="inputCommand" value="golemancer.workspace.input" />
+    <Argument name="category" value="아이템" /><Argument name="layout" value="grid" />
+  </Command>
+  <Command id="golemancer.workspace.action" extends="editor.core.elements.action" />
+  <Command id="golemancer.workspace.input" extends="editor.core.elements.input" />
+  <ObjectEditor id="golemancer.workspace.form" extends="editor.core.element.form" command="golemancer.workspace.open" />
+  <Navigation id="golemancer.workspace.home" extends="editor.core.home" title="공방" command="golemancer.workspace.open" />
+</EditorExtensions>

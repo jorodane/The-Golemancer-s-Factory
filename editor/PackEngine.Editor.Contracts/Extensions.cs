@@ -31,6 +31,7 @@ public sealed class EditorCommandResult
     public EditorObjectPicker? PickObject { get; set; }
     public EditorOpenObject? OpenObject { get; set; }
     public string OpenXml { get; set; } = "";
+    public string SelectObject { get; set; } = "";
     public EditorCommandContinuation? Continue { get; set; }
 }
 public sealed class EditorCommandContinuation

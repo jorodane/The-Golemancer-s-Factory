@@ -32,6 +32,8 @@ public sealed partial class EditorWindow
         public Border Character = null!;
         public Border Avatar = null!;
         public TextBlock Bubble = null!, Caption = null!, Page = null!;
+        public StackPanel Composer = null!;
+        public Border Speech = null!;
         public TextBox? LiveAnswer;
         public SharedEditorSnapshot? Attachment;
         public Window? Log;
@@ -42,7 +44,7 @@ public sealed partial class EditorWindow
         public bool Running => Cancellation is not null;
     }
     private TabControl? workerPages;
-    private readonly Canvas participantsCanvas = new() { Background = BackgroundInk, MinWidth = 1100, MinHeight = 950 };
+    private readonly Canvas participantsCanvas = new();
     private readonly List<EditorWorker> workers = [];
     private readonly StackPanel participantNotifications = new();
     private readonly ComboBox yogiRecipient = new() { MinWidth = 160, Margin = new Thickness(4), DisplayMemberPath = "Name", SelectedValuePath = "Id" };
@@ -62,7 +64,7 @@ public sealed partial class EditorWindow
         bar.Children.Add(Action("결정 기록", ShowDecisionHistory)); bar.Children.Add(participantSelection);
         DockPanel.SetDock(bar, Dock.Top); root.Children.Add(bar);
         DockPanel.SetDock(participantNotifications, Dock.Top); root.Children.Add(participantNotifications);
-        var pages = workerPages = new TabControl(); pages.Items.Add(new TabItem { Header = "프로젝트 채팅", Content = BuildProjectChat() }); pages.Items.Add(new TabItem { Header = "작업자", Content = new ScrollViewer { Content = participantsCanvas, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } }); root.Children.Add(pages);
+        var pages = workerPages = new TabControl(); pages.Items.Add(new TabItem { Header = "프로젝트 채팅", Content = BuildProjectChat() }); pages.Items.Add(new TabItem { Header = "작업자", Content = Label("작업자는 메인 작업 공간에서 선택해줘.") }); root.Children.Add(pages);
         return root;
     }
     private void OpenLegacyConversation()
@@ -87,7 +89,7 @@ public sealed partial class EditorWindow
         var agent = aiDirectory.Agent(aiDirectory.SelectedAgentId);
         var participant = session.Collaboration.Register("worker-" + Guid.NewGuid().ToString("N"), "AI " + (workers.Count + 1), ParticipantKind.AI, ParticipantPermission.Talk | ParticipantPermission.Work);
         participant.AgentId = agent.Id; participant.Model = agent.Connection.Model;
-        participant.X = 24 + workers.Count % 3 * 330; participant.Y = 28 + workers.Count / 3 * 420;
+        participant.X = Math.Max(24, participantsCanvas.ActualWidth - 310 - workers.Count % 3 * 190); participant.Y = Math.Max(28, participantsCanvas.ActualHeight - 300 - workers.Count / 3 * 150);
         CreateWorker(participant); session.Collaboration.Save(); RefreshRecipients(); SelectWorker(workers.Last());
     }
     private void CreateWorker(Participant participant)
@@ -103,33 +105,33 @@ public sealed partial class EditorWindow
             foreach (var turn in worker.Turns.Where(t => t.State is "working" or "review")) turn.State = "interrupted";
         }
         worker.Turn = Math.Max(0, worker.Turns.Count - 1); workers.Add(worker);
-        var panel = new StackPanel { Width = 310 };
-        worker.Bubble = Label("독립 작업을 맡겨줘.");
+        var panel = new StackPanel { Width = 180 };
+        worker.Bubble = Label("독립 작업을 맡겨줘.", 12); worker.Bubble.MaxHeight = 76; worker.Bubble.TextTrimming = TextTrimming.CharacterEllipsis;
         worker.Bubble.MouseLeftButtonDown += (_, _) => ReadWorkerBubble(worker);
-        panel.Children.Add(new Border { Background = PanelInk, CornerRadius = new CornerRadius(12), Padding = new Thickness(10), Child = new ScrollViewer { Content = worker.Bubble, Height = 180, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } });
-        var nav = new WrapPanel { HorizontalAlignment = HorizontalAlignment.Center };
-        nav.Children.Add(Action("◀", () => { worker.Turn = Math.Max(0, worker.Turn - 1); worker.DisplayedAnswer = ""; RenderWorker(worker); ReadWorkerBubble(worker); })); worker.Page = Label("0 / 0"); nav.Children.Add(worker.Page);
-        nav.Children.Add(Action("▶", () => { worker.Turn = Math.Min(worker.Turns.Count - 1, worker.Turn + 1); worker.DisplayedAnswer = ""; RenderWorker(worker); ReadWorkerBubble(worker); })); panel.Children.Add(nav);
-        // A native character handle; its identity and position belong to the Participant, not the chat pane.
+        worker.Speech = new Border { Background = PanelInk, CornerRadius = new CornerRadius(12), Padding = new Thickness(7), Child = worker.Bubble }; panel.Children.Add(worker.Speech);
         var avatar = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center };
-        worker.Avatar = new Border { Background = AccentInk, CornerRadius = new CornerRadius(25, 25, 20, 20), Width = 48, Height = 62, ClipToBounds = true }; avatar.Children.Add(worker.Avatar);
-        var drag = new Thumb { Width = 78, Height = 18, Background = AccentInk, Cursor = System.Windows.Input.Cursors.SizeAll, ToolTip = "드래그해서 작업자 이동" }; avatar.Children.Add(drag); panel.Children.Add(avatar);
-        worker.Caption = Label(participant.Name, 15, AccentInk); worker.Caption.TextAlignment = TextAlignment.Center; panel.Children.Add(worker.Caption);
-        var actions = new WrapPanel { HorizontalAlignment = HorizontalAlignment.Center };
+        worker.Avatar = new Border { Background = AccentInk, CornerRadius = new CornerRadius(24), Width = 48, Height = 56, ClipToBounds = true };
+        worker.Avatar.MouseLeftButtonDown += (_, _) => Guard(() => { if (session!.Collaboration.CanControl("human", participant.Id)) SelectWorker(worker); else OpenPublicChat(false, "@" + participant.Id + " "); });
+        avatar.Children.Add(worker.Avatar);
+        var drag = new Thumb { Width = 68, Height = 12, Background = AccentInk, Cursor = System.Windows.Input.Cursors.SizeAll, ToolTip = "드래그해서 이동" }; avatar.Children.Add(drag); panel.Children.Add(avatar);
+        worker.Caption = Label(participant.Name, 12, AccentInk); worker.Caption.TextAlignment = TextAlignment.Center; panel.Children.Add(worker.Caption);
+        worker.Page = Label("");
+        worker.Composer = new StackPanel { Visibility = Visibility.Collapsed }; panel.Children.Add(worker.Composer);
         if (session!.Collaboration.CanControl("human", participant.Id))
         {
-            if (participant.HelperId.Length == 0) actions.Children.Add(Action("도우미로 승격", () => PromoteWorker(worker)));
-            actions.Children.Add(Action("선택", () => Guard(() => SelectWorker(worker)))); actions.Children.Add(Action("대화 로그", () => Guard(() => OpenWorkerLog(worker))));
-            actions.Children.Add(Action("취소", () => Guard(() => { session.Collaboration.RequireControl("human", participant.Id); worker.Cancellation?.Cancel(); })));
-            var direct = Input(true); direct.Height = 62; direct.TextWrapping = TextWrapping.Wrap; panel.Children.Add(direct);
-            actions.Children.Add(Action("말 걸기", async () => { string text = direct.Text.Trim(); if (text.Length > 0 && !worker.Running) { direct.Clear(); await RunWorker(worker, text); } }));
+            var direct = Input(true); direct.Height = 62; direct.TextWrapping = TextWrapping.Wrap; direct.ToolTip = "이 작업자에게 요청 · Ctrl+Enter로 보내기"; worker.Composer.Children.Add(direct);
+            async Task Send() { string text = direct.Text.Trim(); if (text.Length > 0 && !worker.Running) { direct.Clear(); await RunWorker(worker, text); } }
+            var actions = new WrapPanel(); actions.Children.Add(Action("보내기", async () => await Send()));
+            actions.Children.Add(Action("기록", () => Guard(() => OpenWorkerLog(worker)))); actions.Children.Add(Action("취소", () => Guard(() => { session.Collaboration.RequireControl("human", participant.Id); worker.Cancellation?.Cancel(); })));
+            worker.Composer.Children.Add(actions);
+            direct.PreviewKeyDown += async (_, e) => { if (e.Key == System.Windows.Input.Key.Enter && System.Windows.Input.Keyboard.Modifiers.HasFlag(System.Windows.Input.ModifierKeys.Control)) { e.Handled = true; await Send(); } };
         }
-        else actions.Children.Add(Action("@공개 호출", () => OpenPublicChat(false, "@" + participant.Id + " ")));
-        panel.Children.Add(actions);
-        worker.Character = new Border { BorderThickness = new Thickness(1), BorderBrush = PanelInk, Padding = new Thickness(5), Child = panel };
-        participantsCanvas.Children.Add(worker.Character); Canvas.SetLeft(worker.Character, participant.X); Canvas.SetTop(worker.Character, participant.Y);
+        worker.Character = new Border { BorderThickness = new Thickness(1), BorderBrush = PanelInk, CornerRadius = new CornerRadius(12), Padding = new Thickness(5), Child = panel };
+        participantsCanvas.Children.Add(worker.Character);
+        var placement = session.Collaboration.View("human", participant.Id);
+        Canvas.SetLeft(worker.Character, placement.X ?? participant.X); Canvas.SetTop(worker.Character, placement.Y ?? participant.Y);
         drag.DragStarted += (_, _) => { if (session?.Collaboration.CanControl("human", participant.Id) == true) SelectWorker(worker); };
-        drag.DragDelta += (_, e) => { participant.X = Math.Max(0, Canvas.GetLeft(worker.Character) + e.HorizontalChange); participant.Y = Math.Max(0, Canvas.GetTop(worker.Character) + e.VerticalChange); Canvas.SetLeft(worker.Character, participant.X); Canvas.SetTop(worker.Character, participant.Y); participantsCanvas.MinWidth = Math.Max(participantsCanvas.MinWidth, participant.X + 340); participantsCanvas.MinHeight = Math.Max(participantsCanvas.MinHeight, participant.Y + 420); };
+        drag.DragDelta += (_, e) => { placement.X = Canvas.GetLeft(worker.Character) + e.HorizontalChange; placement.Y = Canvas.GetTop(worker.Character) + e.VerticalChange; PlaceWorker(worker); };
         drag.DragCompleted += (_, _) => session?.Collaboration.Save(); RenderWorker(worker);
     }
     private void RefreshRecipients()
@@ -141,10 +143,9 @@ public sealed partial class EditorWindow
     private void SelectWorker(EditorWorker worker)
     {
         session!.Collaboration.RequireControl("human", worker.Participant.Id);
-        if (workerPages is not null) workerPages.SelectedIndex = 1;
         selectedWorker = worker.Participant.Id; participantSelection.Text = "선택: " + worker.Participant.Name;
-        foreach (var item in workers) item.Character.BorderBrush = item == worker ? AccentInk : PanelInk;
-        yogiRecipient.SelectedValue = selectedWorker;
+        foreach (var item in workers) { item.Character.BorderBrush = item == worker ? AccentInk : PanelInk; RenderWorker(item); }
+        Panel.SetZIndex(worker.Character, 10); yogiRecipient.SelectedValue = selectedWorker;
     }
     private void RenderWorker(EditorWorker worker)
     {
@@ -157,16 +158,18 @@ public sealed partial class EditorWindow
         }
         worker.Turn = Math.Max(0, Math.Min(worker.Turn, worker.Turns.Count - 1));
         var turn = worker.Turns.ElementAtOrDefault(worker.Turn);
-        worker.Bubble.Text = turn is null ? "독립 작업을 맡겨줘." : "나\n" + turn.User + "\n\n" + worker.Participant.Name + "\n" + (turn.Answer.Length > 0 ? turn.Answer : turn.Events.LastOrDefault() ?? turn.State);
-        if (worker.DisplayedAnswer.Length > 0) worker.Bubble.Text = worker.DisplayedAnswer;
+        string answer = worker.DisplayedAnswer.Length > 0 ? worker.DisplayedAnswer : turn is null ? "독립 작업을 맡겨줘." : turn.Answer.Length > 0 ? turn.Answer : turn.Events.LastOrDefault() ?? turn.State;
+        worker.Bubble.Text = answer.Length > 240 ? answer.Substring(0, 240) + "…" : answer;
+        worker.Bubble.ToolTip = answer.Length > 1200 ? answer.Substring(0, 1200) + "… · 전체 내용은 기록에서 확인해줘." : answer;
         worker.Page.Text = worker.Turns.Count == 0 ? "0 / 0" : (worker.Turn + 1) + " / " + worker.Turns.Count;
-        var hub = session?.Collaboration;
-        var display = hub?.View("human", worker.Participant.Id).Display ?? CharacterDisplay.Full;
+        var hub = session?.Collaboration; var display = hub?.View("human", worker.Participant.Id).Display ?? CharacterDisplay.Full;
         worker.Character.Visibility = display == CharacterDisplay.Hidden ? Visibility.Collapsed : Visibility.Visible;
-        var children = ((StackPanel)worker.Character.Child).Children;
-        for (int i = 0; i < children.Count; i++) if (i != 2 && i != 3) ((UIElement)children[i]).Visibility = display == CharacterDisplay.Compact ? Visibility.Collapsed : Visibility.Visible;
+        bool selected = selectedWorker == worker.Participant.Id;
+        ((StackPanel)worker.Character.Child).Width = selected ? 280 : 180;
+        worker.Composer.Visibility = selected ? Visibility.Visible : Visibility.Collapsed;
         int unread = hub?.Unread("human", worker.Participant.Id).Count ?? 0;
-        worker.Caption.Text = worker.Participant.Name + (unread > 0 ? " · ● " + unread : "") + (worker.Running ? " · 작업 중" : "") + (worker.Attachment is null ? "" : " · Yogi 첨부됨");
+        worker.Caption.Text = worker.Participant.Name + (unread > 0 ? " · ● " + unread : "") + (worker.Running ? " · 작업 중" : "") + (worker.Attachment is null ? "" : " · 대상 첨부됨");
+        PlaceWorker(worker);
     }
     private void SaveWorker(EditorWorker worker)
     { if (CurrentAccess?.HistoryEnabled != false) EditorSession.AtomicWrite(Path.Combine(worker.Directory, "turns.json"), Encoding.UTF8.GetBytes(EditorSession.Serialize(worker.Turns))); RenderWorker(worker); worker.RefreshLog?.Invoke(); }
@@ -180,6 +183,7 @@ public sealed partial class EditorWindow
         var model = Input(); model.Text = worker.Model; model.ToolTip = "비워 두면 연결에서 선택한 모델을 사용해.";
         var publicTask = Input(); publicTask.Width = 220; publicTask.Text = worker.Participant.PublicTask; publicTask.ToolTip = "참여자에게 공개할 작업 설명";
         var settings = new WrapPanel(); settings.Children.Add(publicTask); name.Width = 160; model.Width = 220; settings.Children.Add(name); settings.Children.Add(model);
+        if (worker.Participant.HelperId.Length == 0) settings.Children.Add(Action("도우미로 승격", () => PromoteWorker(worker)));
         settings.Children.Add(Action("제안 승인 범위", () => AskName("승인할 프로젝트 경로 · 쉼표 구분, *는 전체, 비우면 해제", string.Join(",", session!.Collaboration.State.Authorities.FirstOrDefault(a => a.Participant == worker.Participant.Id)?.Scopes ?? []), scopes => session!.Collaboration.GrantProposalAuthority("human", worker.Participant.Id, scopes.Split(',')))));
         settings.Children.Add(Action("이름 · 모델 저장", () => Guard(() => { if (worker.Running) throw new InvalidOperationException("이 작업자의 현재 요청이 끝난 뒤 바꿔줘."); worker.Participant.Name = name.Text.Trim().Length == 0 ? worker.Participant.Name : name.Text.Trim(); worker.Model = model.Text.Trim(); worker.Participant.Model = worker.Model; worker.Participant.PublicTask = publicTask.Text.Trim(); session!.Collaboration.Save(); RefreshRecipients(); RenderWorker(worker); window.Title = worker.Participant.Name + " · 대화 로그"; })));
         DockPanel.SetDock(settings, Dock.Top); root.Children.Add(settings);

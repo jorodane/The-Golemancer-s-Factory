@@ -47,7 +47,7 @@ public sealed partial class EditorWindow
                 target.Children.Add(Action(entry.Fields["title"], () => Guard(() => NavigateProject(entry))));
             }
         }
-        projectMenu.Children.Add(Action("에디터팩 관리", () => { if (busy) return; ((TabItem)tabs.Items[6]).Visibility = Visibility.Visible; tabs.SelectedIndex = 6; }));
+        projectMenu.Children.Add(Action("에디터팩 관리", () => { if (!busy) OpenNativeTool(6); }));
         foreach (var definition in packWindows.Definitions.OrderBy(d => d.Title, StringComparer.Ordinal))
             windowMenu.Children.Add(Action(definition.Title, () => Guard(() => OpenWindowEntry(definition.Id))));
     }
@@ -65,14 +65,17 @@ public sealed partial class EditorWindow
     private void OpenElementBrowser(string category)
     {
         if (packGeneration is not { } generation) { SetStatus("에디터팩을 적용한 뒤 요소 탐색기를 열어줘."); return; }
-        var command = generation.Snapshot.Commands.FirstOrDefault(c => c.Fields.TryGetValue("argument.mode", out var mode) && mode == "browse");
+        string mainPack = packWindows.Definitions.FirstOrDefault(d => d.Slot == "workspace.main")?.Pack ?? "";
+        var command = generation.Snapshot.Commands.FirstOrDefault(c => c.Pack == mainPack && c.Fields.GetValueOrDefault("argument.mode") == "workspace")
+            ?? generation.Snapshot.Commands.FirstOrDefault(c => c.Fields.GetValueOrDefault("argument.mode") == "browse");
         if (command is null) throw new InvalidOperationException("요소 탐색기 명령을 등록해줘.");
         ExecuteEditorCommand(generation, command.Id, UiValue.Text(category));
     }
     private void OpenWindowEntry(string id)
     {
         if (busy || packGeneration is not { } generation) return;
-        var initializer = generation.Snapshot.Commands.FirstOrDefault(c => c.Fields.TryGetValue("argument.window", out var window) && window == id && c.Fields.TryGetValue("argument.mode", out var mode) && mode == "browse");
+        var owner = packWindows.Definitions.FirstOrDefault(d => d.Id == id)?.Pack;
+        var initializer = generation.Snapshot.Commands.FirstOrDefault(c => c.Pack == owner && c.Fields.GetValueOrDefault("argument.window") == id && c.Fields.GetValueOrDefault("argument.mode") is "browse" or "workspace");
         if (initializer is not null) { ExecuteEditorCommand(generation, initializer.Id, UiValue.Text("")); return; }
         var editor = generation.Snapshot.ObjectEditors.FirstOrDefault(e => e.Fields["window"] == id);
         if (editor is not null && session is not null && session.Index.Nodes.TryGetValue(session.State.Selection, out var selected) && selected.Locator.Length > 0)
@@ -82,7 +85,7 @@ public sealed partial class EditorWindow
     private void OpenElementXml(string key)
     {
         if (session is null || !session.Index.Nodes.TryGetValue(key, out var node) || node.Locator.Length == 0) throw new InvalidOperationException("XML로 확인할 요소를 선택해줘.");
-        session.Open(node.File); RebuildDocuments(node.File); ((TabItem)tabs.Items[2]).Visibility = Visibility.Visible; tabs.SelectedIndex = 2; RefreshContext();
+        session.Open(node.File); RebuildDocuments(node.File); OpenNativeTool(2); RefreshContext();
     }
     private void OpenElementEditor(EditorOpenObject request)
     {

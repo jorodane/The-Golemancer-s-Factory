@@ -19,6 +19,9 @@ public sealed class WorkspaceNode
     public string Status { get; set; } = "resolved";
     public string Category { get; set; } = "";
     public string Icon { get; set; } = "";
+    public string Description { get; set; } = "";
+    public string TitleAttribute { get; set; } = "id";
+    public string DescriptionAttribute { get; set; } = "description";
     public bool Browsable { get; set; } = true;
 }
 public sealed class WorkspaceLink
@@ -178,6 +181,9 @@ public sealed class WorkspaceIndex
                 if (Nodes.TryGetValue(kind + ":" + id, out var presentation))
                 {
                     presentation.Category = (string?)rule.Attribute("category") ?? kind;
+                    presentation.TitleAttribute = (string?)rule.Attribute("title") ?? (string?)rule.Attribute("id") ?? "id";
+                    presentation.DescriptionAttribute = (string?)rule.Attribute("description") ?? "description";
+                    presentation.Description = (string?)element.Attribute(presentation.DescriptionAttribute) ?? "";
                     if (rule.Attribute("categoryAttribute") is { } group && element.Attribute(group.Value) is { Value.Length: > 0 } subcategory)
                         presentation.Category += "/" + subcategory.Value;
                     presentation.Icon = (string?)rule.Attribute("icon") ?? (string?)element.Attribute((string?)rule.Attribute("iconAttribute") ?? "icon") ?? "";

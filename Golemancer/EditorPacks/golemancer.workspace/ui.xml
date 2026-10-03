@@ -1,0 +1,8 @@
+<Ui version="1" id="golemancer.workspace.ui">
+  <View id="golemancer.workspace.view" extends="editor.core.workspace">
+    <Override node="project"><Set property="text" value="공방의 설계" /><Set property="fontSize" value="24" /></Override>
+    <Override node="tools"><Slot name="children">
+      <Node id="workshopGuide" order="5" widget="editor.text"><Set property="text" value="아이템과 설비를 고르고, 작업자에게 다음 일을 맡겨줘." /></Node>
+    </Slot></Override>
+  </View>
+</Ui>

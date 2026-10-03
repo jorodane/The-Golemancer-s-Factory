@@ -40,6 +40,11 @@ public sealed class EditorProjectObject
     public string Status { get; set; } = "";
     public string Category { get; set; } = "";
     public string Icon { get; set; } = "";
+    public string Description { get; set; } = "";
+    public bool Editable { get; set; }
+    public string TitleAttribute { get; set; } = "id";
+    public string DescriptionAttribute { get; set; } = "description";
+    public string DocumentHash { get; set; } = "";
     public bool Browsable { get; set; } = true;
 }
 public class EditorProjectAsset

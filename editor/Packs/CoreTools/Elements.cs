@@ -25,12 +25,14 @@ internal sealed class ElementTools
         public List<EditorElementMutation> Changes = [];
         public HashSet<string> Expanded = new(StringComparer.Ordinal) { "." };
     }
-    private sealed record Target(string Operation, string Path = "", string Name = "", string Value = "");
+    private sealed record Target(string Operation, string Path = "", string Name = "", string Value = "", string Key = "", string Hash = "");
     private sealed class State
     {
-        public string Window = "", Pack = "", BaseView = "", Open = "", Action = "", Input = "", Mode = "", Category = "", Query = "", Layout = "grid", Key = "", Drawer = "";
+        public string Window = "", Pack = "", BaseView = "", Open = "", Action = "", Input = "", Mode = "", Category = "", Query = "", Layout = "vertical", Key = "", Drawer = "";
         public string NewName = "", NewKind = "", NewPack = "", ChildName = "", FieldName = "";
         public bool Creating;
+        public int Page;
+        public HashSet<string> ExpandedCards = new(StringComparer.Ordinal);
         public Dictionary<string, Target> Targets = new(StringComparer.Ordinal);
     }
     private readonly Dictionary<string, State> states = new(StringComparer.Ordinal);
@@ -54,11 +56,25 @@ internal sealed class ElementTools
         if (operation == "open")
         {
             window = Get(invocation.Arguments, "window", window); string scope = Get(invocation.Context, "projectId") + "/" + pack + "/" + window;
-            if (!states.TryGetValue(scope, out var opening)) states[scope] = opening = new State();
+            bool firstOpen = !states.ContainsKey(scope);
+            if (!states.TryGetValue(scope, out var opening)) states[scope] = opening = new State { Layout = Get(invocation.Arguments, "layout", "vertical") };
             opening.Window = window; opening.Pack = pack; opening.Mode = Get(invocation.Arguments, "mode", "browse");
             opening.Open = invocation.Command;
             opening.BaseView = Get(invocation.Arguments, "baseView", opening.Mode == "browse" ? "editor.core.elements" : "editor.core.inspector");
             opening.Action = Get(invocation.Arguments, "actionCommand", "editor.core.elements.action"); opening.Input = Get(invocation.Arguments, "inputCommand", "editor.core.elements.input");
+            if (opening.Mode == "workspace")
+            {
+                if (invocation.Payload.Contains(":"))
+                {
+                    var item = catalog.ListObjects().FirstOrDefault(o => o.Key == invocation.Payload);
+                    if (item is null) throw new InvalidOperationException("선택한 항목이 없어.");
+                    opening.Key = item.Key; opening.Category = item.Category; opening.ExpandedCards.Add(item.Key);
+                    _ = WorkspaceDraft(invocation, elements, item.Key);
+                }
+                else { opening.Category = firstOpen && invocation.Payload.Length == 0 ? Get(invocation.Arguments, "category") : invocation.Payload; opening.Page = 0; }
+                if (Get(invocation.Context, "reviewApplied") == "true") { opening.Creating = false; opening.NewName = ""; }
+                return RenderWorkspace(opening, invocation, elements, catalog, true);
+            }
             if (opening.Mode == "browse")
             {
                 opening.Category = invocation.Payload;
@@ -75,6 +91,7 @@ internal sealed class ElementTools
         if (!states.TryGetValue(Get(invocation.Context, "projectId") + "/" + pack + "/" + window, out var state)) throw new InvalidOperationException("먼저 요소 창을 열어줘.");
         if (state.Mode == "inspect" && Get(invocation.Context, "objectKey", state.Key) != state.Key) throw new InvalidOperationException("선택한 요소를 다시 열어줘. 이전 요소의 양식을 수정하지 않았어.");
         if (!state.Targets.TryGetValue(Get(invocation.Context, "nodeId"), out var target)) return new();
+        if (state.Mode == "workspace") return WorkspaceAction(operation, state, target, invocation, elements, catalog);
         string draftKey = Get(invocation.Context, "projectId") + "/" + state.Key;
         drafts.TryGetValue(draftKey, out var draft);
         if (operation == "input")
@@ -127,6 +144,178 @@ internal sealed class ElementTools
                     Effects = [new() { Kind = "refresh" }], Continue = new() { Command = state.Open, Payload = state.Key } };
         }
         return Render(state, invocation, elements, catalog);
+    }
+    private Draft WorkspaceDraft(EditorInvocation invocation, IEditorProjectElements elements, string key, string expected = "")
+    {
+        string id = Get(invocation.Context, "projectId") + "/" + key;
+        if (drafts.TryGetValue(id, out var draft) && draft.Changes.Count > 0)
+        {
+            if (Get(invocation.Context, "reviewApplied") == "true" && Matches(draft, elements.ReadElement(key))) drafts[id] = draft = new(elements.ReadElement(key));
+            return draft;
+        }
+        var document = elements.ReadElement(key);
+        if (expected.Length > 0 && expected != document.DocumentHash) throw new InvalidOperationException("항목이 다른 곳에서 바뀌었어. 새로고침한 뒤 다시 수정해줘.");
+        if (draft is null || document.DocumentHash != draft.Document.DocumentHash) drafts[id] = draft = new(document);
+        return draft;
+    }
+    private EditorCommandResult WorkspaceAction(string operation, State state, Target target, EditorInvocation invocation, IEditorProjectElements elements, IEditorProjectCatalog catalog)
+    {
+        Draft? draft = null;
+        bool needsDraft = target.Operation is "attribute" or "text" or "choose" or "save-card" or "expand" or "add-child" or "add-field";
+        if (needsDraft) draft = WorkspaceDraft(invocation, elements, target.Key, target.Hash);
+        if (target.Key.Length > 0) state.Key = target.Key;
+        if (operation == "input")
+        {
+            switch (target.Operation)
+            {
+                case "query": state.Query = invocation.Payload; break;
+                case "new-name": state.NewName = invocation.Payload; break;
+                case "child-name": state.ChildName = invocation.Payload; break;
+                case "field-name": state.FieldName = invocation.Payload; break;
+                case "attribute": case "text": Change(draft!, target.Path, target.Name, invocation.Payload, target.Operation); break;
+                case "select-card": return RenderWorkspace(state, invocation, elements, catalog);
+            }
+            return new() { SelectObject = target.Key }; // No catalog refresh or control replacement while typing.
+        }
+        switch (target.Operation)
+        {
+            case "select-card": break;
+            case "category": state.Category = target.Value; state.Page = 0; state.Creating = false; break;
+            case "search": state.Page = 0; break;
+            case "page": state.Page = Math.Max(0, state.Page + int.Parse(target.Value)); break;
+            case "layout": state.Layout = target.Value; break;
+            case "new": state.Creating = !state.Creating; break;
+            case "kind": state.NewKind = target.Value; break;
+            case "pack": state.NewPack = target.Value; break;
+            case "create": return new() { DocumentChanges = [elements.ProposeNewElement(new() { Kind = state.NewKind, Name = state.NewName, Pack = state.NewPack })], Effects = [new() { Kind = "refresh" }], Continue = new() { Command = state.Open, Payload = state.Category } };
+            case "toggle-card": if (!state.ExpandedCards.Add(target.Key)) state.ExpandedCards.Remove(target.Key); break;
+            case "expand": if (!draft!.Expanded.Add(target.Path)) draft.Expanded.Remove(target.Path); break;
+            case "options": case "children": case "fields": state.Drawer = state.Drawer == target.Value ? "" : target.Value; break;
+            case "choose": Change(draft!, target.Path, target.Name, target.Value); state.Drawer = ""; break;
+            case "reset-card": drafts[Get(invocation.Context, "projectId") + "/" + target.Key] = new(elements.ReadElement(target.Key)); break;
+            case "save-card":
+                if (draft!.Changes.Count == 0) return new() { Message = "변경한 내용이 없어." };
+                return new() { DocumentChanges = [elements.ProposeElement(new() { Key = target.Key, ExpectedHash = draft.Document.DocumentHash, Changes = draft.Changes.ToList() })], Effects = [new() { Kind = "refresh" }], Continue = new() { Command = state.Open, Payload = target.Key } };
+            case "editor": return new() { OpenObject = new() { Key = target.Key, ChooseEditor = true } };
+            case "xml": return new() { OpenXml = target.Key };
+            case "add-child":
+                string name = target.Name.Length > 0 ? target.Name : state.ChildName; System.Xml.XmlConvert.VerifyNCName(name);
+                var parent = Node(draft!, target.Path); Change(draft!, target.Path, name, "", "child"); draft!.Changes.Last().Index = parent.Children.Count + 1;
+                var child = new EditorElementNode { Name = name, Path = target.Path + "/*[" + (parent.Children.Count + 1) + "]" };
+                if ((parent.ChildTemplates.FirstOrDefault(t => t.Name == name) ?? draft.Document.Templates.FirstOrDefault(t => t.Name == name)) is { } template)
+                {
+                    child.Fields = template.Fields.Select(f => new EditorElementField { Name = f.Name, Value = f.Value, Type = f.Type, Required = f.Required, ReadOnly = f.ReadOnly, ReferenceKind = f.ReferenceKind, Options = f.Options.ToList() }).ToList();
+                    child.ChildNames = template.ChildNames.ToList();
+                    foreach (var field in child.Fields.Where(f => f.Value.Length > 0)) Change(draft, child.Path, field.Name, field.Value);
+                }
+                parent.Children.Add(child); draft.Expanded.Add(child.Path); draft.Expanded.Add(target.Path); state.Drawer = ""; break;
+            case "add-field":
+                System.Xml.XmlConvert.VerifyNCName(state.FieldName); var selected = Node(draft!, target.Path);
+                if (selected.Fields.Any(f => f.Name == state.FieldName)) throw new InvalidOperationException("같은 이름의 항목이 있어.");
+                selected.Fields.Add(new() { Name = state.FieldName }); Change(draft!, target.Path, state.FieldName, ""); state.Drawer = ""; break;
+        }
+        return RenderWorkspace(state, invocation, elements, catalog);
+    }
+    private EditorCommandResult RenderWorkspace(State state, EditorInvocation invocation, IEditorProjectElements elements, IEditorProjectCatalog catalog, bool open = false)
+    {
+        state.Targets.Clear(); int order = 0;
+        XElement Set(string name, string value) => new("Set", new XAttribute("property", name), new XAttribute("value", value));
+        XElement Text(string key, string text, int size = 13) => new("Node", new XAttribute("id", Id(state.Window + "/" + key)), new XAttribute("widget", "editor.text"), new XAttribute("order", ++order), Set("text", text), Set("fontSize", size.ToString()));
+        XElement Control(string key, string text, Target target, bool input = false, bool enabled = true, bool multiline = false, string placeholder = "")
+        {
+            string id = Id(state.Window + "/" + key); state.Targets[id] = target;
+            var node = new XElement("Node", new XAttribute("id", id), new XAttribute("widget", input ? "editor.inline" : "editor.button"), new XAttribute("order", ++order), Set("text", text), Set("enabled", enabled ? "true" : "false"),
+                new XElement("On", new XAttribute("event", input ? "changed" : "activate"), new XAttribute("command", input ? state.Input : state.Action)));
+            if (input) { node.Add(Set("placeholder", placeholder), Set("multiline", multiline ? "true" : "false")); }
+            return node;
+        }
+        XElement Stack(string key, IEnumerable<XElement> children, bool horizontal = false, bool wrap = false) => new("Node", new XAttribute("id", Id(state.Window + "/" + key)), new XAttribute("widget", wrap ? "editor.wrap" : "editor.stack"), new XAttribute("order", ++order), Set("orientation", horizontal ? "horizontal" : "vertical"), new XElement("Slot", new XAttribute("name", "children"), children));
+        var objects = catalog.ListObjects().Where(o => o.Browsable && o.Kind is not ("file" or "pack" or "implementation") && o.Status == "resolved").ToArray();
+        var types = elements.ListElementTypes().Where(t => t.Creatable).ToArray();
+        string Category(EditorProjectObject value) => value.Category.Length > 0 ? value.Category : value.Kind;
+        var categories = objects.Select(Category).Concat(types.Select(t => t.Category)).Where(c => c.Length > 0).SelectMany(c => c.Split('/').Select((_, i) => string.Join("/", c.Split('/').Take(i + 1)))).Distinct().OrderBy(c => c, StringComparer.Ordinal).ToArray();
+        var body = new List<XElement>();
+        body.Add(Stack("workspace.categories", new[] { Control("workspace.all", "전체", new("category")) }.Concat(categories.Select(c => Control("workspace.category/" + c, (c == state.Category ? "● " : "") + c, new("category", Value: c)))), true, true));
+        body.Add(Stack("workspace.tools", new[] { Control("workspace.query", state.Query, new("query"), true, placeholder: "찾고 싶은 항목"), Control("workspace.search", "찾기", new("search")), Control("workspace.new", "＋ 추가", new("new")), Control("workspace.vertical", "목록", new("layout", Value: "vertical")), Control("workspace.grid", "카드", new("layout", Value: "grid")), Control("workspace.horizontal", "가로", new("layout", Value: "horizontal")) }, true, true));
+        if (state.Creating)
+        {
+            body.Add(Control("workspace.newName", state.NewName, new("new-name"), true, placeholder: "새 항목 이름"));
+            body.Add(Stack("workspace.kinds", types.Select(t => Control("workspace.kind/" + t.Kind, (state.NewKind == t.Kind ? "● " : "") + t.Category, new("kind", Value: t.Kind))), true, true));
+            body.Add(Stack("workspace.packs", elements.ListElementPacks().Where(p => p.Editable).Select(p => Control("workspace.pack/" + p.Id, (state.NewPack == p.Id ? "● " : "") + p.Id, new("pack", Value: p.Id))), true, true));
+            body.Add(Control("workspace.create", "추가하기", new("create"), enabled: state.NewKind.Length > 0 && state.NewPack.Length > 0));
+        }
+        var filtered = objects.Where(o => (state.Category.Length == 0 || Category(o) == state.Category || Category(o).StartsWith(state.Category + "/", StringComparison.Ordinal)) && (o.Title + " " + o.Description + " " + o.Id).IndexOf(state.Query, StringComparison.OrdinalIgnoreCase) >= 0).OrderBy(o => o.Title, StringComparer.Ordinal).ThenBy(o => o.Key, StringComparer.Ordinal).ToArray();
+        state.Page = Math.Min(state.Page, Math.Max(0, (filtered.Length - 1) / 60));
+        var cards = new List<XElement>(); var icons = new Dictionary<string, string>(StringComparer.Ordinal); int imageCharacters = 0;
+        foreach (var item in filtered.Skip(state.Page * 60).Take(60))
+        {
+            string key = item.Key; drafts.TryGetValue(Get(invocation.Context, "projectId") + "/" + key, out var draft);
+            if (state.ExpandedCards.Contains(key)) draft = WorkspaceDraft(invocation, elements, key);
+            Target TargetFor(string op, string path = ".", string name = "", string value = "") => new(op, path, name, value, key, draft?.Document.DocumentHash ?? item.DocumentHash);
+            string Changed(string name, string fallback) => draft is null ? fallback : Value(draft, ".", name, fallback);
+            bool editable = draft?.Document.Editable ?? item.Editable;
+            var title = Control(key + "/title", Changed(item.TitleAttribute, item.Title), TargetFor("attribute", name: item.TitleAttribute), true, editable && item.TitleAttribute != "id", placeholder: "항목 이름"); title.Add(Set("fontSize", "19"));
+            var icon = new XElement("Node", new XAttribute("id", Id(state.Window + "/" + key + "/icon")), new XAttribute("widget", "editor.slot"), new XAttribute("order", ++order), Set("value", key), new XElement("Layout", new XAttribute("size", "48,48")), new XElement("On", new XAttribute("event", "activate"), new XAttribute("command", state.Input)));
+            state.Targets[(string)icon.Attribute("id")!] = TargetFor("select-card");
+            bool fileIcon = item.Icon.Contains("/") || item.Icon.Contains("."); string image = "";
+            if (fileIcon)
+            {
+                if (icons.TryGetValue(item.Icon, out var saved)) image = saved;
+                else if (icons.Count < 16)
+                {
+                    try { string candidate = catalog.ReadAsset(item.Icon).DataUrl; if (candidate.Length <= 64_000 && imageCharacters + candidate.Length <= 600_000) { image = candidate; imageCharacters += candidate.Length; } } catch (Exception) { }
+                    icons[item.Icon] = image;
+                }
+            }
+            icon.Add(Set("image", image), Set("glyph", !fileIcon && item.Icon.Length is > 0 and <= 32 ? item.Icon : "◇"));
+            var content = new List<XElement> { Stack(key + "/heading", new[] { icon, title }, true), Control(key + "/description", Changed(item.DescriptionAttribute, item.Description), TargetFor("attribute", name: item.DescriptionAttribute), true, editable, true, "설명을 입력해."),
+                Control(key + "/toggle", state.ExpandedCards.Contains(key) ? "▴ 접기" : "▾ 자세히", TargetFor("toggle-card")) };
+            if (state.Key == key || state.ExpandedCards.Contains(key)) content.Add(Stack(key + "/actions", new[] { Control(key + "/save", "변경 확정", TargetFor("save-card"), enabled: editable && draft?.Document.Draft != true && draft?.Document.DiskChanged != true), Control(key + "/reset", "다시 읽기", TargetFor("reset-card")), Control(key + "/editor", "다른 양식", TargetFor("editor")) }, true, true));
+            if (state.ExpandedCards.Contains(key) && draft is not null)
+            {
+                void Visit(EditorElementNode node, int depth)
+                {
+                    string prefix = key + "/" + node.Path;
+                    content.Add(Control(prefix + "/expand", new string('　', depth) + (draft.Expanded.Contains(node.Path) ? "▾ " : "▸ ") + node.Name, TargetFor("expand", node.Path)));
+                    if (!draft.Expanded.Contains(node.Path)) return;
+                    foreach (var field in node.Fields.Where(f => node.Path != "." || f.Name != item.TitleAttribute && f.Name != item.DescriptionAttribute))
+                    {
+                        string id = prefix + "/@" + field.Name;
+                        content.Add(Stack(id + "/row", new[] { Text(id + "/label", field.Name + (field.Required ? " *" : "")), Control(id, Value(draft, node.Path, field.Name, field.Value), TargetFor("attribute", node.Path, field.Name), true, draft.Document.Editable && !field.ReadOnly, placeholder: "값 입력") }, true));
+                        if (field.Options.Count > 0 && !field.ReadOnly)
+                        {
+                            content.Add(Control(id + "/options", "값 선택", TargetFor("options", value: id)));
+                            if (state.Drawer == id) content.Add(Stack(id + "/choices", field.Options.GroupBy(o => o.Value).Select(g => g.First()).Select(o => Control(id + "/option/" + o.Value, o.Title, TargetFor("choose", node.Path, field.Name, o.Value))), true, true));
+                        }
+                    }
+                    if (node.Children.Count == 0 && (depth > 0 || node.Text.Length > 0)) content.Add(Control(prefix + "/text", Value(draft, node.Path, "", node.Text, "text"), TargetFor("text", node.Path), true, draft.Document.Editable, true, "내용 입력"));
+                    if (draft.Document.Editable)
+                    {
+                        content.Add(Stack(prefix + "/add", new[] { Control(prefix + "/addChild", "＋ 세부 항목", TargetFor("children", node.Path, value: prefix + "/children")), Control(prefix + "/addField", "＋ 속성", TargetFor("fields", node.Path, value: prefix + "/fields")) }, true, true));
+                        if (state.Drawer == prefix + "/children")
+                        {
+                            if (node.ChildNames.Count > 0) content.Add(Stack(prefix + "/childTypes", node.ChildNames.Select(name => Control(prefix + "/childType/" + name, name, TargetFor("add-child", node.Path, name))), true, true));
+                            else { content.Add(Control(prefix + "/childName", state.ChildName, new("child-name"), true, placeholder: "항목 이름")); content.Add(Control(prefix + "/createChild", "추가", TargetFor("add-child", node.Path))); }
+                        }
+                        if (state.Drawer == prefix + "/fields") { content.Add(Control(prefix + "/fieldName", state.FieldName, new("field-name"), true, placeholder: "속성 이름")); content.Add(Control(prefix + "/createField", "추가", TargetFor("add-field", node.Path))); }
+                    }
+                    foreach (var child in node.Children) Visit(child, depth + 1);
+                }
+                Visit(draft.Document.Root, 0);
+            }
+            var card = new XElement("Node", new XAttribute("id", Id(state.Window + "/" + key + "/card")), new XAttribute("widget", "editor.card"), new XAttribute("order", ++order), Set("selected", state.Key == key ? "true" : "false"),
+                new XElement("On", new XAttribute("event", "activate"), new XAttribute("command", state.Action)), new XElement("Slot", new XAttribute("name", "children"), content));
+            state.Targets[(string)card.Attribute("id")!] = TargetFor("select-card");
+            if (state.Layout != "vertical") card.Add(new XElement("Layout", new XAttribute("size", "340,0"))); cards.Add(card);
+        }
+        body.Add(Text("workspace.count", filtered.Length + "개 항목" + (state.Category.Length > 0 ? " · " + state.Category : "")));
+        if (cards.Count == 0) body.Add(Text("workspace.empty", "아직 항목이 없어. ＋ 추가로 첫 항목을 만들어줘.", 18));
+        body.Add(Stack("workspace.cards", cards, state.Layout != "vertical", state.Layout == "grid"));
+        if (filtered.Length > 60) body.Add(Stack("workspace.pages", new[] { Control("workspace.previous", "이전", new("page", Value: "-1"), enabled: state.Page > 0), Text("workspace.page", (state.Page + 1) + " / " + ((filtered.Length + 59) / 60)), Control("workspace.next", "다음", new("page", Value: "1"), enabled: (state.Page + 1) * 60 < filtered.Length) }, true));
+        string view = state.Pack + ".dynamic." + Id(state.Window);
+        var xml = new XElement("Ui", new XAttribute("version", "1"), new XAttribute("id", state.Pack + ".dynamic.ui"), new XElement("View", new XAttribute("id", view), new XAttribute("extends", state.BaseView),
+            new XElement("Override", new XAttribute("node", "workspaceBody"), new XElement("Slot", new XAttribute("name", "children"), body))));
+        return new() { Windows = open ? [new() { Operation = "open", Id = state.Window }] : [], View = new() { WindowId = state.Window, Xml = xml.ToString(SaveOptions.DisableFormatting) }, SelectObject = state.Key };
     }
     private static bool Matches(Draft draft, EditorElementDocument next)
     {

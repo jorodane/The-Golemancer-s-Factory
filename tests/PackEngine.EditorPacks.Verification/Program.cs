@@ -43,7 +43,7 @@ try
     Check(second.Snapshot.Panels.Count == 1 && second.Snapshot.Panels[0].Id == "test.project.panel", "project child replaces only its inherited panel slot");
     Check(second.Snapshot.Shell!.Fields["sidebarWidth"] == "180" && second.Snapshot.Shell.Fields["contextWidth"] == "300" && second.Snapshot.Origins["shell:test.project.layout"].Members["sidebarWidth"].Pack == child.Id, "one shell layout property overrides while inheriting other dimensions and origins");
     var view = second.Catalog.InspectView("test.project.view");
-    Check(view.Root.Slots["children"].Count == first.Catalog.DescribeView("editor.core.tools").Slots["children"].Count + 1, "one button added without removing parent functionality");
+    Check(view.Root.Slots["children"].Count == first.Catalog.DescribeView(first.Snapshot.Panels.Single().Fields["view"]).Slots["children"].Count + 1, "one button added without removing parent functionality");
     Check(view.Inheritance.Members["node.refresh.property.text"].Pack == child.Id && view.Inheritance.Members["node.focus.event.activate"].Pack == core.Id, "partial overrides retain parent and child provenance");
     Check(await Run(second, "test.project.message") == "Editor pack DLL is running.", "new child DLL command executes in the worker");
     var probe = new Probe(); var context = EditorNativeSchema.Context(second.Snapshot, (_, _) => { }, "Project", "");

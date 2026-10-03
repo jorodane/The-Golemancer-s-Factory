@@ -24,7 +24,9 @@ public sealed partial class EditorWindow
         if (presenceRefreshQueued) return; presenceRefreshQueued = true;
         Dispatcher.BeginInvoke(new Action(() =>
         {
-            presenceRefreshQueued = false; foreach (var worker in workers) RenderWorker(worker);
+            presenceRefreshQueued = false;
+            if (session is not null) foreach (var participant in session.Collaboration.State.Participants.Where(p => p.Kind == ParticipantKind.AI && p.Id.StartsWith("worker-", StringComparison.Ordinal) && workers.All(w => w.Participant.Id != p.Id)).ToArray()) CreateWorker(participant);
+            foreach (var worker in workers) RenderWorker(worker);
             refreshParticipantWindow?.Invoke(); foreach (var chat in publicChats.ToArray()) chat.Refresh(); RefreshRoomCaption(); RefreshAiManagement(); RefreshEmbeddedChat(); DispatchPendingIncidents();
         }));
     }
@@ -55,12 +57,12 @@ public sealed partial class EditorWindow
                         var last = unread.Last(); panel.Children.Add(Label(last.Importance + " · " + (last.Text.Length > 110 ? last.Text.Substring(0, 110) + "…" : last.Text), 12));
                         panel.Children.Add(Action("새 답변 보기", () => ShowParticipantAnswers(p.Id)));
                     }
-                    var actions = new WrapPanel(); actions.Children.Add(Action("위치 따라가기", () => Guard(() => { if (presence.Room.StartsWith("editor:", StringComparison.Ordinal)) OpenExternalRoom(presence.Room); else if (presence.Room.Length > 0 && session.Index.TextFiles.ContainsKey(presence.Room)) { session.Open(presence.Room); RebuildDocuments(presence.Room); tabs.SelectedIndex = 2; } })));
+                    var actions = new WrapPanel(); actions.Children.Add(Action("위치 따라가기", () => Guard(() => { if (presence.Room.StartsWith("editor:", StringComparison.Ordinal)) OpenExternalRoom(presence.Room); else if (presence.Room.Length > 0 && session.Index.TextFiles.ContainsKey(presence.Room)) { session.Open(presence.Room); RebuildDocuments(presence.Room); OpenNativeTool(2); } })));
                     if (p.Kind == ParticipantKind.AI)
                     {
                         actions.Children.Add(Action("@호출", () => OpenPublicChat(false, "@" + p.Id + " ")));
-                        var display = new ComboBox { ItemsSource = Enum.GetValues(typeof(CharacterDisplay)), SelectedItem = hub.View("human", p.Id).Display, Margin = new Thickness(4), Width = 95 };
-                        display.SelectionChanged += (_, _) => { if (display.SelectedItem is CharacterDisplay value) hub.Display("human", p.Id, value); }; actions.Children.Add(display);
+                        var display = new CheckBox { Content = "작업 공간에 표시", IsChecked = hub.View("human", p.Id).Display != CharacterDisplay.Hidden, Foreground = TextInk, Margin = new Thickness(4) };
+                        display.Click += (_, _) => hub.Display("human", p.Id, display.IsChecked == true ? CharacterDisplay.Full : CharacterDisplay.Hidden); actions.Children.Add(display);
                         if (hub.CanControl("human", p.Id))
                         {
                             var worker = workers.FirstOrDefault(w => w.Participant.Id == p.Id);
@@ -82,8 +84,9 @@ public sealed partial class EditorWindow
         var worker = workers.FirstOrDefault(w => w.Participant.Id == id);
         if (worker is not null)
         {
-            worker.Turn = Math.Max(0, worker.Turns.Count - 1); RenderWorker(worker); tabs.SelectedIndex = 0;
-            if (unread.Count > 0) worker.DisplayedAnswer = worker.Bubble.Text = string.Join("\n\n", unread.Select(m => p.Name + " · " + m.Importance + "\n" + m.Text));
+            worker.Turn = Math.Max(0, worker.Turns.Count - 1);
+            if (unread.Count > 0) worker.DisplayedAnswer = string.Join("\n\n", unread.Select(m => p.Name + " · " + m.Importance + "\n" + m.Text));
+            if (hub.CanControl("human", p.Id)) SelectWorker(worker); RenderWorker(worker);
         }
         else
         {

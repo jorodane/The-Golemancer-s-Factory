@@ -28,7 +28,7 @@ internal sealed class AndroidPackWindow : IEditorLiveWindowInstance, IEditorObje
         context = EditorNativeSchema.Context(runtime.Snapshot, (command, value) => activity.Dispatch(command, value, activity.MobileWindowContext(definition.Id, mounted?.EventNodeId ?? "")), activity.ProjectTitle, "");
         mounted = new EditorLiveView(runtime.Catalog, definition.View, context, backend);
         page = new(activity) { Orientation = Orientation.Vertical };
-        page.AddView(new TextView(activity) { Text = definition.Title, TextSize = 20 });
+        if (definition.Slot != "workspace.main") page.AddView(new TextView(activity) { Text = definition.Title, TextSize = 20 });
         page.AddView(((AndroidPackBackend.Element)mounted.Root).Control);
         if (activity.SavedStates.TryGetValue(definition.Id, out var saved)) backend.Restore(saved);
     }
@@ -46,7 +46,7 @@ internal sealed class AndroidPackWindow : IEditorLiveWindowInstance, IEditorObje
         var before = ((AndroidPackBackend.Element)mounted.Root).Control;
         mounted.Update(next.Catalog, next.View, context, edits);
         var root = ((AndroidPackBackend.Element)mounted.Root).Control;
-        if (!ReferenceEquals(before, root)) { page.RemoveView(before); page.AddView(root, 1); }
+        if (!ReferenceEquals(before, root)) { page.RemoveView(before); page.AddView(root, definition.Slot == "workspace.main" ? 0 : 1); }
         if (focus is not null && focus.IsShown && focus.IsAttachedToWindow && !focus.HasFocus) focus.RequestFocus();
         int version = ++viewVersion;
         scroll?.Post(() => { if (!disposed && version == viewVersion) scroll.ScrollTo(x, y); });
@@ -54,7 +54,8 @@ internal sealed class AndroidPackWindow : IEditorLiveWindowInstance, IEditorObje
     public void Activate()
     {
         activity.LiveWindows.Add(this);
-        if (definition.Placement == "panel") activity.Panels.AddView(page);
+        if (definition.Slot == "workspace.main") activity.WorkspaceHost.AddView(page);
+        else if (definition.Placement == "panel") activity.Panels.AddView(page);
         else
         {
             var scroll = new ScrollView(activity); scroll.AddView(page);

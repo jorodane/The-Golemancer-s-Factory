@@ -14,6 +14,8 @@ public sealed class ParticipantPresence
 }
 public sealed class ParticipantView
 {
+    public double? X { get; set; }
+    public double? Y { get; set; }
     public string Viewer { get; set; } = "";
     public string ParticipantId { get; set; } = "";
     public CharacterDisplay Display { get; set; }

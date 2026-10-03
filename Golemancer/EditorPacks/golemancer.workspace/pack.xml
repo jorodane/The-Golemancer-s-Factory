@@ -1,0 +1,3 @@
+<ObjectPack id="golemancer.workspace" version="1.0.0" contracts="editor-1" extends="editor.core.tools">
+  <Ui path="ui.xml" /><Data path="editor.xml" />
+</ObjectPack>

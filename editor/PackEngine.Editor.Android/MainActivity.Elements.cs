@@ -54,14 +54,17 @@ public sealed partial class MainActivity
     private void OpenMobileBrowser(string category)
     {
         if (runtime is not { } generation) { Report("먼저 에디터팩을 적용해줘."); return; }
-        var command = generation.Snapshot.Commands.FirstOrDefault(c => c.Fields.TryGetValue("argument.mode", out var mode) && mode == "browse");
+        string owner = windows.Definitions.FirstOrDefault(d => d.Slot == "workspace.main")?.Pack ?? "";
+        var command = generation.Snapshot.Commands.FirstOrDefault(c => c.Pack == owner && c.Fields.GetValueOrDefault("argument.mode") == "workspace")
+            ?? generation.Snapshot.Commands.FirstOrDefault(c => c.Fields.GetValueOrDefault("argument.mode") == "browse");
         if (command is null) { Report("요소 탐색기 명령을 등록해줘."); return; }
         Dispatch(command.Id, UiValue.Text(category));
     }
     private void OpenMobileWindow(string id)
     {
         if (runtime is not { } generation) return;
-        var initializer = generation.Snapshot.Commands.FirstOrDefault(c => c.Fields.TryGetValue("argument.window", out var window) && window == id && c.Fields.TryGetValue("argument.mode", out var mode) && mode == "browse");
+        var owner = windows.Definitions.FirstOrDefault(d => d.Id == id)?.Pack;
+        var initializer = generation.Snapshot.Commands.FirstOrDefault(c => c.Pack == owner && c.Fields.GetValueOrDefault("argument.window") == id && c.Fields.GetValueOrDefault("argument.mode") is "browse" or "workspace");
         if (initializer is not null) { Dispatch(initializer.Id, UiValue.Text("")); return; }
         var editor = generation.Snapshot.ObjectEditors.FirstOrDefault(e => e.Fields["window"] == id);
         if (editor is not null && studioSession.Index.Nodes.TryGetValue(studioSession.State.Selection, out var selected) && selected.Locator.Length > 0)
