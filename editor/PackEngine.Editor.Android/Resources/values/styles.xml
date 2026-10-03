@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <style name="ConfectoryBaseTheme" parent="android:style/Theme.Material.NoActionBar">
+    <item name="android:windowBackground">#11171F</item>
+    <item name="android:statusBarColor">#11171F</item>
+    <item name="android:navigationBarColor">#11171F</item>
+  </style>
+  <style name="ConfectoryTheme" parent="ConfectoryBaseTheme" />
+</resources>

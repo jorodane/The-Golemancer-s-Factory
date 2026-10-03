@@ -57,17 +57,14 @@ public sealed partial class MainActivity
     private void SaveMobileDirectory() => mobileDirectory.Save(Path.Combine(root, "ai-directory.json"));
     private void RefreshMobileHome()
     {
+        RefreshMobileStartPage();
         editorAiButton.Text = "AI 관리"; welcome.RemoveAllViews(); welcome.Visibility = ViewStates.Visible; peerStatus = null;
         aiToolbar.Visibility = mobileSidebar.Visibility = aiConnections.SetupCompleted ? ViewStates.Visible : ViewStates.Gone;
         mobileTools.Visibility = aiConnections.SetupCompleted && aiConnections.SelectedPack.Length > 0 && !MobileProject ? ViewStates.Visible : ViewStates.Gone;
         AdjustMobileLayout(); mobileWorkerLayer.Visibility = aiConnections.SetupCompleted && aiConnections.SelectedPack.Length > 0 ? ViewStates.Visible : ViewStates.Gone;
         if (!aiConnections.SetupCompleted)
         {
-            welcome.AddView(new TextView(this) { Text = "작업할 AI 에이전트를 연결해.", TextSize = 24 });
-            welcome.AddView(AiAction("에이전트 연결", ShowEditorAiSetup));
-            foreach (var agent in mobileDirectory.Agents.Where(a => a.Enabled && a.Connection.IsApi))
-                welcome.AddView(AiAction(agent.Name + " 연결", async () => { try { SelectMobileAgent(agent); if (await ConnectEditorAi()) { aiConnections.SetupCompleted = true; SaveMobileDirectory(); SaveAiConnections(); } } catch (Exception e) { Report(e.Message); } }));
-            welcome.AddView(AiAction("나중에", () => { aiConnections.SetupCompleted = true; SaveAiConnections(); })); return;
+            return;
         }
         RefreshMobileManagement();
         if (aiConnections.SelectedPack.Length == 0)

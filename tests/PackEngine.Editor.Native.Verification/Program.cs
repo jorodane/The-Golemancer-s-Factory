@@ -43,7 +43,23 @@ internal static class Program
         try
         {
             window = new EditorWindow(); window.Show();
-            Check(Descendants(window).OfType<Button>().Any(b => (string?)b.Content == "나중에" && b.IsVisible), "the native startup offers connection or Later without showing the editor tools");
+            var intro = Field<Grid>(window, "startPage");
+            var startButtons = Descendants(intro).OfType<Button>().ToArray();
+            var connect = startButtons.Single(b => (string?)b.Content == "AI Agent 연결");
+            var later = startButtons.Single(b => (string?)b.Content == "나중에");
+            Check(intro.IsVisible && !Field<Grid>(window, "studioRoot").IsVisible && !Field<TextBox>(window, "log").IsVisible
+                && !Field<TextBlock>(window, "status").IsVisible, "native startup isolates the intro from the console, status and entire editor shell");
+            Check(startButtons.Length == 2 && !connect.IsEnabled && !later.IsEnabled && connect.Opacity == 0 && later.Opacity == 0,
+                "the first native frame is blank and hidden actions cannot receive input");
+            Check(Descendants(intro).OfType<TextBlock>().Any(t => t.Text == "AI-Integrated Development Environment" && t.TextWrapping == TextWrapping.NoWrap)
+                && later.Background is null && later.BorderThickness == new Thickness(0) && later.FontSize < connect.FontSize,
+                "the subtitle stays on one line and Later uses a quiet text action without button chrome");
+            PumpUntil(() => connect.IsEnabled && later.IsEnabled && later.Opacity > .99, "Startup entrance did not finish.");
+            Check(Descendants(window).OfType<Button>().Count(b => b.IsVisible) == 2 && Field<EditorSession?>(window, "session") is null,
+                "intro completion reveals only its two actions without opening a project");
+            later.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+            Check(!intro.IsVisible && Field<Grid>(window, "studioRoot").IsVisible,
+                "Later leaves the intro through the existing studio setup flow");
             window.OpenProject(Path.Combine(args[0], "Golemancer/Golemancer.packproject"));
             Call(window, "CompleteStudioSetup");
             var host = Field<ContentControl>(window, "workspaceHost");

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <style name="ConfectoryTheme" parent="ConfectoryBaseTheme">
+    <item name="android:windowSplashScreenBackground">#11171F</item>
+    <item name="android:windowSplashScreenAnimatedIcon">@drawable/startup_blank</item>
+    <item name="android:windowSplashScreenIconBackgroundColor">@android:color/transparent</item>
+    <item name="android:windowSplashScreenAnimationDuration">0</item>
+  </style>
+</resources>

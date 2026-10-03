@@ -29,6 +29,7 @@ public sealed partial class EditorWindow
         AddInternalYogi(studioSurface);
         projectCommands.Visibility = Visibility.Collapsed;
         root.RowDefinitions[2].Height = new GridLength(160);
+        AddStartPage(root);
         RefreshStudioShell();
     }
     public void StartStudio(string requestedProject)
@@ -79,6 +80,7 @@ public sealed partial class EditorWindow
     private void RefreshStudioShell()
     {
         if (projectCommands is null || editorBody is null) return;
+        RefreshStartPage();
         bool project = studioReady && session is not null && !Standalone;
         if (project) projectWorkspaceVisible = true;
         bool workspace = studioReady && projectWorkspaceVisible;
@@ -91,15 +93,7 @@ public sealed partial class EditorWindow
         projectHome.Children.Clear();
         if (!studioReady)
         {
-            projectHome.VerticalAlignment = VerticalAlignment.Center;
-            projectHome.Children.Add(Label("작업할 AI 에이전트를 연결해.", 27));
-            projectHome.Children.Add(Label("연결은 나중에 AI 관리에서도 추가할 수 있어.", 14, MutedInk));
-            foreach (var agent in aiDirectory.Agents.Where(a => a.Enabled))
-                projectHome.Children.Add(Action(agent.Name + " 연결", async () => { SelectStoredAgent(agent.Id); if (await ConnectSelectedEditorAi()) CompleteStudioSetup(); }));
-            projectHome.Children.Add(Action("에이전트 연결", () => { editingAgentId = ""; ShowEditorAiSetup(); }));
-            projectHome.Children.Add(Action("나중에", CompleteStudioSetup));
-            if (codexConnectionNotice.Parent is Panel previous) previous.Children.Remove(codexConnectionNotice);
-            projectHome.Children.Add(codexConnectionNotice);
+            return;
         }
         else if (!workspace)
         {
