@@ -17,11 +17,11 @@
     <ProjectReference Include="../PackEngine.EditorPacks/PackEngine.EditorPacks.csproj" AdditionalProperties="EngineTargetFramework=net10.0" />
     <ProjectReference Include="../PackEngine.Assistant.Api/PackEngine.Assistant.Api.csproj" AdditionalProperties="EngineTargetFramework=net10.0" />
     <ProjectReference Include="../Packs/CoreTools/PackEngine.Editor.CoreTools.csproj;../examples/MobileLab/PackEngine.Editor.MobileLab.csproj" AdditionalProperties="EngineTargetFramework=net10.0" ReferenceOutputAssembly="false" />
-    <ProjectReference Include="../PackEngine.Tool/PackEngine.Tool.csproj" AdditionalProperties="EngineTargetFramework=net10.0" GlobalPropertiesToRemove="TargetFramework;RuntimeIdentifier;RuntimeIdentifiers;SelfContained" ReferenceOutputAssembly="false" />
     <AndroidAsset Include="../examples/MobileLab/*.xml;../examples/MobileLab/*.cs;../examples/MobileLab/*.csproj"><Link>Plugins/editor.lab.mobile/%(Filename)%(Extension)</Link></AndroidAsset>
     <AndroidAsset Include="../examples/MobileLab/Bin/net10.0/PackEngine.Editor.MobileLab.dll"><Link>Plugins/editor.lab.mobile/Bin/net10.0/PackEngine.Editor.MobileLab.dll</Link></AndroidAsset>
   </ItemGroup>
   <Target Name="BundlePackEngine" BeforeTargets="_ComputeAndroidAssetsPaths" DependsOnTargets="ResolveProjectReferences">
+    <MSBuild Projects="$(MSBuildThisFileDirectory)../PackEngine.Tool/PackEngine.Tool.csproj" Targets="Restore;Build" Properties="Configuration=$(Configuration);EngineTargetFramework=net10.0;TargetFramework=net10.0;SelfContained=false" RemoveProperties="RuntimeIdentifier;RuntimeIdentifiers" />
     <Exec Command="dotnet &quot;$(MSBuildThisFileDirectory)../PackEngine.Tool/bin/$(Configuration)/net10.0/PackEngine.Tool.dll&quot; bundle-engine --recipe &quot;$(MSBuildThisFileDirectory)../engine.xml&quot; --output &quot;$(MSBuildThisFileDirectory)$(IntermediateOutputPath)Engine&quot;" />
     <ItemGroup>
       <AndroidAsset Include="$(MSBuildThisFileDirectory)$(IntermediateOutputPath)Engine/**/*"><Link>Engine/%(RecursiveDir)%(Filename)%(Extension)</Link></AndroidAsset>
