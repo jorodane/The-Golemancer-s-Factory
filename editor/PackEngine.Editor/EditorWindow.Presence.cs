@@ -27,6 +27,7 @@ public sealed partial class EditorWindow
             presenceRefreshQueued = false;
             if (session is not null) foreach (var participant in session.Collaboration.State.Participants.Where(p => p.Kind == ParticipantKind.AI && p.Id.StartsWith("worker-", StringComparison.Ordinal) && workers.All(w => w.Participant.Id != p.Id)).ToArray()) CreateWorker(participant);
             foreach (var worker in workers) RenderWorker(worker);
+            RefreshParticipantNotices();
             refreshParticipantWindow?.Invoke(); foreach (var chat in publicChats.ToArray()) chat.Refresh(); RefreshRoomCaption(); RefreshAiManagement(); RefreshEmbeddedChat(); DispatchPendingIncidents();
         }));
     }
@@ -85,7 +86,8 @@ public sealed partial class EditorWindow
         if (worker is not null)
         {
             worker.Turn = Math.Max(0, worker.Turns.Count - 1);
-            if (unread.Count > 0) worker.DisplayedAnswer = string.Join("\n\n", unread.Select(m => p.Name + " · " + m.Importance + "\n" + m.Text));
+            worker.DisplayedAnswer = string.Join("\n\n", unread.Select(m => p.Name + " · " + m.Importance + "\n" + m.Text));
+            worker.DisplayedMessageIds = unread.Select(m => m.Id).ToArray();
             if (hub.CanControl("human", p.Id)) SelectWorker(worker); RenderWorker(worker);
         }
         else
@@ -93,13 +95,33 @@ public sealed partial class EditorWindow
             var window = new Window { Owner = this, Title = p.Name + " · 공개 답변", Width = 640, Height = 500, Background = PanelInk, Foreground = TextInk };
             var text = ReadBox(); text.Text = string.Join("\n\n", unread.Select(m => m.Text)); window.Content = text; window.Show();
         }
-        hub.Acknowledge("human", id, unread.Select(m => m.Id));
+        if (unread.Count > 0) hub.Acknowledge("human", id, unread.Select(m => m.Id));
+        foreach (var notice in participantNotifications.Children.OfType<FrameworkElement>().Where(n => (string?)n.Tag == id).ToArray()) participantNotifications.Children.Remove(notice);
     }
     private void ReadWorkerBubble(EditorWorker worker)
     {
         if (session is null) return;
         string id = worker.Turns.ElementAtOrDefault(worker.Turn)?.MessageId ?? "";
-        if (id.Length > 0) session.Collaboration.Acknowledge("human", worker.Participant.Id, new[] { id });
+        var unread = session.Collaboration.Unread("human", worker.Participant.Id);
+        var displayed = unread.Where(m => worker.DisplayedAnswer.Length > 0 ? worker.DisplayedMessageIds.Contains(m.Id) : m.Id == id).Select(m => m.Id).ToArray();
+        if (displayed.Length > 0) session.Collaboration.Acknowledge("human", worker.Participant.Id, displayed);
+        if (session.Collaboration.Unread("human", worker.Participant.Id).Count == 0)
+            foreach (var notice in participantNotifications.Children.OfType<FrameworkElement>().Where(n => (string?)n.Tag == worker.Participant.Id).ToArray()) participantNotifications.Children.Remove(notice);
+    }
+    private void RefreshParticipantNotices()
+    {
+        participantNotifications.Children.Clear();
+        if (session is null) return;
+        var hub = session.Collaboration;
+        var notices = workers.Where(w => hub.View("human", w.Participant.Id).Display != CharacterDisplay.Full)
+            .Select(w => new { Worker = w, Message = hub.Unread("human", w.Participant.Id).LastOrDefault() })
+            .Where(n => n.Message is not null).OrderByDescending(n => n.Message!.Utc, StringComparer.Ordinal).Take(4);
+        foreach (var notice in notices)
+        {
+            string text = notice.Message!.Text, id = notice.Worker.Participant.Id;
+            var button = Action(notice.Worker.Participant.Name + " · " + text.Substring(0, Math.Min(90, text.Length)) + " · 보기", () => ShowParticipantAnswers(id));
+            button.Tag = id; participantNotifications.Children.Add(button);
+        }
     }
     private void OpenPublicChat(bool roomChat, string initial = "", string roomPath = "")
     {

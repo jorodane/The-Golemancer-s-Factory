@@ -91,6 +91,6 @@ public sealed partial class EditorWindow
     {
         var main = workers.FirstOrDefault(w => w.Participant.HelperId == projectStudio.MainHelperId);
         if (main is not null) { SelectWorker(main); var input = main.Composer.Children.OfType<TextBox>().FirstOrDefault(); input?.Focus(); }
-        else { firstProjectPromptPanel.Visibility = Visibility.Visible; firstProjectPrompt.Focus(); }
+        else firstProjectPromptPanel.Visibility = Visibility.Collapsed;
     }
 }

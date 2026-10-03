@@ -78,7 +78,9 @@ internal static class Program
             PumpUntil(() => !Field<bool>(window, "busy") && host.Content is not null && Descendants(host).OfType<TextBlock>().Any(t => t.Text.Contains("개 항목")), "Project-owned main workspace did not finish loading.");
             window.UpdateLayout();
             Check(host.IsVisible && host.ActualWidth > 400 && host.ActualHeight > 200 && Descendants(host).OfType<TextBlock>().Any(t => t.Text == "공방의 설계"), "the real project main pack occupies the native work surface");
-            Check(VisualTreeHelper.GetParent(Field<Grid>(window, "editorBody")) is null && Field<ScrollViewer>(window, "aiManagementView").Visibility == Visibility.Collapsed, "the project opens with the work surface and keeps the explorer, inspector and AI directory in separate tools");
+            Check(VisualTreeHelper.GetParent(Field<Grid>(window, "editorBody")) is null && Field<ScrollViewer>(window, "aiManagementView").IsVisible
+                && Field<Border>(window, "sidebarChat").IsVisible && !Field<TextBox>(window, "log").IsVisible,
+                "the project keeps its AI sidebar and lower chat visible while editor tools and console stay hidden");
             var session = Field<EditorSession>(window, "session");
             var engine = Field<PackEngine.EditorPacks.EditorEngineDistribution>(window, "installedEngine");
             Check(engine.Sources.All(s => s.IsReadOnly) && engine.Root.StartsWith(AppDomain.CurrentDomain.BaseDirectory), "native editor loads fixed engine packs from its integrated deployment");
@@ -92,6 +94,9 @@ internal static class Program
             participant.X = 100; participant.Y = 120; Call(window, "CreateWorker", participant);
             var layer = Field<Canvas>(window, "participantsCanvas"); window.UpdateLayout();
             var character = layer.Children.OfType<Border>().Single();
+            Check(!character.IsVisible && session.Collaboration.View("human", participant.Id).Display == CharacterDisplay.Hidden,
+                "new workers wait in the sidebar without covering the project surface");
+            Call(window, "ShowParticipantAnswers", participant.Id); window.UpdateLayout();
             Check(layer.Background is null && character.IsVisible && character.ActualWidth > 0, "workers float directly above the workspace while empty space passes pointer input");
             var avatar = Descendants(character).OfType<Border>().Single(b => b.Width == 48);
             avatar.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left) { RoutedEvent = UIElement.MouseLeftButtonDownEvent });
@@ -102,6 +107,30 @@ internal static class Program
             drag.RaiseEvent(new DragDeltaEventArgs(35, 25) { RoutedEvent = Thumb.DragDeltaEvent });
             drag.RaiseEvent(new DragCompletedEventArgs(35, 25, false) { RoutedEvent = Thumb.DragCompletedEvent });
             Check(Canvas.GetLeft(character) == before + 35 && session.Collaboration.View("human", participant.Id).X == before + 35, "native dragging updates the viewer's worker placement");
+
+            var second = session.Collaboration.Register("worker-native-second", "Second worker", ParticipantKind.AI, ParticipantPermission.Talk | ParticipantPermission.Work);
+            Call(window, "CreateWorker", second); Call(window, "ShowParticipantAnswers", second.Id); window.UpdateLayout();
+            Check(layer.Children.OfType<Border>().All(c => c.IsVisible && Descendants(c).OfType<TextBox>().Any(t => t.IsVisible)),
+                "opening another worker leaves both independent request composers visible");
+            var firstReply = session.Collaboration.Post(participant.Id, "First reply", "direct", recipient: "human");
+            Call(window, "ShowParticipantAnswers", participant.Id);
+            var nextReply = session.Collaboration.Post(participant.Id, "New reply after opening", "direct", recipient: "human");
+            character.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left) { RoutedEvent = UIElement.PreviewMouseLeftButtonDownEvent });
+            Check(session.Collaboration.Unread("human", participant.Id).Select(m => m.Id).SequenceEqual(new[] { nextReply.Id }),
+                "reading an older displayed answer never acknowledges a later unseen reply");
+            Call(window, "OpenConceptMap", ""); window.UpdateLayout();
+            var page = Field<ContentControl>(window, "conceptPageHost"); var surface = (Grid)VisualTreeHelper.GetParent(layer);
+            Check(page.IsVisible && surface.Children.IndexOf(layer) > surface.Children.IndexOf(page) && character.IsVisible,
+                "independent worker conversations remain above the concept editing page");
+            Call(window, "CloseConceptPage");
+            var closeWorker = Descendants(character).OfType<Button>().Single(b => Descendants(b).OfType<TextBlock>().Any(t => t.Text == "×"));
+            closeWorker.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+            PumpUntil(() => !character.IsVisible, "Worker conversation did not hide.");
+            Check(session.Collaboration.View("human", second.Id).Display == CharacterDisplay.Full && layer.Children.OfType<Border>().Count(c => c.IsVisible) == 1,
+                "closing one conversation leaves the other worker open");
+            Check(Descendants(Field<StackPanel>(window, "aiManagement")).OfType<TextBlock>().Any(t => t.Text == "확인 필요")
+                && Field<StackPanel>(window, "participantNotifications").Children.Count > 0,
+                "hidden workers expose unread state in the sidebar and a clickable answer preview");
 
             NativeInputs(window);
             Console.WriteLine("NATIVE_WORKSPACE_CHECKS=" + checks); return 0;

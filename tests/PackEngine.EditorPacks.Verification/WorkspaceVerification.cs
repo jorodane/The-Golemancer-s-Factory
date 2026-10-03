@@ -87,6 +87,19 @@ internal static class WorkspaceVerification
         try { await Invoke("action", node: Id(Button(Card(applied, "전술 제작"), "변경 확정"))); } catch (Exception) { rejected = true; }
         Check(rejected && File.ReadAllText(session.Project.Resolve(file)).Contains("<!-- external edit -->"), "workspace proposals reject concurrent disk changes without overwriting them");
         _ = next;
+        var blank = EditorPackTemplates.CreateWorkspace(Path.Combine(temporary, "BlankWorkspacePacks"), "test.blank", empty: true);
+        Check(EditorPackSelection.DeclarativeWorkspace([core, blank])?.Id == blank.Id, "an empty project screen remains a project-owned declarative workspace");
+        using var blankRuntime = await EditorPackRuntime.Prepare(worker, dotnet, [core, blank], default);
+        using var blankRegistry = new EditorWindowRegistry(); blankRegistry.Refresh(blankRuntime, _ => new Window());
+        var blankMain = blankRegistry.Definitions.Single(d => d.Slot == "workspace.main");
+        using (var data = new EditorPackProjectData(session, blank.Id))
+        {
+            var opened = await blankRuntime.Execute(new() { Command = blank.Id + ".open", Context = new() { ["projectId"] = session.Project.Identity, ["editorPack"] = blank.Id, ["windowId"] = blankMain.Id } }, default, data);
+            Check(opened.Windows.Single().Id == blankMain.Id && opened.View is null && opened.DocumentChanges.Count == 0 && blankRegistry.OpenIds.Contains(blankMain.Id),
+                "opening a blank screen preserves its authored XML instead of trying to read an empty object key or injecting a catalog");
+            Check(EditorNavigation.Editors(blankRuntime.Snapshot, data.ListObjects("recipe").First()).All(e => e.Pack != blank.Id),
+                "a blank main screen does not replace the working fallback object editor");
+        }
         Console.WriteLine("WORKSPACE_CHECKS=" + checks);
     }
     private sealed class Window : IEditorLiveWindowInstance

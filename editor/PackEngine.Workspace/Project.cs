@@ -18,6 +18,7 @@ public sealed class ProjectTarget
     public string Platform { get; set; } = "";
     public string Framework { get; set; } = "";
     public string FrameworkProperty { get; set; } = "TargetFramework";
+    public string AndroidApplication { get; set; } = "";
     public List<ProjectCommand> Build { get; set; } = [];
     public List<ProjectCommand> Verify { get; set; } = [];
     public List<ProjectCommand> Run { get; set; } = [];
@@ -85,7 +86,7 @@ public sealed class WorkspaceProject
         }
         foreach (var e in xml.Elements("Target"))
         {
-            var target = new ProjectTarget { Id = Required(e, "id"), Platform = Required(e, "platform"), Framework = Required(e, "framework"), FrameworkProperty = (string?)e.Attribute("frameworkProperty") ?? "TargetFramework" };
+            var target = new ProjectTarget { Id = Required(e, "id"), Platform = Required(e, "platform"), Framework = Required(e, "framework"), FrameworkProperty = (string?)e.Attribute("frameworkProperty") ?? "TargetFramework", AndroidApplication = (string?)e.Attribute("androidApplication") ?? "" };
             if (project.Targets.Any(t => t.Id == target.Id)) throw new InvalidDataException("Duplicate target: " + target.Id);
             foreach (var pair in new[] { ("Build", target.Build), ("Verify", target.Verify), ("Run", target.Run), ("Smoke", target.Smoke) })
                 foreach (var command in e.Elements(pair.Item1).Elements("Exec"))

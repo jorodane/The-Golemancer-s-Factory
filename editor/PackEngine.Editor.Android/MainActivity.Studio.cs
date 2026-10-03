@@ -28,6 +28,9 @@ public sealed partial class MainActivity
         public LinearLayout Character = null!, Composer = null!;
         public TextView Bubble = null!, Caption = null!;
         public string UrgentIncident = "";
+        public string ResultState = "";
+        public string DisplayedAnswer = "";
+        public string[] DisplayedMessageIds = [];
         public bool Completed;
     }
     private void ManageMobileAgent(AiAgentProfile agent)
@@ -36,7 +39,7 @@ public sealed partial class MainActivity
         {
             try
             {
-                if (choice.Which == 2) { MobileName("에이전트 이름", name => { if (string.IsNullOrWhiteSpace(name) || name.Length > 80) throw new ArgumentException("이름은 1–80자로 입력해줘."); agent.Name = name; SaveMobileDirectory(); RefreshMobileManagement(); }); return; }
+                if (choice.Which == 2) { MobileName("에이전트 이름", name => { if (string.IsNullOrWhiteSpace(name) || name.Length > 80) throw new ArgumentException("이름은 1–80자로 입력해줘."); agent.Name = name; SaveMobileDirectory(); RefreshMobileManagement(); RefreshMobileSidebarChat(); }); return; }
                 if (choice.Which == 1)
                 {
                     if (mobileWorkers.Any(w => w.Participant.AgentId == agent.Id && w.Cancellation is not null)) throw new InvalidOperationException("이 에이전트의 작업을 먼저 끝내줘.");
@@ -59,10 +62,10 @@ public sealed partial class MainActivity
     {
         RefreshMobileStartPage();
         editorAiButton.Text = "AI 관리"; welcome.RemoveAllViews(); welcome.Visibility = ViewStates.Visible; peerStatus = null;
-        bool workspace = aiConnections.SetupCompleted && aiConnections.SelectedPack.Length > 0;
-        aiToolbar.Visibility = workspace ? ViewStates.Visible : ViewStates.Gone;
-        if (mobileBrand is not null) mobileBrand.Visibility = workspace ? ViewStates.Visible : ViewStates.Gone;
-        if (mobileConsole is not null) mobileConsole.Visibility = workspace ? ViewStates.Visible : ViewStates.Gone;
+        aiToolbar.Visibility = ViewStates.Gone;
+        if (mobileProjectActions is not null) mobileProjectActions.Visibility = MobileProject ? ViewStates.Visible : ViewStates.Gone;
+        if (mobileBrand is not null) mobileBrand.Visibility = ViewStates.Gone;
+        if (mobileConsole is not null) mobileConsole.Visibility = ViewStates.Gone;
         welcome.SetPadding(0, 0, 0, 0);
         mobileTools.Visibility = aiConnections.SetupCompleted && aiConnections.SelectedPack.Length > 0 && !MobileProject ? ViewStates.Visible : ViewStates.Gone;
         AdjustMobileLayout(); mobileWorkerLayer.Visibility = aiConnections.SetupCompleted && aiConnections.SelectedPack.Length > 0 ? ViewStates.Visible : ViewStates.Gone;
@@ -75,28 +78,13 @@ public sealed partial class MainActivity
         {
             BuildMobileProjectHome(); return;
         }
-        welcome.AddView(new TextView(this) { Text = MobileProject ? studioSession.Project.Name : aiConnections.SelectedPack, TextSize = 22 });
-        var commands = new LinearLayout(this) { Orientation = Orientation.Horizontal };
-        commands.AddView(AiAction("참여자", MobileParticipants));
-        commands.AddView(AiAction("작업자 추가", () => { var worker = CreateMobileWorker(); if (worker is not null) SelectMobileWorker(worker); }));
-        commands.AddView(AiAction("프로젝트 채팅", () => OpenMobileProjectChat())); commands.AddView(AiAction("도구", MobileWorkspaceTools));
-        var strip = new HorizontalScrollView(this); strip.AddView(commands); welcome.AddView(strip);
-        if (MobileProject)
-        {
-            welcome.AddView(MobileProjectRoleBar());
-            if (!mobileWorkers.Any(w => studioSession.Collaboration.CanControl("human", w.Participant.Id)))
-            {
-                var input = mobileFirstPrompt = new EditText(this) { Hint = "첫 요청", InputType = InputTypes.ClassText | InputTypes.TextFlagMultiLine }; welcome.AddView(input);
-                welcome.AddView(AiAction("보내기", async () => { string text = input.Text?.Trim() ?? ""; if (text.Length == 0) return; var worker = CreateMobileWorker(); if (worker is null) return; SelectMobileWorker(worker); input.Text = ""; input.Visibility = ViewStates.Gone; await RunMobileWorker(worker, text); }));
-            }
-        }
         mobileWorkerLayer.Visibility = ViewStates.Visible; RefreshMobilePresence();
     }
     private void RefreshMobileManagement() => BuildMobileAiSidebar();
     private void RefreshMobilePresence()
     {
         if (studioSession is null || IsDestroyed || mobilePresenceQueued) return; mobilePresenceQueued = true;
-        mobileWorkerLayer.Post(() => { mobilePresenceQueued = false; if (IsDestroyed) return; DispatchMobileIncidents(); foreach (var participant in studioSession.Collaboration.State.Participants.Where(p => p.Kind == ParticipantKind.AI && mobileWorkers.All(w => w.Participant.Id != p.Id)).ToArray()) LoadMobileWorker(participant); foreach (var worker in mobileWorkers) RenderMobileWorker(worker); if (aiConnections.SetupCompleted) RefreshMobileManagement(); });
+        mobileWorkerLayer.Post(() => { mobilePresenceQueued = false; if (IsDestroyed) return; DispatchMobileIncidents(); foreach (var participant in studioSession.Collaboration.State.Participants.Where(p => p.Kind == ParticipantKind.AI && mobileWorkers.All(w => w.Participant.Id != p.Id)).ToArray()) LoadMobileWorker(participant); foreach (var worker in mobileWorkers) RenderMobileWorker(worker); if (aiConnections.SetupCompleted) RefreshMobileManagement(); RefreshMobileSidebarChat(); RefreshMobileNotices(); });
     }
     private void SwitchMobileProject(string id)
     {
@@ -110,7 +98,7 @@ public sealed partial class MainActivity
             if (helper is not null) { helper.Enabled = true; SaveMobileDirectory(); }
             string agentId = helper?.AgentId ?? (MobileProject ? mobileProjectStudio.WorkerAgent(mobileDirectory) : mobileDirectory.SelectedAgentId); var agent = mobileDirectory.Agent(agentId);
             if (!agent.Connection.IsApi) throw new InvalidOperationException("Android에서는 API 에이전트를 선택해줘.");
-            var old = helper is null ? null : mobileWorkers.FirstOrDefault(w => w.Participant.HelperId == helper.Id); if (old is not null) return old;
+            var old = helper is null ? null : mobileWorkers.FirstOrDefault(w => w.Participant.HelperId == helper.Id && studioSession.Collaboration.CanControl("human", w.Participant.Id)); if (old is not null) return old;
             var p = studioSession.Collaboration.Register("worker-" + Guid.NewGuid().ToString("N"), helper?.Name ?? "작업자 " + (mobileWorkers.Count + 1), ParticipantKind.AI, ParticipantPermission.Talk | ParticipantPermission.Work);
             p.AgentId = agentId; p.HelperId = helper?.Id ?? ""; p.X = 24 + mobileWorkers.Count % 2 * 165; p.Y = Math.Max(70, mobileWorkerLayer.Height / (Resources?.DisplayMetrics?.Density ?? 1) - 290 - mobileWorkers.Count / 2 * 140); var worker = LoadMobileWorker(p); studioSession.Collaboration.Save(); if (helper is not null && MobileProject) { mobileProjectStudio.AddHelper(helper.Id); mobileProjectStudio.Save(studioSession.Project); } RefreshMobileManagement(); return worker;
         }
@@ -120,6 +108,8 @@ public sealed partial class MainActivity
     {
         var worker = new MobileWorker { Participant = participant }; string file = Path.Combine(studioSession.StateDirectory, "participants", participant.Id, "turns-mobile.json");
         if (studioSession.Collaboration.CanControl("human", participant.Id) && File.Exists(file)) worker.Turns = JsonSerializer.Deserialize<List<AssistantChatMessage>>(File.ReadAllText(file), EditorSession.Json) ?? [];
+        bool newView = !studioSession.Collaboration.State.Views.Any(v => v.Viewer == "human" && v.ParticipantId == participant.Id);
+        if (newView) studioSession.Collaboration.View("human", participant.Id).Display = CharacterDisplay.Hidden;
         mobileWorkers.Add(worker); AttachMobileWorker(worker); return worker;
     }
     private void MobileName(string title, Action<string> apply)
@@ -133,7 +123,8 @@ public sealed partial class MainActivity
     {
         studioSession.Collaboration.RequireControl("human", worker.Participant.Id);
         if (worker.Log is not null) { worker.Log.Show(); return; }
-        studioSession.Collaboration.Acknowledge("human", worker.Participant.Id, studioSession.Collaboration.Unread("human", worker.Participant.Id).Select(m => m.Id)); RefreshMobileManagement();
+        var shown = studioSession.Collaboration.Unread("human", worker.Participant.Id).Where(m => m.Channel == "direct" && worker.Turns.Any(t => t.Role != "나" && t.Text.StartsWith(m.Text, StringComparison.Ordinal))).Select(m => m.Id).ToArray();
+        if (shown.Length > 0) studioSession.Collaboration.Acknowledge("human", worker.Participant.Id, shown); RefreshMobileManagement();
         var layout = new LinearLayout(this) { Orientation = Orientation.Vertical }; var text = new TextView(this) { Text = string.Join("\n\n", worker.Turns.Select(t => t.Role + "\n" + t.Text)), TextSize = 15 }; text.SetTextIsSelectable(true); worker.Transcript = text;
         var scroll = new ScrollView(this); scroll.AddView(text); layout.AddView(scroll, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, 0, 1));
         layout.AddView(AiAction("요청 취소", () => worker.Cancellation?.Cancel()));
@@ -151,8 +142,8 @@ public sealed partial class MainActivity
     private async Task RunMobileWorker(MobileWorker worker, string prompt)
     {
         studioSession.Collaboration.RequireControl("human", worker.Participant.Id);
-        if (worker.Cancellation is not null) return; worker.Cancellation = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token); var token = worker.Cancellation.Token; RenderMobileWorker(worker);
-        worker.Completed = false; var owner = studioSession; ChangeReviewBatch? review = null;
+        if (worker.Cancellation is not null) return; worker.DisplayedAnswer = ""; worker.DisplayedMessageIds = []; worker.Cancellation = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token); var token = worker.Cancellation.Token; RenderMobileWorker(worker); RefreshMobileManagement();
+        worker.Completed = false; worker.ResultState = "working"; var owner = studioSession; ChangeReviewBatch? review = null;
         try
         {
             if (worker.Participant.HelperId.Length > 0 && mobileDirectory.Helpers.FirstOrDefault(h => h.Id == worker.Participant.HelperId)?.Enabled != true) throw new InvalidOperationException("이 Helper의 연결을 다시 활성화해줘.");
@@ -195,19 +186,21 @@ public sealed partial class MainActivity
                 });
                 return reply + "\n\n" + outcome;
             });
-            worker.Completed = true; worker.Turns.Add(new() { Role = worker.Participant.Name, Text = answer }); owner.Collaboration.Post(worker.Participant.Id, answer, "direct", recipient: "human");
+            worker.Completed = true; worker.ResultState = "completed"; worker.Turns.Add(new() { Role = worker.Participant.Name, Text = answer });
         }
         catch (global::System.OperationCanceledException) when (worker.UrgentIncident.Length > 0 && review is not null)
         {
             if (!review.IsClosed) review.DeferAsHandoff();
             owner.Collaboration.Suspend(worker.Participant.Id, review.Request.Id, worker.UrgentIncident, string.Join("\n", review.Items.Select(i => i.Path + " · " + i.State)));
-            worker.UrgentIncident = ""; worker.Turns.Add(new() { Role = "실행", Text = "긴급 요청으로 중단 · 체크포인트와 초안 보존" });
+            worker.UrgentIncident = ""; worker.ResultState = "suspended"; worker.Turns.Add(new() { Role = "실행", Text = "긴급 요청으로 중단 · 체크포인트와 초안 보존" });
         }
-        catch (Exception e) { worker.Turns.Add(new() { Role = "실행", Text = e is global::System.OperationCanceledException ? "요청을 취소했어." : e.Message }); Report(e.Message); }
+        catch (Exception e) { worker.ResultState = e is global::System.OperationCanceledException ? "cancelled" : "failed"; worker.Turns.Add(new() { Role = "실행", Text = worker.ResultState == "cancelled" ? "요청을 취소했어." : e.Message }); Report(e.Message); }
         finally
         {
             if (review is not null) mobileReviews.Remove(review.Request.Id);
             review?.Cancel(); worker.Cancellation.Dispose(); worker.Cancellation = null;
+            string notification = worker.Turns.LastOrDefault(t => t.Role != "나")?.Text ?? "";
+            if (notification.Length > 0) owner.Collaboration.Post(worker.Participant.Id, notification.Substring(0, Math.Min(32000, notification.Length)), "direct", recipient: "human", importance: worker.Completed ? MessageImportance.Completed : MessageImportance.NeedsReply);
             AtomicWrite(Path.Combine(owner.StateDirectory, "participants", worker.Participant.Id, "turns-mobile.json"), Encoding.UTF8.GetBytes(EditorSession.Serialize(worker.Turns)));
             if (worker.Participant.HelperId.Length > 0) AtomicWrite(Path.Combine(root, "Helpers", worker.Participant.HelperId, "projects", WorkspaceProject.HashText(owner.Project.Identity) + ".json"), Encoding.UTF8.GetBytes(EditorSession.Serialize(worker.Turns)));
             if (worker.Transcript is not null) worker.Transcript.Text = string.Join("\n\n", worker.Turns.Select(t => t.Role + "\n" + t.Text));

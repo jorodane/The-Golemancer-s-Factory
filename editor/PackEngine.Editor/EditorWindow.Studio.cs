@@ -16,13 +16,19 @@ public sealed partial class EditorWindow
     private bool projectWorkspaceVisible;
     private readonly TextBox projectChat = ReadBox(), projectMessage = Input(true);
     private string editingAgentId = "";
+    private readonly Grid studioSidebar = new();
+    private readonly Border sidebarChat = new();
 
     private void AddStudioShell(Grid root, Grid body, FrameworkElement commands)
     {
         projectCommands = commands; root.Children.Remove(body);
         var frame = new Grid { Margin = new Thickness(12, 0, 12, 8) };
         frame.ColumnDefinitions.Add(new() { Width = new GridLength(112) }); frame.ColumnDefinitions.Add(new() { Width = new GridLength(8) }); frame.ColumnDefinitions.Add(new());
-        aiManagementView.Content = aiManagement; frame.Children.Add(aiManagementView);
+        studioSidebar.RowDefinitions.Add(new() { Height = new GridLength(1, GridUnitType.Star) });
+        studioSidebar.RowDefinitions.Add(new() { Height = new GridLength(240) });
+        aiManagementView.Content = aiManagement; studioSidebar.Children.Add(aiManagementView);
+        sidebarChat.Child = BuildProjectChat(); sidebarChat.BorderBrush = MutedInk; sidebarChat.BorderThickness = new Thickness(0, 1, 0, 0);
+        Grid.SetRow(sidebarChat, 1); studioSidebar.Children.Add(sidebarChat); frame.Children.Add(studioSidebar);
         Grid.SetColumn(studioSurface, 2); frame.Children.Add(studioSurface); BuildWorkspaceSurface();
         projectHomeView.Content = projectHome; studioSurface.Children.Add(projectHomeView);
         Grid.SetRow(frame, 1); root.Children.Add(frame);
@@ -95,16 +101,18 @@ public sealed partial class EditorWindow
         if (project) projectWorkspaceVisible = true;
         bool workspace = studioReady && projectWorkspaceVisible;
         workspaceView.Visibility = workspace ? Visibility.Visible : Visibility.Collapsed;
-        firstProjectPromptPanel.Visibility = project && workers.All(w => !session!.Collaboration.CanControl("human", w.Participant.Id)) ? Visibility.Visible : Visibility.Collapsed;
-        projectCommands.Visibility = workspace ? Visibility.Visible : Visibility.Collapsed;
+        firstProjectPromptPanel.Visibility = Visibility.Collapsed;
+        projectCommands.Visibility = Visibility.Collapsed;
         projectHomeView.Visibility = workspace ? Visibility.Collapsed : Visibility.Visible;
-        aiManagementView.Visibility = studioReady && !workspace ? Visibility.Visible : Visibility.Collapsed;
-        if (aiManagementView.Parent is Grid frame)
-        { frame.ColumnDefinitions[0].Width = new GridLength(studioReady && !workspace ? 112 : 0); frame.ColumnDefinitions[1].Width = new GridLength(studioReady && !workspace ? 8 : 0); }
+        aiManagementView.Visibility = studioReady ? Visibility.Visible : Visibility.Collapsed;
+        sidebarChat.Visibility = project ? Visibility.Visible : Visibility.Collapsed;
+        studioSidebar.RowDefinitions[1].Height = new GridLength(project ? 240 : 0);
+        if (studioSidebar.Parent is Grid frame)
+        { frame.ColumnDefinitions[0].Width = new GridLength(studioReady ? 112 : 0); frame.ColumnDefinitions[1].Width = new GridLength(studioReady ? 8 : 0); }
         if (studioRoot is not null)
         {
-            foreach (FrameworkElement child in studioRoot.Children) if (Grid.GetRow(child) != 1) child.Visibility = workspace ? Visibility.Visible : Visibility.Collapsed;
-            studioRoot.RowDefinitions[2].Height = workspace ? new GridLength(160) : new GridLength(0);
+            foreach (FrameworkElement child in studioRoot.Children) if (Grid.GetRow(child) != 1) child.Visibility = Visibility.Collapsed;
+            studioRoot.RowDefinitions[2].Height = new GridLength(0);
         }
         projectHome.Children.Clear();
         if (!studioReady)
@@ -193,9 +201,10 @@ public sealed partial class EditorWindow
     }
     private UIElement BuildProjectChat()
     {
-        var root = new DockPanel { Margin = new Thickness(12) }; var bottom = new StackPanel(); projectMessage.Height = 65; bottom.Children.Add(projectMessage);
-        var buttons = new WrapPanel(); buttons.Children.Add(Action("보내기", SendProjectMessage)); buttons.Children.Add(Action("신문고", OpenIncidents)); bottom.Children.Add(buttons);
-        DockPanel.SetDock(bottom, Dock.Bottom); root.Children.Add(bottom); projectChat.TextWrapping = TextWrapping.Wrap; root.Children.Add(projectChat); return root;
+        var root = new DockPanel { Margin = new Thickness(3) }; var bottom = new StackPanel(); projectMessage.Height = 48; projectMessage.FontSize = 11; projectMessage.TextWrapping = TextWrapping.Wrap; bottom.Children.Add(projectMessage);
+        var title = BareButton(Label("프로젝트 채팅 ↗", 10), () => OpenPublicChat(false)); DockPanel.SetDock(title, Dock.Top); root.Children.Add(title);
+        var buttons = new WrapPanel(); buttons.Children.Add(Action("보내기", SendProjectMessage)); bottom.Children.Add(buttons);
+        DockPanel.SetDock(bottom, Dock.Bottom); root.Children.Add(bottom); projectChat.TextWrapping = TextWrapping.Wrap; projectChat.FontSize = 11; projectChat.HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled; root.Children.Add(projectChat); return root;
     }
     private void RefreshEmbeddedChat()
     {

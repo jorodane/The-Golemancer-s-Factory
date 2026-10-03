@@ -13,6 +13,7 @@ project = root / 'tests/PackEngine.Studio.Verification/PackEngine.Studio.Verific
 subprocess.run([args.dotnet, 'build', str(project), '-c', 'Release', '-p:EngineTargetFramework=net10.0',
                 '-p:UseSharedCompilation=false', '-m:1', '--nologo', '-v:quiet'], cwd=root, check=True)
 command = [args.dotnet, str(project.parent / 'bin/Release/net10.0/PackEngine.Studio.Verification.dll')]
+command.extend(['--dotnet', args.dotnet])
 if args.network:
     command.append('--network')
 subprocess.run(command, cwd=root, check=True)

@@ -106,7 +106,7 @@ public sealed class ChangeDraft
 public sealed partial class EditorSession
 {
     public static readonly JsonSerializerOptions Json = new() { WriteIndented = true, Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping, Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() } };
-    public WorkspaceProject Project { get; }
+    public WorkspaceProject Project { get; private set; }
     public WorkspaceIndex Index { get; private set; }
     public EditorState State { get; }
     public string StateDirectory { get; }
@@ -180,6 +180,7 @@ public sealed partial class EditorSession
         Collaboration.Room(path).CheckpointText = doc.Text;
     }
     public void Refresh() { Index = new(Project); }
+    public void ReloadProject() { Project = WorkspaceProject.Open(Project.Manifest); Refresh(); }
     private byte[] ReadBytes(string path)
     {
         string full = Project.Resolve(path);

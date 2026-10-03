@@ -93,6 +93,11 @@ public sealed class ProjectRunner(EditorSession session, string dotnet = "dotnet
         if (!GameRunning) return true;
         return game!.CloseMainWindow();
     }
+    public void Stop()
+    {
+        if (!GameRunning) return;
+        if (!game!.CloseMainWindow()) game.Kill();
+    }
     public void Dispose() { game?.Dispose(); gate.Dispose(); }
     private ProcessStartInfo StartInfo(ProjectCommand command, bool capture)
     {

@@ -86,6 +86,5 @@ public sealed partial class MainActivity
     {
         var main = mobileWorkers.FirstOrDefault(w => w.Participant.HelperId == mobileProjectStudio.MainHelperId);
         if (main is not null) { SelectMobileWorker(main); for (int i = 0; i < main.Composer.ChildCount; i++) if (main.Composer.GetChildAt(i) is EditText input) { input.RequestFocus(); break; } }
-        else mobileFirstPrompt?.RequestFocus();
     }
 }

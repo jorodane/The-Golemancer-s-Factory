@@ -87,6 +87,8 @@ try
     Check(SharedTextMerge.Merge("a", "a(", "a") == "a(", "human typing can synchronize incomplete syntax");
 
     ProjectHomeVerification.Run(temp, Check, Reject);
+    int dotnetArgument = Array.IndexOf(args, "--dotnet");
+    await ConceptSpaceVerification.Run(temp, dotnetArgument >= 0 ? args[dotnetArgument + 1] : "dotnet", Check, Reject);
     await MobileStudioVerification.Run(temp, Check);
 
     if (args.Contains("--network"))

@@ -40,7 +40,7 @@ public sealed class WorkspacePack
     public List<string> Files { get; set; } = [];
     public List<string> Assemblies { get; set; } = [];
 }
-public sealed class WorkspaceIndex
+public sealed partial class WorkspaceIndex
 {
     public WorkspaceProject Project { get; }
     public Dictionary<string, WorkspaceNode> Nodes { get; } = new(StringComparer.Ordinal);
@@ -73,10 +73,10 @@ public sealed class WorkspaceIndex
                 pack.Dependencies = xml.Elements("Depends").Select(e => WorkspaceProject.Required(e, "id")).Concat(pack.Parent.Length == 0 ? [] : new[] { pack.Parent }).Distinct(StringComparer.Ordinal).ToList();
                 foreach (string parent in pack.Dependencies) Link("pack:" + pack.Id, "pack:" + parent, parent == pack.Parent ? "inherits" : "depends");
                 AddFile(pack.Manifest, "manifest", pack.Id);
-                foreach (var item in xml.Elements().Where(e => e.Name == "Ui" || e.Name == "Data" || e.Name == "Assembly"))
+                foreach (var item in xml.Elements().Where(e => e.Name == "Ui" || e.Name == "Data" || e.Name == "Assembly" || e.Name == "FunctionAssembly"))
                 {
                     string relative = WorkspaceProject.Required(item, "path");
-                    if (item.Name == "Assembly") { pack.Assemblies.Add(relative); continue; }
+                    if (item.Name == "Assembly" || item.Name == "FunctionAssembly") { pack.Assemblies.Add(relative); continue; }
                     string path = project.Relative(PackCompiler.SafePath(folder, relative)); pack.Files.Add(path); AddFile(path, item.Name == "Ui" ? "ui" : "data", pack.Id);
                     try
                     {
@@ -87,7 +87,7 @@ public sealed class WorkspaceIndex
                             uiDocuments.Add(doc); uiPaths.Add(doc.Id, path); IndexUi(data, path, pack.Id);
                             if (schema is not null) IndexDomain(data, path, pack.Id, schema);
                         }
-                        else if (schema is not null) IndexDomain(data, path, pack.Id, schema);
+                        else { if (schema is not null) IndexDomain(data, path, pack.Id, schema); IndexConcepts(data, path, pack.Id); }
                     }
                     catch (Exception e) when (e is InvalidDataException || e is System.Xml.XmlException || e is IOException || e is ArgumentException) { Diagnostics.Add(path + ": " + e.Message); }
                 }
@@ -98,7 +98,13 @@ public sealed class WorkspaceIndex
                     {
                         AddFile(path, "source-project", pack.Id);
                         string directory = Path.GetDirectoryName(project.Resolve(path))!;
-                        if (Directory.Exists(directory)) foreach (string file in WalkFiles(directory).Where(p => Path.GetExtension(p) == ".cs")) AddFile(project.Relative(file), "source", pack.Id);
+                        var sourceXml = File.Exists(project.Resolve(path)) ? PackCompiler.ReadXml(project.Resolve(path)).Root : null;
+                        if (Directory.Exists(directory) && sourceXml?.Descendants("EnableDefaultCompileItems").FirstOrDefault()?.Value != "false") foreach (string file in WalkFiles(directory).Where(p => Path.GetExtension(p) == ".cs")) AddFile(project.Relative(file), "source", pack.Id);
+                        foreach (var include in sourceXml?.Descendants("Compile") ?? [])
+                        {
+                            string file = (string?)include.Attribute("Include") ?? "";
+                            if (file.Length > 0 && file.IndexOfAny(new[] { '*', '?', '$' }) < 0) AddFile(project.Relative(Path.GetFullPath(Path.Combine(directory, file.Replace('/', Path.DirectorySeparatorChar)))), "source", pack.Id);
+                        }
                     }
                 }
             }

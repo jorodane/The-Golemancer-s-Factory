@@ -62,6 +62,8 @@ internal sealed class ElementTools
             opening.Open = invocation.Command;
             opening.BaseView = Get(invocation.Arguments, "baseView", opening.Mode == "browse" ? "editor.core.elements" : "editor.core.inspector");
             opening.Action = Get(invocation.Arguments, "actionCommand", "editor.core.elements.action"); opening.Input = Get(invocation.Arguments, "inputCommand", "editor.core.elements.input");
+            // A project-authored screen uses its registered XML view, without injecting a catalog or reading an object.
+            if (opening.Mode == "screen") return new() { Windows = [new() { Operation = "open", Id = window }] };
             if (opening.Mode == "workspace")
             {
                 if (invocation.Payload.Contains(":"))

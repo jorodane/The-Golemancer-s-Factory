@@ -13,11 +13,18 @@ public sealed partial class MainActivity
     internal LinearLayout WorkspaceHost { get; private set; } = null!;
     private FrameLayout mobileWorkerLayer = null!;
     private string selectedMobileWorker = "";
+    private LinearLayout mobileParticipantNotices = null!;
 
     private View BuildMobileWorkspace(View scroll)
     {
         var field = new FrameLayout(this); field.AddView(scroll, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent));
+        mobileConceptPageHost = new FrameLayout(this) { Visibility = ViewStates.Gone }; field.AddView(mobileConceptPageHost, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent) { BottomMargin = Dp(80) });
         mobileWorkerLayer = new(this); field.AddView(mobileWorkerLayer, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent));
+        mobileParticipantNotices = new LinearLayout(this) { Orientation = Orientation.Vertical }; field.AddView(mobileParticipantNotices, new FrameLayout.LayoutParams(Dp(300), ViewGroup.LayoutParams.WrapContent, GravityFlags.Top | GravityFlags.Right) { RightMargin = Dp(8), TopMargin = Dp(8) });
+        var actions = new LinearLayout(this) { Orientation = Orientation.Horizontal };
+        mobileRunButton = AiAction("▶", ToggleMobileProjectRun); actions.AddView(mobileRunButton, new LinearLayout.LayoutParams(Dp(52), Dp(52)));
+        actions.AddView(AiAction("≡", () => OpenMobileConceptMenu()), new LinearLayout.LayoutParams(Dp(52), Dp(52)));
+        field.AddView(actions, new FrameLayout.LayoutParams(Dp(108), Dp(56), GravityFlags.Bottom | GravityFlags.Right) { RightMargin = Dp(16), BottomMargin = Dp(16) }); mobileProjectActions = actions;
         field.LayoutChange += (_, _) => { foreach (var worker in mobileWorkers) PlaceMobileWorker(worker); };
         return field;
     }
@@ -25,14 +32,16 @@ public sealed partial class MainActivity
     {
         if (runtime is not { } generation) return;
         var main = windows.Definitions.FirstOrDefault(d => d.Slot == "workspace.main");
-        var command = generation.Snapshot.Commands.FirstOrDefault(c => c.Pack == main?.Pack && c.Fields.GetValueOrDefault("argument.mode") == "workspace" && c.Fields.GetValueOrDefault("argument.window") == main?.Id);
+        var command = generation.Snapshot.Commands.FirstOrDefault(c => c.Pack == main?.Pack && c.Fields.GetValueOrDefault("argument.mode") is "workspace" or "screen" && c.Fields.GetValueOrDefault("argument.window") == main?.Id);
         if (command is not null) Dispatch(command.Id, UiValue.Text(""), MobileWindowContext(main!.Id, ""));
     }
     private void AttachMobileWorker(MobileWorker worker)
     {
         var character = worker.Character = new(this) { Orientation = Orientation.Vertical };
+        character.AddView(AiAction("×", () => studioSession.Collaboration.Display("human", worker.Participant.Id, CharacterDisplay.Hidden)));
         worker.Bubble = new(this) { TextSize = 12, Ellipsize = global::Android.Text.TextUtils.TruncateAt.End }; worker.Bubble.SetMaxLines(4);
         worker.Bubble.SetPadding(Dp(8), Dp(6), Dp(8), Dp(6)); worker.Bubble.SetBackgroundColor(global::Android.Graphics.Color.Rgb(25, 35, 47)); character.AddView(worker.Bubble);
+        worker.Bubble.Click += (_, _) => ReadMobileWorker(worker);
         var avatar = new TextView(this) { Text = "◇", TextSize = 28, Gravity = GravityFlags.Center };
         avatar.SetTextColor(global::Android.Graphics.Color.Rgb(105, 209, 189)); character.AddView(avatar, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(48)));
         worker.Caption = new(this) { TextSize = 12, Gravity = GravityFlags.Center }; character.AddView(worker.Caption);
@@ -66,19 +75,26 @@ public sealed partial class MainActivity
     private void SelectMobileWorker(MobileWorker worker)
     {
         if (!studioSession.Collaboration.CanControl("human", worker.Participant.Id)) { OpenMobileProjectChat("@" + worker.Participant.Id + " "); return; }
-        if (studioSession.Collaboration.View("human", worker.Participant.Id).Display == CharacterDisplay.Hidden) studioSession.Collaboration.Display("human", worker.Participant.Id, CharacterDisplay.Full);
+        if (studioSession.Collaboration.View("human", worker.Participant.Id).Display != CharacterDisplay.Full) studioSession.Collaboration.Display("human", worker.Participant.Id, CharacterDisplay.Full);
         selectedMobileWorker = worker.Participant.Id; worker.Character.BringToFront();
         foreach (var item in mobileWorkers) RenderMobileWorker(item);
-        studioSession.Collaboration.Acknowledge("human", worker.Participant.Id, studioSession.Collaboration.Unread("human", worker.Participant.Id).Select(m => m.Id));
+        ReadMobileWorker(worker); RefreshMobileManagement();
     }
     private void RenderMobileWorker(MobileWorker worker)
     {
-        bool selected = selectedMobileWorker == worker.Participant.Id;
-        worker.Character.LayoutParameters = new FrameLayout.LayoutParams(Dp(selected ? 270 : 160), ViewGroup.LayoutParams.WrapContent);
-        worker.Character.Visibility = studioSession.Collaboration.View("human", worker.Participant.Id).Display == CharacterDisplay.Hidden ? ViewStates.Gone : ViewStates.Visible;
-        worker.Composer.Visibility = selected ? ViewStates.Visible : ViewStates.Gone;
-        string answer = worker.Cancellation is not null ? "작업 중…" : worker.Turns.LastOrDefault(t => t.Role != "나")?.Text ?? "다음 일을 맡겨줘.";
-        if (!studioSession.Collaboration.CanControl("human", worker.Participant.Id)) answer = studioSession.Collaboration.State.Messages.LastOrDefault(m => m.Author == worker.Participant.Id && m.Channel is "project" or "room")?.Text ?? worker.Participant.PublicTask;
+        var display = studioSession.Collaboration.View("human", worker.Participant.Id).Display;
+        bool expanded = display == CharacterDisplay.Full;
+        worker.Character.LayoutParameters = new FrameLayout.LayoutParams(Dp(expanded ? 270 : 160), ViewGroup.LayoutParams.WrapContent);
+        worker.Character.Visibility = display == CharacterDisplay.Hidden ? ViewStates.Gone : ViewStates.Visible;
+        worker.Composer.Visibility = expanded ? ViewStates.Visible : ViewStates.Gone;
+        string answer = worker.DisplayedAnswer.Length > 0 ? worker.DisplayedAnswer : worker.Cancellation is not null ? "작업 중…" : worker.Turns.LastOrDefault(t => t.Role != "나")?.Text ?? "다음 일을 맡겨줘.";
+        if (worker.DisplayedAnswer.Length == 0)
+        {
+            if (!studioSession.Collaboration.CanControl("human", worker.Participant.Id)) answer = studioSession.Collaboration.State.Messages.LastOrDefault(m => m.Author == worker.Participant.Id && m.Channel is "project" or "room")?.Text ?? worker.Participant.PublicTask;
+            string messageText = answer.Substring(0, Math.Min(32000, answer.Length));
+            var message = worker.Cancellation is not null ? null : studioSession.Collaboration.State.Messages.LastOrDefault(m => m.Author == worker.Participant.Id && studioSession.Collaboration.CanRead("human", m) && m.Text == messageText);
+            worker.DisplayedMessageIds = message is null ? [] : [message.Id];
+        }
         worker.Bubble.Text = answer.Length > 240 ? answer.Substring(0, 240) + "…" : answer;
         int unread = studioSession.Collaboration.Unread("human", worker.Participant.Id).Count;
         worker.Caption.Text = worker.Participant.Name + (unread > 0 ? " · ● " + unread : "") + (worker.Cancellation is not null ? " · 작업 중" : "");

@@ -22,11 +22,19 @@ public static class NewProject
         if (Directory.Exists(root) && Directory.EnumerateFileSystemEntries(root).Any()) throw new IOException("새 프로젝트는 빈 폴더에 만들어줘. 기존 프로젝트는 ‘프로젝트 열기’로 열 수 있어.");
         name = ProjectCatalog.ValidateName(name);
         Directory.CreateDirectory(Path.Combine(root, "Packs", "00.Foundation"));
-        new XDocument(new XElement("ObjectPack", new XAttribute("id", "foundation"), new XAttribute("version", "1.0.0"), new XAttribute("contracts", "2")))
+        new XDocument(new XElement("ObjectPack", new XAttribute("id", "foundation"), new XAttribute("name", "Main Pack"), new XAttribute("namespace", "Project"), new XAttribute("version", "1.0.0"), new XAttribute("contracts", "2")))
             .Save(Path.Combine(root, "Packs", "00.Foundation", "pack.xml"));
+        var foundation = XDocument.Load(Path.Combine(root, "Packs", "00.Foundation", "pack.xml"));
+        foreach (var document in new[] { ("concept-schema.xml", "ConceptSchema"), ("concept-objects.xml", "ConceptObjects"), ("concept-views.xml", "ConceptViews") })
+        {
+            new XDocument(new XElement(document.Item2, new XAttribute("version", "1"))).Save(Path.Combine(root, "Packs", "00.Foundation", document.Item1));
+            foundation.Root!.Add(new XElement("Data", new XAttribute("path", document.Item1)));
+        }
+        foundation.Save(Path.Combine(root, "Packs", "00.Foundation", "pack.xml"));
         new XDocument(new XElement("EngineProject", new XAttribute("version", "1"), new XAttribute("id", Guid.NewGuid().ToString("N")),
             new XAttribute("name", name), new XAttribute("packs", "Packs"), new XAttribute("defaultTarget", platform),
             new XElement("Pack", new XAttribute("id", "foundation")),
+            new XElement("ConceptSpace", new XAttribute("mainPack", "foundation"), new XElement("Pack", new XAttribute("id", "foundation"), new XAttribute("schema", "Packs/00.Foundation/concept-schema.xml"), new XAttribute("objects", "Packs/00.Foundation/concept-objects.xml"), new XAttribute("views", "Packs/00.Foundation/concept-views.xml"))),
             new XElement("Target", new XAttribute("id", platform), new XAttribute("platform", platform), new XAttribute("framework", framework))))
             .Save(full);
         var project = WorkspaceProject.Open(full); studio.Save(project); return project;

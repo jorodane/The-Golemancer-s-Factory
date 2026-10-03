@@ -14,30 +14,23 @@ public sealed partial class EditorWindow
     private readonly StackPanel firstProjectPromptPanel = new() { Margin = new Thickness(24, 8, 24, 12) };
     private readonly TextBox firstProjectPrompt = Input(true);
 
+    private Button projectMenuButton = null!;
+    private Button projectRunButton = null!;
+    private Window? projectPreview;
+    private void ToggleProjectRun() => HomeAction(() =>
+    {
+        if (runner?.GameRunning == true) { runner.Stop(); return; }
+        if (projectPreview is not null) { projectPreview.Close(); return; }
+        if (session is null || busy) return;
+        string target = targets.SelectedItem as string ?? runner!.PreferredTarget;
+        if (session.Project.Target(target).Run.Count > 0) { runner!.Launch(target); return; }
+        if (Space.Objects.Count > 0 || Space.Implementations.Count > 0) throw new InvalidOperationException("실행할 화면과 프로젝트 실행 대상을 연결해줘. 프로젝트 도구에서 실행 설정을 확인할 수 있어.");
+        var preview = projectPreview = new Window { Owner = this, Title = session.Project.Name, Background = BackgroundInk, Width = 960, Height = 600, Content = new Grid { Background = BackgroundInk } };
+        preview.Closed += (_, _) => projectPreview = null; preview.Show();
+    });
+
     private void BuildWorkspaceSurface()
     {
-        var header = new WrapPanel { Margin = new Thickness(8) };
-        header.Children.Add(Action("프로젝트", ShowProjectHome));
-        header.Children.Add(Action("참여자", OpenParticipantList));
-        header.Children.Add(Action("작업자 추가", () => Guard(AddWorker)));
-        header.Children.Add(Action("프로젝트 채팅", () => OpenPublicChat(false)));
-        header.Children.Add(Action("이거", () => ArmYogi(false)));
-        header.Children.Add(Action("같이 보기", () => ArmYogi(true)));
-        var tools = new StackPanel();
-        tools.Children.Add(Action("관계", () => OpenNativeTool(1)));
-        tools.Children.Add(Action("선택한 항목의 XML", () => Guard(() => OpenElementXml(session?.State.Selection ?? ""))));
-        tools.Children.Add(Action("변경 기록", () => OpenNativeTool(4)));
-        tools.Children.Add(Action("에디터팩", () => OpenNativeTool(6)));
-        tools.Children.Add(Action("AI 관리", OpenAiDirectory));
-        tools.Children.Add(Action("대화 기록", () => OpenNativeTool(5)));
-        tools.Children.Add(new Expander { Header = "프로젝트 메뉴", Content = projectMenu, Foreground = TextInk, Margin = new Thickness(4) });
-        tools.Children.Add(new Expander { Header = "팩 창", Content = windowMenu, Foreground = TextInk, Margin = new Thickness(4) });
-        header.Children.Add(new Expander { Header = "도구", Content = tools, Foreground = TextInk, Margin = new Thickness(8) });
-        header.Children.Add(projectHotbar);
-        header.Children.Add(projectAiRoles);
-        DockPanel.SetDock(header, Dock.Top); workspaceView.Children.Add(header);
-        if (participantNotifications.Parent is Panel old) old.Children.Remove(participantNotifications);
-        DockPanel.SetDock(participantNotifications, Dock.Top); workspaceView.Children.Add(participantNotifications);
         firstProjectPrompt.Height = 70; firstProjectPrompt.ToolTip = "첫 요청"; firstProjectPromptPanel.Children.Add(firstProjectPrompt);
         firstProjectPromptPanel.Children.Add(Action("보내기", async () =>
         {
@@ -51,11 +44,20 @@ public sealed partial class EditorWindow
             }
             catch (Exception e) { SetStatus(e.Message); }
         }));
-        DockPanel.SetDock(firstProjectPromptPanel, Dock.Bottom); workspaceView.Children.Add(firstProjectPromptPanel);
+        firstProjectPromptPanel.Visibility = Visibility.Collapsed;
         var field = new Grid { ClipToBounds = true, Background = BackgroundInk };
         workspaceHost.Margin = new Thickness(8); field.Children.Add(workspaceHost);
         participantsCanvas.Background = null; participantsCanvas.MinWidth = 0; participantsCanvas.MinHeight = 0;
-        field.Children.Add(participantsCanvas); workspaceView.Children.Add(field);
+        field.Children.Add(conceptPageHost);
+        field.Children.Add(participantsCanvas);
+        if (participantNotifications.Parent is Panel old) old.Children.Remove(participantNotifications);
+        participantNotifications.HorizontalAlignment = HorizontalAlignment.Right; participantNotifications.VerticalAlignment = VerticalAlignment.Top; participantNotifications.MaxWidth = 380; participantNotifications.Margin = new Thickness(12);
+        field.Children.Add(participantNotifications);
+        var menu = BareButton(Label("≡", 30), () => OpenConceptMenu(projectMenuButton));
+        projectMenuButton = menu; menu.Width = 56; menu.Height = 56; menu.HorizontalAlignment = HorizontalAlignment.Right; menu.VerticalAlignment = VerticalAlignment.Bottom; menu.Margin = new Thickness(20);
+        var run = projectRunButton = BareButton(Label("▶", 26), ToggleProjectRun); run.Width = 56; run.Height = 56; run.HorizontalAlignment = HorizontalAlignment.Right; run.VerticalAlignment = VerticalAlignment.Bottom; run.Margin = new Thickness(20, 20, 86, 20); run.ToolTip = "프로젝트 실행";
+        var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) }; timer.Tick += (_, _) => { run.Content = Label(runner?.GameRunning == true || projectPreview?.IsVisible == true ? "■" : "▶", 26); }; timer.Start(); Closed += (_, _) => { timer.Stop(); projectPreview?.Close(); };
+        field.Children.Add(run); field.Children.Add(menu); workspaceView.Children.Add(field);
         field.SizeChanged += (_, _) => { foreach (var worker in workers) PlaceWorker(worker); };
         studioSurface.Children.Add(workspaceView);
     }
@@ -88,7 +90,7 @@ public sealed partial class EditorWindow
         workspaceInitializationPending = false;
         var main = packWindows.Definitions.FirstOrDefault(d => d.Slot == "workspace.main");
         var command = generation.Snapshot.Commands.FirstOrDefault(c => c.Pack == main?.Pack
-            && c.Fields.GetValueOrDefault("argument.mode") == "workspace" && c.Fields.GetValueOrDefault("argument.window") == main?.Id);
+            && c.Fields.GetValueOrDefault("argument.mode") is "workspace" or "screen" && c.Fields.GetValueOrDefault("argument.window") == main?.Id);
         if (command is not null) ExecuteEditorCommand(generation, command.Id, UiValue.Text(""), WindowCommandContext(main!.Id, ""));
     }
     private void PlaceWorker(EditorWorker worker)

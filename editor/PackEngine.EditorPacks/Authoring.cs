@@ -211,7 +211,7 @@ public sealed partial class EditorPackAgent : IEditorPackAccess
 
 public static class EditorPackTemplates
 {
-    public static EditorPackSource CreateWorkspace(string root, string id = "project.workspace")
+    public static EditorPackSource CreateWorkspace(string root, string id = "project.workspace", bool empty = false)
     {
         var parent = new ExtensionDefinition { Id = "editor.core.tools", Pack = "editor.core.tools", Fields = new() { ["view"] = "editor.core.workspace" } };
         var source = Create(root, "project", id, parent);
@@ -225,6 +225,12 @@ public static class EditorPackTemplates
             new XElement("Command", new XAttribute("id", id + ".input"), new XAttribute("extends", "editor.core.elements.input")),
             new XElement("ObjectEditor", new XAttribute("id", id + ".form"), new XAttribute("extends", "editor.core.element.form"), new XAttribute("command", id + ".open")),
             new XElement("Navigation", new XAttribute("id", id + ".home"), new XAttribute("extends", "editor.core.home"), new XAttribute("command", id + ".open")));
+        if (empty)
+        {
+            open.Add(new XElement("Argument", new XAttribute("name", "mode"), new XAttribute("value", "screen")));
+            data.Root.Elements("ObjectEditor").Where(e => (string?)e.Attribute("id") == id + ".form").Remove();
+            new XDocument(new XElement("Ui", new XAttribute("version", "1"), new XAttribute("id", id + ".ui"), new XElement("View", new XAttribute("id", id + ".view"), new XElement("Node", new XAttribute("id", "projectScreen"), new XAttribute("widget", "editor.stack"), new XElement("Slot", new XAttribute("name", "children")))))).Save(source.PathFor("ui.xml"));
+        }
         data.Save(source.PathFor("editor.xml")); return source;
     }
     public static EditorPackSource Create(string root, string scope, string id, ExtensionDefinition? parent)

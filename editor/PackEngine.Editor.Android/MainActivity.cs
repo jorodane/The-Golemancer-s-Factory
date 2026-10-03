@@ -56,7 +56,7 @@ public sealed partial class MainActivity : Activity
         Panels = new(this) { Orientation = Orientation.Vertical }; Panels.AddView(welcome); WorkspaceHost = new(this) { Orientation = Orientation.Vertical }; Panels.AddView(WorkspaceHost);
         var scroll = new ScrollView(this); scroll.AddView(Panels);
         var field = BuildMobileWorkspace(scroll);
-        var content = new LinearLayout(this) { Orientation = Orientation.Horizontal }; mobileManagement = new(this) { Orientation = Orientation.Vertical }; var sidebar = new ScrollView(this); sidebar.AddView(mobileManagement); mobileSidebar = sidebar; sidebar.Visibility = ViewStates.Gone; mobileContent = content; mobilePrimary = field; content.AddView(sidebar, new LinearLayout.LayoutParams(Dp(220), ViewGroup.LayoutParams.MatchParent)); content.AddView(field, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MatchParent, 1));
+        var content = new LinearLayout(this) { Orientation = Orientation.Horizontal }; mobileManagement = new(this) { Orientation = Orientation.Vertical }; var sidebar = new LinearLayout(this) { Orientation = Orientation.Vertical }; var aiScroll = new ScrollView(this); aiScroll.AddView(mobileManagement); sidebar.AddView(aiScroll, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, 0, 1)); BuildMobileSidebarChat(sidebar); mobileSidebar = sidebar; sidebar.Visibility = ViewStates.Gone; mobileContent = content; mobilePrimary = field; content.AddView(sidebar, new LinearLayout.LayoutParams(Dp(220), ViewGroup.LayoutParams.MatchParent)); content.AddView(field, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MatchParent, 1));
         layout.AddView(content, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, 0, 1)); var console = new ScrollView(this); mobileConsole = console; console.AddView(status); layout.AddView(console, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(88))); AddMobileStartPage(layout);
         try
         {
@@ -264,6 +264,7 @@ public sealed partial class MainActivity : Activity
     protected override void OnActivityResult(int requestCode, Result resultCode, Intent? data)
     {
         base.OnActivityResult(requestCode, resultCode, data);
+        if (requestCode == ProjectActivityRequest) { MobileProjectActivityEnded(); return; }
         if (resultCode != Result.Ok || data?.Data is not { } uri) { if (requestCode == 20) mobileImageChosen = null; if (requestCode == 21) mobileExportingFile = ""; if (requestCode == 3) pickingHelper = ""; if (requestCode == 5) exportingProject = null; if (requestCode == 7) { projectPackExport = null; projectPackExportSources = null; } return; }
         if (requestCode == 21) { ExportMobileFolderFile(uri); return; }
         if (requestCode == 20) { ReadMobileImage(uri); return; }

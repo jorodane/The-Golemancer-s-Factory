@@ -20,9 +20,9 @@ public sealed partial class MainActivity
     private string mobileEditingAgent = "";
     private string mobileExportingFile = "";
     private View? mobileBrand, mobileConsole;
-    private EditText? mobileFirstPrompt;
     private readonly List<View> mobileProfileIcons = [];
     private static readonly Color HomeMuted = Color.Rgb(143, 160, 178), HomeText = Color.Rgb(233, 239, 246), HomeAccent = Color.Rgb(105, 209, 189), HomeMain = Color.Rgb(227, 85, 97);
+    private static readonly Color HomeBackground = Color.Rgb(17, 23, 31), HomePanel = Color.Rgb(25, 35, 47);
     private string MobileProjectsPath => Path.Combine(root, "project-library.json");
     private void MobileHomeAction(Action action)
     {
@@ -90,10 +90,26 @@ public sealed partial class MainActivity
     {
         mobileManagement.RemoveAllViews(); mobileProfileIcons.Clear(); mobileManagement.SetPadding(Dp(6), Dp(25), Dp(6), Dp(12)); mobileManagement.AddView(HomeLabel("AI 관리", 12)); HomeDivider(mobileManagement);
         mobileManagement.AddView(HomeLabel("Agent", 11, true)); var agents = new List<View>();
-        foreach (var agent in mobileDirectory.Agents.Where(a => a.Enabled)) { View? circle = null; circle = MobileAiCircle(agent.Name, agent.AvatarPath, () => ShowMobileProfile(circle!, agent, null)); agents.Add(circle); mobileProfileIcons.Add(circle); }
+        foreach (var agent in mobileDirectory.Agents.Where(a => a.Enabled))
+        {
+            View? circle = null; circle = MobileAiCircle(agent.Name, agent.AvatarPath, () => ShowMobileProfile(circle!, agent, null), selected: MobileProject && agent.Id == mobileProjectStudio.MainAgentId);
+            if (MobileProject) circle.LongClick += (_, _) => MobileHomeAction(() => { mobileProjectStudio.MainAgentId = agent.Id; mobileProjectStudio.Save(studioSession.Project); SelectMobileAgent(agent); SaveMobileDirectory(); RefreshMobileManagement(); });
+            agents.Add(circle); mobileProfileIcons.Add(circle);
+        }
         agents.Add(MobileAiCircle("Agent 추가", "", () => { mobileEditingAgent = ""; ShowEditorAiSetup(); }, empty: true)); CirclePairs(mobileManagement, agents); HomeDivider(mobileManagement);
+        if (MobileProject)
+        {
+            mobileManagement.AddView(HomeLabel("Worker", 11, true)); var workers = new List<View>();
+            foreach (var worker in mobileWorkers.Where(w => !studioSession.Collaboration.CanControl("human", w.Participant.Id) || !mobileDirectory.Helpers.Any(h => h.Id == w.Participant.HelperId && h.Enabled))) workers.Add(MobileWorkerSidebarItem(worker));
+            workers.Add(MobileAiCircle("Worker 추가", "", () => { var worker = CreateMobileWorker(); if (worker is not null) SelectMobileWorker(worker); }, empty: true)); CirclePairs(mobileManagement, workers); HomeDivider(mobileManagement);
+        }
         mobileManagement.AddView(HomeLabel("Helper", 11, true)); var helpers = new List<View>();
-        foreach (var helper in mobileDirectory.Helpers.Where(h => h.Enabled)) { View? circle = null; circle = MobileAiCircle(helper.Name, helper.AvatarPath, () => ShowMobileProfile(circle!, null, helper), main: MobileProject && helper.Id == mobileProjectStudio.MainHelperId); helpers.Add(circle); mobileProfileIcons.Add(circle); }
+        foreach (var helper in mobileDirectory.Helpers.Where(h => h.Enabled))
+        {
+            var worker = MobileProject ? mobileWorkers.FirstOrDefault(w => w.Participant.HelperId == helper.Id && studioSession.Collaboration.CanControl("human", w.Participant.Id)) : null;
+            if (worker is not null) { helpers.Add(MobileWorkerSidebarItem(worker)); continue; }
+            View? circle = null; circle = MobileAiCircle(helper.Name, helper.AvatarPath, () => ShowMobileProfile(circle!, null, helper), main: MobileProject && helper.Id == mobileProjectStudio.MainHelperId); helpers.Add(circle); mobileProfileIcons.Add(circle);
+        }
         helpers.Add(MobileAiCircle("Helper 추가", "", AddMobileHelper, empty: true)); CirclePairs(mobileManagement, helpers);
     }
     private void ShowMobileProfile(View anchor, AiAgentProfile? agent, AiHelper? helper)
@@ -107,6 +123,7 @@ public sealed partial class MainActivity
         if (helper is not null && File.Exists(helper.CharacterPath.Length > 0 ? helper.CharacterPath : helper.AvatarPath)) { var character = new ImageView(this); character.SetImageURI(global::Android.Net.Uri.FromFile(new Java.IO.File(helper.CharacterPath.Length > 0 ? helper.CharacterPath : helper.AvatarPath))); character.SetScaleType(ImageView.ScaleType.FitCenter); mobileProfileBody.AddView(character, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(120))); }
         var portrait = MobileAiCircle(name, avatar, () => { }, size: 60); mobileProfileBody.AddView(portrait, new LinearLayout.LayoutParams(Dp(68), Dp(83)) { Gravity = GravityFlags.CenterHorizontal }); var title = HomeLabel(name, 19); title.Gravity = GravityFlags.Center; mobileProfileBody.AddView(title); var role = HomeLabel(agent is null ? "Helper" : "Agent", 12, true); role.Gravity = GravityFlags.Center; mobileProfileBody.AddView(role);
         var worker = mobileWorkers.FirstOrDefault(w => helper is not null ? w.Participant.HelperId == helper.Id : w.Participant.AgentId == agent!.Id && w.Cancellation is not null); mobileProfileBody.AddView(HomeLabel(worker?.Cancellation is not null ? "작업 중" : worker is not null ? "프로젝트에서 대기 중" : "대기 중", 12, true));
+        if (helper is not null && MobileProject) mobileProfileBody.AddView(AiAction("대화창 열기", () => { mobileProfile.Dismiss(); var joined = CreateMobileWorker(helper); if (joined is not null) ShowMobileWorkerAnswers(joined); }));
         mobileProfileBody.AddView(AiAction("설정", () => { mobileProfile.Dismiss(); if (helper is not null) OpenMobileHelper(helper); else MobileAgentSettings(agent!); }));
         mobileProfileBody.AddView(AiAction("연결 해제", () => MobileHomeAction(() => { if (helper is not null) DisconnectMobileHelper(helper); else DisconnectMobileAgent(agent!); mobileProfile.Dismiss(); SaveMobileDirectory(); RefreshMobileManagement(); })));
         if (mobileProfile.IsShowing) { mobileProfile.Update(); return; }

@@ -41,6 +41,7 @@ public sealed partial class EditorWindow
         public readonly Dictionary<string, string> Streams = new(StringComparer.Ordinal);
         public bool PublicConversation;
         public string DisplayedAnswer = "", UrgentIncident = "";
+        public string[] DisplayedMessageIds = [];
         public bool Running => Cancellation is not null;
     }
     private TabControl? workerPages;
@@ -64,7 +65,7 @@ public sealed partial class EditorWindow
         bar.Children.Add(Action("결정 기록", ShowDecisionHistory)); bar.Children.Add(participantSelection);
         DockPanel.SetDock(bar, Dock.Top); root.Children.Add(bar);
         DockPanel.SetDock(participantNotifications, Dock.Top); root.Children.Add(participantNotifications);
-        var pages = workerPages = new TabControl(); pages.Items.Add(new TabItem { Header = "프로젝트 채팅", Content = BuildProjectChat() }); pages.Items.Add(new TabItem { Header = "작업자", Content = Label("작업자는 메인 작업 공간에서 선택해줘.") }); root.Children.Add(pages);
+        var pages = workerPages = new TabControl(); pages.Items.Add(new TabItem { Header = "프로젝트 채팅", Content = Action("프로젝트 채팅 열기", () => OpenPublicChat(false)) }); pages.Items.Add(new TabItem { Header = "작업자", Content = Label("작업자는 메인 작업 공간에서 선택해줘.") }); root.Children.Add(pages);
         return root;
     }
     private void OpenLegacyConversation()
@@ -116,6 +117,11 @@ public sealed partial class EditorWindow
         var drag = new Thumb { Width = 68, Height = 12, Background = AccentInk, Cursor = System.Windows.Input.Cursors.SizeAll, ToolTip = "드래그해서 이동" }; avatar.Children.Add(drag); panel.Children.Add(avatar);
         worker.Caption = Label(participant.Name, 12, AccentInk); worker.Caption.TextAlignment = TextAlignment.Center; panel.Children.Add(worker.Caption);
         worker.Page = Label("");
+        var navigation = new DockPanel();
+        var close = BareButton(Label("×", 18, MutedInk), () => session!.Collaboration.Display("human", participant.Id, CharacterDisplay.Hidden));
+        close.ToolTip = "대화창 닫기 · 작업은 계속 진행해"; DockPanel.SetDock(close, Dock.Right); navigation.Children.Add(close);
+        var turns = new WrapPanel(); turns.Children.Add(BareButton(Label("‹", 18), () => { worker.DisplayedAnswer = ""; worker.Turn--; RenderWorker(worker); ReadWorkerBubble(worker); })); turns.Children.Add(worker.Page);
+        turns.Children.Add(BareButton(Label("›", 18), () => { worker.DisplayedAnswer = ""; worker.Turn++; RenderWorker(worker); ReadWorkerBubble(worker); })); navigation.Children.Add(turns); panel.Children.Insert(0, navigation);
         worker.Composer = new StackPanel { Visibility = Visibility.Collapsed }; panel.Children.Add(worker.Composer);
         if (session!.Collaboration.CanControl("human", participant.Id))
         {
@@ -127,8 +133,11 @@ public sealed partial class EditorWindow
             direct.PreviewKeyDown += async (_, e) => { if (e.Key == System.Windows.Input.Key.Enter && System.Windows.Input.Keyboard.Modifiers.HasFlag(System.Windows.Input.ModifierKeys.Control)) { e.Handled = true; await Send(); } };
         }
         worker.Character = new Border { BorderThickness = new Thickness(1), BorderBrush = PanelInk, CornerRadius = new CornerRadius(12), Padding = new Thickness(5), Child = panel };
+        worker.Character.PreviewMouseLeftButtonDown += (_, _) => ReadWorkerBubble(worker);
         participantsCanvas.Children.Add(worker.Character);
+        bool newView = !session.Collaboration.State.Views.Any(v => v.Viewer == "human" && v.ParticipantId == participant.Id);
         var placement = session.Collaboration.View("human", participant.Id);
+        if (newView) placement.Display = CharacterDisplay.Hidden;
         Canvas.SetLeft(worker.Character, placement.X ?? participant.X); Canvas.SetTop(worker.Character, placement.Y ?? participant.Y);
         drag.DragStarted += (_, _) => { if (session?.Collaboration.CanControl("human", participant.Id) == true) SelectWorker(worker); };
         drag.DragDelta += (_, e) => { placement.X = Canvas.GetLeft(worker.Character) + e.HorizontalChange; placement.Y = Canvas.GetTop(worker.Character) + e.VerticalChange; PlaceWorker(worker); };
@@ -143,9 +152,11 @@ public sealed partial class EditorWindow
     private void SelectWorker(EditorWorker worker)
     {
         session!.Collaboration.RequireControl("human", worker.Participant.Id);
+        if (session.Collaboration.View("human", worker.Participant.Id).Display != CharacterDisplay.Full) session.Collaboration.Display("human", worker.Participant.Id, CharacterDisplay.Full);
         firstProjectPromptPanel.Visibility = Visibility.Collapsed; selectedWorker = worker.Participant.Id; participantSelection.Text = "선택: " + worker.Participant.Name;
-        foreach (var item in workers) { item.Character.BorderBrush = item == worker ? AccentInk : PanelInk; RenderWorker(item); }
-        Panel.SetZIndex(worker.Character, 10); yogiRecipient.SelectedValue = selectedWorker;
+        foreach (var item in workers) { item.Character.BorderBrush = item == worker ? AccentInk : PanelInk; Panel.SetZIndex(item.Character, item == worker ? 1 : 0); RenderWorker(item); }
+        yogiRecipient.SelectedValue = selectedWorker;
+        ReadWorkerBubble(worker); RefreshAiManagement();
     }
     private void RenderWorker(EditorWorker worker)
     {
@@ -159,14 +170,16 @@ public sealed partial class EditorWindow
         worker.Turn = Math.Max(0, Math.Min(worker.Turn, worker.Turns.Count - 1));
         var turn = worker.Turns.ElementAtOrDefault(worker.Turn);
         string answer = worker.DisplayedAnswer.Length > 0 ? worker.DisplayedAnswer : turn is null ? "독립 작업을 맡겨줘." : turn.Answer.Length > 0 ? turn.Answer : turn.Events.LastOrDefault() ?? turn.State;
+        if (worker.DisplayedAnswer.Length == 0 && session?.Collaboration.CanControl("human", worker.Participant.Id) == false)
+            answer = session.Collaboration.State.Messages.LastOrDefault(m => m.Author == worker.Participant.Id && m.Channel is "project" or "room")?.Text ?? worker.Participant.PublicTask;
         worker.Bubble.Text = answer.Length > 240 ? answer.Substring(0, 240) + "…" : answer;
         worker.Bubble.ToolTip = answer.Length > 1200 ? answer.Substring(0, 1200) + "… · 전체 내용은 기록에서 확인해줘." : answer;
         worker.Page.Text = worker.Turns.Count == 0 ? "0 / 0" : (worker.Turn + 1) + " / " + worker.Turns.Count;
         var hub = session?.Collaboration; var display = hub?.View("human", worker.Participant.Id).Display ?? CharacterDisplay.Full;
         worker.Character.Visibility = display == CharacterDisplay.Hidden ? Visibility.Collapsed : Visibility.Visible;
-        bool selected = selectedWorker == worker.Participant.Id;
-        ((StackPanel)worker.Character.Child).Width = selected ? 280 : 180;
-        worker.Composer.Visibility = selected ? Visibility.Visible : Visibility.Collapsed;
+        bool expanded = display == CharacterDisplay.Full;
+        ((StackPanel)worker.Character.Child).Width = expanded ? 280 : 180;
+        worker.Composer.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
         int unread = hub?.Unread("human", worker.Participant.Id).Count ?? 0;
         worker.Caption.Text = worker.Participant.Name + (unread > 0 ? " · ● " + unread : "") + (worker.Running ? " · 작업 중" : "") + (worker.Attachment is null ? "" : " · 대상 첨부됨");
         PlaceWorker(worker);
@@ -323,11 +336,6 @@ public sealed partial class EditorWindow
             {
                 var message = owner.Collaboration.Post(worker.Participant.Id, notification.Length > 32000 ? notification.Substring(0, 32000) : notification, "direct", recipient: "human", importance: turn.State == "completed" ? MessageImportance.Completed : MessageImportance.NeedsReply);
                 turn.MessageId = message.Id;
-                if (owner.Collaboration.View("human", worker.Participant.Id).Display != CharacterDisplay.Full)
-                {
-                    var toast = Action(worker.Participant.Name + " · " + notification.Substring(0, Math.Min(90, notification.Length)) + " · 보기", () => ShowParticipantAnswers(worker.Participant.Id));
-                    participantNotifications.Children.Add(toast);
-                }
             }
             SaveWorker(worker);
             if (worker.Participant.HelperId.Length > 0 && CurrentAccess?.HistoryEnabled != false)
