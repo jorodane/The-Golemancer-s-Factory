@@ -71,7 +71,7 @@ public sealed partial class EditorWindow
         if (slash < 0) throw new ArgumentException("Unknown editor room.");
         string pack = relative.Substring(0, slash), path = relative.Substring(slash + 1);
         packChoice.SelectedItem = packSources.Single(p => p.Id == pack); packFiles.SelectedItem = path;
-        tabs.SelectedItem = tabs.Items.OfType<TabItem>().Single(t => (string)t.Header == "에디터팩");
+        OpenNativeTool(6);
     }
     private void AdoptPackHandoff(RoomDraft draft)
     {

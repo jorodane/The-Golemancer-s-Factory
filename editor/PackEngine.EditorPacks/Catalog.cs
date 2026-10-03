@@ -129,12 +129,13 @@ public sealed class EditorPackCatalog : IEditorPackRegistry
             if (w.Fields.TryGetValue("autoOpen", out var autoOpen) && !bool.TryParse(autoOpen, out _)) throw new InvalidDataException("Window autoOpen must be true or false.");
             catalog.DescribeView(w.Fields["view"]); Snapshot.Windows.Add(w);
         }
+        bool RegisteredWindow(string id) => Snapshot.Windows.Any(w => w.Id == id) || Snapshot.Panels.Any(p => "panel." + p.Fields["slot"] == id);
         foreach (var n in resolvedNavigation.Values.Where(n => !resolvedNavigation.Values.Any(child => child.Id != n.Id && navigationOrigins[child.Id].Lineage.Contains(n.Id) && child.Fields.GetValueOrDefault("surface") == n.Fields.GetValueOrDefault("surface"))))
         {
             if (!n.Fields.ContainsKey("title") || !n.Fields.TryGetValue("surface", out var surface) || surface is not ("menu" or "hotbar" or "navigation")) throw new InvalidDataException("Navigation needs a title and menu/hotbar/navigation surface.");
             if (n.Fields.TryGetValue("order", out var order) && !int.TryParse(order, out _)) throw new InvalidDataException("Navigation order must be an integer.");
             if (new[] { "command", "window", "category" }.Count(n.Fields.ContainsKey) != 1) throw new InvalidDataException("Navigation declares one command, window or category target.");
-            if (n.Fields.TryGetValue("window", out var windowId) && !Snapshot.Windows.Any(w => w.Id == windowId)) throw new InvalidDataException("Navigation references an unregistered window.");
+            if (n.Fields.TryGetValue("window", out var windowId) && !RegisteredWindow(windowId)) throw new InvalidDataException("Navigation references an unregistered window.");
             if (n.Fields.TryGetValue("command", out var commandId))
             {
                 var command = Snapshot.Commands.SingleOrDefault(c => c.Id == commandId) ?? throw new InvalidDataException("Navigation references an undeclared command.");
@@ -144,7 +145,7 @@ public sealed class EditorPackCatalog : IEditorPackRegistry
         }
         foreach (var e in resolvedEditors.Values.Where(e => !resolvedEditors.Values.Any(child => child.Id != e.Id && editorOrigins[child.Id].Lineage.Contains(e.Id) && child.Fields.GetValueOrDefault("kind") == e.Fields.GetValueOrDefault("kind") && child.Fields.GetValueOrDefault("category") == e.Fields.GetValueOrDefault("category"))))
         {
-            if (!e.Fields.ContainsKey("kind") || !e.Fields.TryGetValue("window", out var windowId) || !Snapshot.Windows.Any(w => w.Id == windowId)) throw new InvalidDataException("ObjectEditor needs a kind and registered window.");
+            if (!e.Fields.ContainsKey("kind") || !e.Fields.TryGetValue("window", out var windowId) || !RegisteredWindow(windowId)) throw new InvalidDataException("ObjectEditor needs a kind and registered window or panel.");
             if (e.Fields.TryGetValue("priority", out var priority) && !int.TryParse(priority, out _)) throw new InvalidDataException("ObjectEditor priority must be an integer.");
             if (e.Fields.TryGetValue("command", out var commandId) && !Snapshot.Commands.Any(c => c.Id == commandId && string.Equals(c.Fields["payload"], "Text", StringComparison.OrdinalIgnoreCase))) throw new InvalidDataException("ObjectEditor initialization uses a declared Text command.");
             Snapshot.ObjectEditors.Add(e);

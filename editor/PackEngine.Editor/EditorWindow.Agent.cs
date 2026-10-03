@@ -107,7 +107,7 @@ public sealed partial class EditorWindow
         var row = new WrapPanel(); row.Children.Add(Action("AI 연결 · 전환", ShowEditorAiSetup)); row.Children.Add(Action("ChatGPT 로그인", LoginCodex)); panel.Children.Add(row);
         var second = new WrapPanel(); second.Children.Add(Action("연결 확인", RefreshCodex)); second.Children.Add(Action("새 대화", NewCodexConversation));
         panel.Children.Add(second); panel.Children.Add(models);
-        panel.Children.Add(Action("대화 목록·접근 설정", () => tabs.SelectedIndex = 5));
+        panel.Children.Add(Action("대화 목록·접근 설정", () => OpenNativeTool(5)));
         models.SelectionChanged += (_, _) => { if (provider is IResidentAssistant agent && models.SelectedItem is AssistantModel model) { agent.Model = model.Id; if (aiConnections.Editor.IsApi) { aiConnections.Editor.Model = model.Id; SaveAiConnections(); } } };
         panel.Children.Add(Label("연결 설정과 계정은 이 기기에서 재사용해. API 대화는 현재 창에서만 이어가고, Codex 대화는 별도 기록을 사용해.", 11, MutedInk));
     }

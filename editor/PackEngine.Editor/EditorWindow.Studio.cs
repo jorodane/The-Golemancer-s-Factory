@@ -23,7 +23,7 @@ public sealed partial class EditorWindow
         var frame = new Grid { Margin = new Thickness(12, 0, 12, 8) };
         frame.ColumnDefinitions.Add(new() { Width = new GridLength(235) }); frame.ColumnDefinitions.Add(new() { Width = new GridLength(8) }); frame.ColumnDefinitions.Add(new());
         aiManagementView.Content = aiManagement; frame.Children.Add(aiManagementView);
-        Grid.SetColumn(studioSurface, 2); frame.Children.Add(studioSurface); studioSurface.Children.Add(body);
+        Grid.SetColumn(studioSurface, 2); frame.Children.Add(studioSurface); BuildWorkspaceSurface();
         projectHomeView.Content = projectHome; studioSurface.Children.Add(projectHomeView);
         Grid.SetRow(frame, 1); root.Children.Add(frame);
         AddInternalYogi(studioSurface);
@@ -82,12 +82,12 @@ public sealed partial class EditorWindow
         bool project = studioReady && session is not null && !Standalone;
         if (project) projectWorkspaceVisible = true;
         bool workspace = studioReady && projectWorkspaceVisible;
-        editorBody.Visibility = workspace ? Visibility.Visible : Visibility.Collapsed;
+        workspaceView.Visibility = workspace ? Visibility.Visible : Visibility.Collapsed;
         projectCommands.Visibility = workspace ? Visibility.Visible : Visibility.Collapsed;
         projectHomeView.Visibility = workspace ? Visibility.Collapsed : Visibility.Visible;
-        aiManagementView.Visibility = studioReady ? Visibility.Visible : Visibility.Collapsed;
+        aiManagementView.Visibility = studioReady && !workspace ? Visibility.Visible : Visibility.Collapsed;
         if (aiManagementView.Parent is Grid frame)
-        { frame.ColumnDefinitions[0].Width = new GridLength(studioReady ? 235 : 0); frame.ColumnDefinitions[1].Width = new GridLength(studioReady ? 8 : 0); }
+        { frame.ColumnDefinitions[0].Width = new GridLength(studioReady && !workspace ? 235 : 0); frame.ColumnDefinitions[1].Width = new GridLength(studioReady && !workspace ? 8 : 0); }
         projectHome.Children.Clear();
         if (!studioReady)
         {
@@ -120,7 +120,7 @@ public sealed partial class EditorWindow
         RefreshAiManagement(); RefreshEmbeddedChat(); if (workspace && pendingEditorPackReload) QueueEditorPackReload();
     }
     private void ShowProjectWorkspace() { projectWorkspaceVisible = true; if (!studioReady) CompleteStudioSetup(); else RefreshStudioShell(); }
-    private void SelectTab(string name) { foreach (var item in tabs.Items.OfType<TabItem>()) if ((string?)item.Header == name) tabs.SelectedItem = item; }
+    private void SelectTab(string name) { for (int i = 0; i < tabs.Items.Count; i++) if ((string?)((TabItem)tabs.Items[i]).Header == name) { OpenNativeTool(i); return; } }
     private void ShowProjectHome() => Guard(() =>
     {
         if (busy || WorkersRunning || publicMentions.Count > 0 || PendingReviews) throw new InvalidOperationException("진행 중인 작업을 끝내거나 취소한 뒤 프로젝트 목록으로 돌아가줘.");

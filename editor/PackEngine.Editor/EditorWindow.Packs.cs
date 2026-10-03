@@ -81,6 +81,7 @@ public sealed partial class EditorWindow
             .Concat(ProjectPackRoot.Length == 0 ? [] : EditorPackSource.Discover(ProjectPackRoot, "project")).ToArray();
         if (found.Select(p => p.Id).Distinct(StringComparer.Ordinal).Count() != found.Length) throw new InvalidDataException("범위 간에 중복된 에디터팩 ID가 있어.");
         packSources.Clear(); packSources.AddRange(found); packRows.Children.Clear();
+        if (EditorPackSelection.DeclarativeWorkspace(found) is { } workspace) enabledPackFolders.Add(workspace.Folder);
         foreach (var source in packSources)
         {
             if (!packDefaultsLoaded && source.Scope == "core" && source.Id == "editor.core.tools") enabledPackFolders.Add(source.Folder);
@@ -173,6 +174,7 @@ public sealed partial class EditorWindow
             string? selectedSlot = (tabs.SelectedItem as TabItem)?.Tag as string;
             packWindows.Refresh(next, definition => CreatePackWindow(next, definition));
             packGeneration = next; candidate = null; previous?.Dispose();
+            workspaceInitializationPending = true;
             ApplyPackShell(false); RefreshPackWindowChoices();
             if (selectedSlot is not null && tabs.Items.OfType<TabItem>().FirstOrDefault(t => t.Tag as string == selectedSlot) is { } selectedTab) tabs.SelectedItem = selectedTab;
             Directory.CreateDirectory(Path.GetDirectoryName(EditorPackSettings)!); File.WriteAllText(EditorPackSettings, JsonSerializer.Serialize(enabledPackFolders.ToArray()));
@@ -237,7 +239,7 @@ public sealed partial class EditorWindow
                     case "refresh": RefreshProject(); break;
                     case "tab":
                         int tabIndex = effect.Value switch { "chat" => 0, "relations" => 1, "documents" => 2, "contract" => 3, "changes" => 4, "packs" => 6, _ => throw new InvalidDataException("Unknown editor tab.") };
-                        ((TabItem)tabs.Items[tabIndex]).Visibility = Visibility.Visible; tabs.SelectedIndex = tabIndex; break;
+                        OpenNativeTool(tabIndex); break;
                     case "layout":
                         if (effect.Value is not ("focus" or "normal")) throw new InvalidDataException("Unknown editor layout.");
                         ApplyPackShell(effect.Value == "focus"); break;
@@ -247,6 +249,8 @@ public sealed partial class EditorWindow
             if (result.View is { } update)
                 packWindows.UpdateView(update.WindowId, ownerPack, preparedView!, request.Edits.TryGetValue(update.WindowId, out var edits) ? edits : null);
             if (result.OpenXml.Length > 0) OpenElementXml(result.OpenXml);
+            if (result.SelectObject.Length > 0 && session?.Index.Nodes.ContainsKey(result.SelectObject) == true)
+            { session.Select(result.SelectObject); PointObject(result.SelectObject, "workspace"); RefreshPointing(); }
             if (result.OpenObject is { } openObject) OpenElementEditor(openObject);
             if (result.Continue is { } continuation)
             {

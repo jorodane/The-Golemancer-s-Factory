@@ -24,7 +24,7 @@ public sealed partial class EditorWindow
     private void AddConversationHeader(DockPanel chat)
     {
         var head = new WrapPanel(); head.Children.Add(conversationTitle);
-        head.Children.Add(Action("대화 목록·접근 설정", () => tabs.SelectedIndex = 5));
+        head.Children.Add(Action("대화 목록·접근 설정", () => OpenNativeTool(5)));
         head.Children.Add(Action("프로젝트에 대화 저장", SaveProjectConversation));
         head.Children.Add(Action("대화 복사", () => Guard(() =>
         {

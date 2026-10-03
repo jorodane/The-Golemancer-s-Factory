@@ -29,12 +29,13 @@ public sealed partial class MainActivity
         RequireMobileIdle(); StopMobilePeers(); documentDialog?.Dismiss(); mobileDirectoryExpanded = false;
         foreach (var window in LiveWindows.ToArray()) CloseWindow(window.Id);
         mobileObjectWindows.Clear(); mobileEditorPackSelection = "";
-        foreach (var worker in mobileWorkers) worker.Assistant?.Dispose(); mobileWorkers.Clear();
+        foreach (var worker in mobileWorkers) { worker.Log?.Dismiss(); worker.Assistant?.Dispose(); } mobileWorkers.Clear(); mobileWorkerLayer.RemoveAllViews(); selectedMobileWorker = "";
         studioSession.Persist(); studioSession.Collaboration.Changed -= RefreshMobilePresence; studioRunner.Dispose();
         studioSession = new(manifest); studioRunner = new(studioSession, "dotnet");
         mobileProjectManifest = project ? manifest : "";
         ObserveMobileIncidents(); studioSession.Collaboration.Changed += RefreshMobilePresence;
-        foreach (var participant in studioSession.Collaboration.State.Participants.Where(p => p.Kind == ParticipantKind.AI && p.OwnerId == "human")) LoadMobileWorker(participant);
+        if (project && !Directory.Exists(Path.Combine(studioSession.Project.Root, "EditorPacks"))) PackEngine.EditorPacks.EditorPackTemplates.CreateWorkspace(Path.Combine(studioSession.Project.Root, "EditorPacks"));
+        foreach (var participant in studioSession.Collaboration.State.Participants.Where(p => p.Kind == ParticipantKind.AI)) LoadMobileWorker(participant);
         editorAi?.NewConversation();
     }
     private void OpenMobileProject(string manifest)

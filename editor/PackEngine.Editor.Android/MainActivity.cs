@@ -16,7 +16,7 @@ using OperationCanceledException = System.OperationCanceledException;
 namespace PackEngine.Editor.Android;
 
 [Activity(Name = "com.packengine.editor.MainActivity", Label = "Confectory", MainLauncher = true, Exported = true,
-    Theme = "@android:style/Theme.Material.Light.NoActionBar", ConfigurationChanges = ConfigChanges.Orientation | ConfigChanges.ScreenSize | ConfigChanges.KeyboardHidden)]
+    Theme = "@android:style/Theme.Material.NoActionBar", ConfigurationChanges = ConfigChanges.Orientation | ConfigChanges.ScreenSize | ConfigChanges.KeyboardHidden)]
 public sealed partial class MainActivity : Activity
 {
     private readonly CancellationTokenSource lifetime = new();
@@ -38,6 +38,7 @@ public sealed partial class MainActivity : Activity
         base.OnCreate(state); root = FilesDir!.AbsolutePath;
         mobileNavigation = new(this) { Orientation = Orientation.Vertical };
         var layout = new LinearLayout(this) { Orientation = Orientation.Vertical };
+        layout.SetBackgroundColor(global::Android.Graphics.Color.Rgb(17, 23, 31));
         layout.SetOnApplyWindowInsetsListener(new InsetsPadding());
         Window?.SetSoftInputMode(SoftInput.AdjustResize);
         layout.AddView(new TextView(this) { Text = "Confectory · Android", TextSize = 22 });
@@ -52,9 +53,10 @@ public sealed partial class MainActivity : Activity
             await Apply(lastChange, undo: true);
         }));
         status = new(this) { TextSize = 12, Typeface = global::Android.Graphics.Typeface.Monospace }; status.SetTextIsSelectable(true);
-        Panels = new(this) { Orientation = Orientation.Vertical }; Panels.AddView(welcome);
+        Panels = new(this) { Orientation = Orientation.Vertical }; Panels.AddView(welcome); WorkspaceHost = new(this) { Orientation = Orientation.Vertical }; Panels.AddView(WorkspaceHost);
         var scroll = new ScrollView(this); scroll.AddView(Panels);
-        var content = new LinearLayout(this) { Orientation = Orientation.Horizontal }; mobileManagement = new(this) { Orientation = Orientation.Vertical }; var sidebar = new ScrollView(this); sidebar.AddView(mobileManagement); mobileSidebar = sidebar; sidebar.Visibility = ViewStates.Gone; mobileContent = content; mobilePrimary = scroll; content.AddView(sidebar, new LinearLayout.LayoutParams(Dp(220), ViewGroup.LayoutParams.MatchParent)); content.AddView(scroll, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MatchParent, 1));
+        var field = BuildMobileWorkspace(scroll);
+        var content = new LinearLayout(this) { Orientation = Orientation.Horizontal }; mobileManagement = new(this) { Orientation = Orientation.Vertical }; var sidebar = new ScrollView(this); sidebar.AddView(mobileManagement); mobileSidebar = sidebar; sidebar.Visibility = ViewStates.Gone; mobileContent = content; mobilePrimary = field; content.AddView(sidebar, new LinearLayout.LayoutParams(Dp(220), ViewGroup.LayoutParams.MatchParent)); content.AddView(field, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MatchParent, 1));
         layout.AddView(content, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, 0, 1)); var console = new ScrollView(this); console.AddView(status); layout.AddView(console, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(88))); SetContentView(layout);
         try
         {
@@ -82,13 +84,14 @@ public sealed partial class MainActivity : Activity
         catch { next.Dispose(); throw; }
         var previous = runtime; runtime = next; previous?.Dispose();
         RefreshMobileNavigation();
+        InitializeMobileWorkspace();
     }
     internal async void Dispatch(string command, UiValue value, Dictionary<string, string>? context = null)
     {
-        var generation = runtime; var edits = windows.CaptureViewEdits(); var inputContext = context ?? MobileWindowContext("", "");
+        var generation = runtime; var editorSession = studioSession; var edits = windows.CaptureViewEdits(); var inputContext = context ?? MobileWindowContext("", "");
         await WorkAsync(async () =>
         {
-            if (generation is null || !ReferenceEquals(generation, runtime)) return;
+            if (generation is null || !ReferenceEquals(generation, runtime) || !ReferenceEquals(editorSession, studioSession)) return;
             string owner = generation.Snapshot.Commands.Single(c => c.Id == command).Pack;
             inputContext["editorPack"] = owner;
             using var project = new EditorPackProjectData(studioSession, owner, OnAiUi);
@@ -124,6 +127,7 @@ public sealed partial class MainActivity : Activity
             if (result.View is { } update)
                 windows.UpdateView(update.WindowId, owner, prepared!, edits.TryGetValue(update.WindowId, out var saved) ? saved : null);
             if (result.OpenXml.Length > 0) OpenMobileElementXml(result.OpenXml);
+            if (result.SelectObject.Length > 0 && studioSession.Index.Nodes.ContainsKey(result.SelectObject)) studioSession.Select(result.SelectObject);
             if (result.OpenObject is { } openObject) OpenMobileElement(openObject);
             if (result.PickObject is { } picker) PickMobileObject(generation, owner, picker, inputContext);
             if (result.Continue is { } continuation)
@@ -132,7 +136,7 @@ public sealed partial class MainActivity : Activity
                 Dispatch(continuation.Command, UiValue.Text(continuation.Payload), inputContext);
             }
             if (result.Message.Length > 0) Report(result.Message);
-        });
+        }, allowAi: true);
     }
     private void Documents()
     {
@@ -201,9 +205,9 @@ public sealed partial class MainActivity : Activity
             })!.Show();
     }
     private async void Work(Func<Task> action) => await WorkAsync(action);
-    private async Task WorkAsync(Func<Task> action)
+    private async Task WorkAsync(Func<Task> action, bool allowAi = false)
     {
-        if (aiWorking) { Report("진행 중인 AI 요청을 마치거나 취소해줘."); return; }
+        if (aiWorking && !allowAi) { Report("진행 중인 AI 요청을 마치거나 취소해줘."); return; }
         try
         {
             await operation.WaitAsync(lifetime.Token);

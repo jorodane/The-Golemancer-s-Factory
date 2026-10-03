@@ -164,7 +164,7 @@ internal static class ElementVerification
             Check(EditorNavigation.Editors(custom.Snapshot, data.ListObjects("recipe").First()).First().Id == "test.forms.recipe", "kind-specific editors take precedence over the generic form");
             Check(EditorNavigation.Editors(custom.Snapshot, data.ListObjects("action").Single()).Single().Id == "editor.core.element.form", "specializing an inherited editor preserves the generic fallback for other kinds");
         }
-        Check(EditorNavigation.Entries(custom.Snapshot, "menu").Length == 1 && EditorNavigation.Entries(custom.Snapshot, "hotbar").Length == 1, "inherited navigation entries can appear on separate surfaces");
+        Check(EditorNavigation.Entries(custom.Snapshot, "menu").Any(n => n.Id == "editor.core.home") && EditorNavigation.Entries(custom.Snapshot, "hotbar").Length == 1, "inherited navigation retains the main workspace and optional hotbar entries");
         var specialized = await Invoke("test.forms.open", "recipe:r1", "test.forms.window", engine: custom, pack: forms.Id);
         Check(specialized.View!.Xml.Contains("test.forms.dynamic."), "a metadata-only child UI pack inherits the real generic form implementation");
         var prepared = EditorDynamicViews.Prepare(custom, forms.Id, specialized.View!, "android");
@@ -180,6 +180,7 @@ internal static class ElementVerification
         string valid = forms.Read("editor.xml"); File.WriteAllText(forms.PathFor("editor.xml"), valid.Replace("window=\"test.forms.window\" command=", "window=\"missing.window\" command="));
         bool invalid = false; try { using var bad = await EditorPackRuntime.Prepare(worker, dotnet, [core, forms], default); } catch (Exception) { invalid = true; }
         Check(invalid, "editor registrations reject missing window targets before activation");
+        await WorkspaceVerification.Run(dotnet, worker, core, session, temporary, Check);
         Console.WriteLine("ELEMENT_CHECKS=" + checks);
     }
     private sealed class ObjectWindow : IEditorObjectWindowInstance

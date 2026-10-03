@@ -15,7 +15,7 @@ public sealed partial class MainActivity
     {
         if (mobileContent is null || mobilePrimary is null) return;
         bool wide = (Resources?.Configuration?.ScreenWidthDp ?? 0) >= 720;
-        bool visible = aiConnections.SetupCompleted && (wide || mobileDirectoryExpanded);
+        bool visible = aiConnections.SetupCompleted && (mobileDirectoryExpanded || wide && aiConnections.SelectedPack.Length == 0);
         mobileSidebar.Visibility = visible ? ViewStates.Visible : ViewStates.Gone;
         mobileSidebar.LayoutParameters = new LinearLayout.LayoutParams(wide ? Dp(220) : ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent);
         mobilePrimary.Visibility = !wide && visible ? ViewStates.Gone : ViewStates.Visible;

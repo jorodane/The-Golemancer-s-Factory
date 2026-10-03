@@ -6,7 +6,9 @@ using PackEngine.Runtime;
 using PackEngine.PackHost;
 
 Console.InputEncoding = new UTF8Encoding(false); Console.OutputEncoding = new UTF8Encoding(false);
-var input = Console.In; var output = Console.Out;
+// net48's Process.StandardInput can emit a UTF-8 BOM when the redirected writer is created.
+// Console.In does not detect that preamble, so read the protocol stream explicitly.
+var input = new StreamReader(Console.OpenStandardInput(), new UTF8Encoding(false, true), true, 4096); var output = Console.Out;
 // A pack's diagnostic Console.WriteLine must not corrupt the protocol.
 Console.SetOut(Console.Error);
 EditorPackCatalog? catalog = null; string? failure = null;

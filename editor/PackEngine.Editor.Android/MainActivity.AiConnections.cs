@@ -171,7 +171,12 @@ public sealed partial class MainActivity
             return inner.Call(args, token);
         }
     }
-    private IReadOnlyList<EditorPackSource> ActiveSources() => EditorPackSelection.WithDependencies(Sources(), MobileProject ? mobileEditorPackSelection : aiConnections.SelectedPack);
+    private IReadOnlyList<EditorPackSource> ActiveSources()
+    {
+        var sources = Sources(); string selected = MobileProject ? mobileEditorPackSelection : aiConnections.SelectedPack;
+        if (MobileProject && selected.Length == 0 && EditorPackSelection.DeclarativeWorkspace(sources) is { } workspace) selected = workspace.Id;
+        return EditorPackSelection.WithDependencies(sources, selected);
+    }
     private void ChooseInstalledPack()
     {
         if (aiWorking || aiConnecting || operation.CurrentCount == 0) { Report("진행 중인 작업이 끝난 뒤 팩을 선택해줘."); return; }

@@ -73,7 +73,8 @@ public sealed partial class EditorWindow
             this.owner = owner; this.definition = definition; this.backend = backend; this.view = view; this.context = context; this.updated = updated;
             scroll = new() { Content = ((EditorPackBackend.Element)view.Root).Control, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto };
             scroll.Loaded += ScrollLoaded;
-            if (definition.Placement == "panel")
+            if (definition.Placement == "panel" && definition.Slot == "workspace.main") { }
+            else if (definition.Placement == "panel")
             {
                 var header = new StackPanel { Orientation = Orientation.Horizontal };
                 header.Children.Add(new TextBlock { Text = definition.Title, Margin = new Thickness(0, 0, 6, 0) });
@@ -135,14 +136,16 @@ public sealed partial class EditorWindow
         public void Activate()
         {
             if (active) return; active = true;
-            if (tab is not null) owner.tabs.Items.Add(tab); else window!.Show();
+            if (definition.Slot == "workspace.main") owner.workspaceHost.Content = scroll;
+            else if (tab is not null) owner.tabs.Items.Add(tab); else window!.Show();
         }
         public void Focus()
-        { if (tab is not null) owner.tabs.SelectedItem = tab; else window!.Activate(); }
+        { if (definition.Slot == "workspace.main") return; if (tab is not null) { owner.tabs.SelectedItem = tab; owner.OpenNativeTool(owner.tabs.Items.IndexOf(tab)); } else window!.Activate(); }
         public void Dispose()
         {
             if (disposed) return; disposed = true;
             scroll.Loaded -= ScrollLoaded;
+            if (ReferenceEquals(owner.workspaceHost.Content, scroll)) owner.workspaceHost.Content = null;
             if (tab is not null) { owner.tabs.Items.Remove(tab); tab.Content = null; }
             if (window is not null) { window.Closed -= WindowClosed; if (!nativeClosed) window.Close(); window.Content = null; }
             scroll.Content = null; view.Dispose();

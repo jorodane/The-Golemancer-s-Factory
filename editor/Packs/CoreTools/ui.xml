@@ -4,6 +4,8 @@
   <Widget id="editor.text" extends="editor.element"><Property name="text" type="text" default="" /><Renderer platform="*" key="editor.text" /></Widget>
   <Widget id="editor.button" extends="editor.text"><Event name="activate" payload="none" /><Renderer platform="*" key="editor.button" /></Widget>
   <Widget id="editor.input" extends="editor.text"><Event name="changed" payload="text" /><Renderer platform="*" key="editor.input" /></Widget>
+  <Widget id="editor.inline" extends="editor.input"><Property name="placeholder" type="text" default="" /><Property name="multiline" type="boolean" default="false" /><Renderer platform="*" key="editor.inline" /></Widget>
+  <Widget id="editor.card" extends="editor.stack"><Property name="selected" type="boolean" default="false" /><Event name="activate" payload="none" /><Renderer platform="*" key="editor.card" /></Widget>
   <Widget id="editor.wrap" extends="editor.stack"><Renderer platform="*" key="editor.wrap" /></Widget>
   <Widget id="editor.slot" extends="editor.element">
     <Property name="image" type="text" default="" /><Property name="glyph" type="text" default="" />
@@ -19,6 +21,16 @@
     <Node id="focus" order="40" widget="editor.button"><Set property="text" value="편집 영역 넓히기" /><On event="activate" command="editor.core.focus" /></Node>
     <Node id="restore" order="50" widget="editor.button"><Set property="text" value="기본 배치 복원" /><On event="activate" command="editor.core.restore" /></Node>
   </Slot></Node></View>
+  <View id="editor.core.workspace" extends="editor.core.tools">
+    <Override node="hint"><Set property="visible" value="false" /></Override>
+    <Override node="refresh"><Set property="visible" value="false" /></Override>
+    <Override node="documents"><Set property="visible" value="false" /></Override>
+    <Override node="focus"><Set property="visible" value="false" /></Override>
+    <Override node="restore"><Set property="visible" value="false" /></Override>
+    <Override node="tools"><Slot name="children">
+      <Node id="workspaceBody" widget="editor.stack" order="60"><Slot name="children" export="true" /></Node>
+    </Slot></Override>
+  </View>
   <View id="editor.core.elements"><Node id="elementRoot" widget="editor.stack"><Slot name="children" export="true">
     <Node id="elementHeading" widget="editor.text"><Set property="text" value="메뉴에서 요소 탐색기를 열어줘." /><Set property="fontSize" value="20" /></Node>
     <Node id="elementBody" widget="editor.stack"><Slot name="children" export="true" /></Node>

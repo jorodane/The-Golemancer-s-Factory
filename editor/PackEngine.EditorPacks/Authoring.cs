@@ -206,6 +206,22 @@ public sealed partial class EditorPackAgent : IEditorPackAccess
 
 public static class EditorPackTemplates
 {
+    public static EditorPackSource CreateWorkspace(string root, string id = "project.workspace")
+    {
+        var parent = new ExtensionDefinition { Id = "editor.core.tools", Pack = "editor.core.tools", Fields = new() { ["view"] = "editor.core.workspace" } };
+        var source = Create(root, "project", id, parent);
+        var data = PackEngine.Runtime.PackCompiler.ReadXml(source.PathFor("editor.xml"));
+        data.Root!.Element("Panel")!.SetAttributeValue("title", "작업 공간");
+        var open = new XElement("Command", new XAttribute("id", id + ".open"), new XAttribute("extends", "editor.core.workspace.open"));
+        foreach (var pair in new[] { ("baseView", id + ".view"), ("actionCommand", id + ".action"), ("inputCommand", id + ".input") })
+            open.Add(new XElement("Argument", new XAttribute("name", pair.Item1), new XAttribute("value", pair.Item2)));
+        data.Root.Add(open,
+            new XElement("Command", new XAttribute("id", id + ".action"), new XAttribute("extends", "editor.core.elements.action")),
+            new XElement("Command", new XAttribute("id", id + ".input"), new XAttribute("extends", "editor.core.elements.input")),
+            new XElement("ObjectEditor", new XAttribute("id", id + ".form"), new XAttribute("extends", "editor.core.element.form"), new XAttribute("command", id + ".open")),
+            new XElement("Navigation", new XAttribute("id", id + ".home"), new XAttribute("extends", "editor.core.home"), new XAttribute("command", id + ".open")));
+        data.Save(source.PathFor("editor.xml")); return source;
+    }
     public static EditorPackSource Create(string root, string scope, string id, ExtensionDefinition? parent)
     {
         EditorPackNames.Check(id); if (id.Length > 100) throw new ArgumentException("Use a shorter pack ID.");

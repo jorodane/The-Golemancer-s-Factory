@@ -22,6 +22,8 @@ internal sealed class AndroidPackBackend(Context context) : IUiBackend
         {
             "editor.stack" => new LinearLayout(context) { Orientation = Orientation.Vertical },
             "editor.wrap" => new Flow(context),
+            "editor.card" => new Card(context),
+            "editor.inline" => new InlineEditor(context),
             "editor.slot" => new SlotButton(context),
             "editor.text" => new TextView(context),
             "editor.button" => new Button(context),
@@ -43,9 +45,9 @@ internal sealed class AndroidPackBackend(Context context) : IUiBackend
     public EditorWindowState Capture()
     {
         var state = new EditorWindowState();
-        foreach (var p in elements.Where(p => p.Key.Native is EditText))
+        foreach (var p in elements.Where(p => p.Key.InputControl is not null))
         {
-            var text = (EditText)p.Key.Native;
+            var text = p.Key.InputControl!;
             state.Values["input:" + p.Value] = text.Text ?? "";
             state.Values["selection:" + p.Value] = text.SelectionStart.ToString();
             state.Values["selectionEnd:" + p.Value] = text.SelectionEnd.ToString();
@@ -54,9 +56,9 @@ internal sealed class AndroidPackBackend(Context context) : IUiBackend
     }
     public void Restore(EditorWindowState state)
     {
-        foreach (var p in elements.Where(p => p.Key.Native is EditText))
+        foreach (var p in elements.Where(p => p.Key.InputControl is not null))
         {
-            var text = (EditText)p.Key.Native;
+            var text = p.Key.InputControl!;
             if (state.Values.TryGetValue("input:" + p.Value, out var value)) p.Key.Set("text", UiValue.Text(value));
             int length = text.Text?.Length ?? 0;
             if (state.Values.TryGetValue("selection:" + p.Value, out var caret) && int.TryParse(caret, out int start))
@@ -90,15 +92,16 @@ internal sealed class AndroidPackBackend(Context context) : IUiBackend
         private bool disposed, pendingCompositionCheck;
         public long InputRevision { get; private set; }
         public AView Native => native;
+        public EditText? InputControl => native as EditText ?? (native as InlineEditor)?.Input;
         public AView Control => wrapper;
         private bool setting;
         public Element(AView native, Bounds wrapper, Func<double, int> dp, Action cleanup)
         {
             this.native = native; this.wrapper = wrapper; this.dp = dp; this.cleanup = cleanup;
-            if (native is EditText input) input.TextChanged += InputChanged;
+            if (InputControl is { } input) input.TextChanged += InputChanged;
         }
         private void InputChanged(object? sender, TextChangedEventArgs e) { if (!setting) InputRevision++; }
-        private bool Composing => native is EditText text && text.EditableText is { } editable && BaseInputConnection.GetComposingSpanStart(editable) >= 0;
+        private bool Composing => InputControl is { } text && text.EditableText is { } editable && BaseInputConnection.GetComposingSpanStart(editable) >= 0;
         private void CheckComposition()
         {
             if (disposed || pendingCompositionCheck || !textUpdates.HasDeferred) return;
@@ -109,7 +112,7 @@ internal sealed class AndroidPackBackend(Context context) : IUiBackend
                 pendingCompositionCheck = false;
                 if (disposed) return;
                 if (Composing) { CheckComposition(); return; }
-                if (textUpdates.Complete(((EditText)native).Text ?? "") is { } value) Set("text", UiValue.Text(value));
+                if (textUpdates.Complete(InputControl!.Text ?? "") is { } value) Set("text", UiValue.Text(value));
             }, 32);
         }
         public void UpdateLayout(UiLayout layout)
@@ -135,10 +138,13 @@ internal sealed class AndroidPackBackend(Context context) : IUiBackend
             {
                 switch (property)
                 {
-                    case "enabled": native.Enabled = value.AsBoolean(); wrapper.Enabled = native.Enabled; break;
+                    case "enabled": native.Enabled = value.AsBoolean(); wrapper.Enabled = native.Enabled; if (native is InlineEditor enabledInline) enabledInline.Input.Enabled = native.Enabled; break;
                     case "visible": wrapper.Visibility = value.AsBoolean() ? ViewStates.Visible : ViewStates.Gone; break;
                     case "tooltip": native.TooltipText = value.Literal; break;
-                    case "fontSize": ((TextView)native).TextSize = (float)value.AsNumber(); break;
+                    case "fontSize": if (native is InlineEditor sizedInline) sizedInline.SetFont((float)value.AsNumber()); else if (native is TextView sizedText) sizedText.TextSize = (float)value.AsNumber(); break;
+                    case "selected": ((Card)native).Select(value.AsBoolean()); break;
+                    case "placeholder": ((InlineEditor)native).Placeholder = value.Literal; ((InlineEditor)native).Refresh(); break;
+                    case "multiline": ((InlineEditor)native).Input.SetSingleLine(!value.AsBoolean()); break;
                     case "margin":
                         var margins = (ViewGroup.MarginLayoutParams)wrapper.LayoutParameters!;
                         int amount = dp(value.AsNumber()); margins.SetMargins(amount, amount, amount, amount); wrapper.LayoutParameters = margins; break;
@@ -157,7 +163,7 @@ internal sealed class AndroidPackBackend(Context context) : IUiBackend
                         }
                         break;
                     case "text":
-                        if (native is EditText input)
+                        if (InputControl is { } input)
                         {
                             if (textUpdates.Receive(value.Literal, input.Text ?? "", Composing) is { } replacement)
                             {
@@ -191,7 +197,9 @@ internal sealed class AndroidPackBackend(Context context) : IUiBackend
                 EventHandler handler = (_, _) => callback(button is SlotButton slot ? UiValue.Text(slot.Value) : UiValue.None); button.Click += handler;
                 return new Release(() => button.Click -= handler);
             }
-            if (name == "changed" && native is EditText text)
+            if (name == "activate" && native is Card card)
+            { EventHandler handler = (_, _) => callback(UiValue.None); card.Click += handler; return new Release(() => card.Click -= handler); }
+            if (name == "changed" && InputControl is { } text)
             {
                 EventHandler<TextChangedEventArgs> handler = (_, _) => { if (!setting) callback(UiValue.Text(text.Text ?? "")); };
                 text.TextChanged += handler; return new Release(() => text.TextChanged -= handler);
@@ -201,13 +209,62 @@ internal sealed class AndroidPackBackend(Context context) : IUiBackend
         public void Dispose()
         {
             if (disposed) return; disposed = true;
-            if (native is EditText input) input.TextChanged -= InputChanged;
+            if (InputControl is { } input) input.TextChanged -= InputChanged;
             if (native is SlotButton slot) slot.ReleaseImage();
             cleanup(); if (native is ViewGroup group) group.RemoveAllViews(); wrapper.RemoveAllViews();
             if (wrapper.Parent is ViewGroup parent) parent.RemoveView(wrapper);
             native.Dispose(); wrapper.Dispose();
         }
         private sealed class Release(Action action) : IDisposable { public void Dispose() => action(); }
+    }
+    private sealed class Card : LinearLayout
+    {
+        public Card(Context context) : base(context)
+        {
+            Orientation = Orientation.Vertical; Focusable = true; Clickable = true;
+            int padding = (int)Math.Round(12 * (context.Resources?.DisplayMetrics?.Density ?? 1)); SetPadding(padding, padding, padding, padding); Select(false);
+            KeyPress += (_, e) => { if (e.KeyCode == Keycode.F2 && e.Event?.Action == KeyEventActions.Down) { FirstInline(this)?.Begin(); e.Handled = true; } };
+        }
+        public void Select(bool selected)
+        {
+            var shape = new global::Android.Graphics.Drawables.GradientDrawable(); shape.SetColor(global::Android.Graphics.Color.Rgb(25, 35, 47)); shape.SetCornerRadius(12);
+            shape.SetStroke(2, selected ? global::Android.Graphics.Color.Rgb(105, 209, 189) : global::Android.Graphics.Color.Rgb(52, 68, 87)); Background = shape;
+        }
+        private static InlineEditor? FirstInline(AView view)
+        {
+            if (view is InlineEditor inline && inline.Enabled) return inline;
+            if (view is ViewGroup group) for (int i = 0; i < group.ChildCount; i++) if (group.GetChildAt(i) is { } child && FirstInline(child) is { } found) return found;
+            return null;
+        }
+    }
+    private sealed class InlineEditor : FrameLayout
+    {
+        public EditText Input { get; }
+        private readonly TextView display;
+        public string Placeholder = "";
+        private string before = "";
+        public InlineEditor(Context context) : base(context)
+        {
+            Input = new EditText(context) { InputType = InputTypes.ClassText | InputTypes.TextFlagMultiLine, Visibility = ViewStates.Gone, ImeOptions = ImeAction.Done };
+            display = new TextView(context); display.SetPadding(12, 12, 12, 12); display.SetMinimumHeight(48); display.SetMinimumWidth(150);
+            display.SetTextColor(global::Android.Graphics.Color.White); Input.SetTextColor(global::Android.Graphics.Color.White);
+            AddView(display, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent)); AddView(Input, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent));
+            display.Click += (_, _) => Begin(); Input.TextChanged += (_, _) => Refresh();
+            Input.FocusChange += (_, e) => { if (!e.HasFocus) End(); };
+            Input.EditorAction += (_, e) => { if (e.ActionId == ImeAction.Done) { End(); e.Handled = true; } };
+            Input.KeyPress += (_, e) => { if (e.KeyCode == Keycode.Escape && e.Event?.Action == KeyEventActions.Down) { Input.Text = before; End(); e.Handled = true; } };
+            KeyPress += (_, e) => { if (e.KeyCode == Keycode.F2 && e.Event?.Action == KeyEventActions.Down) { Begin(); e.Handled = true; } };
+        }
+        public void Begin()
+        {
+            if (!Enabled || Input.Visibility == ViewStates.Visible) return;
+            before = Input.Text ?? ""; display.Visibility = ViewStates.Gone; Input.Visibility = ViewStates.Visible; Input.RequestFocus(); Input.SelectAll();
+            for (var parent = Parent; parent is not null; parent = parent.Parent) if (parent is Card card) { card.PerformClick(); break; }
+            (Context?.GetSystemService(Context.InputMethodService) as InputMethodManager)?.ShowSoftInput(Input, ShowFlags.Implicit);
+        }
+        private void End() { if (Input.Visibility != ViewStates.Visible) return; Input.Visibility = ViewStates.Gone; display.Visibility = ViewStates.Visible; Refresh(); }
+        public void SetFont(float size) { Input.TextSize = size; display.TextSize = size; }
+        public void Refresh() { display.Text = string.IsNullOrEmpty(Input.Text) ? Placeholder : Input.Text; display.SetTextColor(string.IsNullOrEmpty(Input.Text) ? global::Android.Graphics.Color.Rgb(163, 180, 199) : global::Android.Graphics.Color.White); }
     }
     private sealed class SlotButton : Button
     {

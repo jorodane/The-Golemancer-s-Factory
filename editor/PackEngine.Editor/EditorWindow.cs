@@ -38,11 +38,10 @@ public sealed partial class EditorWindow : Window
         Background = BackgroundInk; Foreground = TextInk; FontFamily = new FontFamily("Malgun Gothic"); FontSize = 13;
         var root = new Grid(); root.RowDefinitions.Add(new() { Height = GridLength.Auto }); root.RowDefinitions.Add(new()); root.RowDefinitions.Add(new() { Height = new GridLength(150) }); root.RowDefinitions.Add(new() { Height = GridLength.Auto }); Content = root;
         var top = new DockPanel { Margin = new Thickness(18, 14, 18, 10) };
-        var brand = new StackPanel(); brand.Children.Add(projectLabel); brand.Children.Add(Label("OBJECT PACKS  /  CONTEXT  /  BUILD", 10, MutedInk)); DockPanel.SetDock(brand, Dock.Left); top.Children.Add(brand);
+        var brand = new StackPanel(); brand.Children.Add(projectLabel); brand.Children.Add(Label("CONFECTORY", 10, MutedInk)); DockPanel.SetDock(brand, Dock.Left); top.Children.Add(brand);
         var actions = new WrapPanel { HorizontalAlignment = HorizontalAlignment.Right };
         var primary = new WrapPanel { HorizontalAlignment = HorizontalAlignment.Right };
         AddAiMenus(primary); primary.Children.Add(Action("새 게임팩", CreateGameProject)); primary.Children.Add(Action("게임팩 열기", ChooseProject));
-        AddProjectNavigation(primary);
         var builds = new Expander { Header = "빌드 · 실행", Foreground = TextInk, Content = actions, Margin = new Thickness(6) }; primary.Children.Add(builds); primary.Children.Add(Action("실행 기록", ShowOperationLog)); actions.Children.Add(targets);
         actions.Children.Add(Action("팩 빌드", () => Work(() => runner!.BuildPack(SelectedPack(), Target, operation!.Token)), true));
         actions.Children.Add(Action("프로젝트 빌드", () => Work(() => runner!.BuildProject(Target, operation!.Token)), true));
@@ -163,6 +162,7 @@ public sealed partial class EditorWindow : Window
         codexPath.IsEnabled = !busy; SetHistoryBusy(busy);
         packDocument.IsReadOnly = busy; packChoice.IsEnabled = !busy; packFiles.IsEnabled = !busy;
         if (!busy && pendingEditorPackReload) QueueEditorPackReload();
+        if (!busy && workspaceInitializationPending) Dispatcher.BeginInvoke(new Action(InitializeWorkspace));
         if (!busy && pendingAccountRefresh) { pendingAccountRefresh = false; Dispatcher.BeginInvoke(new Action(RefreshCodex)); }
     }
     private async void Work(Func<Task> action)
@@ -192,6 +192,7 @@ public sealed partial class EditorWindow : Window
         nextConversation.SaveLocal();
         runner?.Dispose(); provider?.Dispose(); provider = null; providerLabel.Text = "AI 제공자 미연결"; session = next; conversation = nextConversation;
         runner = new(session, Environment.GetEnvironmentVariable("PACKENGINE_DOTNET") ?? "dotnet"); runner.Output += AppendLog;
+        if (!Standalone && !Directory.Exists(ProjectPackRoot)) PackEngine.EditorPacks.EditorPackTemplates.CreateWorkspace(ProjectPackRoot);
         activeDocument = null; pending = null; lastRequest = null;
         Title = "Confectory — " + session.Project.Name; projectLabel.Text = session.Project.Name;
         targets.ItemsSource = session.Project.Targets.Select(t => t.Id).ToArray(); targets.SelectedItem = runner.PreferredTarget;
@@ -257,7 +258,7 @@ public sealed partial class EditorWindow : Window
     private void PreviewDocument() => Guard(() =>
     {
         if (session is null || activeDocument is null || busy) return;
-        pending = session.Preview(activeDocument.Path, activeDocument.Text, intent.Text); ShowChange(); tabs.SelectedIndex = 4;
+        pending = session.Preview(activeDocument.Path, activeDocument.Text, intent.Text); ShowChange(); OpenNativeTool(4);
     });
     private void ShowChange()
     {
@@ -308,7 +309,7 @@ public sealed partial class EditorWindow : Window
         contexts.Children.Clear(); if (session is null) return;
         contexts.Children.Add(Label("사용자가 연 문서", 13, AccentInk));
         contexts.Children.Add(Label("목록은 내용을 읽었다는 뜻이 아니야. 지정 구간만 기본 첨부돼.", 11, MutedInk));
-        foreach (var doc in session.Documents) contexts.Children.Add(Action((doc.Dirty ? "● " : "") + Path.GetFileName(doc.Path), () => { ShowDocument(doc.Path); tabs.SelectedIndex = 2; }));
+        foreach (var doc in session.Documents) contexts.Children.Add(Action((doc.Dirty ? "● " : "") + Path.GetFileName(doc.Path), () => { ShowDocument(doc.Path); OpenNativeTool(2); }));
         if (lastRequest is not null)
         {
             contexts.Children.Add(Label("최근 요청 · " + lastRequest.Delivery, 13, AccentInk));
