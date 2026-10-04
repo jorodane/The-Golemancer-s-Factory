@@ -24,7 +24,23 @@ internal sealed partial class EditorSurface
         StartStudio(); native.Paint();
         Check(mode == "startup" && !backend.Bounds("logo").IsEmpty, "trusted engine pack supplies the startup vector before project modules run");
         Check(((LinuxPackBackend.Element)studioStartView!.Element("brand-title")).Text("text") == "Confectory", "startup title comes from the shared pack view");
-        Click("later"); Check(mode == "home", "shared startup Later event enters the project home");
+        native.PushKey(9, true); native.PushKey(9, false); native.Pump(); Check(backend.FocusedId == "connect", "startup keyboard order begins with Connect");
+        native.PushKey(9, true); native.PushKey(9, false); native.Pump(); Check(backend.FocusedId == "later", "startup keyboard order reaches Later");
+        native.PushKey(13, true); native.PushKey(13, false); native.Pump(); Tick();
+        Check(mode == "home", "shared startup Later event enters the project home through native keyboard input");
+        string originalProject = session!.Project.Manifest;
+        ShowNewProject(new());
+        void EditCreation(string id, string text)
+        {
+            Click(id); native.PushKey(1073742048, true); native.PushKey('a', true); native.PushKey('a', false); native.PushKey(1073742048, false);
+            for (int offset = 0; offset < text.Length; offset += 24) native.PushText(text.Substring(offset, Math.Min(24, text.Length - offset)));
+            native.Pump(); Tick(); native.Paint();
+        }
+        EditCreation("create-name", "공통 프로젝트"); EditCreation("create-description", "공통 팩 생성 흐름");
+        EditCreation("create-location", Path.GetDirectoryName(session.Project.Root)!);
+        native.Paint(); scroll = Math.Max(0, contentHeight - viewportHeight + 150); Click("create-submit");
+        Check(mode == "home" && session.Project.Name == "공통 프로젝트" && ProjectStudio.Load(session.Project).Description == "공통 팩 생성 흐름", "real SDL input submits the shared project creation workflow");
+        Open(originalProject);
         Page("Native input verification", "verification");
         int activations = 0, changes = 0; var group = Stack("test-group"); Add(root, group);
         var button = Button("test-button", "Native button", () => activations++); Add(group, button);
@@ -54,6 +70,6 @@ internal sealed partial class EditorSurface
         var snapshot = activeWindow.CaptureViewEdits(); Check(snapshot is not null, "live input snapshot available");
         Dispatch("editor.core.notice", UiValue.None); Complete(); Check(status.Contains("에디터 객체팩"), "real DLL command executed");
         ShowObjects(concept.Id); status = "Native verification passed · SDL input, semantic save, DLL command and dynamic window"; native.Paint();
-        Console.WriteLine("LINUX_EDITOR_SMOKE_PASS SDL_WINDOW TEXT_INPUT POINTER SCHEMA_SAVE PACK_DLL DYNAMIC_VIEW");
+        Console.WriteLine("LINUX_EDITOR_SMOKE_PASS SDL_WINDOW STARTUP PROJECT_CREATION TEXT_INPUT POINTER SCHEMA_SAVE PACK_DLL DYNAMIC_VIEW");
     }
 }

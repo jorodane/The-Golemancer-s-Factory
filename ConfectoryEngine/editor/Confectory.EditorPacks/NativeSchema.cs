@@ -9,10 +9,10 @@ public static class EditorNativeSchema
 {
     public static UiValue DefaultValue(string property) => property switch
     {
-        "enabled" or "visible" => UiValue.Boolean(true),
+        "enabled" or "visible" or "wrapText" => UiValue.Boolean(true),
         "selected" or "multiline" => UiValue.Boolean(false),
         "fontSize" => UiValue.Number(13), "margin" or "count" => UiValue.Number(0),
-        "alignment" => UiValue.Text("stretch"), "orientation" => UiValue.Text("vertical"), "tint" => UiValue.Text("#293B4D"),
+        "fontWeight" => UiValue.Text("normal"), "appearance" => UiValue.Text("standard"), "alignment" => UiValue.Text("stretch"), "orientation" => UiValue.Text("vertical"), "tint" => UiValue.Text("#293B4D"),
         _ => UiValue.Text("")
     };
     public static double LayoutNumber(string value, double min, double max)
@@ -26,8 +26,9 @@ public static class EditorNativeSchema
         else if (renderer == "editor.vector") properties.Add("polygons", UiValueKind.Text);
         else if (renderer == "editor.slot")
         { foreach (string name in new[] { "image", "glyph", "value", "tint" }) properties.Add(name, UiValueKind.Text); properties.Add("count", UiValueKind.Number); }
-        else properties.Add("text", UiValueKind.Text);
+        else { properties.Add("text", UiValueKind.Text); properties.Add("wrapText", UiValueKind.Boolean); properties.Add("fontWeight", UiValueKind.Text); }
         if (renderer == "editor.inline") { properties.Add("placeholder", UiValueKind.Text); properties.Add("multiline", UiValueKind.Boolean); }
+        if (renderer == "editor.button") foreach (string name in new[] { "appearance", "hoverForeground", "hoverBackground", "pressedBackground" }) properties.Add(name, UiValueKind.Text);
         if (renderer == "editor.card") properties.Add("selected", UiValueKind.Boolean);
         return widget.Properties.All(p => properties.TryGetValue(p.Name, out var type) && type == p.Type)
             && widget.Slots.All(s => renderer is "editor.stack" or "editor.wrap" or "editor.card" && s.Name == "children")
@@ -56,8 +57,10 @@ public static class EditorNativeSchema
     }
     public static void ValidateValue(string property, UiValue value)
     {
-        if (property is "foreground" or "background" && value.Literal.Length > 0 && value.Literal != "transparent"
+        if (property is "foreground" or "background" or "hoverForeground" or "hoverBackground" or "pressedBackground" && value.Literal.Length > 0 && value.Literal != "transparent"
             && (value.Literal.Length != 7 || value.Literal[0] != '#' || value.Literal.Skip(1).Any(c => !Uri.IsHexDigit(c)))) throw new InvalidDataException("Use a #RRGGBB presentation color.");
+        if (property == "appearance" && value.Literal is not ("standard" or "quiet" or "accent")) throw new InvalidDataException("Unknown native button appearance.");
+        if (property == "fontWeight" && value.Literal is not ("normal" or "semibold" or "bold")) throw new InvalidDataException("Unknown native font weight.");
         if (property == "alignment" && value.Literal is not ("stretch" or "center" or "left")) throw new InvalidDataException("Unknown native alignment.");
         if (property == "polygons") EditorVector.Parse(value.Literal);
         if (property == "fontSize" && (value.AsNumber() < 8 || value.AsNumber() > 48) || property == "margin" && (value.AsNumber() < 0 || value.AsNumber() > 64)) throw new InvalidDataException("Editor property exceeds native range: " + property);

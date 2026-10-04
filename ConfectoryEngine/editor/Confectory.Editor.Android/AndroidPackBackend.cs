@@ -113,6 +113,7 @@ internal sealed class AndroidPackBackend(Context context, string viewId = "") : 
         public EditText? InputControl => native as EditText ?? (native as InlineEditor)?.Input;
         public AView Control => wrapper;
         private bool setting;
+        private readonly Dictionary<string, string> appearance = new(StringComparer.Ordinal);
         public Element(AView native, Bounds wrapper, Func<double, int> dp, Action cleanup)
         {
             this.native = native; this.wrapper = wrapper; this.dp = dp; this.cleanup = cleanup;
@@ -154,14 +155,19 @@ internal sealed class AndroidPackBackend(Context context, string viewId = "") : 
             EditorNativeSchema.ValidateValue(property, value); setting = true;
             try
             {
+                if (native is Button && property is "appearance" or "hoverForeground" or "hoverBackground" or "pressedBackground" or "foreground" or "background")
+                { appearance[property] = value.Literal; StyleButton(); }
                 switch (property)
                 {
+                    case "appearance": case "hoverForeground": case "hoverBackground": case "pressedBackground": break;
+                    case "wrapText": if (InputControl is { } wrappedInput) wrappedInput.SetHorizontallyScrolling(!value.AsBoolean()); else if (native is TextView wrappedText && native is not Button) wrappedText.SetSingleLine(!value.AsBoolean()); break;
+                    case "fontWeight": var weightedText = InputControl ?? native as TextView; if (weightedText is not null) weightedText.SetTypeface(global::Android.Graphics.Typeface.Default, value.Literal == "normal" ? global::Android.Graphics.TypefaceStyle.Normal : global::Android.Graphics.TypefaceStyle.Bold); break;
                     case "polygons": ((Vector)native).Polygons = EditorVector.Parse(value.Literal); native.Invalidate(); break;
                     case "alignment":
                         if (native is TextView alignedText) alignedText.Gravity = value.Literal == "center" ? GravityFlags.Center : GravityFlags.Start | GravityFlags.CenterVertical;
                         if (wrapper.LayoutParameters is LinearLayout.LayoutParams aligned) { aligned.Gravity = value.Literal == "center" ? GravityFlags.CenterHorizontal : GravityFlags.Start; wrapper.LayoutParameters = aligned; } break;
-                    case "foreground": if (value.Literal.Length > 0 && native is TextView coloredText) coloredText.SetTextColor(global::Android.Graphics.Color.ParseColor(value.Literal)); break;
-                    case "background": if (value.Literal.Length > 0) native.SetBackgroundColor(value.Literal == "transparent" ? global::Android.Graphics.Color.Transparent : global::Android.Graphics.Color.ParseColor(value.Literal)); break;
+                    case "foreground": if (native is Button && appearance.TryGetValue("appearance", out var fgStyle) && fgStyle != "standard") break; if (value.Literal.Length > 0 && native is TextView coloredText) coloredText.SetTextColor(global::Android.Graphics.Color.ParseColor(value.Literal)); break;
+                    case "background": if (native is Button && appearance.TryGetValue("appearance", out var bgStyle) && bgStyle != "standard") break; if (value.Literal.Length > 0) native.SetBackgroundColor(value.Literal == "transparent" ? global::Android.Graphics.Color.Transparent : global::Android.Graphics.Color.ParseColor(value.Literal)); break;
                     case "enabled": native.Enabled = value.AsBoolean(); wrapper.Enabled = native.Enabled; if (native is InlineEditor enabledInline) enabledInline.Input.Enabled = native.Enabled; break;
                     case "visible": wrapper.Visibility = value.AsBoolean() ? ViewStates.Visible : ViewStates.Gone; break;
                     case "tooltip": native.TooltipText = value.Literal; break;
@@ -203,6 +209,26 @@ internal sealed class AndroidPackBackend(Context context, string viewId = "") : 
                 }
             }
             finally { setting = false; }
+        }
+        private void StyleButton()
+        {
+            if (native is not Button button || !appearance.TryGetValue("appearance", out var style) || style == "standard") return;
+            button.SetAllCaps(false); button.SetMinWidth(0); button.SetMinHeight(0); button.SetMinimumHeight(0); button.StateListAnimator = null; button.Elevation = 0;
+            var states = new[] { new[] { global::Android.Resource.Attribute.StatePressed }, new[] { global::Android.Resource.Attribute.StateHovered }, new[] { global::Android.Resource.Attribute.StateFocused }, Array.Empty<int>() };
+            string Color(string key, string fallback) => appearance.TryGetValue(key, out var value) && value.Length > 0 && value != "transparent" ? value : fallback;
+            if (style == "quiet")
+            {
+                button.Background = null;
+                string foreground = Color("foreground", "#E6EDF3"), hover = Color("hoverForeground", foreground);
+                button.SetTextColor(new global::Android.Content.Res.ColorStateList(states, new[] { hover, hover, hover, foreground }.Select(c => global::Android.Graphics.Color.ParseColor(c).ToArgb()).ToArray()));
+            }
+            else
+            {
+                var fills = new global::Android.Graphics.Drawables.StateListDrawable(); string background = Color("background", "#293B4D"), hover = Color("hoverBackground", background);
+                string[] colors = [Color("pressedBackground", background), hover, hover, background];
+                for (int i = 0; i < states.Length; i++) { var fill = new global::Android.Graphics.Drawables.GradientDrawable(); fill.SetColor(global::Android.Graphics.Color.ParseColor(colors[i])); fill.SetCornerRadius(dp(8)); fills.AddState(states[i], fill); }
+                button.Background = fills; button.SetTextColor(global::Android.Graphics.Color.ParseColor(Color("foreground", "#E6EDF3")));
+            }
         }
         public void Add(string slot, IUiElement child)
             => InsertChild(((ViewGroup)native).ChildCount, child);

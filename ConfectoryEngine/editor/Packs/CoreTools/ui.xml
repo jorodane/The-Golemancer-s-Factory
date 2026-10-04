@@ -1,8 +1,8 @@
 <Ui version="1" id="editor.core.ui">
   <Widget id="editor.element"><Property name="enabled" type="boolean" default="true" /><Property name="visible" type="boolean" default="true" /><Property name="tooltip" type="text" default="" /><Property name="fontSize" type="number" default="13" min="8" max="48" /><Property name="margin" type="number" default="4" min="0" max="64" /><Property name="foreground" type="text" default="" /><Property name="background" type="text" default="" /><Property name="alignment" type="text" default="stretch"><Option value="stretch" /><Option value="center" /><Option value="left" /></Property><Renderer platform="*" key="editor.text" /></Widget>
   <Widget id="editor.stack" extends="editor.element"><Property name="orientation" type="text" default="vertical"><Option value="vertical" /><Option value="horizontal" /></Property><Slot name="children" min="0" /><Renderer platform="*" key="editor.stack" /></Widget>
-  <Widget id="editor.text" extends="editor.element"><Property name="text" type="text" default="" /><Renderer platform="*" key="editor.text" /></Widget>
-  <Widget id="editor.button" extends="editor.text"><Event name="activate" payload="none" /><Renderer platform="*" key="editor.button" /></Widget>
+  <Widget id="editor.text" extends="editor.element"><Property name="text" type="text" default="" /><Property name="wrapText" type="boolean" default="true" /><Property name="fontWeight" type="text" default="normal"><Option value="normal" /><Option value="semibold" /><Option value="bold" /></Property><Renderer platform="*" key="editor.text" /></Widget>
+  <Widget id="editor.button" extends="editor.text"><Property name="appearance" type="text" default="standard"><Option value="standard" /><Option value="quiet" /><Option value="accent" /></Property><Property name="hoverForeground" type="text" default="" /><Property name="hoverBackground" type="text" default="" /><Property name="pressedBackground" type="text" default="" /><Event name="activate" payload="none" /><Renderer platform="*" key="editor.button" /></Widget>
   <Widget id="editor.input" extends="editor.text"><Event name="changed" payload="text" /><Renderer platform="*" key="editor.input" /></Widget>
   <Widget id="editor.inline" extends="editor.input"><Property name="placeholder" type="text" default="" /><Property name="multiline" type="boolean" default="false" /><Renderer platform="*" key="editor.inline" /></Widget>
   <Widget id="editor.card" extends="editor.stack"><Property name="selected" type="boolean" default="false" /><Event name="activate" payload="none" /><Renderer platform="*" key="editor.card" /></Widget>
@@ -16,10 +16,36 @@
   <Widget id="editor.vector" extends="editor.element"><Property name="polygons" type="text" default="" /><Renderer platform="*" key="editor.vector" /></Widget>
   <View id="editor.studio.start"><Node id="startup" widget="editor.stack"><Layout size="430,0" /><Slot name="children">
     <Node id="logo" order="0" widget="editor.vector"><Layout size="96,96" /><Set property="alignment" value="center" /><Set property="tooltip" value="Confectory 로고" /><Set property="margin" value="10" /><Set property="polygons" value="#69D1BD:72,16 36,16 16,36 16,60 36,80 72,80 72,62 43,62 34,53 34,43 43,34 72,34;#E9EFF6:67,40 75,48 67,56 59,48" /></Node>
-    <Node id="brand-title" order="10" widget="editor.text"><Set property="text" value="Confectory" /><Set property="fontSize" value="42" /><Set property="foreground" value="#E9EFF6" /><Set property="alignment" value="center" /></Node>
-    <Node id="brand-subtitle" order="20" widget="editor.text"><Set property="text" value="AI-Integrated Development Environment" /><Set property="fontSize" value="12" /><Set property="foreground" value="#94A5B7" /><Set property="alignment" value="center" /><Set property="margin" value="12" /></Node>
-    <Node id="connect" order="30" widget="editor.button"><Layout size="240,48" /><Set property="text" value="AI Agent 연결" /><Set property="fontSize" value="15" /><Set property="foreground" value="#10251F" /><Set property="background" value="#69D1BD" /><Set property="alignment" value="center" /><On event="activate" command="editor.studio.connect" /></Node>
-    <Node id="later" order="40" widget="editor.button"><Layout size="80,36" /><Set property="text" value="나중에" /><Set property="fontSize" value="12" /><Set property="foreground" value="#94A5B7" /><Set property="background" value="transparent" /><Set property="alignment" value="center" /><On event="activate" command="editor.studio.later" /></Node>
+    <Node id="brand-title" order="10" widget="editor.text"><Set property="fontWeight" value="semibold" /><Set property="text" value="Confectory" /><Set property="fontSize" value="42" /><Set property="foreground" value="#E9EFF6" /><Set property="alignment" value="center" /></Node>
+    <Node id="brand-subtitle" order="20" widget="editor.text"><Set property="wrapText" value="false" /><Set property="text" value="AI-Integrated Development Environment" /><Set property="fontSize" value="12" /><Set property="foreground" value="#94A5B7" /><Set property="alignment" value="center" /><Set property="margin" value="12" /></Node>
+    <Node id="connect" order="30" widget="editor.button"><Layout size="240,48" /><Set property="appearance" value="accent" /><Set property="fontWeight" value="semibold" /><Set property="hoverBackground" value="#88DECF" /><Set property="pressedBackground" value="#5CBDAB" /><Set property="text" value="AI Agent 연결" /><Set property="fontSize" value="15" /><Set property="foreground" value="#10251F" /><Set property="background" value="#69D1BD" /><Set property="alignment" value="center" /><On event="activate" command="editor.studio.connect" /></Node>
+    <Node id="later" order="40" widget="editor.button"><Layout size="80,36" /><Set property="appearance" value="quiet" /><Set property="hoverForeground" value="#E9EFF6" /><Set property="text" value="나중에" /><Set property="fontSize" value="12" /><Set property="foreground" value="#94A5B7" /><Set property="background" value="transparent" /><Set property="alignment" value="center" /><On event="activate" command="editor.studio.later" /></Node>
+  </Slot></Node></View>
+  <Widget id="editor.studio.choice" extends="editor.button"><Default property="alignment" value="left" /></Widget>
+  <View id="editor.studio.new-project"><Node id="create-form" widget="editor.stack"><Slot name="children">
+    <Node id="create-heading" order="0" widget="editor.text"><Set property="text" value="새 프로젝트" /><Set property="fontSize" value="23" /></Node>
+    <Node id="create-icon" order="10" widget="editor.slot"><Layout size="68,68" /><Set property="alignment" value="center" /><Set property="glyph" value="◇" /><Bind property="image" source="studio.create.icon" /><On event="activate" command="studio.create.icon" /></Node>
+    <Node id="name-label" order="20" widget="editor.text"><Set property="text" value="프로젝트 이름" /></Node>
+    <Node id="create-name" order="30" widget="editor.inline"><Bind property="text" source="studio.create.name" /><On event="changed" command="studio.create.name" /></Node>
+    <Node id="create-agent" order="40" widget="editor.button"><Bind property="text" source="studio.create.agent" /><On event="activate" command="studio.create.agent" /></Node>
+    <Node id="create-helpers" order="50" widget="editor.button"><Bind property="text" source="studio.create.helpers" /><On event="activate" command="studio.create.helpers" /></Node>
+    <Node id="role-options" order="60" widget="editor.wrap"><Slot name="children" export="true" /></Node>
+    <Node id="helper-create-form" order="65" widget="editor.stack"><Bind property="visible" source="studio.create.addingHelper" /><Slot name="children">
+      <Node id="helper-create-label" order="0" widget="editor.text"><Set property="text" value="새 Helper의 이름과 Agent를 선택해줘." /></Node>
+      <Node id="helper-create-name" order="10" widget="editor.inline"><Bind property="text" source="studio.create.helperName" /><On event="changed" command="studio.create.helperName" /></Node>
+      <Node id="helper-create-submit" order="20" widget="editor.button"><Set property="text" value="Helper 만들기" /><On event="activate" command="studio.create.helperSubmit" /></Node>
+    </Slot></Node>
+    <Node id="description-label" order="70" widget="editor.text"><Set property="text" value="AI에게 프로젝트 설명" /></Node>
+    <Node id="create-description" order="80" widget="editor.inline"><Layout size="0,100" /><Set property="multiline" value="true" /><Bind property="text" source="studio.create.description" /><On event="changed" command="studio.create.description" /></Node>
+    <Node id="location-label" order="90" widget="editor.text"><Set property="text" value="저장 위치" /></Node>
+    <Node id="create-location" order="100" widget="editor.inline"><Bind property="text" source="studio.create.parent" /><On event="changed" command="studio.create.parent" /></Node>
+    <Node id="create-browse" order="110" widget="editor.button"><Set property="text" value="저장 위치 선택" /><On event="activate" command="studio.create.browse" /></Node>
+    <Node id="create-path" order="120" widget="editor.text"><Bind property="text" source="studio.create.path" /></Node>
+    <Node id="create-error" order="130" widget="editor.text"><Set property="foreground" value="#E35561" /><Bind property="text" source="studio.create.error" /></Node>
+    <Node id="create-actions" order="140" widget="editor.stack"><Set property="orientation" value="horizontal" /><Slot name="children">
+      <Node id="create-cancel" order="0" widget="editor.button"><Set property="text" value="취소" /><On event="activate" command="studio.create.cancel" /></Node>
+      <Node id="create-submit" order="10" widget="editor.button"><Set property="text" value="만들기" /><Set property="background" value="#69D1BD" /><Set property="foreground" value="#10251F" /><Bind property="enabled" source="studio.create.valid" /><On event="activate" command="studio.create.submit" /></Node>
+    </Slot></Node>
   </Slot></Node></View>
   <View id="editor.core.tools"><Node id="tools" widget="editor.stack"><Slot name="children" export="true">
     <Node id="project" order="0" widget="editor.text"><Bind property="text" source="editor.project" /><Set property="fontSize" value="20" /></Node>

@@ -2,6 +2,7 @@ using System.Xml.Linq;
 using Confectory.Contracts.UI;
 using Confectory.EditorPacks;
 using Confectory.Runtime.UI;
+using Confectory.Workspace;
 
 internal static class LiveViewVerification
 {
@@ -31,6 +32,42 @@ internal static class LiveViewVerification
         }
         Reject(() => EditorVector.Parse("#69D1BD:0,0 96,0 97,96"), "vector presentation rejects out-of-canvas coordinates");
         Reject(() => EditorVector.Parse("https://example.invalid/logo.svg"), "vector presentation cannot fetch remote resources");
+        string creationRoot = Path.Combine(Path.GetTempPath(), "studio-creation-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var presentation = new EditorStudioPresentation(EditorEngineDistribution.Bundle(Path.Combine(repository, "editor/engine.xml"), Path.Combine(creationRoot, "Engine")));
+            foreach (string platform in new[] { "windows", "android", "linux" })
+            {
+                var directory = new AiDirectory();
+                var agent = directory.AddAgent("Fixture Agent", new() { Provider = "openai", Model = "private-fixture-model" }, "private-credential-reference");
+                var helper = directory.CreateHelper(agent.Id, "First Helper");
+                int saves = 0, cancellations = 0;
+                WorkspaceProject? opened = null;
+                using var creation = new EditorStudioProjectCreation(presentation, new Backend(platform), directory,
+                    Path.Combine(creationRoot, platform), platform, platform == "windows" ? "net48" : "net10.0",
+                    _ => { }, _ => { }, () => saves++, project => opened = project, () => cancellations++, action => action());
+                void Activate(string id) => ((Element)creation.View.Element(id)).Activate();
+                void Edit(string id, string value) => ((Element)creation.View.Element(id)).Edit(value, value.Length);
+                Edit("create-name", "Shared creation"); Edit("create-description", "Same project roles on every native host.");
+                Activate("create-agent"); Activate("agent-" + agent.Id);
+                Activate("create-helpers"); Activate("helper-" + helper.Id); Activate("helper-add");
+                Edit("helper-create-name", "New Helper"); Activate("helper-create-submit");
+                var newHelper = directory.Helpers.Single(h => h.Name == "New Helper"); Activate("main-" + newHelper.Id);
+                Check(saves == 1 && creation.Roles.MainHelperId == newHelper.Id && creation.Roles.HelperIds.Count == 2,
+                    "common creation manages Helper selection, creation and MAIN roles on " + platform);
+                Edit("create-location", "relative/path"); Activate("create-submit");
+                Check(opened is null && !Directory.Exists(Path.Combine(creationRoot, platform)), "invalid creation path writes no project on " + platform);
+                Edit("create-location", Path.Combine(creationRoot, platform)); Activate("create-submit");
+                Check(opened is not null && ProjectStudio.Load(opened).MainAgentId == agent.Id && ProjectStudio.Load(opened).MainHelperId == newHelper.Id,
+                    "same engine-pack creation actions persist chosen roles on " + platform);
+                Check(ProjectStudio.Load(opened!).Description == "Same project roles on every native host." && !File.ReadAllText(opened!.Manifest).Contains("private-fixture-model") && !File.ReadAllText(opened.Manifest).Contains("private-credential-reference"),
+                    "creation retains form values through role view reconciliation without exporting private Agent state on " + platform);
+                string before = File.ReadAllText(opened!.Manifest); Activate("create-submit");
+                Check(File.ReadAllText(opened.Manifest) == before, "repeated creation cannot overwrite an existing project on " + platform);
+                Activate("create-cancel"); Check(cancellations == 1, "common cancellation reaches only the host lifecycle on " + platform);
+            }
+        }
+        finally { if (Directory.Exists(creationRoot)) Directory.Delete(creationRoot, true); }
         XElement Node(string id, string widget, string? text = null, string? command = null) => new("Node", new XAttribute("id", id), new XAttribute("widget", widget),
             text is null ? null : new XElement("Set", new XAttribute("property", "text"), new XAttribute("value", text)),
             command is null ? null : new XElement("On", new XAttribute("event", "changed"), new XAttribute("command", command)));
@@ -122,13 +159,13 @@ internal static class LiveViewVerification
         Console.WriteLine("LIVE_VIEW_CHECKS=" + checks);
     }
 
-    private sealed class Backend : IUiBackend
+    private sealed class Backend(string platform = "windows") : IUiBackend
     {
         public readonly List<Element> All = [];
-        public string Platform => "windows";
+        public string Platform => platform;
         public int Alive => All.Count(e => !e.Disposed);
         public Element Live(string id) => All.Single(e => e.Id == id && !e.Disposed);
-        public bool Supports(string renderer, UiWidgetDefinition contract) => EditorNativeSchema.Supports(renderer, contract);
+        public bool Supports(string renderer, UiWidgetDefinition contract) => EditorNativeSchema.Supports(renderer, contract, platform);
         public IUiElement Create(string renderer, string nodeId, UiLayout layout) { var e = new Element(nodeId, renderer) { Layout = layout }; All.Add(e); return e; }
     }
     private sealed class Element(string id, string renderer) : IEditorViewElement

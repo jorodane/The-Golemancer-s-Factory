@@ -9,7 +9,7 @@ namespace Confectory.Editor.Linux;
 public sealed class LinuxPackBackend(Action invalidate) : IUiBackend, IDisposable
 {
     private readonly List<Element> elements = [];
-    private Element? focused, pressed;
+    private Element? focused, pressed, hovered;
     private bool control, shift;
     private SKRect clip;
     private void Invalidate() => invalidate();
@@ -38,6 +38,7 @@ public sealed class LinuxPackBackend(Action invalidate) : IUiBackend, IDisposabl
     private float Paint(Element e, SKCanvas canvas, float x, float y, float width)
     {
         if (!e.Visible) return 0;
+        bool highlighted = e == hovered || e == focused;
         float margin = (float)e.Number("margin"), size = (float)e.Number("fontSize");
         x += margin; y += margin; width = Math.Max(20, width - margin * 2);
         float availableWidth = width;
@@ -86,9 +87,9 @@ public sealed class LinuxPackBackend(Action invalidate) : IUiBackend, IDisposabl
         {
             bool input = e.IsInput; string text = input && focused == e ? e.Text("text") + e.Composition : e.Text("text");
             height = e.Renderer == "editor.slot" ? 76 : Math.Max(38, size + 20);
-            if (e.Bool("multiline") || e.Renderer == "editor.text") height = Math.Max(height, TextLines(text, Math.Max(8, (int)(width / (size * .62)))).Length * (size + 5) + 16);
+            if (e.Bool("multiline") || e.Renderer == "editor.text" && e.Bool("wrapText")) height = Math.Max(height, TextLines(text, Math.Max(8, (int)(width / (size * .62)))).Length * (size + 5) + 16);
             if (e.Layout.Size.Y > 0) height = (float)e.Layout.Size.Y;
-            if (e.Renderer != "editor.text" && e.Text("background") != "transparent") Fill(canvas, new(x, y, x + width, y + height), e.Text("background").Length > 0 ? e.Text("background") : input ? focused == e ? "#243E4B" : "#101922" : e.Renderer == "editor.slot" ? e.Text("tint") : e.Enabled ? "#293B4D" : "#18232E", 7);
+            if (e.Renderer != "editor.text" && e.Text("background") != "transparent" && e.Text("appearance") != "quiet") Fill(canvas, new(x, y, x + width, y + height), e == pressed && e.Text("pressedBackground").Length > 0 ? e.Text("pressedBackground") : highlighted && e.Text("hoverBackground").Length > 0 ? e.Text("hoverBackground") : e.Text("background").Length > 0 ? e.Text("background") : input ? focused == e ? "#243E4B" : "#101922" : e.Renderer == "editor.slot" ? e.Text("tint") : e.Enabled ? "#293B4D" : "#18232E", e.Text("appearance") == "accent" ? 8 : 7);
             if (e.Renderer == "editor.slot")
             {
                 if (e.Image is not null) canvas.DrawBitmap(e.Image, new SKRect(x + 8, y + 6, x + 60, y + 58));
@@ -98,13 +99,13 @@ public sealed class LinuxPackBackend(Action invalidate) : IUiBackend, IDisposabl
             else
             {
                 if (input && text.Length == 0) text = e.Text("placeholder");
-                var lines = TextLines(text, Math.Max(8, (int)((width - 20) / (size * .62))));
+                var lines = e.Renderer == "editor.text" && !e.Bool("wrapText") ? new[] { text } : TextLines(text, Math.Max(8, (int)((width - 20) / (size * .62))));
                 int limit = e.Bool("multiline") || e.Renderer == "editor.text" ? Math.Max(1, (int)((height - 10) / (size + 5))) : 1;
                 for (int i = 0; i < Math.Min(lines.Length, limit); i++)
                 {
                     float textX = x + 10;
                     if (e.Text("alignment") == "center") { using var typeface = SKTypeface.FromFamilyName("Noto Sans CJK KR"); using var font = new SKFont(typeface, size); textX = x + (width - font.MeasureText(lines[i])) / 2; }
-                    Text(canvas, lines[i], textX, y + 9 + size + i * (size + 5), size, e.Text("foreground").Length > 0 ? e.Text("foreground") : e.Enabled ? "#E6EDF3" : "#71808F");
+                    Text(canvas, lines[i], textX, y + 9 + size + i * (size + 5), size, highlighted && e.Text("hoverForeground").Length > 0 ? e.Text("hoverForeground") : e.Text("foreground").Length > 0 ? e.Text("foreground") : e.Enabled ? "#E6EDF3" : "#71808F", e.Text("fontWeight"));
                 }
                 if (input && focused == e) { using var pen = new SKPaint { Color = SKColor.Parse("#71D7C6"), StrokeWidth = 2 }; float caret = Math.Min(width - 10, 10 + e.Caret * size * .57f); canvas.DrawLine(x + caret, y + 7, x + caret, y + Math.Min(height - 6, size + 12), pen); }
             }
@@ -113,10 +114,10 @@ public sealed class LinuxPackBackend(Action invalidate) : IUiBackend, IDisposabl
         var hit = new SKRect(x, y, x + width, y + height); hit.Intersect(clip); e.Bounds = hit; e.LastHeight = height; return height + margin * 2;
     }
     public static void Fill(SKCanvas canvas, SKRect rect, string color, float radius = 0) { using var paint = new SKPaint { Color = SKColor.Parse(color), IsAntialias = true }; canvas.DrawRoundRect(rect, radius, radius, paint); }
-    public static void Text(SKCanvas canvas, string text, float x, float y, float size, string color)
+    public static void Text(SKCanvas canvas, string text, float x, float y, float size, string color, string weight = "normal")
     {
         using var paint = new SKPaint { Color = SKColor.Parse(color), IsAntialias = true };
-        using var typeface = SKTypeface.FromFamilyName("Noto Sans CJK KR");
+        using var typeface = SKTypeface.FromFamilyName("Noto Sans CJK KR", weight == "normal" ? SKFontStyle.Normal : SKFontStyle.Bold);
         using var font = new SKFont(typeface, size);
         canvas.DrawText(text, x, y, font, paint);
     }
@@ -124,25 +125,31 @@ public sealed class LinuxPackBackend(Action invalidate) : IUiBackend, IDisposabl
     public void Input(NativeInput input)
     {
         if (focused is { } current && (!current.Enabled || !current.Visible)) Focus(null);
-        if (input.Kind == NativeInputKind.PointerDown)
+        if (input.Kind == NativeInputKind.PointerMove)
+        {
+            var next = elements.LastOrDefault(e => e.Enabled && e.Visible && e.Renderer == "editor.button" && e.Bounds.Contains(input.X, input.Y));
+            if (next != hovered) { hovered = next; invalidate(); }
+        }
+        else if (input.Kind == NativeInputKind.PointerDown)
         {
             pressed = elements.LastOrDefault(e => e.Enabled && e.Visible && e.Bounds.Contains(input.X, input.Y) && (e.IsInput || e.Renderer is "editor.button" or "editor.card" or "editor.slot"));
-            Focus(pressed?.IsInput == true ? pressed : null); invalidate();
+            Focus(pressed); invalidate();
         }
         else if (input.Kind == NativeInputKind.PointerUp)
         {
             var target = pressed; pressed = null;
             if (target is not null && !target.Disposed && target.Enabled && target.Bounds.Contains(input.X, input.Y) && !target.IsInput) target.Emit("activate", target.Renderer == "editor.slot" ? UiValue.Text(target.Text("value")) : UiValue.None);
         }
-        else if (input.Kind == NativeInputKind.Text && focused is { } field) { field.Composition = ""; Edit(field, input.Text); }
-        else if (input.Kind == NativeInputKind.Composition && focused is { } composing) { composing.Composition = input.Text; invalidate(); }
+        else if (input.Kind == NativeInputKind.Text && focused is { IsInput: true } field) { field.Composition = ""; Edit(field, input.Text); }
+        else if (input.Kind == NativeInputKind.Composition && focused is { IsInput: true } composing) { composing.Composition = input.Text; invalidate(); }
         else if (input.Kind == NativeInputKind.Key)
         {
             if (input.Key is "LeftCtrl" or "RightCtrl") control = input.Down;
             if (input.Key is "LeftShift" or "RightShift") shift = input.Down;
             if (!input.Down) return;
-            if (input.Key == "Tab") { var inputs = elements.Where(e => e.IsInput && e.Visible && e.Enabled && !e.Bounds.IsEmpty).ToArray(); if (inputs.Length > 0) { int i = Array.IndexOf(inputs, focused); Focus(inputs[(i + (shift ? inputs.Length - 1 : 1) + inputs.Length) % inputs.Length]); } return; }
+            if (input.Key == "Tab") { var inputs = elements.Where(e => (e.IsInput || e.Renderer is "editor.button" or "editor.card" or "editor.slot") && e.Visible && e.Enabled && !e.Bounds.IsEmpty).ToArray(); if (inputs.Length > 0) { int i = Array.IndexOf(inputs, focused); Focus(inputs[(i + (shift ? inputs.Length - 1 : 1) + inputs.Length) % inputs.Length]); } return; }
             if (focused is not { } e) return;
+            if (!e.IsInput) { if (input.Key is "Enter" or "Space") e.Emit("activate", e.Renderer == "editor.slot" ? UiValue.Text(e.Text("value")) : UiValue.None); invalidate(); return; }
             if (control && input.Key == "A") { e.Selection = 0; e.Caret = e.Text("text").Length; }
             else if (control && input.Key == "C") NativeWindow.Clipboard = Selected(e);
             else if (control && input.Key == "X") { NativeWindow.Clipboard = Selected(e); Edit(e, ""); }
@@ -168,7 +175,7 @@ public sealed class LinuxPackBackend(Action invalidate) : IUiBackend, IDisposabl
         focused = element; if (element is not null) element.Selection = element.Caret = element.Text("text").Length;
         invalidate();
     }
-    public void Suspend() { pressed = null; control = shift = false; Focus(null); }
+    public void Suspend() { pressed = hovered = null; control = shift = false; Focus(null); }
     public void Dispose() { foreach (var e in elements.ToArray()) e.Dispose(); }
 
     public sealed class Element : IEditorViewElement
@@ -222,7 +229,7 @@ public sealed class LinuxPackBackend(Action invalidate) : IUiBackend, IDisposabl
         public void InsertChild(int index, IUiElement child) { var element = (Element)child; element.Parent = this; Children.Insert(index, element); }
         public IDisposable Listen(string name, Action<UiValue> handler) { if (!listeners.TryGetValue(name, out var list)) listeners[name] = list = []; list.Add(handler); return new Subscription(() => list.Remove(handler)); }
         internal void Emit(string name, UiValue value) { if (listeners.TryGetValue(name, out var list)) foreach (var handler in list.ToArray()) handler(value); }
-        public void Dispose() { if (Disposed) return; Disposed = true; Image?.Dispose(); listeners.Clear(); Children.Clear(); owner.elements.Remove(this); if (owner.focused == this) owner.Focus(null); }
+        public void Dispose() { if (Disposed) return; Disposed = true; Image?.Dispose(); listeners.Clear(); Children.Clear(); owner.elements.Remove(this); if (owner.focused == this) owner.Focus(null); if (owner.hovered == this) owner.hovered = null; if (owner.pressed == this) owner.pressed = null; }
         private sealed class Subscription(Action cleanup) : IDisposable { public void Dispose() => cleanup(); }
     }
 }

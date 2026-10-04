@@ -97,6 +97,7 @@ internal sealed class EditorPackBackend(Action<string> point, Func<bool> pointin
         public TextBox? InputControl => control as TextBox ?? (control as InlineEditor)?.Input;
         private Panel Children => control is Card card ? card.Children : (Panel)control;
         private bool setting;
+        private readonly Dictionary<string, string> appearance = new(StringComparer.Ordinal);
         public Element(FrameworkElement control, Action cleanup)
         {
             this.control = control; this.cleanup = cleanup;
@@ -144,13 +145,17 @@ internal sealed class EditorPackBackend(Action<string> point, Func<bool> pointin
             setting = true;
             try
             {
+                if (control is Button && property is "appearance" or "hoverForeground" or "hoverBackground" or "pressedBackground")
+                { appearance[property] = value.Literal; StyleButton(); return; }
                 switch (property)
                 {
+                    case "wrapText": if (InputControl is { } wrappedInput) wrappedInput.TextWrapping = value.AsBoolean() ? TextWrapping.Wrap : TextWrapping.NoWrap; else if (control is TextBlock wrappedText) wrappedText.TextWrapping = value.AsBoolean() ? TextWrapping.Wrap : TextWrapping.NoWrap; break;
+                    case "fontWeight": var weight = value.Literal == "normal" ? FontWeights.Normal : value.Literal == "semibold" ? FontWeights.SemiBold : FontWeights.Bold; if (InputControl is { } weightedInput) weightedInput.FontWeight = weight; else if (control is Control weightedControl) weightedControl.FontWeight = weight; else if (control is TextBlock weightedText) weightedText.FontWeight = weight; break;
                     case "polygons": ((Vector)control).Polygons = EditorVector.Parse(value.Literal); ((Vector)control).InvalidateVisual(); break;
                     case "alignment": control.HorizontalAlignment = value.Literal == "center" ? HorizontalAlignment.Center : value.Literal == "left" ? HorizontalAlignment.Left : HorizontalAlignment.Stretch;
                         if (control is TextBlock alignedText) alignedText.TextAlignment = value.Literal == "center" ? TextAlignment.Center : TextAlignment.Left; break;
                     case "foreground": if (value.Literal.Length > 0) { var ink = (Brush)new BrushConverter().ConvertFromString(value.Literal)!; if (control is Control coloredControl) coloredControl.Foreground = ink; else if (control is TextBlock coloredText) coloredText.Foreground = ink; } break;
-                    case "background": if (value.Literal.Length > 0) { var fill = value.Literal == "transparent" ? Brushes.Transparent : (Brush)new BrushConverter().ConvertFromString(value.Literal)!; if (control is Control filledControl) filledControl.Background = fill; else if (control is Panel filledPanel) filledPanel.Background = fill; } break;
+                    case "background": if (value.Literal.Length > 0) { var fill = value.Literal == "transparent" ? null : (Brush)new BrushConverter().ConvertFromString(value.Literal)!; if (control is Control filledControl) filledControl.Background = fill; else if (control is Panel filledPanel) filledPanel.Background = fill; } break;
                     case "enabled": control.IsEnabled = value.AsBoolean(); break;
                     case "visible": control.Visibility = value.AsBoolean() ? Visibility.Visible : Visibility.Collapsed; break;
                     case "tooltip": control.ToolTip = value.Literal; break;
@@ -183,6 +188,30 @@ internal sealed class EditorPackBackend(Action<string> point, Func<bool> pointin
                 }
             }
             finally { setting = false; }
+        }
+        private void StyleButton()
+        {
+            if (control is not Button button || !appearance.TryGetValue("appearance", out var style) || style == "standard") return;
+            button.Cursor = Cursors.Hand; button.FocusVisualStyle = null;
+            var presenter = new FrameworkElementFactory(typeof(ContentPresenter));
+            presenter.SetValue(ContentPresenter.HorizontalAlignmentProperty, HorizontalAlignment.Center);
+            presenter.SetValue(ContentPresenter.VerticalAlignmentProperty, VerticalAlignment.Center);
+            var template = new ControlTemplate(typeof(Button));
+            if (style == "quiet") { button.Background = null; template.VisualTree = presenter; }
+            else
+            {
+                var border = new FrameworkElementFactory(typeof(Border)); border.SetValue(Border.CornerRadiusProperty, new CornerRadius(8));
+                border.SetValue(Border.BackgroundProperty, new TemplateBindingExtension(System.Windows.Controls.Control.BackgroundProperty)); border.AppendChild(presenter); template.VisualTree = border;
+            }
+            void Trigger(DependencyProperty state, DependencyProperty target, string key)
+            {
+                if (!appearance.TryGetValue(key, out var color) || color.Length == 0) return;
+                var trigger = new Trigger { Property = state, Value = true }; trigger.Setters.Add(new Setter(target, (Brush)new BrushConverter().ConvertFromString(color)!)); template.Triggers.Add(trigger);
+            }
+            Trigger(UIElement.IsMouseOverProperty, style == "quiet" ? System.Windows.Controls.Control.ForegroundProperty : System.Windows.Controls.Control.BackgroundProperty, style == "quiet" ? "hoverForeground" : "hoverBackground");
+            Trigger(UIElement.IsKeyboardFocusedProperty, style == "quiet" ? System.Windows.Controls.Control.ForegroundProperty : System.Windows.Controls.Control.BackgroundProperty, style == "quiet" ? "hoverForeground" : "hoverBackground");
+            Trigger(System.Windows.Controls.Primitives.ButtonBase.IsPressedProperty, System.Windows.Controls.Control.BackgroundProperty, "pressedBackground");
+            button.Template = template;
         }
         public void Add(string slot, IUiElement child) => Children.Children.Add(((Element)child).Control);
         public void RemoveChild(IUiElement child) => Children.Children.Remove(((Element)child).Control);

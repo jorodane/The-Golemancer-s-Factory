@@ -21,6 +21,7 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
     private ConceptEditorController? editor;
     private Element root = null!;
     private EditorLiveView? studioStartView;
+    private EditorStudioProjectCreation? studioCreation;
     private ConceptMapState? map;
     private readonly Dictionary<string, Element> mapButtons = new();
     private string projectPath = "", title = "Confectory", status = "Open a project to begin", mode = "home";
@@ -137,10 +138,11 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
     }
     private void Home()
     {
+        studioCreation?.Dispose(); studioCreation = null;
         Page(session is null ? "Open project" : ProjectName, "home");
         Add(root, Label("A native workspace for project-owned concepts, objects and packs."));
         Add(root, InputBox("project-path", projectPath, value => projectPath = value)); Add(root, Button("open-project", "Open project path", () => Open(projectPath)));
-        Add(root, Button("new-project", "Create a new project…", () => Ask("New project name", "My project", name => { var parent = projectPath.Length > 0 ? projectPath : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Confectory Projects"); Open(NewProject.CreateAt(parent, name, new(), "linux", "net10.0").Manifest); }, Home)));
+        Add(root, Button("new-project", "새 프로젝트 만들기", () => ShowNewProject()));
         if (session is null) return;
         Add(root, Label(ProjectName, "project-title")); Add(root, Label($"{Space.Packs.Count} packs ready to edit"));
         var actions = Stack("project-actions", true); Add(root, actions);
@@ -150,6 +152,29 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
         Add(root, Label("Opening a project reads its declarations. Project commands and DLLs run only from the actions above."));
         if (runtime is not null) Add(root, Button("pack-windows", "Open pack windows", ShowPackWindows));
         status = "Project ready";
+    }
+    private void ShowNewProject(AiDirectory? directory = null)
+    {
+        studioCreation?.Dispose();
+        directory ??= AiDirectory.Load(AiDirectory.DefaultPath);
+        var presentation = new EditorStudioPresentation(EditorEngineDistribution.Open(engineDirectory));
+        studioCreation = new(presentation, backend, directory, ProjectCatalog.DefaultDirectory, "linux", "net10.0",
+            apply => Ask("이미지 파일 경로", "", path =>
+            {
+                if (new FileInfo(path).Length > 10_000_000) throw new InvalidDataException("10 MB 이하 이미지를 선택해줘.");
+                var bytes = File.ReadAllBytes(path); using var decoded = SKBitmap.Decode(bytes) ?? throw new InvalidDataException("이미지 파일을 선택해줘.");
+                apply(bytes, Path.GetExtension(path)); ShowCreation();
+            }, ShowCreation),
+            apply => Ask("저장 위치", ProjectCatalog.DefaultDirectory, path => { apply(path); ShowCreation(); }, ShowCreation),
+            () => directory.Save(AiDirectory.DefaultPath),
+            project => Open(project.Manifest), Home, OnUi, () => !busy);
+        ShowCreation();
+    }
+    private void ShowCreation()
+    {
+        studioStartView?.Dispose(); studioStartView = null;
+        foreach (var control in controls.ToArray()) control.Dispose(); controls.Clear();
+        activeWindow = null; root = (Element)studioCreation!.View.Root; mode = "new-project"; title = "새 프로젝트"; scroll = 0; Invalidate();
     }
     public void Open(string path)
     {
@@ -421,5 +446,5 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
         }, ShowDocuments, true);
         if (!session.CanEdit(path)) Disable(root.Children.First(c => c.Id == "confirm"));
     }
-    public void Dispose() { if (disposed) return; disposed = true; lifetime.Cancel(); pendingReview?.Cancel(); windows.Dispose(); execution?.Dispose(); runner?.Dispose(); studioStartView?.Dispose(); backend.Dispose(); lifetime.Dispose(); }
+    public void Dispose() { if (disposed) return; disposed = true; lifetime.Cancel(); pendingReview?.Cancel(); windows.Dispose(); execution?.Dispose(); runner?.Dispose(); studioCreation?.Dispose(); studioStartView?.Dispose(); backend.Dispose(); lifetime.Dispose(); }
 }

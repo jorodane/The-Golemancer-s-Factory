@@ -9,11 +9,11 @@ Project packs cannot replace the trusted shell or access credentials.
 
 | Flow | Existing behavior to preserve | Migration status |
 | --- | --- | --- |
-| Startup | vector logo, staged entrance, logo flight to home, Connect/Later, saved Agent skip | first implementation in progress |
+| Startup | vector logo, staged entrance, logo flight to home, Connect/Later, saved Agent skip | shared pack presentation mounted; native motion/state migration pending |
 | Agents | provider/auth/model/profile selection, restore, enabled state, private credentials | pending |
-| Helpers | avatar/character/memories, Main Helper and worker roles | pending |
+| Helpers | avatar/character/memories, Main Helper and worker roles | creation and MAIN selection shared within project creation; profiles pending |
 | Project home | recent cards, icons, rename/delete, last opened | pending |
-| Creation | name/icon/description/path, Main Agent/Helpers | pending |
+| Creation | name/icon/description/path, Main Agent/Helpers | shared controller and pack view mounted; visual/flow verification in progress |
 | Workspace | independent project surface, role characters, movable panels and persisted layout | pending |
 | Conversation | send/stream/cancel/history/context, reviewed changes, no automatic requests on open | pending |
 | Collaboration | Agent–Worker–Helper, YogiBox, participants/inbox/control/handoffs | pending |
@@ -36,3 +36,19 @@ Project packs cannot replace the trusted shell or access credentials.
    flows, with source compilation reported separately from native execution.
 
 This document tracks work in progress. A startup checkpoint is not full parity.
+
+## Checkpoint evidence
+
+`6774d0da7227594092a9d6c7ce11a59281347491` mounts the common startup
+presentation on all three hosts. Local native SDL and portable verification passed.
+Its remote Windows startup check caught wrapping/button-chrome regressions;
+`wrapText`, font weight and pack-authored button states address that regression in
+this next checkpoint without weakening the original native assertion.
+
+Project creation is now driven by `EditorStudioProjectCreation` and the installed
+`editor.studio.new-project` view. Native hosts supply file/folder pickers, UI thread
+scheduling and activation callbacks. Agent/Helper choice, Helper creation, MAIN
+selection, validation and metadata writes are shared. Portable tests exercise all
+three platform contracts, preserve entered values through role changes, reject
+relative paths and existing output, and exclude private Agent state from manifests.
+The actual SDL smoke creates a Korean-named project through pointer/text input.
