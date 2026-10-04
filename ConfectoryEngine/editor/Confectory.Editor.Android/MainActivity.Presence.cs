@@ -42,7 +42,7 @@ public sealed partial class MainActivity
                 }
             }
             else actions.Add(("프로젝트에서 호출", () => OpenMobileProjectChat("@" + worker.Participant.Id + " ")));
-            actions.Add(("대화창 닫기", () => hub.Display("human", worker.Participant.Id, CharacterDisplay.Hidden)));
+            actions.Add(("대화창 닫기", () => MobileParticipantActions().Display(worker.Participant.Id, CharacterDisplay.Hidden)));
             new AlertDialog.Builder(this).SetTitle(worker.Participant.Name)!.SetItems(actions.Select(a => a.Name).ToArray(), (_, choice) => MobileHomeAction(actions[choice.Which].Run))!.Show();
         };
         var panel = new LinearLayout(this) { Orientation = Orientation.Vertical }; panel.LayoutParameters = new LinearLayout.LayoutParams(Dp(48), ViewGroup.LayoutParams.WrapContent) { BottomMargin = Dp(10) };
@@ -56,7 +56,7 @@ public sealed partial class MainActivity
         mobileProfile?.Dismiss();
         var hub = studioSession.Collaboration; bool open = hub.View("human", worker.Participant.Id).Display == CharacterDisplay.Full;
         RenderMobileWorker(worker); if (!open) worker.Turn = Math.Max(0, worker.Exchanges.Count - 1);
-        hub.Display("human", worker.Participant.Id, CharacterDisplay.Full);
+        MobileParticipantActions().Display(worker.Participant.Id, CharacterDisplay.Full);
         if (hub.CanControl("human", worker.Participant.Id)) SelectMobileWorker(worker);
         else { RenderMobileWorker(worker); worker.Character.BringToFront(); ReadMobileWorker(worker); }
     }

@@ -151,6 +151,10 @@ internal sealed partial class EditorSurface
         Reveal("workspace-helper-0"); Click("workspace-helper-0");
         Reveal("workspace-main-0"); Click("workspace-main-0");
         Check(session.Collaboration.State.Participants.Count(p => p.HelperId == globalHelper.Id && p.OwnerId == "human") == 1 && ProjectStudio.Load(session.Project).MainHelperId == globalHelper.Id, "actual SDL repeated Join and MAIN selection persist without duplicate participants");
+        Reveal("workspace-remove-0"); Click("workspace-remove-0");
+        Check(!ProjectStudio.Load(session.Project).HelperIds.Contains(globalHelper.Id) && !session.Collaboration.State.Participants.Any(p => p.Id == roleParticipant.Id) && globalHelper.Memories.Count > 0, "actual SDL removal retains private global memory while detaching project participation");
+        Reveal("workspace-helper-0"); Click("workspace-helper-0");
+        Check(session.Collaboration.State.Participants.Count(p => p.HelperId == globalHelper.Id && p.OwnerId == "human") == 1, "actual SDL remove and rejoin restores one participant");
         if (screenshot.Length > 0) native.Screenshot(screenshot + ".roles.png");
         Open(originalProject);
         Page("Native input verification", "verification");

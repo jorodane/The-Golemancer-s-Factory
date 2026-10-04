@@ -11,7 +11,7 @@ public sealed partial class MainActivity
     private void BuildMobileConversation(MobileWorker worker)
     {
         var character = worker.Character = new(this) { Orientation = Orientation.Vertical };
-        var close = AiAction("×", () => studioSession.Collaboration.Display("human", worker.Participant.Id, CharacterDisplay.Hidden)); character.AddView(close, new LinearLayout.LayoutParams(Dp(38), Dp(30)) { Gravity = GravityFlags.Right });
+        var close = AiAction("×", () => MobileParticipantActions().Display(worker.Participant.Id, CharacterDisplay.Hidden)); character.AddView(close, new LinearLayout.LayoutParams(Dp(38), Dp(30)) { Gravity = GravityFlags.Right });
         worker.Question = HomeLabel("", 12); worker.Question.SetTextColor(Color.Rgb(32, 39, 51)); worker.Question.SetPadding(Dp(10), Dp(8), Dp(10), Dp(8));
         var question = new ScrollView(this); question.Background = BubbleShape(Color.Rgb(214, 217, 222)); question.AddView(worker.Question); character.AddView(question, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(62)) { LeftMargin = Dp(28), RightMargin = Dp(8), BottomMargin = Dp(8) });
         var answer = new LinearLayout(this) { Orientation = Orientation.Horizontal }; answer.SetGravity(GravityFlags.CenterVertical);
@@ -40,8 +40,8 @@ public sealed partial class MainActivity
         {
             var touch = e.Event!; var placement = studioSession.Collaboration.View("human", worker.Participant.Id);
             if (touch.ActionMasked == MotionEventActions.Down) { startX = touch.RawX; startY = touch.RawY; x = placement.X ?? worker.Participant.X; y = placement.Y ?? worker.Participant.Y; character.BringToFront(); avatar.Parent?.RequestDisallowInterceptTouchEvent(true); }
-            else if (touch.ActionMasked == MotionEventActions.Move) { double scale = Resources?.DisplayMetrics?.Density ?? 1; placement.X = x + (touch.RawX - startX) / scale; placement.Y = y + (touch.RawY - startY) / scale; PlaceMobileWorker(worker); }
-            else if (touch.ActionMasked is MotionEventActions.Up or MotionEventActions.Cancel) { studioSession.Collaboration.Save(); ReadMobileWorker(worker); }
+            else if (touch.ActionMasked == MotionEventActions.Move) { double scale = Resources?.DisplayMetrics?.Density ?? 1; MobileParticipantActions().Move(worker.Participant.Id, x + (touch.RawX - startX) / scale, y + (touch.RawY - startY) / scale, mobileWorkerLayer.Width / scale, mobileWorkerLayer.Height / scale, character.Width / scale, character.Height / scale); PlaceMobileWorker(worker); }
+            else if (touch.ActionMasked is MotionEventActions.Up or MotionEventActions.Cancel) { MobileParticipantActions().CommitPlacement(worker.Participant.Id); ReadMobileWorker(worker); }
             e.Handled = true;
         };
         mobileWorkerLayer.AddView(character, new FrameLayout.LayoutParams(Dp(300), ViewGroup.LayoutParams.WrapContent));
@@ -76,7 +76,7 @@ public sealed partial class MainActivity
         if (studioSession.Collaboration.CanControl("human", worker.Participant.Id))
         {
             body.AddView(AiAction("설정", () => { mobileProfile?.Dismiss(); if (helper is not null) OpenMobileHelper(helper); else MobileName("작업자 이름", name => { worker.Participant.Name = name; studioSession.Collaboration.Save(); }); }));
-            body.AddView(AiAction("연결 해제", () => MobileHomeAction(() => { if (worker.Cancellation is not null) throw new InvalidOperationException("작업을 먼저 중단해줘."); if (helper is not null) DisconnectMobileHelper(helper); else { worker.Assistant?.Dispose(); worker.Assistant = null; studioSession.Collaboration.Display("human", worker.Participant.Id, CharacterDisplay.Hidden); } mobileProfile?.Dismiss(); })));
+            body.AddView(AiAction("연결 해제", () => MobileHomeAction(() => { if (worker.Cancellation is not null) throw new InvalidOperationException("작업을 먼저 중단해줘."); if (helper is not null) DisconnectMobileHelper(helper); else { worker.Assistant?.Dispose(); worker.Assistant = null; MobileParticipantActions().Display(worker.Participant.Id, CharacterDisplay.Hidden); } mobileProfile?.Dismiss(); })));
         }
         mobileProfileBody = body; mobileProfile = new PopupWindow(body, Dp(230), ViewGroup.LayoutParams.WrapContent, false) { OutsideTouchable = true }; mobileProfile.SetBackgroundDrawable(BubbleShape(HomePanel)); mobileProfile.ShowAsDropDown(anchor, Dp(45), -anchor.Height);
     }

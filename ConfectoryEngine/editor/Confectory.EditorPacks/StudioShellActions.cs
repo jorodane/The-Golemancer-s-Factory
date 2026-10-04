@@ -46,7 +46,7 @@ public interface IEditorStudioAgentConnection : IDisposable
 /// <summary>Private trusted-shell ABI. Never supplied to project modules or overlays.</summary>
 public interface IEditorStudioActions
 {
-    IEditorStudioWorkspace Workspace(EditorStudioPresentation presentation, IUiBackend backend, AiDirectory directory, WorkspaceProject project, ProjectStudio roles, CollaborationWorkspace collaboration, Action saveDirectory, Action<Participant, bool> joined, Action<string> selectedAgent, Func<string, bool> running, Func<bool>? idle = null);
+    IEditorStudioWorkspace Workspace(EditorStudioPresentation presentation, IUiBackend backend, AiDirectory directory, WorkspaceProject project, ProjectStudio roles, CollaborationWorkspace collaboration, Action saveDirectory, Action<Participant, bool> joined, Action<string> selectedAgent, Func<string, bool> running, Func<bool>? idle = null, Action<IReadOnlyList<Participant>>? removed = null);
     IEditorStudioParticipants Participants(AiDirectory directory, CollaborationWorkspace collaboration, string actor = "human");
     int ProfileImageMaximumBytes { get; }
     IEditorStudioDirectory Directory(EditorStudioPresentation presentation, IUiBackend backend, AiDirectory directory, Action save, Action changed, Action addAgent, Action<AiAgentProfile?, AiHelper?> profile, Action closed, Func<byte[], string, string> preview);
@@ -70,6 +70,9 @@ public interface IEditorStudioWorkspace : IDisposable
     EditorLiveView View { get; }
     Participant JoinHelper(string helperId, bool open = true);
     void RestoreHelpers();
+    void PruneHelpers();
+    IReadOnlyList<Participant> RemoveHelper(string helperId);
+    AiHelper Promote(string participantId, string name, byte[] experience, string privateRoot);
     void SelectMainAgent(string agentId);
     void SetMainHelper(string helperId);
     void Render();
@@ -79,7 +82,13 @@ public interface IEditorStudioWorkspace : IDisposable
 public interface IEditorStudioParticipants
 {
     IReadOnlyList<Participant> RefreshHelperName(string helperId);
+    EditorStudioPlacement Layout(string participantId, double width, double height, double characterWidth, double characterHeight);
+    EditorStudioPlacement Move(string participantId, double x, double y, double width, double height, double characterWidth, double characterHeight, bool persist = false);
+    void CommitPlacement(string participantId);
+    void Display(string participantId, CharacterDisplay display);
 }
+
+public sealed record EditorStudioPlacement(double X, double Y, double Scale);
 
 public interface IEditorStudioStartupState
 {

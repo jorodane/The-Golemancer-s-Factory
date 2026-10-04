@@ -7,7 +7,7 @@ using Confectory.Workspace;
 namespace Confectory.Editor.CoreTools;
 
 /// <summary>Trusted project role selection and participation. Mounting never starts a provider or resumes work.</summary>
-public sealed class StudioWorkspace : IEditorStudioWorkspace
+public sealed partial class StudioWorkspace : IEditorStudioWorkspace
 {
     private readonly EditorStudioPresentation presentation;
     private readonly AiDirectory directory;
@@ -19,17 +19,19 @@ public sealed class StudioWorkspace : IEditorStudioWorkspace
     private readonly Action<string> selectedAgent;
     private readonly Func<string, bool> running;
     private readonly Func<bool> idle;
+    private readonly Action<IReadOnlyList<Participant>>? removed;
     private readonly UiSignal note = new(UiValue.Text(""));
     private bool disposed;
     public EditorLiveView View { get; }
 
     public StudioWorkspace(EditorStudioPresentation presentation, IUiBackend backend, AiDirectory directory, WorkspaceProject project,
         ProjectStudio roles, CollaborationWorkspace collaboration, Action saveDirectory, Action<Participant, bool> joined,
-        Action<string> selectedAgent, Func<string, bool> running, Func<bool>? idle)
+        Action<string> selectedAgent, Func<string, bool> running, Func<bool>? idle, Action<IReadOnlyList<Participant>>? removed)
     {
         this.presentation = presentation; this.directory = directory; this.project = project; this.roles = roles;
         this.collaboration = collaboration; this.saveDirectory = saveDirectory; this.joined = joined; this.selectedAgent = selectedAgent;
         this.running = running; this.idle = idle ?? (() => true);
+        this.removed = removed;
         var state = State(); View = new(state.Catalog, "editor.studio.workspace.state", state.Context, backend);
     }
     private bool ProjectRoles => project.Id != "confectory.editor";
@@ -70,7 +72,7 @@ public sealed class StudioWorkspace : IEditorStudioWorkspace
         bool created = participant is null, oldEnabled = helper.Enabled;
         if (created || !helper.Enabled || ProjectRoles && !roles.HelperIds.Contains(helper.Id)) RequireAction();
         var oldHelpers = roles.HelperIds.ToArray(); string oldMain = roles.MainHelperId;
-        bool directorySaved = false, rolesSaved = false;
+        bool directorySaved = false, rolesSaved = false, hubAttempted = false;
         participant ??= new Participant { Id = "worker-" + Guid.NewGuid().ToString("N"), Name = helper.Name, AgentId = agent.Id, HelperId = helper.Id, Kind = ParticipantKind.AI,
             Permissions = ParticipantPermission.Talk | ParticipantPermission.Work, X = 32 + collaboration.State.Participants.Count(p => p.Kind == ParticipantKind.AI) * 185, Y = 150 };
         try
@@ -78,13 +80,14 @@ public sealed class StudioWorkspace : IEditorStudioWorkspace
             // Publish complete participant identity once; Register would save an incomplete Agent/Helper projection.
             if (!helper.Enabled) { helper.Enabled = true; saveDirectory(); directorySaved = true; }
             if (ProjectRoles && !roles.HelperIds.Contains(helper.Id)) { roles.AddHelper(helper.Id); roles.Save(project); rolesSaved = true; }
-            if (created) { collaboration.State.Participants.Add(participant); collaboration.Save(); }
+            if (created) { collaboration.State.Participants.Add(participant); hubAttempted = true; collaboration.Save(); }
         }
         catch (Exception failure)
         {
             if (created) collaboration.State.Participants.Remove(participant);
             helper.Enabled = oldEnabled; roles.HelperIds.Clear(); roles.HelperIds.AddRange(oldHelpers); roles.MainHelperId = oldMain;
             var failures = new List<Exception> { failure };
+            if (hubAttempted) Compensate(collaboration.Save, failures);
             if (rolesSaved) try { roles.Save(project); } catch (Exception rollback) { failures.Add(rollback); }
             if (directorySaved) try { saveDirectory(); } catch (Exception rollback) { failures.Add(rollback); }
             if (failures.Count > 1) throw new AggregateException("참여 저장과 복원에 실패했어. 프로젝트를 다시 열고 상태를 확인해줘.", failures);
@@ -130,11 +133,13 @@ public sealed class StudioWorkspace : IEditorStudioWorkspace
         foreach (var id in directory.Helpers.Select(h => h.Id).Concat(roles.HelperIds).Distinct().ToArray())
         {
             int index = helpers.Count; var helper = directory.Helpers.FirstOrDefault(h => h.Id == id);
-            string join = "studio.workspace.join." + index, main = "studio.workspace.main." + index;
+            string join = "studio.workspace.join." + index, main = "studio.workspace.main." + index, remove = "studio.workspace.remove." + index;
             Command(join, () => JoinHelper(id, false)); Command(main, () => SetMainHelper(id));
+            Command(remove, () => RemoveHelper(id));
             helpers.Add(new XElement("Node", new XAttribute("id", "workspace-helper-row-" + index), new XAttribute("order", index), new XAttribute("widget", "editor.stack"), new XElement("Slot", new XAttribute("name", "children"),
                 Button("workspace-helper-" + index, (id == roles.MainHelperId ? "MAIN · " : "") + (helper?.Name ?? "연결되지 않은 Helper") + " · 참여", join, helper is not null),
-                Button("workspace-main-" + index, "MAIN으로 지정", main, ProjectRoles && roles.HelperIds.Contains(id)))));
+                Button("workspace-main-" + index, "MAIN으로 지정", main, ProjectRoles && roles.HelperIds.Contains(id)),
+                Button("workspace-remove-" + index, "연결 해제", remove, ProjectRoles ? roles.HelperIds.Contains(id) : helper?.Enabled == true))));
         }
         var view = new XElement("View", new XAttribute("id", "editor.studio.workspace.state"), new XAttribute("extends", "editor.studio.workspace"),
             new XElement("Override", new XAttribute("node", "workspace-agents"), new XElement("Slot", new XAttribute("name", "children"), agents)),

@@ -4,7 +4,7 @@ using Confectory.Workspace;
 namespace Confectory.Editor.CoreTools;
 
 /// <summary>Projects receive the controlled character's public name, never its private profile or memories.</summary>
-public sealed class StudioParticipants : IEditorStudioParticipants
+public sealed partial class StudioParticipants : IEditorStudioParticipants
 {
     private readonly AiDirectory directory;
     private readonly CollaborationWorkspace collaboration;
@@ -15,7 +15,7 @@ public sealed class StudioParticipants : IEditorStudioParticipants
         this.directory = directory;
         this.collaboration = collaboration;
         this.actor = actor;
-        _ = collaboration.Require(actor, ParticipantPermission.Work);
+        _ = collaboration.Require(actor, ParticipantPermission.None);
     }
 
     public IReadOnlyList<Participant> RefreshHelperName(string helperId)

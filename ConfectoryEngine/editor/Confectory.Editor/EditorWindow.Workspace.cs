@@ -82,12 +82,10 @@ public sealed partial class EditorWindow
         if (participantsCanvas.ActualWidth <= 0 || participantsCanvas.ActualHeight <= 0) return;
         worker.Character.LayoutTransform = System.Windows.Media.Transform.Identity;
         worker.Character.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-        double scale = Math.Min(1, Math.Max(.5, Math.Min((participantsCanvas.ActualHeight - 18) / Math.Max(1, worker.Character.DesiredSize.Height), (participantsCanvas.ActualWidth - 18) / Math.Max(1, worker.Character.DesiredSize.Width))));
-        worker.Character.LayoutTransform = new System.Windows.Media.ScaleTransform(scale, scale); worker.Character.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-        var placement = session!.Collaboration.View("human", worker.Participant.Id);
-        double Finite(double? value, double fallback) => value is { } n && !double.IsNaN(n) && !double.IsInfinity(n) ? n : fallback;
-        placement.X = Math.Max(0, Math.Min(Finite(placement.X, worker.Participant.X), participantsCanvas.ActualWidth - worker.Character.DesiredSize.Width));
-        placement.Y = Math.Max(0, Math.Min(Finite(placement.Y, worker.Participant.Y), participantsCanvas.ActualHeight - worker.Character.DesiredSize.Height));
-        Canvas.SetLeft(worker.Character, placement.X.Value); Canvas.SetTop(worker.Character, placement.Y.Value);
+        var layout = StudioParticipantActions().Layout(worker.Participant.Id, participantsCanvas.ActualWidth, participantsCanvas.ActualHeight,
+            worker.Character.DesiredSize.Width, worker.Character.DesiredSize.Height);
+        worker.Character.LayoutTransform = new System.Windows.Media.ScaleTransform(layout.Scale, layout.Scale);
+        worker.Character.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        Canvas.SetLeft(worker.Character, layout.X); Canvas.SetTop(worker.Character, layout.Y);
     }
 }

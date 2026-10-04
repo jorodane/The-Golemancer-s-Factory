@@ -63,7 +63,7 @@ public sealed partial class EditorWindow
                     {
                         actions.Children.Add(Action("@호출", () => OpenPublicChat(false, "@" + p.Id + " ")));
                         var display = new CheckBox { Content = "작업 공간에 표시", IsChecked = hub.View("human", p.Id).Display != CharacterDisplay.Hidden, Foreground = TextInk, Margin = new Thickness(4) };
-                        display.Click += (_, _) => hub.Display("human", p.Id, display.IsChecked == true ? CharacterDisplay.Full : CharacterDisplay.Hidden); actions.Children.Add(display);
+                        display.Click += (_, _) => StudioParticipantActions().Display(p.Id, display.IsChecked == true ? CharacterDisplay.Full : CharacterDisplay.Hidden); actions.Children.Add(display);
                         if (hub.CanControl("human", p.Id))
                         {
                             var worker = workers.FirstOrDefault(w => w.Participant.Id == p.Id);
@@ -86,7 +86,7 @@ public sealed partial class EditorWindow
         bool alreadyOpen = session.Collaboration.View("human", id).Display == CharacterDisplay.Full;
         RenderWorker(worker);
         if (!alreadyOpen) worker.Turn = Math.Max(0, worker.Turns.Count - 1);
-        session.Collaboration.Display("human", id, CharacterDisplay.Full);
+        StudioParticipantActions().Display(id, CharacterDisplay.Full);
         if (session.Collaboration.CanControl("human", id)) SelectWorker(worker);
         else { Panel.SetZIndex(worker.Character, 2); RenderWorker(worker); }
         ReadWorkerBubble(worker);

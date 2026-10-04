@@ -28,8 +28,8 @@ public sealed partial class EditorWindow
             foreach (var helper in aiDirectory.Helpers.Where(h => h.Enabled || info.HelperIds.Contains(h.Id)))
             {
                 bool selected = info.HelperIds.Contains(helper.Id);
-                var circle = AiCircle(helper.Name, helper.AvatarPath, () => { if (selected) { if (ReferenceEquals(info, projectStudio) && workers.Any(w => w.Participant.HelperId == helper.Id && w.Running)) throw new InvalidOperationException("이 Helper의 작업을 먼저 끝내줘."); info.RemoveHelper(helper.Id); } else { helper.Enabled = true; info.AddHelper(helper.Id); } changed(); Refresh(); }, main: helper.Id == info.MainHelperId, selected: selected);
-                if (selected) { var menu = new ContextMenu(); var item = new MenuItem { Header = "메인 도우미로 설정" }; item.Click += (_, _) => { info.SetMainHelper(helper.Id); changed(); Refresh(); }; menu.Items.Add(item); circle.ContextMenu = menu; } circles.Children.Add(circle);
+                var circle = AiCircle(helper.Name, helper.AvatarPath, () => { using var workspace = CreateStudioWorkspace(); if (selected) workspace.RemoveHelper(helper.Id); else workspace.JoinHelper(helper.Id, false); changed(); Refresh(); }, main: helper.Id == info.MainHelperId, selected: selected);
+                if (selected) { var menu = new ContextMenu(); var item = new MenuItem { Header = "메인 도우미로 설정" }; item.Click += (_, _) => { using var workspace = CreateStudioWorkspace(); workspace.SetMainHelper(helper.Id); changed(); Refresh(); }; menu.Items.Add(item); circle.ContextMenu = menu; } circles.Children.Add(circle);
             }
             circles.Children.Add(AiCircle("Helper 추가", "", () => { AddHelper(); Refresh(); }, empty: true));
         }

@@ -128,11 +128,9 @@ public sealed partial class EditorWindow
         session!.Collaboration.RequireControl("human", worker.Participant.Id);
         AskName("도우미로 승격", worker.Participant.Name, name =>
         {
-            var helper = aiDirectory.CreateHelper(worker.Participant.AgentId, name, session.Project.Identity, worker.Participant.Id);
-            string origin = HelperDirectory(helper.Id); Directory.CreateDirectory(origin);
-            // Preserve the original conversation verbatim without feeding it to unrelated workers or public chat.
-            EditorSession.AtomicWrite(Path.Combine(origin, "first-experience.json"), Encoding.UTF8.GetBytes(EditorSession.Serialize(worker.Turns)));
-            worker.Participant.HelperId = helper.Id; worker.Participant.Name = helper.Name; if (!Standalone) { projectStudio.AddHelper(helper.Id); projectStudio.Save(session.Project); } session.Collaboration.Save(); SaveAiDirectory(); RenderWorker(worker);
+            using var workspace = CreateStudioWorkspace();
+            _ = workspace.Promote(worker.Participant.Id, name, Encoding.UTF8.GetBytes(EditorSession.Serialize(worker.Turns)), Path.GetDirectoryName(AiDirectory.DefaultPath)!);
+            RenderWorker(worker); RefreshAiManagement();
         });
     });
     private static string HelperDirectory(string id) { AiDirectory.CheckId(id); return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Confectory", "Helpers", id); }

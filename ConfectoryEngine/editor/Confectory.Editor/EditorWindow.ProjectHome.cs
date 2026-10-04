@@ -86,6 +86,18 @@ public sealed partial class EditorWindow
         if (AvatarBrush(path) is null) content.Child = new TextBlock { Text = "◇", FontSize = size * .65, Foreground = AccentInk, TextAlignment = TextAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
         return content;
     }
+    private IEditorStudioParticipants? sharedParticipantPlacement;
+    private CollaborationWorkspace? sharedParticipantPlacementHub;
+    private IEditorStudioParticipants StudioParticipantActions()
+    {
+        var hub = session!.Collaboration;
+        if (!ReferenceEquals(sharedParticipantPlacementHub, hub))
+        {
+            sharedParticipantPlacement = new EditorStudioPresentation(InstalledEngine).Actions.Participants(aiDirectory, hub);
+            sharedParticipantPlacementHub = hub;
+        }
+        return sharedParticipantPlacement!;
+    }
     private IEditorStudioWorkspace? sharedWorkspaceRoles;
     private bool sharedWorkspaceCloseHook;
     private IEditorStudioWorkspace CreateStudioWorkspace() => new EditorStudioPresentation(InstalledEngine).Actions.Workspace(
@@ -96,7 +108,20 @@ public sealed partial class EditorWindow
             if (worker is null) { CreateWorker(participant); worker = workers.Single(w => w.Participant.Id == participant.Id); }
             if (open) { SelectWorker(worker); ShowProjectWorkspace(); tabs.SelectedIndex = 0; }
             SetStatus(participant.Name + "가 참여했어. 개인 기억은 이 도우미에게만 전달돼.");
-        }, id => { SelectStoredAgent(id); SaveAiDirectory(); }, id => workers.Any(w => w.Participant.Id == id && w.Running), () => !busy && !PendingReviews);
+        }, id => { SelectStoredAgent(id); SaveAiDirectory(); }, id => workers.Any(w => w.Participant.Id == id && w.Running), () => !busy && !PendingReviews, removed: RemoveStudioParticipants);
+    private void RemoveStudioParticipants(IReadOnlyList<Participant> removed)
+    {
+        var failures = new List<Exception>();
+        foreach (var worker in workers.Where(w => removed.Any(p => p.Id == w.Participant.Id)).ToArray())
+        {
+            try { worker.Assistant?.Dispose(); } catch (Exception failure) { failures.Add(failure); }
+            try { worker.Log?.Close(); } catch (Exception failure) { failures.Add(failure); }
+            participantsCanvas.Children.Remove(worker.Character); workers.Remove(worker);
+        }
+        if (removed.Any(p => p.Id == selectedWorker)) { selectedWorker = ""; participantSelection.Text = "작업자를 선택해줘."; }
+        RefreshRecipients();
+        if (failures.Count > 0) throw new AggregateException("참여자는 제거했지만 네이티브 대화창 정리에 실패했어.", failures);
+    }
     private void SelectStudioMainAgent(string id) { using var workspace = CreateStudioWorkspace(); workspace.SelectMainAgent(id); }
     private void SelectStudioMainHelper(string id) { using var workspace = CreateStudioWorkspace(); workspace.SetMainHelper(id); }
     private void BuildAiSidebar()
@@ -159,7 +184,7 @@ public sealed partial class EditorWindow
             else if (!Standalone) Entry("MAIN으로 지정", () => { SelectStudioMainHelper(helper.Id); RefreshAiManagement(); });
         }
         else Entry("프로젝트에서 호출", () => OpenPublicChat(false, "@" + worker.Participant.Id + " "));
-        Entry("대화창 닫기", () => session.Collaboration.Display("human", worker.Participant.Id, CharacterDisplay.Hidden)); circle.ContextMenu = menu;
+        Entry("대화창 닫기", () => StudioParticipantActions().Display(worker.Participant.Id, CharacterDisplay.Hidden)); circle.ContextMenu = menu;
         circle.PreviewMouseLeftButtonDown += (_, e) => { if (e.ClickCount != 2) return; e.Handled = true; menu.IsOpen = false; aiProfile?.SetCurrentValue(Popup.IsOpenProperty, false); HomeAction(() => ShowParticipantAnswers(worker.Participant.Id)); };
         circle.ToolTip = worker.Participant.Name + " · " + status + (unread > 0 ? "\n" + session.Collaboration.Unread("human", worker.Participant.Id).Last().Text.Substring(0, Math.Min(120, session.Collaboration.Unread("human", worker.Participant.Id).Last().Text.Length)) : "");
         var panel = new StackPanel { Width = 44, Margin = new Thickness(2, 0, 2, 10), Tag = "worker-sidebar:" + worker.Participant.Id }; circle.Margin = new Thickness(2, 0, 2, 2); panel.Children.Add(circle);
@@ -226,11 +251,7 @@ public sealed partial class EditorWindow
     }
     private void DisconnectHelper(AiHelper helper)
     {
-        var attached = workers.Where(w => w.Participant.HelperId == helper.Id && session!.Collaboration.CanControl("human", w.Participant.Id)).ToArray();
-        if (attached.Any(w => w.Running)) throw new InvalidOperationException("이 Helper의 작업을 먼저 끝내줘.");
-        foreach (var worker in attached) { worker.Assistant?.Dispose(); worker.Log?.Close(); participantsCanvas.Children.Remove(worker.Character); workers.Remove(worker); session!.Collaboration.Leave(worker.Participant.Id); session.Collaboration.State.Participants.Remove(worker.Participant); session.Collaboration.State.Views.RemoveAll(v => v.ParticipantId == worker.Participant.Id); }
-        if (session is not null && !Standalone) { projectStudio.RemoveHelper(helper.Id); projectStudio.Save(session.Project); session.Collaboration.Save(); }
-        else helper.Enabled = false;
+        using var workspace = CreateStudioWorkspace(); workspace.RemoveHelper(helper.Id);
         RefreshProjectAiRoles();
     }
     private void RefreshProjectAiRoles()
@@ -243,7 +264,7 @@ public sealed partial class EditorWindow
             var helper = aiDirectory.Helpers.FirstOrDefault(h => h.Id == id); if (helper is null)
             {
                 var missing = AiCircle("연결되지 않은 도우미", "", () => PickHelpers(this, projectStudio, () => { projectStudio.Save(session.Project); SyncProjectHelpers(); RefreshProjectAiRoles(); }), main: id == projectStudio.MainHelperId);
-                var removeMenu = new ContextMenu(); var remove = new MenuItem { Header = "연결 해제" }; remove.Click += (_, _) => HomeAction(() => { projectStudio.RemoveHelper(id); projectStudio.Save(session.Project); RefreshProjectAiRoles(); }); removeMenu.Items.Add(remove); missing.ContextMenu = removeMenu; projectAiRoles.Children.Add(missing); continue;
+                var removeMenu = new ContextMenu(); var remove = new MenuItem { Header = "연결 해제" }; remove.Click += (_, _) => HomeAction(() => { using var workspace = CreateStudioWorkspace(); workspace.RemoveHelper(id); RefreshProjectAiRoles(); }); removeMenu.Items.Add(remove); missing.ContextMenu = removeMenu; projectAiRoles.Children.Add(missing); continue;
             }
             var circle = AiCircle(helper.Name, helper.AvatarPath, () => HomeAction(() => JoinHelper(helper)), main: id == projectStudio.MainHelperId);
             var menu = new ContextMenu();
@@ -255,12 +276,7 @@ public sealed partial class EditorWindow
     private void SyncProjectHelpers()
     {
         if (session is null || Standalone) return;
-        foreach (var worker in workers.Where(w => w.Participant.HelperId.Length > 0 && !projectStudio.HelperIds.Contains(w.Participant.HelperId) && session.Collaboration.CanControl("human", w.Participant.Id)).ToArray())
-        {
-            if (worker.Running) throw new InvalidOperationException("도우미의 작업을 먼저 끝내줘.");
-            worker.Assistant?.Dispose(); worker.Log?.Close(); participantsCanvas.Children.Remove(worker.Character); workers.Remove(worker); session.Collaboration.Leave(worker.Participant.Id); session.Collaboration.State.Participants.Remove(worker.Participant); session.Collaboration.State.Views.RemoveAll(v => v.ParticipantId == worker.Participant.Id);
-        }
-        using (var workspace = CreateStudioWorkspace()) workspace.RestoreHelpers();
+        using (var workspace = CreateStudioWorkspace()) { workspace.PruneHelpers(); workspace.RestoreHelpers(); }
         session.Collaboration.Save();
     }
 }

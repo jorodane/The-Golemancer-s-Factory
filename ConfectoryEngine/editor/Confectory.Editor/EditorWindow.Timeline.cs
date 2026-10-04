@@ -10,7 +10,7 @@ public sealed partial class EditorWindow
     private void BuildWorkerConversation(EditorWorker worker)
     {
         var participant = worker.Participant; var panel = new StackPanel { Width = 320 };
-        var close = BareButton(Label("×", 18, MutedInk), () => session!.Collaboration.Display("human", participant.Id, CharacterDisplay.Hidden));
+        var close = BareButton(Label("×", 18, MutedInk), () => StudioParticipantActions().Display(participant.Id, CharacterDisplay.Hidden));
         close.HorizontalAlignment = HorizontalAlignment.Right; close.ToolTip = "대화 접기"; panel.Children.Add(close);
         worker.Question = Label("", 12, Brush("#202733"));
         panel.Children.Add(new Border { Background = Brush("#D6D9DE"), CornerRadius = new CornerRadius(16), Padding = new Thickness(12), Height = 70, Margin = new Thickness(28, 0, 8, 8), Child = new ScrollViewer { Content = worker.Question, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } });
@@ -40,8 +40,15 @@ public sealed partial class EditorWindow
         var placement = session.Collaboration.View("human", participant.Id);
         Canvas.SetLeft(worker.Character, placement.X ?? participant.X); Canvas.SetTop(worker.Character, placement.Y ?? participant.Y);
         drag.DragStarted += (_, _) => { Panel.SetZIndex(worker.Character, 2); ReadWorkerBubble(worker); };
-        drag.DragDelta += (_, e) => { placement.X = Canvas.GetLeft(worker.Character) + e.HorizontalChange; placement.Y = Canvas.GetTop(worker.Character) + e.VerticalChange; PlaceWorker(worker); };
-        drag.DragCompleted += (_, _) => session.Collaboration.Save();
+        drag.DragDelta += (_, e) =>
+        {
+            worker.Character.LayoutTransform = System.Windows.Media.Transform.Identity;
+            worker.Character.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            StudioParticipantActions().Move(participant.Id, Canvas.GetLeft(worker.Character) + e.HorizontalChange, Canvas.GetTop(worker.Character) + e.VerticalChange,
+                participantsCanvas.ActualWidth, participantsCanvas.ActualHeight, worker.Character.DesiredSize.Width, worker.Character.DesiredSize.Height);
+            PlaceWorker(worker);
+        };
+        drag.DragCompleted += (_, _) => StudioParticipantActions().CommitPlacement(participant.Id);
         BindYogiDrop(worker.Character, box => ReceiveWorkerYogi(worker, box)); RenderWorker(worker);
     }
     private void MoveWorkerTurn(EditorWorker worker, int index)

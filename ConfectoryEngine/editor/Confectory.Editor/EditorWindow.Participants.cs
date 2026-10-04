@@ -115,7 +115,7 @@ public sealed partial class EditorWindow
     private void SelectWorker(EditorWorker worker)
     {
         session!.Collaboration.RequireControl("human", worker.Participant.Id);
-        if (session.Collaboration.View("human", worker.Participant.Id).Display != CharacterDisplay.Full) session.Collaboration.Display("human", worker.Participant.Id, CharacterDisplay.Full);
+        if (session.Collaboration.View("human", worker.Participant.Id).Display != CharacterDisplay.Full) StudioParticipantActions().Display(worker.Participant.Id, CharacterDisplay.Full);
         selectedWorker = worker.Participant.Id; participantSelection.Text = "선택: " + worker.Participant.Name;
         foreach (var item in workers) { Panel.SetZIndex(item.Character, item == worker ? 1 : 0); RenderWorker(item); }
         yogiRecipient.SelectedValue = selectedWorker;

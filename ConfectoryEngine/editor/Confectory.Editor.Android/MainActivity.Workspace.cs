@@ -41,7 +41,7 @@ public sealed partial class MainActivity
     private void SelectMobileWorker(MobileWorker worker)
     {
         if (!studioSession.Collaboration.CanControl("human", worker.Participant.Id)) { OpenMobileProjectChat("@" + worker.Participant.Id + " "); return; }
-        if (studioSession.Collaboration.View("human", worker.Participant.Id).Display != CharacterDisplay.Full) studioSession.Collaboration.Display("human", worker.Participant.Id, CharacterDisplay.Full);
+        if (studioSession.Collaboration.View("human", worker.Participant.Id).Display != CharacterDisplay.Full) MobileParticipantActions().Display(worker.Participant.Id, CharacterDisplay.Full);
         selectedMobileWorker = worker.Participant.Id; worker.Character.BringToFront();
         foreach (var item in mobileWorkers) RenderMobileWorker(item);
         worker.Character.Post(() => PlaceMobileWorker(worker)); ReadMobileWorker(worker); RefreshMobileManagement();
@@ -50,13 +50,11 @@ public sealed partial class MainActivity
     private void PlaceMobileWorker(MobileWorker worker)
     {
         if (mobileWorkerLayer.Width <= 0 || mobileWorkerLayer.Height <= 0) return;
-        var placement = studioSession.Collaboration.View("human", worker.Participant.Id); double scale = Resources?.DisplayMetrics?.Density ?? 1;
-        double Finite(double? value, double fallback) => value is { } n && !double.IsNaN(n) && !double.IsInfinity(n) ? n : fallback;
-        float fit = (float)Math.Min(1, Math.Max(.5, Math.Min((mobileWorkerLayer.Width - Dp(12)) / (double)Math.Max(1, worker.Character.Width), (mobileWorkerLayer.Height - Dp(12)) / (double)Math.Max(1, worker.Character.Height))));
-        worker.Character.PivotX = worker.Character.PivotY = 0; worker.Character.ScaleX = worker.Character.ScaleY = fit;
-        placement.X = Math.Max(0, Math.Min(Finite(placement.X, worker.Participant.X), (mobileWorkerLayer.Width - worker.Character.Width * fit) / scale));
-        placement.Y = Math.Max(0, Math.Min(Finite(placement.Y, worker.Participant.Y), (mobileWorkerLayer.Height - worker.Character.Height * fit) / scale));
-        worker.Character.TranslationX = (float)(placement.X.Value * scale); worker.Character.TranslationY = (float)(placement.Y.Value * scale);
+        double density = Resources?.DisplayMetrics?.Density ?? 1;
+        var layout = MobileParticipantActions().Layout(worker.Participant.Id, mobileWorkerLayer.Width / density, mobileWorkerLayer.Height / density,
+            worker.Character.Width / density, worker.Character.Height / density);
+        worker.Character.PivotX = worker.Character.PivotY = 0; worker.Character.ScaleX = worker.Character.ScaleY = (float)layout.Scale;
+        worker.Character.TranslationX = (float)(layout.X * density); worker.Character.TranslationY = (float)(layout.Y * density);
     }
     private void MobileParticipants()
     {
@@ -69,7 +67,7 @@ public sealed partial class MainActivity
             if (worker is not null)
             {
                 var visible = new CheckBox(this) { Text = "표시", Checked = studioSession.Collaboration.View("human", participant.Id).Display != CharacterDisplay.Hidden };
-                visible.CheckedChange += (_, e) => studioSession.Collaboration.Display("human", participant.Id, e.IsChecked ? CharacterDisplay.Full : CharacterDisplay.Hidden); row.AddView(visible);
+                visible.CheckedChange += (_, e) => MobileParticipantActions().Display(participant.Id, e.IsChecked ? CharacterDisplay.Full : CharacterDisplay.Hidden); row.AddView(visible);
                 if (studioSession.Collaboration.CanControl("human", participant.Id)) row.AddView(AiAction("기록", () => OpenMobileWorkerLog(worker)));
             }
             panel.AddView(row);

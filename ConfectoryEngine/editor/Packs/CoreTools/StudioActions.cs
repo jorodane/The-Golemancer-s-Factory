@@ -5,7 +5,7 @@ namespace Confectory.Editor.CoreTools;
 
 public sealed class StudioActions : IEditorStudioActions
 {
-    public IEditorStudioWorkspace Workspace(EditorStudioPresentation presentation, IUiBackend backend, AiDirectory directory, WorkspaceProject project, ProjectStudio roles, CollaborationWorkspace collaboration, Action saveDirectory, Action<Participant, bool> joined, Action<string> selectedAgent, Func<string, bool> running, Func<bool>? idle = null) => new StudioWorkspace(presentation, backend, directory, project, roles, collaboration, saveDirectory, joined, selectedAgent, running, idle);
+    public IEditorStudioWorkspace Workspace(EditorStudioPresentation presentation, IUiBackend backend, AiDirectory directory, WorkspaceProject project, ProjectStudio roles, CollaborationWorkspace collaboration, Action saveDirectory, Action<Participant, bool> joined, Action<string> selectedAgent, Func<string, bool> running, Func<bool>? idle = null, Action<IReadOnlyList<Participant>>? removed = null) => new StudioWorkspace(presentation, backend, directory, project, roles, collaboration, saveDirectory, joined, selectedAgent, running, idle, removed);
     public IEditorStudioParticipants Participants(AiDirectory directory, CollaborationWorkspace collaboration, string actor = "human") => new StudioParticipants(directory, collaboration, actor);
     public const int ProfileImageLimit = 12 * 1024 * 1024;
     public int ProfileImageMaximumBytes => ProfileImageLimit;

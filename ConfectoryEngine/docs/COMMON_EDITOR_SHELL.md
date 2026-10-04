@@ -3,9 +3,10 @@
 ## Active task and resume instructions
 
 The broader authorized goal is the complete common engine-pack UI migration.
-This turn ends after the profile/global Helper checkpoint and its verified handoff;
-workspace/conversation work must wait for the next worker. Repository synchronization
-is an earlier completed request. On resuming after context
+The current authorized stage covers workspace/sidebar and participant management,
+remaining Agent management, then common conversation execution including Linux.
+The latest continuation checkpoint appears at the end of this document; earlier
+checkpoint scopes are historical. Repository synchronization is an earlier completed request. On resuming after context
 compression, read this document and inspect existing changes before proceeding.
 Preserve unfinished changes. Do not report a synchronization result or a partial
 checkpoint as completion of this task.
@@ -425,3 +426,97 @@ work target use the existing conflict/collision Callback behavior. Do not add a
 new scheme that locks another participant's work solely because an unconfirmed
 change exists. The profile/global-memory work must preserve these semantics;
 Task/Callback persistence or new data/render designs are not part of this turn.
+
+## Participant lifecycle continuation checkpoint
+
+This checkpoint advances the authorized workspace/participant stage after
+608ebb34. It does **not** complete the workspace/sidebar/Agent/conversation scope.
+The installed CoreTools factory owns Helper removal, role pruning, worker-to-Helper
+promotion, character layout/move/commit and local display selection. Windows and
+Android's live role-picker toggles, missing-profile removal, promotion callbacks,
+character sizing/dragging and display controls now use those pack actions. Linux's
+same mounted role view exposes real removal and rejoin; it still has no live
+worker/conversation surface. Native callbacks retain character/window rendering,
+input/density conversion, OS/private storage location and resource disposal.
+
+Acceptance boundaries:
+
+- Project removal detaches only controlled AI participants with the chosen
+  HelperId, clears their views/presence/room membership and removes the project
+  role. Another owner's matching Helper remains. Global enabled identity, memories,
+  first experience, messages, drafts, work and review evidence survive. Standalone
+  removal instead disables the private identity. A running target prevents all
+  mutation; unrelated work is not locked by this action.
+- Promotion requires an idle controlled ordinary AI worker and enabled source
+  Agent, validates name/storage, preserves the supplied original conversation bytes
+  in the new private Helper directory, then persists the directory/role/public
+  identity. No original history enters project metadata or collaboration presence.
+  Repeating promotion cannot create a duplicate. Native name dialogs still own
+  their presentation; cancel invokes no promotion action.
+- Persistence failures restore in-memory state and compensate already written
+  files, including a Save observer throwing after publication. Compensation
+  failures are explicit. Removal keeps original participant/view/member order on
+  rollback. Native cleanup runs after successful persistence and cannot resurrect
+  committed participation on failure. Join now also compensates saved presence
+  when an observer fails after writing, preventing a phantom saved participant.
+- Placement uses common logical coordinates, finite dimensions/positions, shared
+  fit/clamp rules and viewer-local views. Arranging another owner's character never
+  moves their public position. Read-only viewers can arrange/show/hide locally;
+  this grants no work/control/name authority. Drag motion stays local until commit;
+  failed commit preserves the local draft for explicit retry. Immediate-save move
+  and display failure restore the previous local and persisted view. Windows/Android
+  still preserve their existing cancel-gesture completion behavior.
+
+Portable acceptance fixtures load the verified installed factory for each Windows,
+Android and Linux contract. They cover running/owner guards, missing private
+profiles, remove/rejoin/prune, global-memory/audit preservation, private-directory
+and presence failures, post-write observer failures, native-cleanup failure,
+promotion validation/duplicate/retry, exact private experience and standalone
+identity disabling. Placement tests cover remote-owner/local-view separation,
+read-only authority, scale/clamp, nonfinite dimensions, draft/commit/reopen,
+failed persistence and explicit retry. Actual SDL pointer input additionally
+removes/rejoins through the installed view and checks global memory preservation.
+No paid AI request, external authentication or production credential write occurs.
+
+Structural review / precise continuation:
+
+1. Consolidate native sidebar directory/cards/status/menu elements into common pack
+   definitions. Common role controls currently coexist with native management,
+   Yogi/status and project menus. Participant list/worker settings, ordinary-worker
+   creation/name/model/task/auto-confirm policies and movable-window preferences
+   are still native. Promotion name-dialog and character/conversation definitions
+   also remain to migrate; this checkpoint moves their lifecycle/layout policy.
+2. Finish Agent management (enable/disconnect/reconnect, selected runtime disposal,
+   account/model presentation) through the installed factory, reusing existing
+   StudioAgentService and credential/service injection. Preserve source-provider
+   support differences only as adapter capabilities. Never read credentials or
+   restart requests on mount/reopen.
+3. Continue common conversation execution/UI for all three hosts, including real
+   Linux characters/send/stream/cancel/history/context/review behavior. Existing
+   Windows/Android worker implementations still run. Preserve global significant
+   Helper memory and semantic-locality/conflict callbacks; unconfirmed edits remain
+   local, with no added locking. Linux profile conversation stays disabled until
+   real execution exists. Do not replace its shell with a reduced fallback.
+4. Subsequent collaboration/Yogi, authoring/packs/review and complete Linux package
+   parity remain later stages. Supervisor/table/augment/render authoring remain
+   outside this task.
+
+Verification and publication evidence is recorded below after final checks.
+
+Local final checks: engine isolation passed with no consumer, Studio 225 and
+Authoring 39 passed, and the explicitly selected external Golemancer consumer
+clean build/full verification campaign passed. Actual self-contained Linux SDL
+passed startup/Agent/profile/global-memory/project-home/creation/semantic-editing
+regressions plus removal/rejoin pointer assertions; the role screenshot was
+visually inspected outside Git. Windows editor/native-test and installed CoreTools
+net48 source compilation passed with zero warnings/errors. Android local
+compilation/device execution remains unavailable without its workload/device;
+remote Android build and Windows native execution must be confirmed against the
+published exact commit. Live conversation, authentication, paid inference and
+real credential-store writes are untested, intentionally replaced by injected
+services where existing fixtures require provider behavior.
+
+Final installed-pack suite: 701 checks, including 418 live-view/action checks.
+All local required checks passed. This source checkpoint is ready for ordinary
+main publication; record its exact remote commit and CI result before claiming
+remote platform verification. No generated assets or verification logs are staged.

@@ -26,8 +26,8 @@ public sealed partial class MainActivity
             panel.RemoveAllViews(); var choices = new List<View>();
             foreach (var helper in mobileDirectory.Helpers.Where(h => h.Enabled || info.HelperIds.Contains(h.Id)))
             {
-                bool selected = info.HelperIds.Contains(helper.Id); var circle = MobileAiCircle(helper.Name, helper.AvatarPath, () => { if (selected) { if (ReferenceEquals(info, mobileProjectStudio) && mobileWorkers.Any(w => w.Participant.HelperId == helper.Id && w.Cancellation is not null)) throw new InvalidOperationException("이 Helper의 작업을 먼저 끝내줘."); info.RemoveHelper(helper.Id); } else { helper.Enabled = true; info.AddHelper(helper.Id); } changed(); Refresh(); }, main: helper.Id == info.MainHelperId, selected: selected);
-                if (selected) circle.LongClick += (_, _) => { info.SetMainHelper(helper.Id); changed(); Refresh(); }; choices.Add(circle);
+                bool selected = info.HelperIds.Contains(helper.Id); var circle = MobileAiCircle(helper.Name, helper.AvatarPath, () => { using var workspace = CreateMobileWorkspaceRoles(); if (selected) workspace.RemoveHelper(helper.Id); else workspace.JoinHelper(helper.Id, false); changed(); Refresh(); }, main: helper.Id == info.MainHelperId, selected: selected);
+                if (selected) circle.LongClick += (_, _) => { using var workspace = CreateMobileWorkspaceRoles(); workspace.SetMainHelper(helper.Id); changed(); Refresh(); }; choices.Add(circle);
             }
             choices.Add(MobileAiCircle("Helper 추가", "", () => { dialog.Dismiss(); AddMobileHelper(); }, empty: true)); CirclePairs(panel, choices); panel.AddView(AiAction("완료", dialog.Dismiss));
         }
