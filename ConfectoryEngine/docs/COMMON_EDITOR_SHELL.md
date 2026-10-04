@@ -1144,3 +1144,12 @@ fixture now explicitly uses non-public instance binding; no runtime behavior or
 assertion is weakened. Startup/cold-layout and main-workspace GUI checks had
 already passed before that fixture error. Local authoring verification also passes
 all 39 checks. Check the corrected commit's CI before claiming native completion.
+
+The corrected fixture in `c0cb91a3d5baea5b5d1fadc04d510c3a7e965291`
+([CI 37214473997](https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37214473997))
+then passed initial adoption and exposed Windows thread affinity on delayed
+cancellation: a caller without a WPF synchronization context resumed native cleanup
+off the dispatcher. The adapter now explicitly dispatches the entire native
+connection orchestration; the fixture waits for dispatched entry before cancelling
+and retains late-candidate/retained-incumbent/reentry assertions. This is a runtime
+adapter correction, distinct from the earlier reflection fixture correction.

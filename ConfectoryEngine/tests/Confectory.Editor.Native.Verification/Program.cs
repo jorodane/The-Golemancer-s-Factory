@@ -65,7 +65,8 @@ internal static class Program
         Check(Connected(initial) && service.Calls == 1 && vault.Reads == 1 && !Field<bool>(window, "busy"), "native saved-source adapter adopts injected provider through installed actions");
         var retained = Field<SavedAssistant>(window, "provider");
         service.Pending = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        var pending = Connect(); Field<CancellationTokenSource>(window, "operation").Cancel();
+        var pending = Connect(); PumpUntil(() => service.Calls == 2 && Field<bool>(window, "busy"), "Native pending connection entry");
+        Field<CancellationTokenSource>(window, "operation").Cancel();
         var late = new SavedAssistant(); service.Pending.SetResult(new(late, new()));
         PumpUntil(() => pending.IsCompleted, "Native late connection cancellation");
         Check(!Connected(pending) && late.Disposed && !retained.Disposed && ReferenceEquals(Field<IEditorAssistant>(window, "provider"), retained) && !Field<bool>(window, "busy"), "native cancellation preserves incumbent and disposes late provider");

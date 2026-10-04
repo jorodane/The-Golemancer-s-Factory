@@ -85,7 +85,10 @@ public sealed partial class EditorWindow
     }
     private async Task<bool> ConnectSelectedEditorAi() => (await ConnectSavedEditorAi()).Connected;
 
-    private async Task<CodexConnectionResult> ConnectSavedEditorAi(IEditorStudioAgentService? injectedService = null, IAiCredentialStore? injectedCredentials = null)
+    private Task<CodexConnectionResult> ConnectSavedEditorAi(IEditorStudioAgentService? injectedService = null, IAiCredentialStore? injectedCredentials = null)
+        => Dispatcher.InvokeAsync(() => ConnectSavedEditorAiOnUi(injectedService, injectedCredentials)).Task.Unwrap();
+
+    private async Task<CodexConnectionResult> ConnectSavedEditorAiOnUi(IEditorStudioAgentService? injectedService, IAiCredentialStore? injectedCredentials)
     {
         var selectedSession = session; var selectedAccess = CurrentAccess; string agentId = aiDirectory.SelectedAgentId;
         if (selectedSession is null || selectedAccess is null) return new(false, "에디터 작업공간을 먼저 준비해줘.");
