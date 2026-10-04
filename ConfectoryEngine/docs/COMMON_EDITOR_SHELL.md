@@ -517,6 +517,18 @@ real credential-store writes are untested, intentionally replaced by injected
 services where existing fixtures require provider behavior.
 
 Final installed-pack suite: 701 checks, including 418 live-view/action checks.
-All local required checks passed. This source checkpoint is ready for ordinary
-main publication; record its exact remote commit and CI result before claiming
-remote platform verification. No generated assets or verification logs are staged.
+All local required checks passed. Published source implementation:
+94d45db83053fbcf125df6a7be6c7d98c03c7987, verified against the exact remote main.
+All five CI jobs (Windows native, Android build, Linux native/ARM64, portable/full
+consumer and engine compatibility) passed in
+https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37197177425.
+No generated assets or verification logs were committed.
+
+This is a verified participant checkpoint, **not completion of the assigned
+workspace/sidebar/remaining-Agent/shared-conversation stage**. The next worker
+should resume from this implementation and the precise continuation above; do
+not duplicate removal/promotion/placement, or revert to repository synchronization.
+Remaining work is implementation scope, not a failed test or access blocker.
+Android device behavior and local Windows native execution remain unavailable in
+this Linux environment; remote build/native checks do not imply physical-device
+conversation/gesture verification.
