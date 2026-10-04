@@ -95,6 +95,7 @@ public interface IEditorStudioSidebarHost
 /// <summary>Private trusted-shell ABI. Never supplied to project modules or overlays.</summary>
 public interface IEditorStudioActions
 {
+    IEditorStudioReviewChoice ReviewChoice(EditorStudioPresentation presentation, IUiBackend backend, ChangeReviewBatch review, Func<CancellationToken, Task> prepare, Action<Action> dispatch, CancellationToken cancellation);
     IEditorStudioHelperConversation HelperConversation(EditorStudioPresentation presentation, IUiBackend backend, AiDirectory directory, CollaborationWorkspace? collaboration, IEditorStudioHelperTimeline timeline, Func<string, string> image, Action<YogiBox> inspect, Action<string> publicChat, Action closed);
     IEditorStudioHelperTimelines HelperTimelines(AiDirectory directory, CollaborationWorkspace? collaboration, string projectIdentity, IEditorStudioHelperExecution execution, IEditorStudioHelperHistoryStore history, Action<Action> dispatch);
     IEditorStudioHelperExecution HelperExecution(EditorSession session, ProjectRunner runner, AiDirectory directory, IAiCredentialStore credentials, IEditorStudioHelperExecutionHost host);

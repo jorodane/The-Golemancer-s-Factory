@@ -140,6 +140,21 @@ public sealed partial class MainActivity
         }
         RefreshMobileManagement();
     }
+    private async Task<IReadOnlyList<string>> ReviewMobileSharedHelperChanges(ChangeReviewBatch review, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested();
+        var presentation = new EditorStudioPresentation(InstalledEngine);
+        using var choice = presentation.Actions.ReviewChoice(presentation, new AndroidPackBackend(this), review,
+            cancellation => mobileReviews.Prepare(review, ChooseMobileResolution, cancellation), OnAiUi, token);
+        await choice.Preparation; token.ThrowIfCancellationRequested();
+        if (choice.Decision.IsCompleted) return await choice.Decision;
+        var scroll = new ScrollView(this); scroll.AddView(((AndroidPackBackend.Element)choice.View.Root).Control);
+        using var dialog = new global::Android.App.AlertDialog.Builder(this).SetTitle("Helper · 변경안 검토")!.SetView(scroll)!.Create()!;
+        dialog.DismissEvent += (_, _) => choice.Cancel(); dialog.Show();
+        try { var selected = await choice.Decision; token.ThrowIfCancellationRequested(); return selected; }
+        finally { dialog.Dismiss(); }
+    }
+
     private sealed class MobileGlobalHelperHost(MainActivity owner) : IEditorStudioGlobalHelperHost
     {
         public bool Allowed => !owner.mobileHelpersClosing && owner.mobileProjects.ConnectionEnabled;
@@ -200,7 +215,7 @@ public sealed partial class MainActivity
                     try
                     {
                         owner.mobileResolving = true; await owner.mobileReviews.Prepare(review, owner.ChooseMobileResolution, cancellation);
-                        var selectedItems = owner.peerClient is null && (review.CanAutoConfirm || await owner.TryMobileReview(review, cancellation)) ? review.Items.Select(i => i.Id).ToArray() : await owner.ReviewAiChanges(review, cancellation);
+                        var selectedItems = owner.peerClient is null && (review.CanAutoConfirm || await owner.TryMobileReview(review, cancellation)) ? review.Items.Select(i => i.Id).ToArray() : await owner.ReviewMobileSharedHelperChanges(review, cancellation);
                         outcome = owner.peerClient is not null ? owner.StagePeerWorkerChanges(review, selectedItems) : await review.Apply(selectedItems, cancellation);
                         owner.RefreshSharedEditor();
                     }

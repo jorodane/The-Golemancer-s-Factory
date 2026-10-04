@@ -147,6 +147,22 @@ public sealed partial class EditorWindow
         }
         RefreshAiManagement();
     }
+    private async Task<IReadOnlyList<string>> ReviewSharedHelperChanges(ChangeReviewBatch review, CancellationToken token, string title)
+    {
+        token.ThrowIfCancellationRequested();
+        var presentation = new EditorStudioPresentation(InstalledEngine);
+        using var choice = presentation.Actions.ReviewChoice(presentation, new EditorPackBackend(_ => { }, () => false), review,
+            cancellation => PrepareCollaborationReview(review, cancellation), action => Dispatcher.Invoke(action), token);
+        await choice.Preparation; token.ThrowIfCancellationRequested();
+        if (choice.Decision.IsCompleted) return await choice.Decision;
+        var dialog = new Window { Owner = this, Title = title, Width = 1080, Height = 760, MinWidth = 600, MinHeight = 420,
+            Background = PanelInk, Foreground = TextInk, WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Content = new ScrollViewer { Content = ((EditorPackBackend.Element)choice.View.Root).Control, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } };
+        dialog.Closed += (_, _) => choice.Cancel(); RememberWindow(dialog, "dialog:change-review"); dialog.Show();
+        try { var selected = await choice.Decision; token.ThrowIfCancellationRequested(); return selected; }
+        finally { dialog.Close(); }
+    }
+
     private sealed class WindowsGlobalHelperHost(EditorWindow owner) : IEditorStudioGlobalHelperHost
     {
         public bool Allowed => !owner.helperClosing && owner.assistantSettings.ConnectionEnabled;
@@ -200,7 +216,7 @@ public sealed partial class EditorWindow
             {
                 IReadOnlyList<string> selectedItems;
                 if (await owner.Dispatcher.InvokeAsync(() => review.CanAutoConfirm) || await owner.Dispatcher.InvokeAsync(() => owner.TryScopedAiReview(review, cancellation)).Task.Unwrap()) selectedItems = review.Items.Select(i => i.Id).ToArray();
-                else { var task = await owner.Dispatcher.InvokeAsync(() => owner.ReviewChanges(review, cancellation, worker.Participant.Name + " · 변경안 검토")); selectedItems = await task; }
+                else { var task = await owner.Dispatcher.InvokeAsync(() => owner.ReviewSharedHelperChanges(review, cancellation, worker.Participant.Name + " · 변경안 검토")); selectedItems = await task; }
                 if (review.IsHandoff) return answer + "\n\n" + review.Request.ReviewOutcome;
                 string result = await review.Apply(selectedItems, cancellation, (item, error, token) => owner.WorkerBuildRetry(worker, item, error, token));
                 Dispatch(() => { owner.RefreshProject(); owner.RebuildDocuments(); }); return answer + "\n\n" + result;

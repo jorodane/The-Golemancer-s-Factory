@@ -94,9 +94,10 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
         }
         if (homeFlightClock.IsRunning) Invalidate();
     }
-    public override void Suspend() { backend.Suspend(); activeWindow?.Backend.Suspend(); }
+    public override void Suspend() { backend.Suspend(); activeWindow?.Backend.Suspend(); reviewBackend?.Suspend(); }
     public override void Input(NativeInput input)
     {
+        if (ReviewInput(input)) return;
         if (input.Kind is NativeInputKind.PointerMove or NativeInputKind.PointerDown or NativeInputKind.PointerUp) { sidebarPointerX = input.X; sidebarPointerY = input.Y; }
         if (input.Kind == NativeInputKind.Wheel && sidebarPane is not null && sidebarPointerX is >= 112 and <= 364 && sidebarPointerY >= 56) { sidebarPaneScroll = Math.Clamp(sidebarPaneScroll - input.Value * 48, 0, Math.Max(0, sidebarPaneHeight - viewportHeight + 132)); Invalidate(); return; }
         if (input.Kind == NativeInputKind.Key && input.Key is "LeftShift" or "RightShift") { shift = input.Down; Invalidate(); }
@@ -164,6 +165,7 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
                 }
         }
         DrawSharedSidebar(canvas, height);
+        RenderReview(canvas, width, height);
     }
     private Element New(string renderer, string id, string text = "", Action? click = null)
     {
@@ -575,9 +577,20 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
             var prepared = result.View is null ? null : EditorDynamicViews.Prepare(generation, owner, result.View, "linux");
             if (result.DocumentChanges.Count > 0)
             {
-                var review = data.CreateReview(result.DocumentChanges); var decision = new TaskCompletionSource<string[]>(TaskCreationOptions.RunContinuationsAsynchronously);
-                OnUi(() => { pendingReview = review; Page("Review changes · " + owner, "review"); Disable(root); foreach (var item in review.Items) { Add(root, Label(item.Path)); Add(root, Label("Before:\n" + item.Before + "\nAfter:\n" + item.After)); } Add(root, Button("review-apply", "Apply changes", () => decision.TrySetResult(review.Items.Select(i => i.Id).ToArray()))); Add(root, Button("review-reject", "Reject", () => decision.TrySetResult([]))); busy = false; });
-                try { var selected = await decision.Task.WaitAsync(lifetime.Token); OnUi(() => busy = true); await review.Apply(selected, lifetime.Token); } catch { review.Cancel(); throw; } finally { OnUi(() => pendingReview = null); }
+                var review = data.CreateReview(result.DocumentChanges);
+                OnUi(() => pendingReview = review);
+                try
+                {
+                    var selected = await ReviewLinuxChanges(review, token =>
+                    {
+                        token.ThrowIfCancellationRequested();
+                        if (review.RebaseTexts().Count > 0) throw new IOException("현재 원본과 제안이 충돌해. 검토를 취소하고 현재 원본에서 변경을 다시 요청해줘.");
+                        return Task.CompletedTask;
+                    }, lifetime.Token);
+                    await review.Apply(selected, lifetime.Token);
+                }
+                catch { review.Cancel(); throw; }
+                finally { OnUi(() => pendingReview = null); }
             }
             OnUi(() =>
             {
@@ -638,5 +651,5 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
         }, ShowDocuments, true);
         if (!session.CanEdit(path)) Disable(root.Children.First(c => c.Id == "confirm"));
     }
-    public void Dispose() { if (disposed) return; disposed = true; lifetime.Cancel(); sharedSidebar?.Dispose(); studioAgentManagement?.Dispose(); studioWorkerSettings?.Dispose(); pendingReview?.Cancel(); sharedWorkspaceRoles?.Dispose(); windows.Dispose(); execution?.Dispose(); runner?.Dispose(); FinishStudioHomeFlight(); sharedStudioDirectory?.Dispose(); studioProfile?.Dispose(); connectedAgent?.Dispose(); studioAgent?.Dispose(); sharedProjectHome?.Dispose(); studioCreation?.Dispose(); studioStartView?.Dispose(); studioHomeBrandView?.Dispose(); backend.Dispose(); lifetime.Dispose(); }
+    public void Dispose() { if (disposed) return; disposed = true; DisposeSharedReview(); lifetime.Cancel(); sharedSidebar?.Dispose(); studioAgentManagement?.Dispose(); studioWorkerSettings?.Dispose(); pendingReview?.Cancel(); sharedWorkspaceRoles?.Dispose(); windows.Dispose(); execution?.Dispose(); runner?.Dispose(); FinishStudioHomeFlight(); sharedStudioDirectory?.Dispose(); studioProfile?.Dispose(); connectedAgent?.Dispose(); studioAgent?.Dispose(); sharedProjectHome?.Dispose(); studioCreation?.Dispose(); studioStartView?.Dispose(); studioHomeBrandView?.Dispose(); backend.Dispose(); lifetime.Dispose(); }
 }

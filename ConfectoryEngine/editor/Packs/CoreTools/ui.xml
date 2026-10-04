@@ -234,6 +234,19 @@
     <Node id="agent-management-note" order="30" widget="editor.text"><Bind property="text" source="studio.management.note" /></Node>
     <Node id="agent-management-close" order="40" widget="editor.button"><Set property="text" value="닫기" /><On event="activate" command="studio.management.close" /></Node>
   </Slot></Node></View>
+  <View id="editor.studio.review"><Node id="review-choice" widget="editor.stack"><Slot name="children">
+    <Node id="review-title" order="0" widget="editor.text"><Set property="text" value="적용할 변경을 선택해줘." /><Set property="fontSize" value="22" /></Node>
+    <Node id="review-help" order="10" widget="editor.text"><Set property="text" value="변경한 구간을 표시해. 파일 생성·등록 묶음은 함께 적용해." /></Node>
+    <Node id="review-note" order="20" widget="editor.text"><Bind property="text" source="studio.review.note" /><Set property="foreground" value="#F8DA79" /></Node>
+    <Node id="review-count" order="30" widget="editor.text"><Bind property="text" source="studio.review.count" /></Node>
+    <Node id="review-actions" order="40" widget="editor.wrap"><Slot name="children">
+      <Node id="review-accept" order="0" widget="editor.button"><Bind property="text" source="studio.review.acceptLabel" /><Bind property="enabled" source="studio.review.ready" /><On event="activate" command="studio.review.accept" /></Node>
+      <Node id="review-recompare" order="10" widget="editor.button"><Set property="text" value="변경 다시 비교" /><Bind property="enabled" source="studio.review.ready" /><On event="activate" command="studio.review.recompare" /></Node>
+      <Node id="review-cancel" order="20" widget="editor.button"><Set property="text" value="취소" /><On event="activate" command="studio.review.cancel" /></Node>
+    </Slot></Node>
+    <Node id="review-groups" order="50" widget="editor.wrap"><Bind property="enabled" source="studio.review.ready" /><Slot name="children" export="true" /></Node>
+    <Node id="review-details" order="60" widget="editor.stack"><Bind property="enabled" source="studio.review.ready" /><Slot name="children" export="true" /></Node>
+  </Slot></Node></View>
   <View id="editor.studio.helper-conversation"><Node id="helper-conversation" widget="editor.stack"><Layout size="320,0" /><Set property="margin" value="0" /><Bind property="visible" source="studio.helper.visible" /><Slot name="children">
     <Node id="helper-close-row" order="0" widget="editor.stack"><Set property="orientation" value="horizontal" /><Set property="margin" value="0" /><Slot name="children">
       <Node id="helper-close-space" widget="editor.text"><Layout size="294,30" /><Set property="margin" value="0" /></Node>

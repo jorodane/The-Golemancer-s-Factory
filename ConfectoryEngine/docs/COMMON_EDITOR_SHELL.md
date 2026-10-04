@@ -1652,3 +1652,39 @@ and actual Linux UI smoke pass for this increment. Android floating-view sizing
 uses the pack renderer's declared dimensions rather than a separate native width.
 Linux production integration and the accepted remaining shell/
 Yogi scope continue next; neither checkpoint establishes complete shell parity.
+
+Android production Helper checkpoint `323ac6c39e905790a62fe01369933c01c8ddbfa5`
+was published with remote main verified and a clean tree. All five jobs passed in
+[CI 37232438441](https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37232438441),
+including the real Android APK build and 70 actual Windows native checks.
+
+### Shared selective review prerequisite
+
+The next Linux conversation integration requires a complete selective review,
+beyond its prior apply-all/reject-all page. [SHARED_REVIEW_CHOICE.md](SHARED_REVIEW_CHOICE.md)
+records the contract. The installed CoreTools factory now owns the common review
+view, grouped file/hunk selection, compound items, excerpts/context/full text,
+image previews, counts, empty finish, comparison and cancellation actions.
+Windows/Android Helper review mounts retain their existing conflict callbacks,
+peer handoff, scoped review and application/build-retry boundaries. Initial
+comparison finishes before those OS dialogs open, so an active conflict dialog
+remains accessible. Existing legacy review entry points remain intact.
+
+Linux mounts the same choice as a modal input/render layer and uses it for existing
+pack-command changes. Its current disk comparison can rebase disjoint edits;
+unresolved overlapping edits remain an explicit cancellation/retry path. Linux
+production Helper execution still needs the collaboration conflict callbacks and
+persistent conversation overlays; the review increment alone does not establish
+that adoption or Linux shell parity. No edit lock or new Supervisor system is
+introduced. Unconfirmed selections do not apply documents.
+
+Verification for this review increment: **1,976 portable pack checks**, including
+hunk-validation rollback, failed/retried comparison, stale proposals, permission
+loss, empty finish, cancellation, late comparison and reentry. The actual SDL
+production review mount passes native pointer input while the surrounding command
+is busy, failed validation without writes, empty finish, cancel/reentry and exact
+reviewed application. The rendered review screenshot was inspected and remains
+outside Git. Engine isolation and the full explicitly selected external Golemancer
+campaign pass. Android reference-source compilation and Windows native-fixture
+compilation pass with zero warnings/errors; actual Windows execution and the real
+Android APK remain exact-commit CI verification, not local device claims.
