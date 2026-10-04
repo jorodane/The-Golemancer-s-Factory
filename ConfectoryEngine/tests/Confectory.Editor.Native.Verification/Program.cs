@@ -161,7 +161,7 @@ internal static class Program
     {
         var type = typeof(EditorWindow).Assembly.GetType("Confectory.Editor.EditorPackBackend")!;
         var backend = (IUiBackend)Activator.CreateInstance(type, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null,
-            [(Action<string>)(_ => { }), (Func<bool>)(() => false)], null)!;
+            [(Action<string>)(_ => { }), (Func<bool>)(() => false), "native-verification"], null)!;
         using var card = backend.Create("editor.card", "card", new());
         using var inline = backend.Create("editor.inline", "name", new());
         card.Add("children", inline); inline.Set("text", UiValue.Text("Native item"));
