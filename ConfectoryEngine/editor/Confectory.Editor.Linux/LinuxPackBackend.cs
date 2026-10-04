@@ -12,6 +12,7 @@ public sealed partial class LinuxPackBackend(Action invalidate) : IUiBackend, ID
     private Element? focused, pressed, hovered;
     private bool control, shift;
     private SKRect clip;
+    private int paintOrder;
     private void Invalidate() => invalidate();
     public string Platform => "linux";
     public string FocusedId => focused?.Id ?? "";
@@ -27,7 +28,7 @@ public sealed partial class LinuxPackBackend(Action invalidate) : IUiBackend, ID
         if (renderer is "editor.text" or "editor.button" or "editor.input" or "editor.inline") element.Set("text", UiValue.Text(text));
         if (click is not null) element.Listen("activate", _ => click()); return element;
     }
-    public void BeginFrame() { foreach (var e in elements) e.Bounds = SKRect.Empty; }
+    public void BeginFrame() { paintOrder = 0; foreach (var e in elements) e.Bounds = SKRect.Empty; }
     public SKRect Bounds(string id) => elements.Single(e => e.Id == id).Bounds;
     public EditorWindowState Capture() => new() { Values = elements.Where(e => e.IsInput && e.Renderer is not ("editor.secret" or "editor.readonly")).ToDictionary(e => e.Id, e => e.Text("text"), StringComparer.Ordinal) };
     public void Restore(EditorWindowState state) { foreach (var e in elements.Where(e => e.IsInput && e.Renderer is not ("editor.secret" or "editor.readonly"))) if (state.Values.TryGetValue(e.Id, out var text)) e.Set("text", UiValue.Text(text)); }
@@ -37,6 +38,7 @@ public sealed partial class LinuxPackBackend(Action invalidate) : IUiBackend, ID
     }
     private float Paint(Element e, SKCanvas canvas, float x, float y, float width)
     {
+        e.PaintOrder = ++paintOrder;
         if (e.MotionOpacity >= 1 && e.MotionRise == 0) return PaintContent(e, canvas, x, y, width);
         using var paint = new SKPaint { Color = SKColors.White.WithAlpha((byte)(Math.Clamp(e.MotionOpacity, 0, 1) * 255)) };
         canvas.SaveLayer(paint); canvas.Translate(0, e.MotionRise);
@@ -139,15 +141,27 @@ public sealed partial class LinuxPackBackend(Action invalidate) : IUiBackend, ID
             {
                 if (input && text.Length == 0) text = e.Text("placeholder");
                 var lines = e.Renderer == "editor.text" && !e.Bool("wrapText") ? new[] { text } : TextLines(text, Math.Max(8, (int)((width - 20) / (size * .62))));
+                if (e.Renderer == "editor.text" && !e.Bool("wrapText") && e.Text("overflow") == "ellipsis")
+                {
+                    using var face = SKTypeface.FromFamilyName("Noto Sans CJK KR"); using var font = new SKFont(face, size);
+                    if (font.MeasureText(text) > width)
+                    {
+                        var starts = System.Globalization.StringInfo.ParseCombiningCharacters(text); int count = starts.Length;
+                        while (count > 0 && font.MeasureText(text.Substring(0, starts[--count]) + "…") > width) { }
+                        lines = new[] { count > 0 ? text.Substring(0, starts[count]) + "…" : "…" };
+                    }
+                }
                 int limit = e.Bool("multiline") || e.Renderer is "editor.text" or "editor.readonly" ? Math.Max(1, (int)((height - 10) / (size + 5))) : 1;
                 e.LineCount = lines.Length; e.VisibleLines = limit; e.FirstLine = Math.Clamp(e.FirstLine, 0, Math.Max(0, lines.Length - limit));
                 if (e.Renderer == "editor.readonly") lines = lines.Skip(e.FirstLine).ToArray();
+                canvas.Save(); canvas.ClipRect(new SKRect(x, y, x + width, y + height));
                 for (int i = 0; i < Math.Min(lines.Length, limit); i++)
                 {
                     float textX = x + 10;
                     if (e.Text("alignment") == "center") { using var typeface = SKTypeface.FromFamilyName("Noto Sans CJK KR"); using var font = new SKFont(typeface, size); textX = x + (width - font.MeasureText(lines[i])) / 2; }
                     Text(canvas, lines[i], textX, y + 9 + size + i * (size + 5), size, highlighted && e.Text("hoverForeground").Length > 0 ? e.Text("hoverForeground") : e.Text("foreground").Length > 0 ? e.Text("foreground") : e.Enabled ? "#E6EDF3" : "#71808F", e.Text("fontWeight"));
                 }
+                canvas.Restore();
                 if (input && focused == e && e.Renderer != "editor.readonly") { using var pen = new SKPaint { Color = SKColor.Parse("#71D7C6"), StrokeWidth = 2 }; float caret = Math.Min(width - 10, 10 + e.Caret * size * .57f); canvas.DrawLine(x + caret, y + 7, x + caret, y + Math.Min(height - 6, size + 12), pen); }
             }
         }
@@ -171,15 +185,16 @@ public sealed partial class LinuxPackBackend(Action invalidate) : IUiBackend, ID
     }
     public void Input(NativeInput input)
     {
+        if ((input.Kind is NativeInputKind.PointerDown or NativeInputKind.PointerUp) && input.Code > 1) return;
         if (focused is { } current && (!current.Enabled || !current.Visible)) Focus(null);
         if (input.Kind == NativeInputKind.PointerMove)
         {
-            var next = elements.LastOrDefault(e => e.Enabled && e.Visible && e.Renderer == "editor.button" && e.Bounds.Contains(input.X, input.Y));
+            var next = elements.OrderBy(e => e.PaintOrder).LastOrDefault(e => e.Enabled && e.Visible && e.Renderer == "editor.button" && e.Bounds.Contains(input.X, input.Y));
             if (next != hovered) { hovered = next; invalidate(); }
         }
         else if (input.Kind == NativeInputKind.PointerDown)
         {
-            pressed = elements.LastOrDefault(e => e.Enabled && e.Visible && e.Bounds.Contains(input.X, input.Y) && (e.IsInput || e.Renderer is "editor.button" or "editor.card" or "editor.tile" or "editor.slot" or "editor.portrait"));
+            pressed = elements.OrderBy(e => e.PaintOrder).LastOrDefault(e => e.Enabled && e.Visible && e.Bounds.Contains(input.X, input.Y) && (e.IsInput || e.Renderer is "editor.button" or "editor.card" or "editor.tile" or "editor.slot" or "editor.portrait"));
             Focus(pressed); invalidate();
         }
         else if (input.Kind == NativeInputKind.PointerUp)
@@ -243,6 +258,7 @@ public sealed partial class LinuxPackBackend(Action invalidate) : IUiBackend, ID
         public List<Element> Children { get; } = [];
         public SKRect Bounds { get; internal set; }
         internal float LastHeight;
+        internal int PaintOrder;
         internal double MotionOpacity = 1;
         internal float MotionRise;
         internal int Caret, Selection;

@@ -100,7 +100,8 @@ public sealed partial class MainActivity
         }
         return sharedMobileParticipantPlacement!;
     }
-    private IEditorStudioWorkspace? sharedMobileWorkspaceRoles;
+    private IEditorStudioSidebar? sharedMobileSidebar;
+    private View? mobileSidebarAnchor;
     private IEditorStudioWorkspace CreateMobileWorkspaceRoles() => new EditorStudioPresentation(InstalledEngine).Actions.Workspace(
         new EditorStudioPresentation(InstalledEngine), new AndroidPackBackend(this), mobileDirectory, studioSession.Project, mobileProjectStudio, studioSession.Collaboration,
         () => mobileDirectory.Save(Path.Combine(root, "ai-directory.json")), (participant, open) =>
@@ -124,45 +125,67 @@ public sealed partial class MainActivity
     private void SelectMobileMainHelper(string id) { using var workspace = CreateMobileWorkspaceRoles(); workspace.SetMainHelper(id); }
     private void BuildMobileAiSidebar()
     {
-        mobileManagement.RemoveAllViews(); mobileProfileIcons.Clear(); mobileManagement.SetPadding(Dp(6), Dp(25), Dp(6), Dp(12)); sharedMobileWorkspaceRoles?.Dispose(); sharedMobileWorkspaceRoles = null;
-        if (MobileProject) { sharedMobileWorkspaceRoles = CreateMobileWorkspaceRoles(); mobileManagement.AddView(((AndroidPackBackend.Element)sharedMobileWorkspaceRoles.View.Root).Control); }
-        mobileManagement.AddView(HomeLabel("AI 관리", 12)); HomeDivider(mobileManagement);
-        mobileManagement.AddView(AiAction(mobileStudioPresentation.Text("editor.studio.workspace", "workspace-agent-management"), ShowMobileAgentManagement)); var agents = new List<View>();
-        foreach (var agent in mobileDirectory.Agents.Where(a => a.Enabled))
+        if (studioSession is null || sharedMobileSidebar?.PaneOpen == true) return;
+        sharedMobileSidebar?.Dispose(); sharedMobileSidebar = null; mobileManagement.RemoveAllViews(); mobileProfileIcons.Clear(); mobileManagement.SetPadding(Dp(8), Dp(24), Dp(8), Dp(12));
+        var sidebar = mobileStudioPresentation.Actions.Sidebar(mobileStudioPresentation, new AndroidPackBackend(this), mobileDirectory, studioSession.Collaboration, mobileProjectStudio, MobileProject,
+            CreateMobileWorkspaceRoles, () => CreateMobileAgentManagement(() => { }), () => mobileWorkers.Select(w => new EditorStudioWorkerFact(w.Participant.Id, w.ResultState, w.Cancellation is not null)).ToArray(), MobilePortraitImage, new MobileSidebarHost(this));
+        sharedMobileSidebar = sidebar; mobileManagement.AddView(((AndroidPackBackend.Element)sidebar.View.Root).Control);
+        foreach (var item in sidebar.Items)
         {
-            View? circle = null; circle = MobileAiCircle(agent.Name, agent.AvatarPath, () => ShowMobileProfile(circle!, agent, null), selected: MobileProject && agent.Id == mobileProjectStudio.MainAgentId);
-            if (MobileProject) circle.LongClick += (_, _) => MobileHomeAction(() => { SelectMobileMainAgent(agent.Id); RefreshMobileManagement(); });
-            agents.Add(circle); mobileProfileIcons.Add(circle);
+            var control = ((AndroidPackBackend.Element)sidebar.View.Element(item.NodeId)).Control; mobileProfileIcons.Add(control);
+            if (item.Kind != "human") control.LongClick += (_, e) => { e.Handled = true; MobileHomeAction(() => sidebar.Show(item.Key)); };
+            if (item.Kind is "worker" or "helper")
+            {
+                long tap = 0; control.Click += (_, _) => { long now = global::Android.OS.SystemClock.UptimeMillis(); if (now - tap < 320) { tap = 0; sidebar.ClosePane(); MobileHomeAction(() => sidebar.Open(item.Key)); } else tap = now; };
+            }
+            if (item.Kind is "worker" or "helper" or "human") BindMobileYogiDrop(control, box => MobileHomeAction(() => sidebar.Drop(item.Key, box)));
         }
-        agents.Add(MobileAiCircle("Agent 추가", "", () => { mobileEditingAgent = ""; ShowEditorAiSetup(); }, empty: true)); CirclePairs(mobileManagement, agents); HomeDivider(mobileManagement);
-        mobileManagement.AddView(HomeLabel("Helper", 11, true)); var helpers = new List<View>();
-        foreach (var helper in mobileDirectory.Helpers.Where(h => h.Enabled))
-        {
-            var worker = MobileProject ? mobileWorkers.FirstOrDefault(w => w.Participant.HelperId == helper.Id && studioSession.Collaboration.CanControl("human", w.Participant.Id)) : null;
-            if (worker is not null) { helpers.Add(MobileWorkerSidebarItem(worker)); continue; }
-            View? circle = null; long tap = 0; circle = MobileAiCircle(helper.Name, helper.AvatarPath, () => { long now = global::Android.OS.SystemClock.UptimeMillis(); if (now - tap < 320) { tap = 0; var joined = CreateMobileWorker(helper); if (joined is not null) ShowMobileWorkerAnswers(joined); } else { tap = now; circle!.PostDelayed(() => { if (tap == now) ShowMobileProfile(circle, null, helper); }, 320); } }, main: MobileProject && helper.Id == mobileProjectStudio.MainHelperId); BindMobileYogiDrop(circle, box => { var joined = CreateMobileWorker(helper); if (joined is not null) ReceiveMobileYogi(joined, box); }); helpers.Add(circle); mobileProfileIcons.Add(circle);
-        }
-        if (MobileProject) foreach (var worker in mobileWorkers.Where(w => !studioSession.Collaboration.CanControl("human", w.Participant.Id) || !mobileDirectory.Helpers.Any(h => h.Id == w.Participant.HelperId && h.Enabled))) helpers.Add(MobileWorkerSidebarItem(worker));
-        helpers.Add(MobileAiCircle("Helper 추가", "", AddMobileHelper, empty: true)); CirclePairs(mobileManagement, helpers);
-        if (MobileProject) { mobileManagement.AddView(AiAction("📦 YogiBox", OpenMobileYogiBox)); foreach (var person in studioSession.Collaboration.State.Participants.Where(p => p.Kind == ParticipantKind.Human && p.Id != "human")) { var slot = AiAction(person.Name, () => OpenMobileInbox(person.Id)); BindMobileYogiDrop(slot, box => studioSession.Collaboration.DeliverYogi("human", box, "direct", person.Id)); mobileManagement.AddView(slot); } }
     }
-    private void ShowMobileProfile(View anchor, AiAgentProfile? agent, AiHelper? helper)
+    private void ShowSharedMobileSidebarPane(EditorLiveView view, string anchor)
     {
         if (mobileProfile is null)
         {
             mobileProfileBody = new LinearLayout(this) { Orientation = Orientation.Vertical, Background = HomeShape() }; mobileProfileBody.SetPadding(Dp(18), Dp(18), Dp(18), Dp(18));
-            mobileProfile = new PopupWindow(mobileProfileBody, Dp(240), ViewGroup.LayoutParams.WrapContent, false) { OutsideTouchable = false, Elevation = Dp(12) }; mobileProfile.SetBackgroundDrawable(new ColorDrawable(Color.Transparent));
+            var scroll = new ScrollView(this); scroll.AddView(mobileProfileBody);
+            mobileProfile = new PopupWindow(scroll, Dp(252), Math.Min(Dp(720), Math.Max(Dp(160), (Resources?.DisplayMetrics?.HeightPixels ?? Dp(800)) - Dp(96))), false) { OutsideTouchable = true, Elevation = Dp(12) }; mobileProfile.SetBackgroundDrawable(new ColorDrawable(Color.Transparent));
+            mobileProfile.DismissEvent += (_, _) => { if (sharedMobileSidebar?.PaneOpen == true) sharedMobileSidebar.ClosePane(); };
         }
-        mobileProfileBody!.RemoveAllViews(); string name = agent?.Name ?? helper!.Name, avatar = agent?.AvatarPath ?? helper!.AvatarPath;
-        if (helper is not null && File.Exists(helper.CharacterPath.Length > 0 ? helper.CharacterPath : helper.AvatarPath)) { var character = new ImageView(this); character.SetImageURI(global::Android.Net.Uri.FromFile(new Java.IO.File(helper.CharacterPath.Length > 0 ? helper.CharacterPath : helper.AvatarPath))); character.SetScaleType(ImageView.ScaleType.FitCenter); mobileProfileBody.AddView(character, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(120))); }
-        var portrait = MobileAiCircle(name, avatar, () => { }, size: 60); mobileProfileBody.AddView(portrait, new LinearLayout.LayoutParams(Dp(68), Dp(83)) { Gravity = GravityFlags.CenterHorizontal }); var title = HomeLabel(name, 19); title.Gravity = GravityFlags.Center; mobileProfileBody.AddView(title); var role = HomeLabel(agent is null ? "Helper" : "Agent", 12, true); role.Gravity = GravityFlags.Center; mobileProfileBody.AddView(role);
-        var worker = mobileWorkers.FirstOrDefault(w => helper is not null ? w.Participant.HelperId == helper.Id : w.Participant.AgentId == agent!.Id && w.Cancellation is not null); mobileProfileBody.AddView(HomeLabel(worker?.Cancellation is not null ? "작업 중" : worker is not null ? "프로젝트에서 대기 중" : "대기 중", 12, true));
-        if (helper is not null && MobileProject) mobileProfileBody.AddView(AiAction("대화창 열기", () => { mobileProfile.Dismiss(); var joined = CreateMobileWorker(helper); if (joined is not null) ShowMobileWorkerAnswers(joined); }));
-        mobileProfileBody.AddView(AiAction("설정", () => { mobileProfile.Dismiss(); if (helper is not null) OpenMobileHelper(helper); else MobileAgentSettings(agent!); }));
-        mobileProfileBody.AddView(AiAction("연결 해제", () => MobileHomeAction(() => { if (helper is not null) DisconnectMobileHelper(helper); else DisconnectMobileAgent(agent!); mobileProfile.Dismiss(); SaveMobileDirectory(); RefreshMobileManagement(); })));
+        mobileProfileBody!.RemoveAllViews(); mobileProfileBody.AddView(((AndroidPackBackend.Element)view.Root).Control);
         if (mobileProfile.IsShowing) { mobileProfile.Update(); return; }
-        int[] position = new int[2]; anchor.GetLocationOnScreen(position); int height = Resources?.DisplayMetrics?.HeightPixels ?? Dp(700), width = Resources?.DisplayMetrics?.WidthPixels ?? Dp(400);
-        mobileProfile.ShowAtLocation(mobileContent!, GravityFlags.Top | GravityFlags.Left, Math.Min(position[0] + anchor.Width + Dp(8), Math.Max(0, width - Dp(240))), Math.Max(0, Math.Min(position[1], height - Dp(440))));
+        var control = mobileSidebarAnchor ?? (anchor.Length > 0 ? ((AndroidPackBackend.Element)sharedMobileSidebar!.View.Element(anchor)).Control : mobileManagement); mobileSidebarAnchor = null;
+        int[] position = new int[2]; control.GetLocationOnScreen(position); int height = Resources?.DisplayMetrics?.HeightPixels ?? Dp(700), width = Resources?.DisplayMetrics?.WidthPixels ?? Dp(400);
+        mobileProfile.ShowAtLocation(mobileContent!, GravityFlags.Top | GravityFlags.Left, Math.Min(position[0] + control.Width + Dp(8), Math.Max(0, width - Dp(252))), Math.Max(0, Math.Min(position[1], height - Dp(440))));
+    }
+    private void ShowMobileProfile(View anchor, AiAgentProfile? agent, AiHelper? helper)
+    { mobileSidebarAnchor = anchor; sharedMobileSidebar?.Show(agent is not null ? "agent:" + agent.Id : "helper:" + helper!.Id); }
+    private sealed class MobileSidebarHost(MainActivity activity) : IEditorStudioSidebarHost
+    {
+        public bool ConversationAvailable => true;
+        public bool PromotionAvailable => true;
+        public void Pane(EditorLiveView view, string anchorNode) => activity.ShowSharedMobileSidebarPane(view, anchorNode);
+        public void ClosePane() { if (activity.mobileProfile?.IsShowing == true) activity.mobileProfile.Dismiss(); }
+        public void Receive(string id, YogiBox box) => activity.ReceiveMobileYogi(activity.mobileWorkers.Single(w => w.Participant.Id == id), box);
+        public void Run(string action, string id)
+        {
+            switch (action)
+            {
+                case "manage": activity.ShowMobileAgentManagement(); break;
+                case "add-agent": activity.mobileEditingAgent = ""; activity.ShowEditorAiSetup(); break;
+                case "add-helper": activity.AddMobileHelper(); break;
+                case "yogi": activity.OpenMobileYogiBox(); break;
+                case "inbox": activity.OpenMobileInbox(id); break;
+                case "open": activity.ShowMobileWorkerAnswers(activity.mobileWorkers.Single(w => w.Participant.Id == id)); break;
+                case "log": activity.OpenMobileWorkerLog(activity.mobileWorkers.Single(w => w.Participant.Id == id)); break;
+                case "promote": activity.PromoteMobileWorker(activity.mobileWorkers.Single(w => w.Participant.Id == id)); break;
+                case "call": activity.OpenMobileProjectChat("@" + id + " "); break;
+                case "agent-profile": activity.MobileAgentSettings(activity.mobileDirectory.Agents.Single(a => a.Id == id)); break;
+                case "helper-profile": activity.OpenMobileHelper(activity.mobileDirectory.Helpers.Single(h => h.Id == id)); break;
+                case "worker-settings": activity.ShowMobileWorkerSettings(activity.mobileWorkers.Single(w => w.Participant.Id == id)); break;
+                case "disconnect-runtime": var worker = activity.mobileWorkers.Single(w => w.Participant.Id == id); try { worker.Assistant?.Dispose(); } finally { worker.Assistant = null; } break;
+                case "refresh": activity.RefreshMobileManagement(); break;
+                default: throw new InvalidOperationException("Unknown sidebar host attachment action.");
+            }
+        }
     }
     private readonly List<Dialog> studioProfileDialogs = new();
     private readonly List<IEditorStudioDirectory> mobileDirectoryViews = new();

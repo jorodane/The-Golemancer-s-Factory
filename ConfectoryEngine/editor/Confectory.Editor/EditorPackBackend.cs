@@ -161,6 +161,7 @@ internal sealed partial class EditorPackBackend(Action<string> point, Func<bool>
                 {
                     case "clearRevision": ((PasswordBox)control).Clear(); break;
                     case "wrapText": if (InputControl is { } wrappedInput) wrappedInput.TextWrapping = value.AsBoolean() ? TextWrapping.Wrap : TextWrapping.NoWrap; else if (control is TextBlock wrappedText) wrappedText.TextWrapping = value.AsBoolean() ? TextWrapping.Wrap : TextWrapping.NoWrap; break;
+                    case "overflow": if (control is TextBlock clippedText) clippedText.TextTrimming = value.Literal == "ellipsis" ? TextTrimming.CharacterEllipsis : TextTrimming.None; break;
                     case "fontWeight": var weight = value.Literal == "normal" ? FontWeights.Normal : value.Literal == "semibold" ? FontWeights.SemiBold : FontWeights.Bold; if (InputControl is { } weightedInput) weightedInput.FontWeight = weight; else if (control is Control weightedControl) weightedControl.FontWeight = weight; else if (control is TextBlock weightedText) weightedText.FontWeight = weight; break;
                     case "polygons": ((Vector)control).Polygons = EditorVector.Parse(value.Literal); ((Vector)control).InvalidateVisual(); break;
                     case "alignment": control.HorizontalAlignment = value.Literal == "center" ? HorizontalAlignment.Center : value.Literal == "left" ? HorizontalAlignment.Left : HorizontalAlignment.Stretch;

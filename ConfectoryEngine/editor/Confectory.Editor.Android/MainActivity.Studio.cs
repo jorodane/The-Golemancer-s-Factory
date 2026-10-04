@@ -122,6 +122,14 @@ public sealed partial class MainActivity
         var scroll = new ScrollView(this); scroll.AddView(((AndroidPackBackend.Element)settings.View.Root).Control); dialog.SetContentView(scroll);
         dialog.DismissEvent += (_, _) => settings.Dispose(); dialog.Show(); dialog.Window?.SetLayout(Math.Min(Resources!.DisplayMetrics!.WidthPixels - Dp(24), Dp(520)), ViewGroup.LayoutParams.WrapContent);
     }
+    private void PromoteMobileWorker(MobileWorker worker)
+        => MobileName("도우미 이름", name =>
+        {
+            if (worker.Cancellation is not null) throw new InvalidOperationException("작업이 끝난 뒤 승격해줘.");
+            using var workspace = CreateMobileWorkspaceRoles();
+            _ = workspace.Promote(worker.Participant.Id, name, Encoding.UTF8.GetBytes(EditorSession.Serialize(worker.Turns)), root);
+            RenderMobileWorker(worker); RefreshMobileManagement();
+        });
     private void OpenMobileWorkerLog(MobileWorker worker)
     {
         studioSession.Collaboration.RequireControl("human", worker.Participant.Id);
@@ -132,13 +140,7 @@ public sealed partial class MainActivity
         var scroll = new ScrollView(this); scroll.AddView(text); layout.AddView(scroll, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, 0, 1));
         layout.AddView(AiAction(mobileStudioPresentation.Text("editor.studio.worker-settings", "worker-settings-title"), () => ShowMobileWorkerSettings(worker)));
         layout.AddView(AiAction("요청 취소", () => worker.Cancellation?.Cancel()));
-        if (worker.Participant.HelperId.Length == 0) layout.AddView(AiAction("도우미로 승격", () => MobileName("도우미 이름", name =>
-        {
-            if (worker.Cancellation is not null) throw new InvalidOperationException("작업이 끝난 뒤 승격해줘.");
-            using var workspace = CreateMobileWorkspaceRoles();
-            _ = workspace.Promote(worker.Participant.Id, name, Encoding.UTF8.GetBytes(EditorSession.Serialize(worker.Turns)), root);
-            RefreshMobileManagement();
-        })));
+        if (worker.Participant.HelperId.Length == 0) layout.AddView(AiAction("도우미로 승격", () => PromoteMobileWorker(worker)));
         layout.AddView(AiAction("제안 승인 범위", () => MobileName("승인 경로 · 쉼표 구분, *는 전체", scopes => studioSession.Collaboration.GrantProposalAuthority("human", worker.Participant.Id, scopes.Split(',')))));
         var dialog = worker.Log = new Dialog(this); dialog.SetTitle(worker.Participant.Name + " · 대화 기록"); dialog.SetContentView(layout); dialog.Show(); dialog.Window?.SetLayout(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent);
         dialog.DismissEvent += (_, _) => { worker.Transcript = null; worker.Log = null; };

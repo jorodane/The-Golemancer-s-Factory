@@ -52,9 +52,34 @@ public interface IEditorStudioPortrait : IDisposable
     string Ink { get; }
 }
 
+public sealed record EditorStudioWorkerFact(string Id, string State = "", bool Running = false, string Activity = "");
+public sealed record EditorStudioSidebarItem(string Key, string NodeId, string Kind, string Id);
+public interface IEditorStudioSidebar : IDisposable
+{
+    EditorLiveView View { get; }
+    IReadOnlyList<EditorStudioSidebarItem> Items { get; }
+    bool PaneOpen { get; }
+    void Show(string key);
+    void Open(string key);
+    void Drop(string key, YogiBox box);
+    void ClosePane();
+    void Render();
+}
+public interface IEditorStudioSidebarHost
+{
+    bool ConversationAvailable { get; }
+    bool PromotionAvailable { get; }
+    void Pane(EditorLiveView view, string anchorNode);
+    void ClosePane();
+    void Run(string action, string id);
+    void Receive(string participantId, YogiBox box);
+}
+
 /// <summary>Private trusted-shell ABI. Never supplied to project modules or overlays.</summary>
 public interface IEditorStudioActions
 {
+    IEditorStudioSidebar Sidebar(EditorStudioPresentation presentation, IUiBackend backend, AiDirectory directory, CollaborationWorkspace collaboration, ProjectStudio roles, bool project, Func<IEditorStudioWorkspace> workspace, Func<IEditorStudioAgentManagement> management, Func<IReadOnlyList<EditorStudioWorkerFact>> workers, Func<string, string> image, IEditorStudioSidebarHost host);
+
     IEditorStudioPortrait Portrait(EditorStudioPresentation presentation, IUiBackend backend, EditorStudioPortraitState state, Action activate);
     IEditorStudioWorkspace Workspace(EditorStudioPresentation presentation, IUiBackend backend, AiDirectory directory, WorkspaceProject project, ProjectStudio roles, CollaborationWorkspace collaboration, Action saveDirectory, Action<Participant, bool> joined, Action<string> selectedAgent, Func<string, bool> running, Func<bool>? idle = null, Action<IReadOnlyList<Participant>>? removed = null, Action<string>? workerSettings = null, Action? manageAgents = null, Func<string, bool>? supportsProvider = null, Func<string, string>? portraitImage = null);
     IEditorStudioParticipants Participants(AiDirectory directory, CollaborationWorkspace collaboration, string actor = "human");

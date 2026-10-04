@@ -890,3 +890,98 @@ Precise remaining handoff (assigned migration still incomplete):
 
 No new user approval or access blocker was identified. Continue from these
 verified changes and remaining owner paths, not from an older pull-only task.
+
+
+## Shared sidebar composition acceptance contract
+
+Installed CoreTools owns the 96px content/two-circle columns inside each native
+112px management region, Agent/Helper/Worker/human ordering, captions/status,
+profile/context panes and their action availability. Hosts supply current Worker
+activity facts, thumbnail decoding, popup anchoring and OS gesture/drop events.
+They must not retain native sidebar source loops or profile/menu definitions.
+Single activation opens the common pane without acknowledging answers. Double
+activation opens/joins the exact Worker, context activation opens the same common
+actions, and Yogi drop retains existing native input routing. Only controlled
+participants can expose private Helper assets/settings/history. Foreign Workers
+keep public viewing/call and viewer-local hide actions.
+
+MAIN, Join, Helper/source disable and ordinary disconnect recheck installed
+authority/lifecycle policies. Failed persistence skips runtime cleanup and
+compensates saved state; cleanup retry must not restart a provider. Preserve
+all prior settings, logs, promotion, open/hide, public call, YogiBox and human
+inbox/drop capabilities. Unavailable Linux conversation/runtime capabilities are
+explicit; no fake answers or simplified replacement shell. Actual SDL must mount
+the same composition/panes and verify passive mount, gestures/actions, owner
+boundaries, cancel/reentry/failure, with injected runtime services.
+
+## Shared sidebar continuation checkpoint
+
+This continuation starts from verified main
+`513f60ae34f05f632342cf55142298106c5a1a2c` and supersedes the sidebar
+composition/menu bullet in its handoff, not the entire remaining shell migration.
+
+- Installed `CoreTools.StudioSidebar` owns ordered Agent/Helper/Worker/human
+  composition, two-column circle groups, compact Worker name/status captions,
+  MAIN/unread presentation, and profile/context menu definitions and actions.
+  Windows and Android remove their native sidebar loops and profile menu bodies;
+  Linux mounts the same factory beside its existing project surfaces.
+- Adapters supply activity facts, bounded thumbnail decoding, popup/scroll
+  placement, and native context/double-activation/drop input. Common menu actions
+  retain private settings, histories, promotion, open/hide, public call, source
+  management, role selection, YogiBox and human inbox routes. Ordinary creation
+  and Worker visibility also remain available in standalone mode.
+- Foreign Workers use public names/status and cannot read matching local Helper
+  avatar/character paths. Opening a menu does not acknowledge answers. Mutations
+  recheck current authority; ordinary disconnect saves hidden/disconnected
+  presence before runtime cleanup, compensates failed persistence (including new
+  presence/view entries), and leaves a failed cleanup safely disconnected for
+  retry. Failed native pane mounting permits reentry.
+- The generic native text contract adds `overflow=clip|ellipsis`; compact common
+  captions select ellipsis and carry their full-name tooltip. SDL hit-testing
+  follows actual paint order with child controls above their containers. Menu
+  scrolling remains an OS adapter boundary.
+
+Verification evidence and publication status are recorded below after the final
+checks. No paid inference, external authentication, or production credential
+writes are authorized by these checks. Generated screenshots/logs remain outside
+Git, and `.gitignore` is unchanged.
+
+### Next handoff after sidebar
+
+1. Migrate Worker character/bubble presentation, promotion-name input and movable
+   conversation controls into installed pack definitions/actions. Existing native
+   attachment and real AI/Helper/Worker interactions remain in place meanwhile.
+2. Migrate saved-Agent execution and full shared conversation flows. Linux has no
+   attached Worker conversation runtime yet: common open/log/promotion controls
+   explicitly reflect unavailable capability; its current YogiBox/human inbox
+   attachment routes also remain unavailable. This is an incomplete migration,
+   not a Linux replacement shell or a claim of full platform parity.
+3. Preserve shared global Helper memory, request-local semantic context and the
+   existing incoming-change clash callbacks. Collaboration/YogiBox completion,
+   packs/review and final Linux shell/package remain subsequent stages. Do not
+   introduce Supervisor, instant-table, augment or render-authoring features.
+
+Android device interaction and Windows GUI interaction require their respective
+native environments; portable adapter tests, local Windows source compilation,
+actual SDL execution and exact-head CI results must be distinguished explicitly.
+
+### Sidebar checks completed locally
+
+- Installed engine-pack campaign: **1,073 checks**, including the same sidebar
+  factory on Windows/Android/Linux test backends, standalone creation/visibility,
+  privacy, stale authority, active-worker rejection, persistence compensation,
+  cleanup failure/retry, native mount failure, unavailable execution and disposal.
+- Actual SDL: `LINUX_EDITOR_SMOKE_PASS`, now reporting `SHARED_SIDEBAR`; native
+  context click, scrolling, close/reentry, private Helper profile and ordinary
+  Worker settings pass alongside existing startup motion, private connection
+  fixtures, profile, Join/MAIN, image review, project creation/home and pack DLL
+  checks. The screenshot was visually inspected. Linux real AI conversations
+  remain unavailable rather than tested successfully.
+- Studio **225**, authoring **39**, engine isolation and the full explicit
+  `ConfectoryProjects/Golemancer/Golemancer.packproject` consumer campaign pass.
+- Windows native-verification source and installed CoreTools compile on **net48**
+  with **zero warnings/errors**. Local Windows GUI and Android device execution
+  are unavailable; remote Windows GUI/Android build CI is checked after push.
+- Evidence: `/workspace/scratch/sidebar-{packs,linux,studio,authoring,isolation,
+  consumer,windows-source,core-net48}.log`; screenshots under
+  `/workspace/scratch/sidebar-native.png.*`. These are not committed artifacts.

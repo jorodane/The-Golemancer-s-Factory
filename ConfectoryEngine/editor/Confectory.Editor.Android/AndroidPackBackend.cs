@@ -171,6 +171,7 @@ internal sealed partial class AndroidPackBackend(Context context, string viewId 
                     case "clearRevision": ((Secret)native).Text = ""; break;
                     case "appearance": case "hoverForeground": case "hoverBackground": case "pressedBackground": break;
                     case "wrapText": if (InputControl is { } wrappedInput) wrappedInput.SetHorizontallyScrolling(!value.AsBoolean()); else if (native is TextView wrappedText && native is not Button) wrappedText.SetSingleLine(!value.AsBoolean()); break;
+                    case "overflow": if (native is TextView clippedText && native is not Button) clippedText.Ellipsize = value.Literal == "ellipsis" ? global::Android.Text.TextUtils.TruncateAt.End : null; break;
                     case "fontWeight": var weightedText = InputControl ?? native as TextView; if (weightedText is not null) weightedText.SetTypeface(global::Android.Graphics.Typeface.Default, value.Literal == "normal" ? global::Android.Graphics.TypefaceStyle.Normal : global::Android.Graphics.TypefaceStyle.Bold); break;
                     case "polygons": ((Vector)native).Polygons = EditorVector.Parse(value.Literal); native.Invalidate(); break;
                     case "alignment":

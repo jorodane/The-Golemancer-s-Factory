@@ -1,7 +1,7 @@
 <Ui version="1" id="editor.core.ui">
   <Widget id="editor.element"><Property name="enabled" type="boolean" default="true" /><Property name="visible" type="boolean" default="true" /><Property name="tooltip" type="text" default="" /><Property name="fontSize" type="number" default="13" min="8" max="48" /><Property name="margin" type="number" default="4" min="0" max="64" /><Property name="foreground" type="text" default="" /><Property name="background" type="text" default="" /><Property name="alignment" type="text" default="stretch"><Option value="stretch" /><Option value="center" /><Option value="left" /></Property><Renderer platform="*" key="editor.text" /></Widget>
   <Widget id="editor.stack" extends="editor.element"><Property name="orientation" type="text" default="vertical"><Option value="vertical" /><Option value="horizontal" /></Property><Slot name="children" min="0" /><Renderer platform="*" key="editor.stack" /></Widget>
-  <Widget id="editor.text" extends="editor.element"><Property name="text" type="text" default="" /><Property name="wrapText" type="boolean" default="true" /><Property name="fontWeight" type="text" default="normal"><Option value="normal" /><Option value="semibold" /><Option value="bold" /></Property><Renderer platform="*" key="editor.text" /></Widget>
+  <Widget id="editor.text" extends="editor.element"><Property name="text" type="text" default="" /><Property name="wrapText" type="boolean" default="true" /><Property name="overflow" type="text" default="clip"><Option value="clip" /><Option value="ellipsis" /></Property><Property name="fontWeight" type="text" default="normal"><Option value="normal" /><Option value="semibold" /><Option value="bold" /></Property><Renderer platform="*" key="editor.text" /></Widget>
   <Widget id="editor.button" extends="editor.text"><Property name="appearance" type="text" default="standard"><Option value="standard" /><Option value="quiet" /><Option value="accent" /></Property><Property name="hoverForeground" type="text" default="" /><Property name="hoverBackground" type="text" default="" /><Property name="pressedBackground" type="text" default="" /><Event name="activate" payload="none" /><Renderer platform="*" key="editor.button" /></Widget>
   <Widget id="editor.input" extends="editor.text"><Event name="changed" payload="text" /><Renderer platform="*" key="editor.input" /></Widget>
   <Widget id="editor.inline" extends="editor.input"><Event name="committed" payload="text" /><Property name="placeholder" type="text" default="" /><Property name="multiline" type="boolean" default="false" /><Renderer platform="*" key="editor.inline" /></Widget>
@@ -180,6 +180,21 @@
     <Node id="directory-create-helper" order="90" widget="editor.button"><Set property="text" value="이 Agent의 Helper 만들기" /><On event="activate" command="studio.directory.createHelper" /></Node>
     <Node id="directory-note" order="100" widget="editor.text"><Bind property="text" source="studio.directory.note" /></Node>
     <Node id="directory-close" order="110" widget="editor.button"><Set property="text" value="닫기" /><On event="activate" command="studio.directory.close" /></Node>
+  </Slot></Node></View>
+  <View id="editor.studio.sidebar"><Node id="sidebar" widget="editor.stack"><Layout size="96,0" /><Slot name="children">
+    <Node id="sidebar-heading" order="0" widget="editor.text"><Set property="text" value="AI 관리" /><Set property="fontSize" value="13" /></Node>
+    <Node id="sidebar-management" order="10" widget="editor.button"><Set property="text" value="Agent" /><Set property="fontSize" value="11" /><On event="activate" command="studio.sidebar.manage" /></Node>
+    <Node id="sidebar-agents" order="20" widget="editor.grid"><Set property="columns" value="2" /><Slot name="children" export="true" /></Node>
+    <Node id="sidebar-helper-heading" order="30" widget="editor.text"><Set property="text" value="Helper" /><Set property="fontSize" value="11" /><Set property="margin" value="4" /></Node>
+    <Node id="sidebar-helpers" order="40" widget="editor.grid"><Set property="columns" value="2" /><Slot name="children" export="true" /></Node>
+    <Node id="sidebar-add-worker" order="45" widget="editor.button"><Set property="text" value="Worker 추가" /><Set property="fontSize" value="11" /><On event="activate" command="studio.sidebar.addWorker" /></Node>
+    <Node id="sidebar-yogi" order="50" widget="editor.button"><Set property="text" value="📦 YogiBox" /><Set property="fontSize" value="11" /><On event="activate" command="studio.sidebar.yogi" /></Node>
+    <Node id="sidebar-people" order="60" widget="editor.stack"><Slot name="children" export="true" /></Node>
+    <Node id="sidebar-note" order="70" widget="editor.text"><Set property="fontSize" value="9" /><Bind property="text" source="studio.sidebar.note" /></Node>
+  </Slot></Node></View>
+  <View id="editor.studio.sidebar.pane"><Node id="sidebar-pane" widget="editor.stack"><Layout size="216,0" /><Slot name="children">
+    <Node id="sidebar-pane-content" order="0" widget="editor.stack"><Slot name="children" export="true" /></Node>
+    <Node id="sidebar-pane-note" order="10" widget="editor.text"><Bind property="text" source="studio.sidebar.note" /><Set property="foreground" value="#E35561" /></Node>
   </Slot></Node></View>
   <View id="editor.studio.workspace"><Node id="workspace-roles" widget="editor.stack"><Slot name="children">
     <Node id="workspace-title" order="0" widget="editor.text"><Bind property="text" source="studio.workspace.title" /></Node>

@@ -4,7 +4,7 @@ using Confectory.Runtime.UI;
 
 namespace Confectory.EditorPacks;
 
-// The WPF adapter and headless preflight use this same capability contract.
+// Native adapters and headless preflight share this capability contract.
 public static class EditorNativeSchema
 {
     public static UiValue DefaultValue(string property) => property switch
@@ -13,7 +13,7 @@ public static class EditorNativeSchema
         "selected" or "multiline" or "dashed" => UiValue.Boolean(false),
         "diameter" => UiValue.Number(40), "strokeWidth" => UiValue.Number(1), "rim" => UiValue.Text("#94A5B7"), "badgeInk" => UiValue.Text("#E35561"),
         "borderStyle" => UiValue.Text("solid"), "columns" => UiValue.Number(2), "fontSize" => UiValue.Number(13), "margin" or "count" or "clearRevision" => UiValue.Number(0),
-        "fontWeight" => UiValue.Text("normal"), "appearance" => UiValue.Text("standard"), "alignment" => UiValue.Text("stretch"), "orientation" => UiValue.Text("vertical"), "tint" => UiValue.Text("#293B4D"),
+        "overflow" => UiValue.Text("clip"), "fontWeight" => UiValue.Text("normal"), "appearance" => UiValue.Text("standard"), "alignment" => UiValue.Text("stretch"), "orientation" => UiValue.Text("vertical"), "tint" => UiValue.Text("#293B4D"),
         _ => UiValue.Text("")
     };
     public static double LayoutNumber(string value, double min, double max)
@@ -35,7 +35,7 @@ public static class EditorNativeSchema
         else if (renderer == "editor.vector") properties.Add("polygons", UiValueKind.Text);
         else if (renderer == "editor.slot")
         { foreach (string name in new[] { "image", "glyph", "value", "tint" }) properties.Add(name, UiValueKind.Text); properties.Add("count", UiValueKind.Number); }
-        else { properties.Add("text", UiValueKind.Text); properties.Add("wrapText", UiValueKind.Boolean); properties.Add("fontWeight", UiValueKind.Text); }
+        else { properties.Add("text", UiValueKind.Text); properties.Add("wrapText", UiValueKind.Boolean); properties.Add("overflow", UiValueKind.Text); properties.Add("fontWeight", UiValueKind.Text); }
         if (renderer == "editor.inline") { properties.Add("placeholder", UiValueKind.Text); properties.Add("multiline", UiValueKind.Boolean); }
         if (renderer == "editor.button") foreach (string name in new[] { "appearance", "hoverForeground", "hoverBackground", "pressedBackground" }) properties.Add(name, UiValueKind.Text);
         if (renderer is "editor.card" or "editor.tile") properties.Add("selected", UiValueKind.Boolean);
@@ -73,6 +73,7 @@ public static class EditorNativeSchema
         if (property == "diameter" && (value.AsNumber() < 24 || value.AsNumber() > 96) || property == "strokeWidth" && (value.AsNumber() < 1 || value.AsNumber() > 4)) throw new InvalidDataException("Portrait geometry exceeds native bounds.");
         if (property == "symbol" && value.Literal.Length > 128 || property == "badge" && value.Literal.Length > 16) throw new InvalidDataException("Portrait symbol/badge exceeds native bounds.");
         if (property == "appearance" && value.Literal is not ("standard" or "quiet" or "accent")) throw new InvalidDataException("Unknown native button appearance.");
+        if (property == "overflow" && value.Literal is not ("clip" or "ellipsis")) throw new InvalidDataException("Unknown native text overflow.");
         if (property == "fontWeight" && value.Literal is not ("normal" or "semibold" or "bold")) throw new InvalidDataException("Unknown native font weight.");
         if (property == "alignment" && value.Literal is not ("stretch" or "center" or "left")) throw new InvalidDataException("Unknown native alignment.");
         if (property == "polygons") EditorVector.Parse(value.Literal);

@@ -97,13 +97,17 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
     public override void Suspend() { backend.Suspend(); activeWindow?.Backend.Suspend(); }
     public override void Input(NativeInput input)
     {
+        if (input.Kind is NativeInputKind.PointerMove or NativeInputKind.PointerDown or NativeInputKind.PointerUp) { sidebarPointerX = input.X; sidebarPointerY = input.Y; }
+        if (input.Kind == NativeInputKind.Wheel && sidebarPane is not null && sidebarPointerX is >= 112 and <= 364 && sidebarPointerY >= 56) { sidebarPaneScroll = Math.Clamp(sidebarPaneScroll - input.Value * 48, 0, Math.Max(0, sidebarPaneHeight - viewportHeight + 132)); Invalidate(); return; }
         if (input.Kind == NativeInputKind.Key && input.Key is "LeftShift" or "RightShift") { shift = input.Down; Invalidate(); }
         if (input.Kind == NativeInputKind.Wheel) { if ((activeWindow?.Backend ?? backend).ScrollReadOnly(input.Value)) return; scroll = Math.Clamp(scroll - input.Value * 48, 0, Math.Max(0, contentHeight - viewportHeight + 150)); Invalidate(); return; }
         if (input.Kind == NativeInputKind.PointerMove && map is not null && mode == "map") { map.Hover = mapButtons.FirstOrDefault(p => p.Value.Bounds.Contains(input.X, input.Y)).Key ?? ""; Invalidate(); }
         if (homeFlightClock.IsRunning || busy && activeWindow is null) return;
         try
         {
-            if (activeWindow is not null && (input.Kind is not (NativeInputKind.PointerDown or NativeInputKind.PointerUp or NativeInputKind.PointerMove) || input.Y >= (focusLayout ? 56 : 145))) activeWindow.Backend.Input(input);
+            if (SidebarInput(input)) return;
+            bool sidebarPointer = sharedSidebar is not null && (input.Kind is NativeInputKind.PointerDown or NativeInputKind.PointerUp or NativeInputKind.PointerMove) && input.X < (sidebarPane is null ? 112 : 364);
+            if (activeWindow is not null && !sidebarPointer && (input.Kind is not (NativeInputKind.PointerDown or NativeInputKind.PointerUp or NativeInputKind.PointerMove) || input.Y >= (focusLayout ? 56 : 145))) activeWindow.Backend.Input(input);
             else backend.Input(input);
         }
         catch (Exception e) { status = e.Message; Invalidate(); }
@@ -125,7 +129,8 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
             double elapsed = homeFlightClock.Elapsed.TotalMilliseconds / studioPresentation.Motion.HomeDuration;
             double eased = EditorStudioMotion.Progress(elapsed);
             using var fade = new SKPaint { Color = SKColors.White.WithAlpha((byte)(eased * 255)) }; canvas.SaveLayer(fade);
-            contentHeight = backend.Draw(root, canvas, new(20, 56 - scroll, width - 20, height - 40)); canvas.Restore();
+            contentHeight = backend.Draw(root, canvas, new(sharedSidebar is null ? 20 : 132, 56 - scroll, width - 20, height - 40)); canvas.Restore();
+            DrawSharedSidebar(canvas, height);
             foreach (var (copy, from, target) in brandFlight)
             {
                 var to = backend.Bounds(target);
@@ -138,7 +143,7 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
         }
         canvas.Save();
         if (mode is "profile" or "directory" or "home" or "worker-settings" or "agent-management") canvas.ClipRect(new SKRect(20, 56, width - 20, height - 40));
-        contentHeight = activeWindow is not null && focusLayout ? 0 : backend.Draw(root, canvas, new(20, 56 - scroll, width - 20, height - 40));
+        contentHeight = activeWindow is not null && focusLayout ? 0 : backend.Draw(root, canvas, new(sharedSidebar is null ? 20 : 132, 56 - scroll, width - 20, height - 40));
         canvas.Restore();
         if (activeWindow is not null)
         {
@@ -158,6 +163,7 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
                     if (target is null) LinuxPackBackend.Text(canvas, Space.Concept(id).Name, x, y + 146 - scroll, 13, "#71D7C6");
                 }
         }
+        DrawSharedSidebar(canvas, height);
     }
     private Element New(string renderer, string id, string text = "", Action? click = null)
     {
@@ -174,6 +180,7 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
     }
     private void Page(string name, string page, bool preserveStartup = false, bool preserveProfile = false, bool preserveDirectory = false)
     {
+        sharedSidebar?.ClosePane();
         studioWorkerSettings?.Dispose(); studioWorkerSettings = null;
         studioAgentManagement?.Dispose(); studioAgentManagement = null;
         if (!preserveDirectory) { sharedStudioDirectory?.Dispose(); sharedStudioDirectory = null; }
@@ -328,7 +335,7 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
         Add(root, Label("A native workspace for project-owned concepts, objects and packs."));
         Add(root, InputBox("project-path", projectPath, value => projectPath = value)); Add(root, Button("open-project", "Open project path", () => Open(projectPath)));
         if (session is null) return;
-        sharedWorkspaceRoles?.Dispose(); linuxProjectRoles = ProjectStudio.Load(session.Project); sharedWorkspaceRoles = CreateLinuxWorkspaceRoles(); Add(root, (Element)sharedWorkspaceRoles.View.Root);
+        sharedWorkspaceRoles?.Dispose(); linuxProjectRoles = ProjectStudio.Load(session.Project); sharedWorkspaceRoles = CreateLinuxWorkspaceRoles(); Add(root, (Element)sharedWorkspaceRoles.View.Root); BuildSharedSidebar();
         Add(root, Label(ProjectName, "project-title")); Add(root, Label($"{Space.Packs.Count} packs ready to edit"));
         var actions = Stack("project-actions", true); Add(root, actions);
         Add(actions, Button("objects", "Objects", () => Choose("Concept", Space.Concepts.Select(c => (c.Id, c.Name)), id => ShowObjects(id), Home)));
@@ -631,5 +638,5 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
         }, ShowDocuments, true);
         if (!session.CanEdit(path)) Disable(root.Children.First(c => c.Id == "confirm"));
     }
-    public void Dispose() { if (disposed) return; disposed = true; lifetime.Cancel(); studioAgentManagement?.Dispose(); studioWorkerSettings?.Dispose(); pendingReview?.Cancel(); sharedWorkspaceRoles?.Dispose(); windows.Dispose(); execution?.Dispose(); runner?.Dispose(); FinishStudioHomeFlight(); sharedStudioDirectory?.Dispose(); studioProfile?.Dispose(); connectedAgent?.Dispose(); studioAgent?.Dispose(); sharedProjectHome?.Dispose(); studioCreation?.Dispose(); studioStartView?.Dispose(); studioHomeBrandView?.Dispose(); backend.Dispose(); lifetime.Dispose(); }
+    public void Dispose() { if (disposed) return; disposed = true; lifetime.Cancel(); sharedSidebar?.Dispose(); studioAgentManagement?.Dispose(); studioWorkerSettings?.Dispose(); pendingReview?.Cancel(); sharedWorkspaceRoles?.Dispose(); windows.Dispose(); execution?.Dispose(); runner?.Dispose(); FinishStudioHomeFlight(); sharedStudioDirectory?.Dispose(); studioProfile?.Dispose(); connectedAgent?.Dispose(); studioAgent?.Dispose(); sharedProjectHome?.Dispose(); studioCreation?.Dispose(); studioStartView?.Dispose(); studioHomeBrandView?.Dispose(); backend.Dispose(); lifetime.Dispose(); }
 }

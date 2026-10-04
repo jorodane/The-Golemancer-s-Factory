@@ -23,7 +23,7 @@ public sealed class StudioPortrait : IEditorStudioPortrait
                 new XElement("Override", new XAttribute("node", "portrait"), new XElement("Layout", new XAttribute("size", (state.Size + 8) + "," + (state.Size + 25))))));
         View = new(presentation.Compose(xml.ToString()), "editor.studio.portrait.state", context, backend);
     }
-    private static (string Status, string Ink, Dictionary<string, UiValue> Values) Describe(EditorStudioPortraitState state)
+    internal static (string Status, string Ink, Dictionary<string, UiValue> Values) Describe(EditorStudioPortraitState state)
     {
         if (state.Size is < 24 or > 96 || state.Unread < 0) throw new ArgumentOutOfRangeException(nameof(state));
         string status = state.Worker ? ConversationTimeline.Activity(state.State, state.Running, state.Activity) : "";

@@ -178,6 +178,21 @@ internal sealed partial class EditorSurface
         Reveal("workspace-agent-management"); Click("workspace-agent-management");
         Check(mode == "agent-management", "actual SDL workspace opens the installed Agent management view");
         Reveal("agent-management-close"); Click("agent-management-close");
+        Home(); native.Paint();
+        var sidebarWorker = sharedSidebar!.Items.Single(i => i.Kind == "worker" && i.Id == settingsParticipant.Id);
+        var sidebarBounds = backend.Bounds(sidebarWorker.NodeId);
+        native.PushPointer(3, (int)sidebarBounds.MidX, (int)sidebarBounds.MidY, true); native.PushPointer(3, (int)sidebarBounds.MidX, (int)sidebarBounds.MidY, false); native.Pump(); Tick(); native.Paint();
+        Check(sharedSidebar.PaneOpen && sidebarPane is not null && ((Element)sidebarPane.Element("sidebar-pane-title")).Text("text") == settingsParticipant.Name,
+            "actual SDL opens installed sidebar Worker popover with shared public caption");
+        Check(!((Element)sidebarPane!.Element("sidebar-pane-open")).Enabled, "actual SDL explicitly disables unavailable conversation runtime");
+        if (screenshot.Length > 0) native.Screenshot(screenshot + ".sidebar.png");
+        Input(new() { Kind = NativeInputKind.PointerMove, X = 200, Y = 100 }); Input(new() { Kind = NativeInputKind.Wheel, Value = -30 }); native.Paint();
+        Click("sidebar-pane-close"); Check(!sharedSidebar.PaneOpen && sidebarPane is null, "actual SDL sidebar popover close permits reentry");
+        Click(sidebarWorker.NodeId); Input(new() { Kind = NativeInputKind.PointerMove, X = 200, Y = 100 }); Input(new() { Kind = NativeInputKind.Wheel, Value = -30 }); native.Paint(); Click("sidebar-pane-settings");
+        Check(mode == "profile" && !sharedSidebar.PaneOpen, "actual SDL sidebar routes owned Helper settings to installed private profile");
+        Home(); native.Paint(); Click(sharedSidebar!.Items.Single(i => i.Kind == "worker" && i.Id == ordinaryWorker.Id).NodeId);
+        Click("sidebar-pane-settings"); Check(mode == "worker-settings", "actual SDL sidebar routes ordinary Worker to common settings");
+        Click("worker-settings-cancel");
         var managementService = new VerificationAgentService(); int managementSaves = 0, managementReconnects = 0;
         ShowAgentManagement(profileDirectory, () => managementSaves++, managementService, agent => { Check(agent.Id == profileAgent.Id, "actual SDL reconnect routes exact private source"); managementReconnects++; });
         Reveal("agent-management-0-disconnect"); Click("agent-management-0-disconnect");
@@ -248,7 +263,7 @@ internal sealed partial class EditorSurface
         while ((mode == "startup" || homeFlightClock.IsRunning) && automaticClock.ElapsedMilliseconds < 2500) { native.Pump(); Tick(); native.Paint(); Thread.Sleep(5); }
         Check(mode == "home" && studioStartup!.SavedAgent == savedProfile && !homeFlightClock.IsRunning, "saved Agent automatically reaches home with the common motion state and no provider request");
         ShowObjects(concept.Id); status = "Native verification passed · SDL input, semantic save, DLL command and dynamic window"; native.Paint();
-        Console.WriteLine("LINUX_EDITOR_SMOKE_PASS SDL_WINDOW STARTUP AGENT_CONNECTION PRIVATE_INPUT PROFILE PARTICIPANT_NAME WORKSPACE_ROLES JOIN GLOBAL_MEMORY IMAGE_REVIEW READONLY_EXPERIENCE PROJECT_CREATION PROJECT_HOME TEXT_INPUT POINTER SCHEMA_SAVE PACK_DLL DYNAMIC_VIEW");
+        Console.WriteLine("LINUX_EDITOR_SMOKE_PASS SDL_WINDOW STARTUP AGENT_CONNECTION PRIVATE_INPUT PROFILE PARTICIPANT_NAME SHARED_SIDEBAR WORKSPACE_ROLES JOIN GLOBAL_MEMORY IMAGE_REVIEW READONLY_EXPERIENCE PROJECT_CREATION PROJECT_HOME TEXT_INPUT POINTER SCHEMA_SAVE PACK_DLL DYNAMIC_VIEW");
     }
     private sealed class VerificationCredentials : IAiCredentialStore
     {

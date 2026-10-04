@@ -68,16 +68,5 @@ public sealed partial class MainActivity
         worker.Caption.Text = worker.Participant.Name + " · " + ConversationTimeline.Activity(worker.ResultState, worker.Cancellation is not null);
     }
     private void ShowMobileWorkerProfile(View anchor, MobileWorker worker)
-    {
-        mobileProfile?.Dismiss(); var body = new LinearLayout(this) { Orientation = Orientation.Vertical }; body.SetPadding(Dp(16), Dp(16), Dp(16), Dp(16)); body.SetBackgroundColor(HomePanel);
-        var helper = mobileDirectory.Helpers.FirstOrDefault(h => h.Id == worker.Participant.HelperId);
-        if (helper is not null && File.Exists(helper.CharacterPath)) { var image = new ImageView(this); image.SetImageURI(global::Android.Net.Uri.FromFile(new Java.IO.File(helper.CharacterPath))); image.SetScaleType(ImageView.ScaleType.FitCenter); body.AddView(image, new LinearLayout.LayoutParams(Dp(180), Dp(120))); }
-        body.AddView(MobileAiCircle(worker.Participant.Name, helper?.AvatarPath ?? "", () => { })); body.AddView(HomeLabel(worker.Participant.Name, 20)); body.AddView(HomeLabel(ConversationTimeline.Activity(worker.ResultState, worker.Cancellation is not null), 12));
-        if (studioSession.Collaboration.CanControl("human", worker.Participant.Id))
-        {
-            body.AddView(AiAction("설정", () => { mobileProfile?.Dismiss(); if (helper is not null) OpenMobileHelper(helper); else ShowMobileWorkerSettings(worker); }));
-            body.AddView(AiAction("연결 해제", () => MobileHomeAction(() => { if (worker.Cancellation is not null) throw new InvalidOperationException("작업을 먼저 중단해줘."); if (helper is not null) DisconnectMobileHelper(helper); else { worker.Assistant?.Dispose(); worker.Assistant = null; MobileParticipantActions().Display(worker.Participant.Id, CharacterDisplay.Hidden); } mobileProfile?.Dismiss(); })));
-        }
-        mobileProfileBody = body; mobileProfile = new PopupWindow(body, Dp(230), ViewGroup.LayoutParams.WrapContent, false) { OutsideTouchable = true }; mobileProfile.SetBackgroundDrawable(BubbleShape(HomePanel)); mobileProfile.ShowAsDropDown(anchor, Dp(45), -anchor.Height);
-    }
+    { mobileSidebarAnchor = anchor; sharedMobileSidebar?.Show("worker:" + worker.Participant.Id); }
 }
