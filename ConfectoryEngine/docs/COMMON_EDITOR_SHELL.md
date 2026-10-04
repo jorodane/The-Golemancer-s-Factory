@@ -6,6 +6,19 @@
 > are historical evidence, not authorization to continue the superseded UI.
 
 
+## Current resume checkpoint
+
+Verified code head: `74f213610e1acc508269a11d885a2411e76c250e`.
+All five jobs passed in [CI 37214689562](https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37214689562).
+Workspace roles/Join/names, participant lifecycle/settings, Agent management,
+portraits/sidebar and saved-source connection actions are installed CoreTools
+checkpoints. This does **not** complete Helper conversation/supervision migration.
+Resume at checkpoint 3 in [HELPER_SUPERVISION.md](HELPER_SUPERVISION.md): explicit
+assignments and recoverable record migration, followed by common Helper-facing
+requests/characters and workload/object indicators. Do not resume superseded
+Worker promotion work or repeat completed migrations. The end of this document
+records native corrections, exact coverage and remaining limitations.
+
 ## Active task and resume instructions
 
 The broader authorized goal is the complete common engine-pack UI migration.
@@ -1153,3 +1166,34 @@ off the dispatcher. The adapter now explicitly dispatches the entire native
 connection orchestration; the fixture waits for dispatched entry before cancelling
 and retains late-candidate/retained-incumbent/reentry assertions. This is a runtime
 adapter correction, distinct from the earlier reflection fixture correction.
+
+
+### Verified saved-source handoff
+
+`74f213610e1acc508269a11d885a2411e76c250e` matches published `main` and
+passes all five jobs in [CI 37214689562](https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37214689562):
+portable, Windows, Android, Linux native and engine compatibility. Windows reports
+**38 actual native workspace checks**, including initial saved connection, delayed
+cancellation preserving the incumbent, reentry and the deliberately delayed startup
+layout. Android compilation/package verification passes; physical Android remains
+unavailable, not failed. Linux runs the actual SDL window, including the installed
+saved-source action and injected late-provider cancellation/reentry.
+
+Local campaign: **1,265 editor-pack checks**, **225 Studio checks**, **39 authoring
+checks**, independent engine isolation and the full explicitly selected consumer
+campaign pass. Native Windows source compiles with zero warnings/errors; actual
+GUI evidence is the CI above. Provider/credential tests use injected fixtures;
+real API billing, external login/authentication, production credential writes and
+live Codex account/history restoration were not exercised. Images, runtime output
+and logs remain outside Git. The superseded promotion stash remains intact.
+
+No SDK, authorization or current CI blocker remains. Remaining implementation is
+explicit Helper supervision assignment/migration and the common Helper request/
+conversation UI, then durable Tasks/Callbacks, chief journal, recruitment snapshots
+and fenced temporary-supervisor recovery according to the confirmed contract.
+Existing Worker-direct UI/promotion routes are still present pending those tested
+replacements; preserve old records while removing their send/promotion entry points.
+Linux's saved connection boundary is verified but is not yet wired to that future
+Helper request UI. Collaboration/YogiBox, remaining packs/review and final full
+Linux shell/package remain subsequent stages. Chief-only augments are separately
+scoped; do not expand into instant-table/render-authoring features.
