@@ -1025,3 +1025,18 @@ portrait or completed sidebar work. No current SDK/CI blocker remains. The large
 workspace/participant/conversation task remains open until Worker presentation,
 saved-Agent execution and full common conversation flows are implemented and
 verified across the required platforms.
+
+### Cold native layout follow-up
+
+The documentation-only head `c5f7c9f2154bd16c9889338bd9db0ee1dd04e952`
+exposed a Windows timing failure in
+[CI 37210710294](https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37210710294):
+a slow initial home layout consumed the motion interval before its first frame.
+The prior code checkpoint's five passing jobs remain valid evidence, but this
+later Windows failure must also be tracked. The Windows adapter now starts its
+motion clock after layout, preserving the pack's duration/easing and three brand
+elements. Native verification deliberately delays that layout by 800 ms and
+retains the existing motion, reentry and resize assertions. Local native net48
+source build passes with zero warnings/errors; actual GUI confirmation is in the
+new commit's CI. Engine isolation, full explicit consumer, Studio, authoring and
+pack checks from the sidebar campaign remain recorded above.

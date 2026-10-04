@@ -74,7 +74,17 @@ internal static class Program
             PumpUntil(() => connect.IsEnabled && later.IsEnabled && later.Opacity > .99, "Startup entrance did not finish.");
             Check(Descendants(window).OfType<Button>().Count(b => b.IsVisible) == 2 && Field<EditorSession?>(window, "session") is null,
                 "intro completion reveals only its two actions without opening a project");
+            bool delayedHomeLayout = false;
+            EventHandler slowHomeLayout = (_, _) =>
+            {
+                if (delayedHomeLayout || !Field<bool>(window, "homeTransitionPlayed")) return;
+                delayedHomeLayout = true;
+                System.Threading.Thread.Sleep(800); // A cold native layout may exceed the animation duration.
+            };
+            window.LayoutUpdated += slowHomeLayout;
             later.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+            window.LayoutUpdated -= slowHomeLayout;
+            Check(delayedHomeLayout, "native verification exercises cold home layout before the first flight frame");
             Check(!intro.IsVisible && Field<Grid>(window, "studioRoot").IsVisible,
                 "Later leaves the intro through the existing studio setup flow");
             window.UpdateLayout();

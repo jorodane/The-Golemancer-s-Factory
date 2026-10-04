@@ -58,10 +58,12 @@ public sealed partial class EditorWindow
         try { enter(); }
         catch { FinishHomeTransition(); throw; }
         if (flyingBrand.Count != 3 || homeBrandElements.Count != 3) { FinishHomeTransition(); return; }
-        studioStartup?.BeginHome(); homeTransitionPlayed = true; homeTransitionClock.Restart();
+        studioStartup?.BeginHome(); homeTransitionPlayed = true;
         studioRoot!.IsEnabled = false;
         foreach (var element in homeBrandElements) element.Opacity = 0;
-        UpdateLayout(); CompositionTarget.Rendering += RenderHomeTransition;
+        UpdateLayout();
+        // Native layout/font preparation must not consume the visible motion interval.
+        homeTransitionClock.Restart(); CompositionTarget.Rendering += RenderHomeTransition;
         RenderHomeTransition(null, EventArgs.Empty);
     }
     private void RenderHomeTransition(object? sender, EventArgs args)
