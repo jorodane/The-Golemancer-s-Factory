@@ -1,5 +1,11 @@
 # Common editor shell migration
 
+> Active direction (user-confirmed 2026-10-04): follow
+> [HELPER_SUPERVISION.md](HELPER_SUPERVISION.md). Helper-facing supervision replaces
+> earlier Worker-direct-chat/promotion plans below. Older checkpoint descriptions
+> are historical evidence, not authorization to continue the superseded UI.
+
+
 ## Active task and resume instructions
 
 The broader authorized goal is the complete common engine-pack UI migration.
@@ -1040,3 +1046,37 @@ retains the existing motion, reentry and resize assertions. Local native net48
 source build passes with zero warnings/errors; actual GUI confirmation is in the
 new commit's CI. Engine isolation, full explicit consumer, Studio, authoring and
 pack checks from the sidebar campaign remain recorded above.
+
+### Verified sidebar state and superseded promotion work
+
+Cold-layout correction `9e6563751a04aa27837bbd4ba1335712cc209fd6` passed all
+five jobs in [CI 37211025341](https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37211025341),
+including the deliberate slow-layout Windows GUI check.
+
+The user has confirmed Helper-facing supervision; the prior pending question is
+resolved. Worker-direct-chat and Worker-to-Helper promotion are superseded as
+specified in [HELPER_SUPERVISION.md](HELPER_SUPERVISION.md). Existing published
+records and behavior must be preserved until tested replacement routes land.
+The unpublished common promotion form/adapters/tests remain archived in local
+stash **`3408b1e2c61752975aca66810dbc9d468d44aee4`**, labelled `Pending design
+decision: shared promotion form, local checks 1157 and SDL passed`. That label is
+historical; do not apply the superseded feature. Evidence remains in
+`/workspace/scratch/promotion-packs.log` and `promotion-linux.log`. The stash is
+local preservation, not published functionality. Continue the explicitly
+sequenced provider, migration, Helper-shell and supervisor-persistence work.
+
+## Saved-Agent execution acceptance contract
+
+A verified installed factory owns saved-source selection validation, connection
+snapshots, credential-slot reads, platform support, connection concurrency,
+cancellation, stale-source/context rejection and candidate lifetime. Constructing
+it and restoring a saved identity remain inert. Explicit connection reuses the
+exact enabled source and credential reference; it never writes credentials or
+falls back to another source. Missing execution prerequisites route to the common
+setup/consent flow. Successful adoption transfers one connected candidate;
+failed/cancelled/stale attempts dispose it and preserve the incumbent connection.
+Native services retain OS preparation, credential vault access, UI dispatch and
+attachment/rendering. Existing Codex account/login notices, model choices and
+private conversation restoration must survive migration. Verify with injected
+services, including late completion after cancel/dispose and source/context
+changes during a pending connection. This runtime checkpoint does not expose direct Worker chat or promotion.
