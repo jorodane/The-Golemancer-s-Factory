@@ -59,7 +59,7 @@ public sealed partial class MainActivity
     }
     private View? MobileYogiHit(View rootView, float x, float y)
     {
-        if (rootView.Visibility != ViewStates.Visible || rootView == mobileYogiOverlay || rootView == mobileYogiTray || rootView == mobileWorkerLayer || rootView == mobileProjectActions) return null;
+        if (rootView.Visibility != ViewStates.Visible || rootView == mobileYogiOverlay || rootView == mobileYogiTray || rootView == mobileWorkerLayer || rootView == mobileHelperLayer || rootView == mobileProjectActions) return null;
         int[] origin = new int[2], at = new int[2]; mobileYogiSurface.GetLocationOnScreen(origin); rootView.GetLocationOnScreen(at);
         if (x + origin[0] < at[0] || y + origin[1] < at[1] || x + origin[0] > at[0] + rootView.Width || y + origin[1] > at[1] + rootView.Height) return null;
         if (rootView is ViewGroup group) for (int i = group.ChildCount - 1; i >= 0; i--) if (MobileYogiHit(group.GetChildAt(i)!, x, y) is { } hit) { for (View? node = hit; node is not null && node != mobileYogiSurface; node = node.Parent as View) if (mobileYogiTargets.ContainsKey(node)) return node; return hit; }
@@ -105,7 +105,7 @@ public sealed partial class MainActivity
     }
     private SharedEditorImage CaptureMobileProjectYogi()
     {
-        var views = new View[] { mobileWorkerLayer, mobileYogiTray, mobileYogiOverlay, mobileParticipantNotices };
+        var views = new View?[] { mobileWorkerLayer, mobileHelperLayer, mobileYogiTray, mobileYogiOverlay, mobileParticipantNotices }.OfType<View>().ToArray();
         var states = views.Select(v => v.Visibility).ToArray();
         try { foreach (var view in views) view.Visibility = ViewStates.Invisible; return CaptureMobileYogi(new Rect(0, 0, mobileYogiSurface.Width, mobileYogiSurface.Height)); }
         finally { for (int i = 0; i < views.Length; i++) views[i].Visibility = states[i]; }

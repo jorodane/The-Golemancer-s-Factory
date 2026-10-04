@@ -12,6 +12,7 @@ public sealed partial class MainActivity
     private void ShowMobileWorkerAnswers(MobileWorker worker)
     {
         mobileProfile?.Dismiss();
+        if (worker.Participant.AiRole == ParticipantAiRole.Helper) { SelectMobileWorker(worker); return; }
         var hub = studioSession.Collaboration; bool open = hub.View("human", worker.Participant.Id).Display == CharacterDisplay.Full;
         RenderMobileWorker(worker); if (!open) worker.Turn = Math.Max(0, worker.Exchanges.Count - 1);
         MobileParticipantActions().Display(worker.Participant.Id, CharacterDisplay.Full);

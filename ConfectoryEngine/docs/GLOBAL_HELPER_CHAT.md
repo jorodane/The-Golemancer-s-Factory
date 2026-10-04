@@ -54,6 +54,11 @@ an internal Worker capability; it does not establish this lifecycle by itself.
 - Native adapters supply rendering/input, dispatch, credentials, provider transport,
   current consent/settings and storage. They do not choose fallback Agents, execute
   conversation actions or manufacture project lifecycle transitions.
+- Project execution captures whether the platform can execute project commands.
+  The installed pack omits unavailable build/project tools and rejects direct
+  calls, including editor-pack build, before staging or executing a command.
+  Android retains document editing, review, peer handoff and incident callbacks;
+  adopting the common runtime must not grant desktop execution capabilities.
 
 ## Required acceptance
 
@@ -82,6 +87,10 @@ verified. The Windows adapter now mounts the common floating view for existing
 Helper entry points, binds explicitly selected projects, registers pending reviews
 before provider tools run, and mirrors cancellation into existing incident hooks.
 The global adapter also supports a genuine null-session mount; home sidebar access
-still requires the forthcoming common entry-point update. Android/Linux production
-adoption, legacy recovery and Worker-direct/promotion removal remain pending.
+still requires the forthcoming common entry-point update. Android now mounts the
+same view through its existing Helper entry points, with shared placement/input,
+document-only capabilities and the existing review/peer-handoff/incident services.
+Its global controller skips the legacy standalone workspace binding and never
+opens a project for chat. Linux production adoption, common global sidebar entry,
+legacy recovery and Worker-direct/promotion removal remain pending.
 Do not describe the shell lifecycle as complete yet.

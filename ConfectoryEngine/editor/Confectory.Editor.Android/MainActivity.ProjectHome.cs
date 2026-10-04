@@ -116,7 +116,7 @@ public sealed partial class MainActivity
         {
             try { worker.Assistant?.Dispose(); } catch (Exception failure) { failures.Add(failure); }
             try { worker.Log?.Dismiss(); } catch (Exception failure) { failures.Add(failure); }
-            mobileWorkerLayer.RemoveView(worker.Character); mobileWorkers.Remove(worker);
+            if (worker.Character is not null) mobileWorkerLayer.RemoveView(worker.Character); mobileWorkers.Remove(worker);
         }
         if (removed.Any(p => p.Id == selectedMobileWorker)) selectedMobileWorker = "";
         if (failures.Count > 0) throw new AggregateException("참여자는 제거했지만 네이티브 대화창 정리에 실패했어.", failures);

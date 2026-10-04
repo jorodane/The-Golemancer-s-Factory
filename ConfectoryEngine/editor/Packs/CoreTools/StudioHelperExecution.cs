@@ -107,7 +107,7 @@ public sealed partial class StudioHelperExecution : IEditorStudioHelperExecution
                 tools.CaptureYogi = host.CaptureYogi;
                 tools.HelperMemory = args => Memory(requestLease, helper!.HelperId, args, Validate);
             });
-            string answer = await new AssistantBridge(session, host.Dispatch).Send(new GuardedAssistant(assistant!, requestLease, host.Dispatch, Validate), request, requestLease.Cancellation, tools, async (reply, token) =>
+            string answer = await new AssistantBridge(session, host.Dispatch).Send(new GuardedAssistant(assistant!, requestLease, host.Dispatch, Validate, connectionContext.ProjectCommandsAvailable), request, requestLease.Cancellation, tools, async (reply, token) =>
             {
                 bool deferred = false;
                 host.Dispatch(() =>

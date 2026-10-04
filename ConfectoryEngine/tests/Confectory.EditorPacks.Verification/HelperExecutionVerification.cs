@@ -89,6 +89,21 @@ internal static class HelperExecutionVerification
             worker.Permissions = grants; Check(denied && !profile.Memories.Any(m => m.Text == "forbidden"), "each provider tool entry revalidates the current Worker lease"); return "guarded answer";
         };
         Check(execution.Send(helper.Id, "guarded tool", Array.Empty<ConversationExchange>()).GetAwaiter().GetResult().Exchange.State == "completed", "request can finish after an explicitly rejected tool attempt");
+        host.ProjectCommands = false;
+        host.Service.Reply = async (_, workspace, token) =>
+        {
+            var tools = (IAgentWorkspace)workspace; string advertised = JsonSerializer.Serialize(tools.ToolDefinitions);
+            Check(!advertised.Contains("confectory_build") && !advertised.Contains("confectory_project") && advertised.Contains("confectory_patch"), "document-only platform keeps edit tools while omitting unavailable project commands");
+            foreach (string tool in new[] { "confectory_build", "confectory_project", "confectory_editor" })
+            {
+                using var arguments = JsonDocument.Parse("""{"operation":"build","pack":"fixture"}"""); bool unavailable = false;
+                try { await tools.CallAsync(tool, arguments.RootElement, token); } catch (NotSupportedException) { unavailable = true; }
+                Check(unavailable, "installed runtime rejects unavailable native command before staging: " + tool);
+            }
+            return "document-only answer";
+        };
+        var documentOnly = execution.Send(helper.Id, "document-only request", Array.Empty<ConversationExchange>()).GetAwaiter().GetResult(); host.ProjectCommands = true;
+        Check(documentOnly.Exchange.State == "completed" && host.LastReview!.Items.Count == 0, "platform capability refusal leaves no queued command or fabricated failure");
         var barrier = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         host.Service.Reply = async (request, _, _) => { await barrier.Task; return request.Prompt; };
         var parallelA = execution.Send(helper.Id, "parallel-a", Array.Empty<ConversationExchange>());
@@ -135,9 +150,10 @@ internal static class HelperExecutionVerification
     {
         private readonly object gate = new(); public Service Service = new(); public ChangeReviewBatch? LastReview; public int Reviews; public bool FailSave, FailReview; public int ConsentRevision; public string InterruptionId = ""; public Action? BeforeReview;
         public bool Allowed { get; set; } = true;
+        public bool ProjectCommands = true;
         public bool Running(string workerParticipantId) => false;
         public void Dispatch(Action action) { lock (gate) action(); }
-        public EditorStudioHelperAgentContext AgentContext(string workerParticipantId) { int revision = ConsentRevision; return new(Service, () => ConsentRevision == revision); }
+        public EditorStudioHelperAgentContext AgentContext(string workerParticipantId) { int revision = ConsentRevision; return new(Service, () => ConsentRevision == revision, ProjectCommandsAvailable: ProjectCommands); }
         public Action? Capture;
         public void CaptureScope(ContextRequest request, YogiBox? attachment) => Capture?.Invoke();
         public IEditorPackAccess? EditorPacks(ContextRequest request, ChangeReviewBatch review) { LastReview = review; return null; }

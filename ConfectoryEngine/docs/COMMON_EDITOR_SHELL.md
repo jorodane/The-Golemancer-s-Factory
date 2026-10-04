@@ -1617,3 +1617,38 @@ readonly legacy history before Worker-direct/promotion removal; Project Chat and
 finalized layout/navigation, temporary Yogi lifecycle and explicit selected-project
 Run survival. The accepted FINAL_UI_CONTEXT scope remains active. No paid inference,
 external authentication or real credential writes are authorized for verification.
+
+Windows host-services checkpoint `6cab6b98b4fc0f63e6e5bf0420c95a7d9a98e3d3`
+was published by ordinary push with remote main verified and a clean tree.
+All five jobs passed in
+[CI 37231186874](https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37231186874).
+Windows executed **70 native workspace checks**, including the production Helper
+adapter, clash linkage, safe rejoin and automatic Yogi private-overlay exclusion.
+
+The next Android increment mounts installed Helper conversations through existing
+Helper answer/selection paths. A separate native layer survives explicit project
+changes and is excluded from automatic screenshots and semantic element picking.
+Host services provide captured consent/options, private file storage, native input,
+existing mobile review coordination, peer handoff and urgent interruption proxies.
+The installed execution pack captures platform command availability, omits build/
+project tools when unavailable, and rejects direct build/project/editor-build calls
+before staging. Document editing and review remain available; no desktop command
+capability is silently added to Android.
+
+The official Microsoft Android workload installed successfully in this workspace.
+Repository-supported Android dependency setup then failed manifest TLS certificate
+validation; the installed Java runtime also lacks JDK tools such as `jar`. Full
+local APK execution is therefore unavailable. Source compilation against the
+official workload's Android reference assemblies passes with zero warnings/errors
+(platform/deprecation analyzers are excluded from that reference-only harness).
+Exact-head CI must still build and validate the real Android APK. No physical
+Android execution, paid inference or external authentication has been performed.
+Shared portable verification passes **1,919 checks**, including omission and direct
+rejection of unavailable platform commands without queued work. Engine isolation,
+Android source/reference and Windows net48 source/native-fixture compilation pass.
+Android validates the next project/session and roles before detaching the current
+conversation binding. The full explicitly selected external Golemancer campaign
+and actual Linux UI smoke pass for this increment. Android floating-view sizing
+uses the pack renderer's declared dimensions rather than a separate native width.
+Linux production integration and the accepted remaining shell/
+Yogi scope continue next; neither checkpoint establishes complete shell parity.

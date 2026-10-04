@@ -26,18 +26,19 @@ public sealed partial class MainActivity
     }
     private void ReplaceMobileSession(string manifest, bool project)
     {
-        RequireMobileIdle(); StopMobilePeers(); documentDialog?.Dismiss(); mobileDirectoryExpanded = false; CloseMobileConceptWindows();
+        RequireMobileIdle(); var next = new EditorSession(manifest); var nextRoles = ProjectStudio.Load(next.Project);
+        DetachMobileHelperProject(); StopMobilePeers(); documentDialog?.Dismiss(); mobileDirectoryExpanded = false; CloseMobileConceptWindows();
         foreach (var window in LiveWindows.ToArray()) CloseWindow(window.Id);
         mobileObjectWindows.Clear(); mobileEditorPackSelection = "";
         foreach (var worker in mobileWorkers) { worker.Log?.Dismiss(); worker.Assistant?.Dispose(); } mobileWorkers.Clear(); mobileWorkerLayer.RemoveAllViews(); mobileParticipantNotices.RemoveAllViews(); selectedMobileWorker = "";
         packExecution?.Dispose(); packExecution = null; runtime = null; approvedProjectPacks.Clear();
         studioSession.Persist(); studioSession.Collaboration.Changed -= RefreshMobilePresence; studioRunner.Dispose();
-        studioSession = new(manifest); studioRunner = new(studioSession, "dotnet");
-        mobileProjectManifest = project ? manifest : ""; mobileProjectStudio = ProjectStudio.Load(studioSession.Project); mobileProjectStudio.RestoreLegacyHelpers(studioSession.Collaboration.State.Participants); RegisterMobileProject();
+        studioSession = next; studioRunner = new(studioSession, "dotnet");
+        mobileProjectManifest = project ? manifest : ""; mobileProjectStudio = nextRoles; mobileProjectStudio.RestoreLegacyHelpers(studioSession.Collaboration.State.Participants); RegisterMobileProject();
         ObserveMobileIncidents(); studioSession.Collaboration.Changed += RefreshMobilePresence;
         if (project && !Directory.Exists(Path.Combine(studioSession.Project.Root, "EditorPacks"))) Confectory.EditorPacks.EditorPackTemplates.CreateWorkspace(Path.Combine(studioSession.Project.Root, "EditorPacks"), empty: true);
         foreach (var participant in studioSession.Collaboration.State.Participants.Where(p => p.Kind == ParticipantKind.AI)) LoadMobileWorker(participant);
-        editorAi?.Dispose(); editorAi = null; SyncMobileProjectHelpers();
+        editorAi?.Dispose(); editorAi = null; SyncMobileProjectHelpers(); BindMobileHelperProject();
     }
     private void OpenMobileProject(string manifest)
     {

@@ -40,16 +40,22 @@ public sealed partial class MainActivity
     private void AttachMobileWorker(MobileWorker worker) => BuildMobileConversation(worker);
     private void SelectMobileWorker(MobileWorker worker)
     {
+        if (worker.Participant.AiRole == ParticipantAiRole.Helper)
+        {
+            if (studioSession.Collaboration.CanControl("human", worker.Participant.Id)) OpenMobileHelperConversation(worker.Participant.HelperId);
+            else OpenMobilePublicHelper(worker.Participant.Id);
+            return;
+        }
         if (!studioSession.Collaboration.CanControl("human", worker.Participant.Id)) { OpenMobileProjectChat("@" + worker.Participant.Id + " "); return; }
         if (studioSession.Collaboration.View("human", worker.Participant.Id).Display != CharacterDisplay.Full) MobileParticipantActions().Display(worker.Participant.Id, CharacterDisplay.Full);
-        selectedMobileWorker = worker.Participant.Id; worker.Character.BringToFront();
+        selectedMobileWorker = worker.Participant.Id; worker.Character?.BringToFront();
         foreach (var item in mobileWorkers) RenderMobileWorker(item);
-        worker.Character.Post(() => PlaceMobileWorker(worker)); ReadMobileWorker(worker); RefreshMobileManagement();
+        worker.Character?.Post(() => PlaceMobileWorker(worker)); ReadMobileWorker(worker); RefreshMobileManagement();
     }
     private void RenderMobileWorker(MobileWorker worker) => RenderMobileConversation(worker);
     private void PlaceMobileWorker(MobileWorker worker)
     {
-        if (mobileWorkerLayer.Width <= 0 || mobileWorkerLayer.Height <= 0) return;
+        if (worker.Character is null || mobileWorkerLayer.Width <= 0 || mobileWorkerLayer.Height <= 0) return;
         double density = Resources?.DisplayMetrics?.Density ?? 1;
         var layout = MobileParticipantActions().Layout(worker.Participant.Id, mobileWorkerLayer.Width / density, mobileWorkerLayer.Height / density,
             worker.Character.Width / density, worker.Character.Height / density);

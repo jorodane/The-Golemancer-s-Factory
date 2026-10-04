@@ -18,7 +18,7 @@ public interface IEditorStudioHelperExecutionHost
     void SaveDirectory();
 }
 
-public sealed record EditorStudioHelperAgentContext(IEditorStudioAgentService Service, Func<bool> Current, Func<bool>? HistoryAllowed = null);
+public sealed record EditorStudioHelperAgentContext(IEditorStudioAgentService Service, Func<bool> Current, Func<bool>? HistoryAllowed = null, bool ProjectCommandsAvailable = true);
 
 public sealed class EditorStudioHelperOperation
 {

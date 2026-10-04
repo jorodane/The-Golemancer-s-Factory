@@ -19,6 +19,7 @@ public sealed partial class MainActivity
     private bool mobilePresenceQueued;
     private sealed class MobileWorker
     {
+        public EditorStudioHelperOperation? SharedOperation;
         public Participant Participant = null!;
         public ApiAssistant? Assistant;
         public CancellationTokenSource? Cancellation;
@@ -68,7 +69,7 @@ public sealed partial class MainActivity
         }
         mobileWorkerLayer.Visibility = ViewStates.Visible; RefreshMobilePresence();
     }
-    private void RefreshMobileManagement() => BuildMobileAiSidebar();
+    private void RefreshMobileManagement() { BuildMobileAiSidebar(); mobileGlobalTimelines?.Refresh(); mobileProjectTimelines?.Refresh(); }
     private void RefreshMobilePresence()
     {
         if (studioSession is null || IsDestroyed || mobilePresenceQueued) return; mobilePresenceQueued = true;
@@ -94,7 +95,8 @@ public sealed partial class MainActivity
         }
         catch (Exception e) { Report(e.Message); Toast.MakeText(this, e.Message, ToastLength.Long)?.Show(); return null; }
     }
-    private MobileWorker LoadMobileWorker(Participant participant)
+    private MobileWorker LoadMobileWorker(Participant participant) => LoadMobileWorkerRecord(participant, true);
+    private MobileWorker LoadMobileWorkerRecord(Participant participant, bool character)
     {
         var worker = new MobileWorker { Participant = participant }; string file = Path.Combine(studioSession.StateDirectory, "participants", participant.Id, "turns-mobile.json");
         if (studioSession.Collaboration.CanControl("human", participant.Id) && File.Exists(file)) worker.Turns = JsonSerializer.Deserialize<List<AssistantChatMessage>>(File.ReadAllText(file), EditorSession.Json) ?? [];
@@ -105,7 +107,7 @@ public sealed partial class MainActivity
         worker.Turn = Math.Max(0, worker.Exchanges.Count - 1);
         bool newView = !studioSession.Collaboration.State.Views.Any(v => v.Viewer == "human" && v.ParticipantId == participant.Id);
         if (newView) studioSession.Collaboration.View("human", participant.Id).Display = CharacterDisplay.Hidden;
-        mobileWorkers.Add(worker); AttachMobileWorker(worker); return worker;
+        mobileWorkers.Add(worker); if (character) AttachMobileWorker(worker); return worker;
     }
     private void MobileName(string title, Action<string> apply)
     {
