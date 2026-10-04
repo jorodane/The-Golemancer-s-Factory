@@ -253,6 +253,7 @@ public sealed partial class ConceptSpace
         var viewsOnly = ProposeViewChanges(changed);
         if (viewsOnly is not null) return viewsOnly;
         foreach (string pack in changed) for (int layer = 0; layer < 3; layer++) LoadLayer(pack, layer);
+        if (ContractsChanged(changed)) Validate(); // Public contract changes may affect existing dependants.
         bool previous = localScope; localScope = true; savingPacks = changed;
         try { return ProposeLoadedSave(); }
         finally { localScope = previous; savingPacks = null; }
@@ -266,7 +267,7 @@ public sealed partial class ConceptSpace
             foreach (string kind in new[] { "concept", "concept-category", "concept-object", "function", "concept-view" })
                 if (locator.Find(kind + ":" + element.Id) is { } location && location.Pack != origin) throw new InvalidDataException("Duplicate semantic identity: " + element.Id);
         }
-        foreach (var function in Implementations.Where(f => f.Source.Length > 0 && Pack(f.Pack).Editable))
+        foreach (var function in Implementations.Where(f => f.Source.Length > 0 && Pack(f.Pack).Editable && (savingPacks is null || savingPacks.Contains(f.Pack))))
         {
             string code = sourceEdits.TryGetValue(function.Source, out var edited) ? edited : ReadPinnedSource(function.Source);
             string signature = WorkspaceProject.HashText(code + function.Handler + function.Returns + string.Join(",", function.Parameters.Select(Signature)));
@@ -417,9 +418,10 @@ public sealed partial class ConceptSpace
         if (defaults.TryGetValue(field.Id, out var pending) && pending.Signature == signature) return pending.Value;
         value = Default(field); value.Track(() => values[field.Id] = value); defaults[field.Id] = (signature, value); return value;
     }
-    public ConceptObject CreateObject(string concept)
+    public ConceptObject CreateObject(string concept, string pack = "")
     {
-        var value = new ConceptObject { Id = NewId(), Pack = MainPack, Concept = concept, Name = Concept(concept).Name + " " + (Objects.Count(o => o.Concept == concept) + 1), Values = Schema(concept).ToDictionary(f => f.Id, f => Default(f), StringComparer.Ordinal) }; if (NameField(concept) is { } name) value.Values[name.Id].Text = value.Name; Objects.Add(value); return value;
+        string owner = pack.Length == 0 ? MainPack : pack;
+        var value = new ConceptObject { Id = NewId(), Pack = owner, Concept = concept, Name = Concept(concept).Name + " " + (Objects.InPack(owner).Count(o => o.Concept == concept) + 1), Values = Schema(concept).ToDictionary(f => f.Id, f => Default(f), StringComparer.Ordinal) }; if (NameField(concept) is { } name) value.Values[name.Id].Text = value.Name; Objects.Add(value); return value;
     }
     private static IEnumerable<ConceptField> Walk(IEnumerable<ConceptField> fields) => fields.SelectMany(f => new[] { f }.Concat(Walk(f.Fields)));
     public string[] References(string id, bool inverse = false)

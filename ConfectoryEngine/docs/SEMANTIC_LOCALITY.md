@@ -77,3 +77,15 @@ schema/object/view bytes and observed conflict protection are retained.
 Hash conflict checks also read already observed contracts. They are counted as
 `DocumentsHashed` and semantic owners in `PacksRead`; they are not semantic parses.
 A user who explicitly opened a global collection pins those observed documents.
+
+## Shared native editor controller
+
+Windows and Android retain their native controls, popup placement, hover/Shift
+and touch/long-press input. `ConceptEditorController` owns creation, save/move and
+rollback, schema/function edits, field modes, reference/function choices, default
+View bindings, table/card fallback and source-pack columns. `ConceptMapState`
+owns Variation history and reference selection. Native adapters call these rules;
+they do not independently construct semantic creation or migration transactions.
+Public schema/function contract changes still trigger dependency validation;
+ordinary label/value/View edits use the owner path. Function source bodies are
+validated only for the changed owners.

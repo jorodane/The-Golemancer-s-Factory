@@ -79,4 +79,28 @@ public sealed partial class ConceptSpace
         Move(p => p.Categories); Move(p => p.Concepts); Move(p => p.Objects); Move(p => p.Implementations); Move(p => p.Views);
     }
 
+    private bool ContractsChanged(IEnumerable<string> packs)
+    {
+        string Contract(string text, int layer)
+        {
+            var root = Xml(text).Root!;
+            if (layer == 1) root.Elements("Object").Remove();
+            foreach (var node in root.Elements())
+            {
+                if (layer == 0) node.Attribute("name")?.Remove();
+                node.Attribute("source")?.Remove(); node.Attribute("handler")?.Remove();
+            }
+            root.DescendantNodes().OfType<XText>().Where(n => string.IsNullOrWhiteSpace(n.Value)).Remove();
+            return root.ToString(SaveOptions.DisableFormatting);
+        }
+        foreach (string pack in packs)
+        {
+            if (packStates.TryGetValue(pack, out var beforePack) && (string?)Xml(beforePack).Root!.Attribute("namespace") != Pack(pack).Namespace) return true;
+            if (!documents.TryGetValue(pack, out var paths)) continue;
+            for (int layer = 0; layer < 2; layer++)
+                if (layerStates.TryGetValue(paths[layer], out var before) && Contract(before, layer) != Contract(LayerXml(pack, layer), layer)) return true;
+        }
+        return false;
+    }
+
 }
