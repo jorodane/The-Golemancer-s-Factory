@@ -2,8 +2,10 @@
 
 ## Active task and resume instructions
 
-The active authorized task is the complete common engine-pack UI migration,
-not the earlier repository synchronization request. On resuming after context
+The broader authorized goal is the complete common engine-pack UI migration.
+This turn ends after the profile/global Helper checkpoint and its verified handoff;
+workspace/conversation work must wait for the next worker. Repository synchronization
+is an earlier completed request. On resuming after context
 compression, read this document and inspect existing changes before proceeding.
 Preserve unfinished changes. Do not report a synchronization result or a partial
 checkpoint as completion of this task.
@@ -234,11 +236,23 @@ SDL execution in this cloud environment, not an Android device test or a claim t
 the user's desktop package was executed. Windows native runtime is validated by
 remote CI separately. No final Library executable is produced for this partial scope.
 
-Implementation commit subject: `Share private profiles and global Helper directory
-through the trusted engine pack`. It follows d0104dd1aab8c7de55f64f69ad69954a049be04f;
-use `git log --all --format='%H %s' --grep='Share private profiles and global Helper directory'`
-to resolve the exact checkpoint hash. Remote CI evidence will be recorded in a
-documentation-only handoff update after the implementation commit is verified.
+Implementation commit: `d926dea4d13adc3dd6d552ad0e313ef99ab19673` — Share
+private profiles and global Helper directory through the trusted engine pack.
+Ordinary push to main succeeded; exact remote SHA matched after publication.
+CI run: [37192385241](https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37192385241).
+The documentation-only handoff commit follows this implementation; no new workspace
+or conversation migration was started. Implementation exact-commit CI completed successfully: portable, Windows,
+Android, Linux native and engine compatibility all succeeded in run 37192385241.
+The Windows native workspace/worker interaction step succeeded; Android CI builds
+are not device execution. This handoff changes documentation only and leaves the
+implementation unchanged. The final documentation commit's CI is checked separately
+before the turn closes; resolve its exact SHA with `git log -1 --format=%H -- docs/COMMON_EDITOR_SHELL.md`.
+
+Resume from the clean published checkpoint, preserve private user state and migrate
+only the next explicitly selected acceptance-matrix phase. No additional workspace/
+conversation work was begun during this checkpoint. All superseded profile/name/
+memory/image constructors covered by the new flows have been replaced; the native
+workspace callbacks and menus listed above intentionally remain outstanding.
 
 ## User-approved follow-on sequence (do not mix into current migration)
 
