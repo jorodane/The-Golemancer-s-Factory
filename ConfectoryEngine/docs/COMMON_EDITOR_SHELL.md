@@ -8,8 +8,8 @@
 
 ## Current resume checkpoint
 
-Verified assignment/migration head: `c8a40c727528089cd25c937064ae3fe76f8f7e63`.
-All five jobs passed in [CI 37217424958](https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37217424958).
+Verified routing foundation head: `907cef00d60fd79c39eb0fcce79f7f9bf620a23b`.
+All five jobs passed in [CI 37218947706](https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37218947706).
 Workspace roles/Join/names, participant lifecycle/settings, Agent management,
 portraits/sidebar and saved-source connection actions are installed CoreTools
 checkpoints. This does **not** complete Helper conversation/supervision migration.
@@ -1284,3 +1284,65 @@ Windows source/reference build and exact-head remote CI are checked at publicati
 Logs remain outside Git at `/workspace/scratch/helper-routing-*`. No provider was
 connected and no paid inference, authentication or credential saving was performed
 by the routing tests. Existing saved-Agent native fixtures remain injected.
+
+### Hands-on shell regression checkpoint
+
+The user reported an absent arbitrary-project open route, Codex consent/failure
+followed by provider switching leaving controls locked, an indistinct required
+project-name field, and clipped sidebar circles. Prioritize these reports without
+changing the intended rail dimensions, two-column composition, section grouping,
+or overflow policy. No max-count/+N design was approved.
+
+The shared Helper execution WIP is preserved in stash
+`7f620199f7187beac6300ff997fc6b87e9dfa465` (1,607 portable checks and isolation
+passed; native conversation integration is not yet installed). Restore that
+approved work after this regression checkpoint, preserving its spec and tests.
+Do not apply the older superseded promotion stash
+`3408b1e2c61752975aca66810dbc9d468d44aee4`.
+
+Screenshot references `libfile_6fe4846ad5188191957196098c945c39` (form) and
+`libfile_3bdd826592f48191a96ff237620a7ede` (sidebar) resolved in Library. The
+required transfer helper on this executor was blocked by the network proxy with
+HTTP 403, including an approved unsandboxed retry. This was a network download
+failure, not an approval-review rejection. The screenshot pixels were unavailable;
+do not claim to have inspected them. Extracted text alone was insufficient for
+visual conclusions. Local/native reproduction and source measurements are separate
+evidence.
+
+Confirmed source findings and corrections:
+
+- Shared home offered only new/recent project cards. Installed CoreTools now owns
+  an explicit existing-project path form, accepting a manifest or an explicitly
+  chosen folder containing exactly one top-level manifest. Missing/ambiguous
+  paths report an error before native activation. No bundled project inference
+  or data migration occurs. Linux's duplicate host-owned path controls are
+  removed in favor of this same action. Native Windows and SDL checks enter the
+  common controls to open an existing project.
+- The name field had no placeholder and validation silently disabled Create.
+  The common form now identifies the required name, displays a placeholder and
+  nearby name-validation feedback, and clears it when the name is valid.
+- The 96-pixel sidebar's two 48-pixel cells inherited additional grid/card/portrait
+  margins; native Windows also added horizontal wrapper margins inside its fixed
+  rail. Remove these duplicated margins, retaining the declared widths, circle
+  size, two columns, section structure and vertical scroll policy. Native bounds
+  coverage includes a visible vertical scrollbar.
+- The reported consent lock has **not been reproduced** in the current installed
+  action with injected delayed Codex preparation failure, Claude/Codex switching,
+  fresh consent and late-provider cancellation. Portable recovery checks pass;
+  an actual WPF control sequence and reconnect check are added. Do not label this
+  as a fixed live Codex/authentication bug without reproducing it. No real auth,
+  paid inference or production credential writes are allowed during verification.
+
+Local checkpoint verification: **1,616 editor-pack checks**, independent engine
+isolation, and actual Linux SDL smoke pass. SDL inputs open an existing project
+outside recents, reject an empty path, clear the cancelled form on reentry and
+preserve the manifest bytes. The SDL fixture initially split non-ASCII text by
+UTF-16 character count; its input driver now chunks by SDL's 31-byte UTF-8 limit,
+so the test exercises intact native text events. The generated Linux sidebar
+screenshot was inspected: both columns' circle outlines fit the existing rail.
+This is local fixture evidence, not inspection of the unavailable user images.
+
+The full explicit consumer campaign also passes from a clean external copy.
+Native Windows net48 source/reference compilation passes with zero warnings
+and errors. Actual Windows GUI execution awaits exact-head remote CI. Then resume the shared Helper conversation
+scope.

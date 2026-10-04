@@ -1,4 +1,5 @@
 using SkiaSharp;
+using System.Text;
 using Confectory.Contracts.UI;
 using Confectory.Platform.Sdl;
 using Confectory.Workspace;
@@ -129,7 +130,13 @@ internal sealed partial class EditorSurface
         void EditCreation(string id, string text)
         {
             Click(id); native.PushKey(1073742048, true); native.PushKey('a', true); native.PushKey('a', false); native.PushKey(1073742048, false);
-            for (int offset = 0; offset < text.Length; offset += 24) native.PushText(text.Substring(offset, Math.Min(24, text.Length - offset)));
+            var chunk = new StringBuilder(); int bytes = 0;
+            foreach (var rune in text.EnumerateRunes())
+            {
+                if (bytes + rune.Utf8SequenceLength > 31) { native.PushText(chunk.ToString()); chunk.Clear(); bytes = 0; }
+                chunk.Append(rune.ToString()); bytes += rune.Utf8SequenceLength;
+            }
+            if (chunk.Length > 0) native.PushText(chunk.ToString());
             native.Pump(); Tick(); native.Paint();
         }
         EditCreation("create-name", "공통 프로젝트"); EditCreation("create-description", "공통 팩 생성 흐름");
@@ -145,6 +152,15 @@ internal sealed partial class EditorSurface
         Check(Directory.Exists(session.Project.Root), "home delete prompt preserves the project until confirmation");
         Reveal(recentCard + "cancel-delete"); Click(recentCard + "cancel-delete");
         Check(Directory.Exists(session.Project.Root), "real SDL home delete cancellation keeps project files");
+        string explicitManifest = session.Project.Manifest, manifestBeforeOpen = File.ReadAllText(session.Project.Manifest);
+        projectSettings.Projects.RemoveAll(p => p.Manifest == explicitManifest); Home();
+        Reveal("home-open-existing"); Click("home-open-existing"); Reveal("home-open-submit"); Click("home-open-submit");
+        Check(((Element)sharedProjectHome!.View.Element("home-error")).Text("text").Length > 0 && session.Project.Manifest == explicitManifest, "SDL empty existing-project selection gives common feedback without switching workspace");
+        Reveal("home-open-path"); EditCreation("home-open-path", explicitManifest); Reveal("home-open-cancel"); Click("home-open-cancel");
+        Reveal("home-open-existing"); Click("home-open-existing");
+        Check(((Element)sharedProjectHome!.View.Element("home-open-path")).Text("text").Length == 0, "SDL existing-project cancellation clears the draft path");
+        Reveal("home-open-path"); EditCreation("home-open-path", explicitManifest); Reveal("home-open-submit"); Click("home-open-submit");
+        Check(session.Project.Manifest == explicitManifest && File.ReadAllText(explicitManifest) == manifestBeforeOpen && projectSettings.Projects.Any(p => p.Manifest == explicitManifest), "actual SDL shared home opens an existing project outside recents without migrating its manifest");
         studioDirectory = profileDirectory; Home(); native.Paint();
         Reveal("workspace-agent-0"); Click("workspace-agent-0");
         Reveal("workspace-helper-0"); Click("workspace-helper-0");

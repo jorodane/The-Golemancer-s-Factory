@@ -36,8 +36,9 @@
   <View id="editor.studio.new-project"><Node id="create-form" widget="editor.stack"><Slot name="children">
     <Node id="create-heading" order="0" widget="editor.text"><Set property="text" value="새 프로젝트" /><Set property="fontSize" value="23" /></Node>
     <Node id="create-icon" order="10" widget="editor.slot"><Layout size="68,68" /><Set property="alignment" value="center" /><Set property="glyph" value="◇" /><Bind property="image" source="studio.create.icon" /><On event="activate" command="studio.create.icon" /></Node>
-    <Node id="name-label" order="20" widget="editor.text"><Set property="text" value="프로젝트 이름" /></Node>
-    <Node id="create-name" order="30" widget="editor.inline"><Bind property="text" source="studio.create.name" /><On event="changed" command="studio.create.name" /></Node>
+    <Node id="name-label" order="20" widget="editor.text"><Set property="text" value="프로젝트 이름 (필수)" /></Node>
+    <Node id="create-name" order="30" widget="editor.inline"><Set property="placeholder" value="프로젝트 이름을 입력해줘" /><Set property="background" value="#11171F" /><Bind property="text" source="studio.create.name" /><On event="changed" command="studio.create.name" /></Node>
+    <Node id="create-name-error" order="35" widget="editor.text"><Set property="foreground" value="#E35561" /><Set property="fontSize" value="11" /><Bind property="text" source="studio.create.nameError" /></Node>
     <Node id="create-agent" order="40" widget="editor.button"><Bind property="text" source="studio.create.agent" /><On event="activate" command="studio.create.agent" /></Node>
     <Node id="create-helpers" order="50" widget="editor.button"><Bind property="text" source="studio.create.helpers" /><On event="activate" command="studio.create.helpers" /></Node>
     <Node id="role-options" order="60" widget="editor.wrap"><Slot name="children" export="true" /></Node>
@@ -61,6 +62,12 @@
   <View id="editor.studio.projects"><Node id="home-projects" widget="editor.stack"><Slot name="children">
     <Node id="home-heading" order="0" widget="editor.text"><Set property="text" value="프로젝트" /><Set property="fontSize" value="26" /></Node>
     <Node id="home-manage" order="5" widget="editor.button"><Set property="text" value="Agent · Helper 관리" /><Bind property="visible" source="studio.home.canManage" /><On event="activate" command="studio.home.manage" /></Node>
+    <Node id="home-open-existing" order="6" widget="editor.button"><Set property="text" value="기존 프로젝트 열기…" /><On event="activate" command="studio.home.openExisting" /></Node>
+    <Node id="home-open-form" order="7" widget="editor.stack"><Bind property="visible" source="studio.home.openVisible" /><Slot name="children">
+      <Node id="home-open-path" order="0" widget="editor.inline"><Set property="placeholder" value=".packproject 파일 또는 프로젝트 폴더 경로" /><Bind property="text" source="studio.home.openPath" /><On event="changed" command="studio.home.openPath" /></Node>
+      <Node id="home-open-submit" order="10" widget="editor.button"><Set property="text" value="선택한 프로젝트 열기" /><On event="activate" command="studio.home.openSelected" /></Node>
+      <Node id="home-open-cancel" order="20" widget="editor.button"><Set property="text" value="취소" /><On event="activate" command="studio.home.cancelOpen" /></Node>
+    </Slot></Node>
     <Node id="home-grid" order="10" widget="editor.grid"><Set property="columns" value="2" /><Slot name="children" export="true" /></Node>
     <Node id="home-error" order="20" widget="editor.text"><Set property="foreground" value="#E35561" /><Bind property="text" source="studio.home.error" /></Node>
   </Slot></Node></View>
@@ -181,12 +188,12 @@
     <Node id="directory-note" order="100" widget="editor.text"><Bind property="text" source="studio.directory.note" /></Node>
     <Node id="directory-close" order="110" widget="editor.button"><Set property="text" value="닫기" /><On event="activate" command="studio.directory.close" /></Node>
   </Slot></Node></View>
-  <View id="editor.studio.sidebar"><Node id="sidebar" widget="editor.stack"><Layout size="96,0" /><Slot name="children">
+  <View id="editor.studio.sidebar"><Node id="sidebar" widget="editor.stack"><Layout size="96,0" /><Set property="margin" value="0" /><Slot name="children">
     <Node id="sidebar-heading" order="0" widget="editor.text"><Set property="text" value="AI 관리" /><Set property="fontSize" value="13" /></Node>
     <Node id="sidebar-management" order="10" widget="editor.button"><Set property="text" value="Agent" /><Set property="fontSize" value="11" /><On event="activate" command="studio.sidebar.manage" /></Node>
-    <Node id="sidebar-agents" order="20" widget="editor.grid"><Set property="columns" value="2" /><Slot name="children" export="true" /></Node>
+    <Node id="sidebar-agents" order="20" widget="editor.grid"><Set property="margin" value="0" /><Set property="columns" value="2" /><Slot name="children" export="true" /></Node>
     <Node id="sidebar-helper-heading" order="30" widget="editor.text"><Set property="text" value="Helper" /><Set property="fontSize" value="11" /><Set property="margin" value="4" /></Node>
-    <Node id="sidebar-helpers" order="40" widget="editor.grid"><Set property="columns" value="2" /><Slot name="children" export="true" /></Node>
+    <Node id="sidebar-helpers" order="40" widget="editor.grid"><Set property="margin" value="0" /><Set property="columns" value="2" /><Slot name="children" export="true" /></Node>
     <Node id="sidebar-add-worker" order="45" widget="editor.button"><Set property="text" value="Worker 추가" /><Set property="fontSize" value="11" /><On event="activate" command="studio.sidebar.addWorker" /></Node>
     <Node id="sidebar-yogi" order="50" widget="editor.button"><Set property="text" value="📦 YogiBox" /><Set property="fontSize" value="11" /><On event="activate" command="studio.sidebar.yogi" /></Node>
     <Node id="sidebar-people" order="60" widget="editor.stack"><Slot name="children" export="true" /></Node>

@@ -239,6 +239,7 @@ internal static class LiveViewVerification
                 }
                 SupervisionVerification.Run(presentation, creationRoot, platform, Check, Reject);
                 HelperRequestVerification.Run(presentation, creationRoot, platform, Check, Reject);
+                AgentRecoveryVerification.Run(presentation, new Backend(platform), platform, Check);
                 SavedAgentVerification.Run(presentation, platform, Check, Reject);
                 AgentManagementVerification.Run(presentation, new Backend(platform), creationRoot, platform, Check, Reject);
                 SidebarVerification.Run(presentation, new Backend(platform), creationRoot, platform, Check, Reject);
@@ -254,7 +255,9 @@ internal static class LiveViewVerification
                     _ => { }, _ => { }, () => saves++, project => opened = project, () => cancellations++, action => action());
                 void Activate(string id) => ((Element)creation.View.Element(id)).Activate();
                 void Edit(string id, string value) => ((Element)creation.View.Element(id)).Edit(value, value.Length);
+                Check(((Element)creation.View.Element("create-name")).Properties["placeholder"].Literal.Length > 0 && ((Element)creation.View.Element("create-name-error")).Text.Length > 0, "missing required project name has visible field guidance on " + platform);
                 Edit("create-name", "Shared creation"); Edit("create-description", "Same project roles on every native host.");
+                Check(((Element)creation.View.Element("create-name-error")).Text.Length == 0, "valid project name clears its nearby validation guidance on " + platform);
                 Activate("create-agent"); Activate("agent-" + agent.Id);
                 Activate("create-helpers"); Activate("helper-" + helper.Id); Activate("helper-add");
                 Edit("helper-create-name", "New Helper"); Activate("helper-create-submit");
@@ -276,6 +279,19 @@ internal static class LiveViewVerification
                 int homeSaves = 0, homeCreates = 0; string requestedOpen = "", requestedFolder = "";
                 using var home = new EditorStudioProjectHome(presentation, new Backend(platform), settings, () => homeSaves++, () => homeCreates++, path => requestedOpen = path, path => requestedFolder = path, _ => { }, action => action());
                 void HomeAction(string id) => ((Element)home.View.Element(id)).Activate();
+                HomeAction("home-open-existing"); HomeAction("home-open-submit");
+                Check(requestedOpen == "" && ((Element)home.View.Element("home-error")).Text.Length > 0, "empty existing-project path reports feedback before native activation on " + platform);
+                ((Element)home.View.Element("home-open-path")).Edit(Path.Combine(creationRoot, "missing-project"), 0); HomeAction("home-open-submit");
+                Check(requestedOpen == "", "invalid existing-project path cannot replace the active workspace on " + platform);
+                var outside = NewProject.Create(Path.Combine(creationRoot, "OutsideRecent", platform, "Existing.packproject")); string untouched = File.ReadAllText(outside.Manifest);
+                ((Element)home.View.Element("home-open-path")).Edit(outside.Root, 0); HomeAction("home-open-submit");
+                Check(requestedOpen == outside.Manifest && settings.Projects.All(p => p.Manifest != outside.Manifest) && File.ReadAllText(outside.Manifest) == untouched, "shared home opens an arbitrary valid folder outside recent projects without migrating its data on " + platform);
+                requestedOpen = ""; File.Copy(outside.Manifest, Path.Combine(outside.Root, "Second.packproject")); HomeAction("home-open-submit");
+                Check(requestedOpen == "", "ambiguous existing folder requires an explicit manifest instead of guessing on " + platform);
+                ((Element)home.View.Element("home-open-path")).Edit(outside.Manifest, 0); HomeAction("home-open-submit");
+                Check(requestedOpen == outside.Manifest, "explicit manifest opens even when its folder has multiple projects on " + platform);
+                HomeAction("home-open-cancel"); HomeAction("home-open-existing");
+                Check(((Element)home.View.Element("home-open-path")).Text == "", "existing-project cancel and reentry discard the abandoned path on " + platform); requestedOpen = "";
                 string card = "project-" + entry.Identity + ".";
                 HomeAction("new-project-card"); Check(homeCreates == 1, "pack-owned home starts common creation on " + platform);
                 HomeAction(card + "menu"); ((Element)home.View.Element(card + "rename")).Edit("Renamed project", 15);

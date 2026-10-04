@@ -55,10 +55,10 @@ public sealed class StudioSidebar : IEditorStudioSidebar
         XElement Portrait(string kind, string id, EditorStudioPortraitState state, int index)
         {
             string key = kind + ":" + id, node = "sidebar-" + kind + "-" + index, command = "studio.sidebar.item." + items.Count;
-            items.Add(new(key, node, kind, id)); Command(command, () => Show(key)); return StudioPortrait.Node(node, index, state, command);
+            items.Add(new(key, node, kind, id)); Command(command, () => Show(key)); var portrait = StudioPortrait.Node(node, index, state, command); portrait.Add(new XElement("Set", new XAttribute("property", "margin"), new XAttribute("value", "0"))); return portrait;
         }
         foreach (var agent in directory.Agents.Where(a => a.Enabled)) agents.Add(Portrait("agent", agent.Id, new(agent.Name, image(agent.AvatarPath), Selected: project && agent.Id == roles.MainAgentId), agents.Count));
-        agents.Add(StudioPortrait.Node("sidebar-add-agent", agents.Count, new("Agent 추가", Empty: true), "studio.sidebar.addAgent"));
+        var addAgent = StudioPortrait.Node("sidebar-add-agent", agents.Count, new("Agent 추가", Empty: true), "studio.sidebar.addAgent"); addAgent.Add(new XElement("Set", new XAttribute("property", "margin"), new XAttribute("value", "0"))); agents.Add(addAgent);
         var facts = hub is null ? Array.Empty<EditorStudioWorkerFact>() : workers(); var represented = new HashSet<string>(StringComparer.Ordinal);
         XElement Worker(Participant participant, int index)
         {
@@ -79,7 +79,7 @@ public sealed class StudioSidebar : IEditorStudioSidebar
             status.Add(new XElement("Set", new XAttribute("property", "wrapText"), new XAttribute("value", "false")));
             represented.Add(participant.Id);
             return new XElement("Node", new XAttribute("id", "sidebar-worker-card-" + index), new XAttribute("order", index), new XAttribute("widget", "editor.stack"), new XElement("Layout", new XAttribute("size", "48,0")),
-                new XElement("Slot", new XAttribute("name", "children"), Portrait("worker", participant.Id, state, index), caption, status));
+                new XElement("Set", new XAttribute("property", "margin"), new XAttribute("value", "0")), new XElement("Slot", new XAttribute("name", "children"), Portrait("worker", participant.Id, state, index), caption, status));
         }
         foreach (var helper in directory.Helpers.Where(h => h.Enabled))
         {
@@ -87,7 +87,7 @@ public sealed class StudioSidebar : IEditorStudioSidebar
             helpers.Add(participant is null ? Portrait("helper", helper.Id, new(helper.Name, image(helper.AvatarPath), Main: project && helper.Id == roles.MainHelperId), helpers.Count) : Worker(participant, helpers.Count));
         }
         foreach (var participant in hub?.State.Participants.Where(p => p.Kind == ParticipantKind.AI && !represented.Contains(p.Id)) ?? Enumerable.Empty<Participant>()) helpers.Add(Worker(participant, helpers.Count));
-        helpers.Add(StudioPortrait.Node("sidebar-add-helper", helpers.Count, new("Helper 추가", Empty: true), "studio.sidebar.addHelper"));
+        var addHelper = StudioPortrait.Node("sidebar-add-helper", helpers.Count, new("Helper 추가", Empty: true), "studio.sidebar.addHelper"); addHelper.Add(new XElement("Set", new XAttribute("property", "margin"), new XAttribute("value", "0"))); helpers.Add(addHelper);
         foreach (var person in hub?.State.Participants.Where(p => p.Kind == ParticipantKind.Human && p.Id != "human") ?? Enumerable.Empty<Participant>())
         {
             int index = people.Count; string key = "human:" + person.Id, node = "sidebar-human-" + index, command = "studio.sidebar.person." + index;

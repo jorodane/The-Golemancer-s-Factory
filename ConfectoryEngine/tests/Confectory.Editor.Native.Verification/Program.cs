@@ -10,7 +10,7 @@ using Confectory.Contracts.UI;
 using Confectory.Editor;
 using Confectory.Workspace;
 
-internal static class Program
+internal static partial class Program
 {
     private static int checks;
     private static readonly BindingFlags Fields = BindingFlags.Instance | BindingFlags.NonPublic;
@@ -153,7 +153,11 @@ internal static class Program
                 && PortraitDrawings(directory).OfType<GlyphRunDrawing>().Count(g => g.GlyphRun.Characters is { } characters && new string(characters.ToArray()) == "+") == 2
                 && PortraitDrawings(directory).OfType<GeometryDrawing>().Count(g => g.Geometry is EllipseGeometry && g.Pen?.DashStyle?.Dashes.Count > 0) == 2,
                 "native Agent and Helper sections share circular dashed empty slots and stay two icons wide");
-            window.OpenProject(Environment.GetEnvironmentVariable("CONFECTORY_TEST_PROJECT") ?? throw new InvalidOperationException("Supply CONFECTORY_TEST_PROJECT."));
+            var commonHome = Field<Confectory.EditorPacks.EditorStudioProjectHome>(window, "sharedProjectHome");
+            ((Button)NativeControl(commonHome.View.Element("home-open-existing"))).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            window.UpdateLayout(); var projectPath = NativeControl(commonHome.View.Element("home-open-path")); Key(projectPath, System.Windows.Input.Key.F2);
+            Descendants(projectPath).OfType<TextBox>().Single().Text = Environment.GetEnvironmentVariable("CONFECTORY_TEST_PROJECT") ?? throw new InvalidOperationException("Supply CONFECTORY_TEST_PROJECT.");
+            ((Button)NativeControl(commonHome.View.Element("home-open-submit"))).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Call(window, "CompleteStudioSetup");
             var host = Field<ContentControl>(window, "workspaceHost");
             PumpUntil(() => !Field<bool>(window, "busy") && host.Content is not null && Descendants(host).OfType<TextBlock>().Any(t => t.Text.Contains("개 항목")), "Project-owned main workspace did not finish loading.");
@@ -171,6 +175,7 @@ internal static class Program
             Check(Descendants(host).Any(n => n.GetType().Name == "Card") && Descendants(host).OfType<TextBlock>().Any(t => itemTitles.Contains(t.Text))
                 && !Descendants(host).OfType<TextBox>().Any(t => t.IsVisible && t.Text.Contains("<ObjectPack")), "the native main view renders actual project item cards instead of source documents");
 
+            VerifyAgentRecovery(window);
             VerifySavedAgent(window);
             var participant = session.Collaboration.Register("worker-native-smoke", "Native worker", ParticipantKind.AI, ParticipantPermission.Talk | ParticipantPermission.Work);
             participant.X = 100; participant.Y = 120; Call(window, "CreateWorker", participant);
@@ -213,6 +218,7 @@ internal static class Program
             Check(!Descendants(Field<StackPanel>(window, "aiManagement")).OfType<TextBlock>().Any(t => t.Text == "Worker") && session.Collaboration.Unread("human", participant.Id).Count > 0 && PortraitDrawings(Field<StackPanel>(window, "aiManagement")).OfType<GeometryDrawing>().Any(g => g.Geometry is EllipseGeometry { RadiusX: 4, RadiusY: 4 } && g.Brush is SolidColorBrush ink && ink.Color == Color.FromRgb(97, 182, 255)) && Field<StackPanel>(window, "participantNotifications").Children.Count == 0,
                 "unread dots stay in the sidebar without opening project overlays or replacing activity status");
 
+            VerifySidebarBounds(window);
             NativeInputs(window);
             Console.WriteLine("NATIVE_WORKSPACE_CHECKS=" + checks); return 0;
         }

@@ -128,7 +128,7 @@ public sealed partial class EditorWindow
     private void BuildAiSidebar()
     {
         if (!studioReady) return;
-        sharedSidebar?.Dispose(); sharedSidebar = null; aiManagement.Children.Clear(); aiManagement.Margin = new Thickness(8, 24, 8, 12);
+        sharedSidebar?.Dispose(); sharedSidebar = null; aiManagement.Children.Clear(); aiManagement.Margin = new Thickness(0, 24, 0, 12); aiManagement.HorizontalAlignment = HorizontalAlignment.Center;
         if (!sidebarCloseHook) { sidebarCloseHook = true; Closed += (_, _) => sharedSidebar?.Dispose(); }
         var sidebar = studioPresentation.Actions.Sidebar(studioPresentation, new EditorPackBackend(_ => { }, () => false), aiDirectory, session?.Collaboration, projectStudio, session is not null && !Standalone,
             CreateStudioWorkspace, () => CreateStudioAgentManagement(() => { }), () => workers.Select(w => new EditorStudioWorkerFact(w.Participant.Id, w.Turns.LastOrDefault()?.State ?? "", w.Running, w.Activity)).ToArray(), AiPortraitImage, new WindowsSidebarHost(this));

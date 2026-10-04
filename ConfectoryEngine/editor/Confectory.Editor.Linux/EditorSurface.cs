@@ -333,7 +333,6 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
             OnUi, () => !busy, manage: () => ShowStudioDirectory());
         Add(root, (Element)sharedProjectHome.View.Root);
         Add(root, Label("A native workspace for project-owned concepts, objects and packs."));
-        Add(root, InputBox("project-path", projectPath, value => projectPath = value)); Add(root, Button("open-project", "Open project path", () => Open(projectPath)));
         if (session is null) { BuildSharedSidebar(); return; }
         sharedWorkspaceRoles?.Dispose(); linuxProjectRoles = ProjectStudio.Load(session.Project); sharedWorkspaceRoles = CreateLinuxWorkspaceRoles(); Add(root, (Element)sharedWorkspaceRoles.View.Root); BuildSharedSidebar();
         Add(root, Label(ProjectName, "project-title")); Add(root, Label($"{Space.Packs.Count} packs ready to edit"));

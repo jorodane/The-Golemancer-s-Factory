@@ -24,6 +24,13 @@ internal static class SidebarVerification
             () => new[] { new EditorStudioWorkerFact(ordinary.Id, "failed", running, "done") }, path => { reads.Add(path); return ""; }, host);
         LiveViewVerification.Element Node(EditorLiveView view, string id) => (LiveViewVerification.Element)view.Element(id);
         Check(sidebar.GetType().Assembly.GetName().Name == "Confectory.Editor.CoreTools" && Node(sidebar.View, "sidebar-agents").Properties["columns"].AsNumber() == 2 && Node(sidebar.View, "sidebar-helpers").Properties["columns"].AsNumber() == 2 && attachments == 0 && host.Calls.Count == 0, "installed sidebar owns two-column composition and mounts without provider or attachment activity");
+        foreach (string gridId in new[] { "sidebar-agents", "sidebar-helpers" })
+        {
+            var grid = Node(sidebar.View, gridId); double cell = (Node(sidebar.View, "sidebar").Layout.Size.X - 2 * Node(sidebar.View, "sidebar").Properties["margin"].AsNumber() - 2 * grid.Properties["margin"].AsNumber()) / grid.Properties["columns"].AsNumber();
+            Check(grid.Children.All(child => child.Layout.Size.X + 2 * child.Properties["margin"].AsNumber() <= cell), "sidebar controls fit the declared cell including inherited margins: " + gridId);
+            foreach (var card in grid.Children.Where(child => child.Children.Count > 0))
+                Check(card.Children.All(child => child.Layout.Size.X + 2 * child.Properties["margin"].AsNumber() <= card.Layout.Size.X), "nested Worker portrait fits its unchanged card width");
+        }
         Check(sidebar.Items.Any(i => i.Key == "worker:" + foreign.Id) && sidebar.Items.Any(i => i.Key == "human:" + person.Id), "foreign Workers and human inboxes retain common ordered targets");
         Check(Node(sidebar.View, "sidebar-worker-status-2").Properties["text"].Literal == "오류·중단", "common worker caption retains failure precedence");
         Check(Node(sidebar.View, "sidebar-worker-name-2").Properties["overflow"].Literal == "ellipsis" && Node(sidebar.View, "sidebar-worker-name-2").Properties["tooltip"].Literal == ordinary.Name && Node(sidebar.View, "sidebar-worker-name-2").Layout.Size.Y == 22, "shared narrow captions retain ellipsis, full-name tooltip and compact height");

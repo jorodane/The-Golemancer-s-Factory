@@ -33,7 +33,7 @@ public sealed class StudioProjectCreation : IEditorStudioProjectCreation
         this.presentation = presentation; this.directory = directory; this.parent = parent; this.platform = platform; this.framework = framework;
         this.iconPicker = iconPicker; this.folderPicker = folderPicker; this.saveDirectory = saveDirectory; this.opened = opened; this.cancel = cancel;
         this.onUi = onUi; this.idle = idle ?? (() => true);
-        foreach (string id in new[] { "name", "description", "parent", "path", "agent", "helpers", "error", "icon", "helperName" }) values.Add(id, new(UiValue.Text("")));
+        foreach (string id in new[] { "name", "description", "parent", "path", "agent", "helpers", "error", "icon", "helperName", "nameError" }) values.Add(id, new(UiValue.Text("")));
         values.Add("addingHelper", new(UiValue.Boolean(false)));
         values.Add("valid", new(UiValue.Boolean(false))); Refresh();
         View = new(presentation.Catalog, "editor.studio.new-project", Context(), backend);
@@ -43,6 +43,8 @@ public sealed class StudioProjectCreation : IEditorStudioProjectCreation
     {
         values["addingHelper"].Set(UiValue.Boolean(roles == "helper-create")); Value("helperName", helperName);
         Value("name", name); Value("description", description); Value("parent", parent);
+        try { ProjectCatalog.ValidateName(name); Value("nameError", ""); }
+        catch (ArgumentException failure) { Value("nameError", failure.Message); }
         Value("agent", "메인 에이전트 · " + (directory.Agents.FirstOrDefault(a => a.Id == Roles.MainAgentId)?.Name ?? "선택"));
         Value("helpers", "도우미 · " + string.Join(", ", Roles.HelperIds.Select(id => directory.Helpers.Single(h => h.Id == id).Name + (id == Roles.MainHelperId ? " (MAIN)" : ""))));
         try { ProjectCatalog.ValidateName(name); if (description.Length > 12000) throw new ArgumentException("프로젝트 설명은 12000자까지 넣어줘."); if (!Path.IsPathRooted(parent)) throw new ArgumentException("절대 저장 경로를 넣어줘."); Value("path", Path.Combine(parent, ProjectCatalog.FolderName(name))); values["valid"].Set(UiValue.Boolean(true)); }

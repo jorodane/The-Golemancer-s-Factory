@@ -18,7 +18,7 @@ public sealed class StudioProjectHome : IEditorStudioProjectHome
     private readonly Action? manage;
     private readonly Func<bool> idle;
     private readonly Dictionary<string, string> drafts = new(StringComparer.Ordinal);
-    private readonly UiSignal error = new(UiValue.Text(""));
+    private readonly UiSignal error = new(UiValue.Text("")), openPath = new(UiValue.Text("")), openVisible = new(UiValue.Boolean(false));
     private string expanded = "", confirmation = "";
     private bool disposed;
     public EditorLiveView View { get; }
@@ -41,6 +41,22 @@ public sealed class StudioProjectHome : IEditorStudioProjectHome
         var context = new UiContext(); context.AddValue("studio.home.error", error); context.AddValue("studio.home.canManage", new UiSignal(UiValue.Boolean(manage is not null)));
         context.AddCommand("studio.home.manage", UiValueKind.None, _ => { if (disposed) return; try { manage?.Invoke(); } catch (Exception e) { error.Set(UiValue.Text(e.Message)); } });
         context.AddCommand("studio.home.create", UiValueKind.None, _ => Guard(create));
+        context.AddValue("studio.home.openPath", openPath); context.AddValue("studio.home.openVisible", openVisible);
+        context.AddCommand("studio.home.openExisting", UiValueKind.None, _ => Guard(() => openVisible.Set(UiValue.Boolean(true))));
+        context.AddCommand("studio.home.openPath", UiValueKind.Text, value => { if (!disposed) openPath.Set(value); });
+        context.AddCommand("studio.home.openSelected", UiValueKind.None, _ => Guard(() =>
+        {
+            string selected = openPath.Read().Literal.Trim();
+            if (selected.Length == 0) throw new ArgumentException("열 프로젝트의 .packproject 파일 또는 폴더 경로를 입력해줘.");
+            if (Directory.Exists(selected))
+            {
+                var manifests = Directory.GetFiles(selected, "*.packproject", SearchOption.TopDirectoryOnly);
+                if (manifests.Length != 1) throw new InvalidOperationException("이 폴더의 .packproject 파일 경로를 직접 선택해줘. 프로젝트 파일은 하나여야 해.");
+                selected = manifests[0];
+            }
+            open(WorkspaceProject.Open(selected).Manifest);
+        }));
+        context.AddCommand("studio.home.cancelOpen", UiValueKind.None, _ => Guard(() => { openVisible.Set(UiValue.Boolean(false)); openPath.Set(UiValue.Text("")); }));
         var cards = new List<XElement> { presentation.Template("editor.studio.project-new") };
         foreach (var entry in ProjectCatalog.Recent(settings))
         {
