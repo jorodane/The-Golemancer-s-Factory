@@ -66,6 +66,19 @@ internal static class SidebarVerification
             Check(standalone.Items.Count(i => i.Kind == "worker") == 1 && standaloneHub.State.Participants.Single(p => p.Kind == ParticipantKind.AI).AgentId == agent.Id, "standalone sidebar retains ordinary Worker creation and visibility through private selected source");
             standalone.Show("agent:" + agent.Id); // Project-only roles are omitted from this menu.
         }
+        var globalHost = new Host();
+        using (var global = presentation.Actions.Sidebar(presentation, backend, directory, null, new ProjectStudio(), false,
+            () => throw new InvalidOperationException("Global home must not create a workspace."),
+            () => throw new InvalidOperationException("Unexpected management mount."),
+            () => throw new InvalidOperationException("Global home must not read project activity."), _ => "", globalHost))
+        {
+            Check(global.Items.Any(i => i.Kind == "agent") && global.Items.Any(i => i.Kind == "helper") && !Node(global.View, "sidebar-add-worker").Properties["enabled"].AsBoolean(), "sessionless home mounts the identical global groups without a workspace or activity reads");
+            global.Show("agent:" + agent.Id); Reject(() => globalHost.PaneView!.Element("sidebar-pane-main"), "sessionless Agent profile omits project role actions");
+            global.Show("helper:" + helper.Id);
+            Check(!Node(globalHost.PaneView!, "sidebar-pane-open").Properties["enabled"].AsBoolean() && !Node(globalHost.PaneView!, "sidebar-pane-disconnect").Properties["enabled"].AsBoolean(), "sessionless Helper profile retains settings while deferring workspace actions");
+            Node(globalHost.PaneView!, "sidebar-pane-settings").Activate();
+            Check(globalHost.Calls.Any(c => c.Action == "helper-profile" && c.Id == helper.Id), "sessionless private Helper settings route through the installed global menu");
+        }
         sidebar.Dispose(); Reject(() => sidebar.Show("agent:" + agent.Id), "disposed sidebar cannot reopen stale project targets");
         Check(!File.ReadAllText(Path.Combine(folder, "collaboration.json")).Contains("private global memory"), "public sidebar presence excludes Helper memory");
     }

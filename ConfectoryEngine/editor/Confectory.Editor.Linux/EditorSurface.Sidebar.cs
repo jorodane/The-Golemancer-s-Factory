@@ -16,10 +16,9 @@ internal sealed partial class EditorSurface
     private void BuildSharedSidebar()
     {
         sharedSidebar?.Dispose(); sharedSidebar = null;
-        if (session is null) return;
         var presentation = new EditorStudioPresentation(EditorEngineDistribution.Open(engineDirectory));
-        sharedSidebar = presentation.Actions.Sidebar(presentation, backend, studioDirectory, session.Collaboration, linuxProjectRoles, true,
-            CreateLinuxWorkspaceRoles, () => presentation.Actions.AgentManagement(presentation, backend, studioDirectory, session.Collaboration,
+        sharedSidebar = presentation.Actions.Sidebar(presentation, backend, studioDirectory, session?.Collaboration, linuxProjectRoles, session is not null,
+            CreateLinuxWorkspaceRoles, () => presentation.Actions.AgentManagement(presentation, backend, studioDirectory, session?.Collaboration,
                 CreateLinuxAgentService(presentation), () => studioDirectory.Save(AiDirectory.DefaultPath), _ => busy,
                 agent => ShowAgentSetup(editingId: agent.Id), agent => ShowStudioProfile(agent, null),
                 (_, _, selected) => { if (selected) { try { connectedAgent?.Dispose(); } finally { connectedAgent = null; } } }, Invalidate),

@@ -985,3 +985,23 @@ actual SDL execution and exact-head CI results must be distinguished explicitly.
 - Evidence: `/workspace/scratch/sidebar-{packs,linux,studio,authoring,isolation,
   consumer,windows-source,core-net48}.log`; screenshots under
   `/workspace/scratch/sidebar-native.png.*`. These are not committed artifacts.
+
+### Sidebar initial-home CI correction
+
+The first publication `bdfcbeb0e508babd65e5c0ce29597defeaa80655` passed local
+checks and remote Android/portable/Linux jobs, but Windows GUI CI run
+[37209471978](https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37209471978)
+failed its existing initial Agent/Helper circle assertion. Native compilation
+passed; the adapter had incorrectly omitted the sidebar when the initial home
+had no project session. This was a real lifecycle regression, not an unavailable
+Windows test, and the assertion remains intact.
+
+The correction lets the same installed sidebar accept an absent collaboration
+context for the global home. It mounts identical global identity groups and
+private profile settings without creating a workspace, reading project activity,
+starting a provider or writing project presence. Project role controls are omitted
+and workspace-only actions are disabled until a workspace exists. Windows,
+Android and Linux use this common lifecycle contract. Added portable sessionless
+coverage brings the installed-pack count to **1,085**. Actual SDL passes again;
+Windows source/CoreTools net48 builds again have zero warnings/errors. Exact-head
+CI confirmation follows below.

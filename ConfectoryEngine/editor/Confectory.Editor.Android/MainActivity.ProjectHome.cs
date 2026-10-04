@@ -125,9 +125,9 @@ public sealed partial class MainActivity
     private void SelectMobileMainHelper(string id) { using var workspace = CreateMobileWorkspaceRoles(); workspace.SetMainHelper(id); }
     private void BuildMobileAiSidebar()
     {
-        if (studioSession is null || sharedMobileSidebar?.PaneOpen == true) return;
+        if (sharedMobileSidebar?.PaneOpen == true) return;
         sharedMobileSidebar?.Dispose(); sharedMobileSidebar = null; mobileManagement.RemoveAllViews(); mobileProfileIcons.Clear(); mobileManagement.SetPadding(Dp(8), Dp(24), Dp(8), Dp(12));
-        var sidebar = mobileStudioPresentation.Actions.Sidebar(mobileStudioPresentation, new AndroidPackBackend(this), mobileDirectory, studioSession.Collaboration, mobileProjectStudio, MobileProject,
+        var sidebar = mobileStudioPresentation.Actions.Sidebar(mobileStudioPresentation, new AndroidPackBackend(this), mobileDirectory, studioSession?.Collaboration, mobileProjectStudio, studioSession is not null && MobileProject,
             CreateMobileWorkspaceRoles, () => CreateMobileAgentManagement(() => { }), () => mobileWorkers.Select(w => new EditorStudioWorkerFact(w.Participant.Id, w.ResultState, w.Cancellation is not null)).ToArray(), MobilePortraitImage, new MobileSidebarHost(this));
         sharedMobileSidebar = sidebar; mobileManagement.AddView(((AndroidPackBackend.Element)sidebar.View.Root).Control);
         foreach (var item in sidebar.Items)
