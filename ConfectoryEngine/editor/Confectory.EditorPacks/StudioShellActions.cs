@@ -95,6 +95,7 @@ public interface IEditorStudioSidebarHost
 /// <summary>Private trusted-shell ABI. Never supplied to project modules or overlays.</summary>
 public interface IEditorStudioActions
 {
+    IEditorStudioHelperExecution HelperExecution(EditorSession session, ProjectRunner runner, AiDirectory directory, IAiCredentialStore credentials, IEditorStudioHelperExecutionHost host);
     IEditorStudioHelperRequests HelperRequests(AiDirectory directory, CollaborationWorkspace collaboration, Func<bool> allowed, Func<string, bool> running, string actor = "human");
     IEditorStudioSupervision Supervision(AiDirectory directory, CollaborationWorkspace collaboration, Func<string, bool> running, string actor = "human");
     IEditorStudioSavedAgent SavedAgent(AiDirectory directory, IAiCredentialStore credentials, IEditorStudioAgentService service, Func<bool> allowed, Func<bool> idle, Action<AiAgentProfile, EditorStudioConnectedAgent> adopted, Action<bool> working, Action<Action> onUi, Func<AiAgentProfile, bool>? reusable = null);

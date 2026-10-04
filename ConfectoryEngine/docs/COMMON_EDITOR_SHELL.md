@@ -8,8 +8,8 @@
 
 ## Current resume checkpoint
 
-Verified routing foundation head: `907cef00d60fd79c39eb0fcce79f7f9bf620a23b`.
-All five jobs passed in [CI 37218947706](https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37218947706).
+Verified regression checkpoint: `07843fae155df59a0b34104348cc1e006063bccc`.
+All five jobs passed in [CI 37221878091](https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37221878091).
 Workspace roles/Join/names, participant lifecycle/settings, Agent management,
 portraits/sidebar and saved-source connection actions are installed CoreTools
 checkpoints. This does **not** complete Helper conversation/supervision migration.
@@ -1285,6 +1285,12 @@ Logs remain outside Git at `/workspace/scratch/helper-routing-*`. No provider wa
 connected and no paid inference, authentication or credential saving was performed
 by the routing tests. Existing saved-Agent native fixtures remain injected.
 
+Routing foundation `907cef00d60fd79c39eb0fcce79f7f9bf620a23b` matches published
+main and passes all five jobs in [CI 37218947706](https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37218947706).
+Local Windows net48 native source/reference build also passes with zero warnings
+or errors. Physical Android remains unavailable; remote Android build/package
+passes. No new native Helper conversation route was claimed by this checkpoint.
+
 ### Hands-on shell regression checkpoint
 
 The user reported an absent arbitrary-project open route, Codex consent/failure
@@ -1344,5 +1350,54 @@ This is local fixture evidence, not inspection of the unavailable user images.
 
 The full explicit consumer campaign also passes from a clean external copy.
 Native Windows net48 source/reference compilation passes with zero warnings
-and errors. Actual Windows GUI execution awaits exact-head remote CI. Then resume the shared Helper conversation
-scope.
+and errors. Published `07843fae155df59a0b34104348cc1e006063bccc` passed all five
+jobs in [CI 37221878091](https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37221878091),
+including **52 actual Windows workspace checks**. Native WPF recovery controls,
+fresh-consent reconnect and two-column circle ink with a visible scrollbar pass.
+Android build/package passes; physical Android interaction remains unavailable.
+The reported live Codex failure remains unreproduced. Continue Helper integration.
+
+Approved Helper execution work from stash `7f620199f7187beac6300ff997fc6b87e9dfa465`
+is now restored after publishing the regression checkpoint. The stash is retained
+as a recovery copy; new runtime implementation and native integration remain WIP.
+
+### Shared Helper execution implementation
+
+Installed CoreTools now implements the `HelperExecution` factory and owns saved
+source connection, provider/tool lifetime, request preparation, per-tool authority
+revalidation, cancellation and Helper-authored results. Hosts supply configured
+provider/OS services, dispatch, explicit scope capture, and existing review/image/
+pack/incident boundaries. The runtime does not call a native Worker-send handler.
+The existing ChangeReview constructor remains compatible; the new overload lets
+this path publish neutral Work activity without copying private prompts.
+
+Plain text temporarily excludes global pointing and restores it after context
+preparation. Frozen attachments, exact source/assignment, global and project-local
+Helper memory, and recent bounded history enter only that request. Memory save
+failure restores the previous private state. Candidate adoption rechecks both
+lease authority and the captured history/access settings. Every provider tool
+entry rechecks authority. Cancellation retains Worker reservation through cleanup;
+urgent interruption retains a suspended checkpoint. Concurrent requests receive
+distinct internal Workers and canonical request IDs. Failed review retains the
+answer without applying the proposal. Results post as the supervising Helper.
+
+This is an independently tested runtime foundation: **1,691 editor-pack checks**
+pass with the shell regression checks restored, using injected providers and
+credentials plus the real bridge/workspace/review objects on each platform variant.
+Independent engine isolation and the full explicit external consumer campaign
+also pass. Native conversation routes are not yet
+switched; no paid inference, authentication or real credential writes occurred.
+Windows net48 source/reference compilation also passes with zero warnings/errors.
+Exact-head publication CI follows before completion claims.
+The next change must add shared conversation/history views and native adapters,
+retain readable legacy histories, preserve review/Yogi/incident behavior, and only
+then remove direct Worker-send/promotion entry points. Durable Task/Callback/chief
+journal and fenced recovery remain the subsequent persistence checkpoint.
+
+Structural review added an optional authority guard to the shared review boundary.
+Existing constructor overloads retain their ABI/behavior. The Helper execution
+path supplies its captured lease/access predicate, checked immediately before
+selected file application and before each subsequent command/retry. Revocation
+while a human review is pending must fail before writing, not merely report a
+failure after applying. An injected revocation test verifies that the previous
+applied-count stays unchanged and the useful answer is retained.

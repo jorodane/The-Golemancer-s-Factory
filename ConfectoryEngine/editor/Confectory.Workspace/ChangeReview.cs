@@ -60,10 +60,13 @@ public sealed partial class ChangeReviewBatch
     public bool IsClosed => closed;
     public CollaborationWorkspace Collaboration => session.Collaboration;
     public IReadOnlyList<ReviewItem> Items => work.Values.Select(w => w.Item).ToArray();
-    public ChangeReviewBatch(EditorSession session, ContextRequest request, Action<Action> dispatch)
-    { this.session = session; this.request = request; this.dispatch = dispatch;
+    public ChangeReviewBatch(EditorSession session, ContextRequest request, Action<Action> dispatch) : this(session, request, dispatch, request.Prompt) { }
+    private readonly Action? validateAuthority;
+    public ChangeReviewBatch(EditorSession session, ContextRequest request, Action<Action> dispatch, string publicTask) : this(session, request, dispatch, publicTask, null) { }
+    public ChangeReviewBatch(EditorSession session, ContextRequest request, Action<Action> dispatch, string publicTask, Action? validateAuthority)
+    { this.session = session; this.request = request; this.dispatch = dispatch; this.validateAuthority = validateAuthority;
         if (request.ParticipantId.Length == 0) request.ParticipantId = "editor";
-        dispatch(() => session.Collaboration.Begin(request.Id, request.ParticipantId, request.Prompt));
+        dispatch(() => session.Collaboration.Begin(request.Id, request.ParticipantId, publicTask));
     }
     public string ProjectRelative(string path) => session.Project.Relative(path);
     private static string Key(string kind, string pack, string path) => kind + ":" + pack + "/" + path;
@@ -162,7 +165,7 @@ public sealed partial class ChangeReviewBatch
         cancellation.ThrowIfCancellationRequested();
         dispatch(() =>
         {
-            ValidateSelection(selected); cancellation.ThrowIfCancellationRequested(); closed = true;
+            validateAuthority?.Invoke(); ValidateSelection(selected); cancellation.ThrowIfCancellationRequested(); closed = true;
             foreach (var entry in work.Values.Where(w => !selected.Contains(w.Item.Id))) { entry.Item.State = "excluded"; if (roomDrafts.TryGetValue(entry.Item.Id, out var draft)) draft.State = "excluded"; }
             var applied = new List<Work>();
             Work? applying = null;
@@ -212,7 +215,7 @@ public sealed partial class ChangeReviewBatch
                 while (true)
                 {
                     cancellation.ThrowIfCancellationRequested();
-                    dispatch(() => { entry.Validate(); entry.Item.Attempts++; entry.Item.State = "running"; Save(); });
+                    dispatch(() => { validateAuthority?.Invoke(); entry.Validate(); entry.Item.Attempts++; entry.Item.State = "running"; Save(); });
                     try { entry.Item.Detail = await entry.Run!(cancellation).ConfigureAwait(false); }
                     catch (Exception e) when (e is not OperationCanceledException && !cancellation.IsCancellationRequested
                         && retry is not null && (entry.Item.Operation is "build" or "verify" or "smoke"))

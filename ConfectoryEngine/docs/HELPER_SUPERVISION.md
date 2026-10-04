@@ -257,3 +257,81 @@ cleanup, reuse after release, pending checkpoints, foreign/disabled/stale record
 source or permissions changing during connection, post-save recruitment failure,
 project disposal, and global/project memory isolation. Keep existing Worker UI
 until shared Helper request/review/history adapters are installed and verified.
+
+## Shared execution acceptance
+
+The installed execution action consumes a Helper request lease and owns saved
+Agent connection, provider lifetime, request state, ordinary-text locality,
+private identity/memory binding and Helper-authored result delivery. Native hosts
+provide dispatch/input capture, configured provider/OS services and existing
+review, pack, image and incident service boundaries. They must not supply a native
+Worker-send callback as the implementation of the shared action.
+
+Ordinary text clears global pointing only while preparing the request and restores
+it even on failure. Only the explicitly supplied frozen attachment and request
+scope are added. The provider receives the private prompt; public Work activity
+uses an explicit public task description or neutral activity label, not an automatic
+copy of private chat. Existing review constructor behavior remains available to
+legacy callers; the shared Helper path chooses the private-safe public projection.
+
+Validate the lease before provider adoption, request preparation and review
+completion, immediately before reviewed file application, and before each reviewed
+command/retry. Keep cancellation effective through delayed connection and review;
+release the Worker only after provider/tool cleanup. Preserve deferred reviews,
+incident checkpoints, tool scopes, incoming-change callbacks and local drafts.
+Failures return an explicit failed/cancelled/suspended exchange, retaining useful
+answer text and error events; they cannot fabricate a successful answer.
+Completed results are attributed to the Helper, with Worker/request IDs retained
+as internal provenance. Delivery failure must retain the private result for retry.
+
+Memory tools use the explicitly supervising Helper identity. Significant global
+memory is the default; explicit project scope stays local. A failed private save
+rolls back memory rather than granting a new identity or publishing it. Source
+configuration, history consent and blocked-thread changes must invalidate pending
+adoption through the captured native session-access predicate. Verification uses
+injected providers/credentials and real workspace/review tools, covering plain
+text locality, delayed cancel/reentry, provider/review failure, permission/source
+changes, memory isolation/save failure and Helper result authorship before native
+conversation routes switch to this runtime.
+
+## Shared conversation acceptance before native replacement
+
+A project-scoped installed conversation controller owns Helper timelines,
+composer drafts, request submission/cancellation, navigation, read receipts,
+private-history filtering and persistence payloads. Mounted views subscribe to
+that controller. Closing a character/view hides it without disposing the project
+runtime or cancelling active work; reopening retains the selected exchange and
+unsent text. Project disposal cancels execution and releases view subscriptions.
+
+Use the same installed view definition for all native hosts. Keep the existing
+question/answer bubbles, history navigation/dots, character/placement, explicit
+Yogi attachment, transcript access and cancel controls. Rendering, pointer/key/
+touch events, window placement, native clipboard/file pickers and private file
+I/O are adapter boundaries. Public project/human conversations and incident/review
+surfaces remain available. Workload counts/dots belong to the supervising Helper;
+internal Workers are never direct-send or promotion launch targets in the new UI.
+
+New private history must use a versioned Helper/project/owner identity envelope
+in a separate common file. Existing Windows/Android Worker and promoted-Helper
+histories remain readable recovery sources and are not overwritten, deleted or
+automatically imported into an unrelated Helper. No history read/write occurs
+for a foreign owner or while local history consent is disabled. Blocked threads
+must not reappear in view/context or be restored by a pending completion. Unknown
+versions, corrupt data and failed writes produce explicit recovery state; retain
+new in-memory results and offer retry without overwriting the unreadable source.
+Private storage paths and OS reads/writes come from the native boundary; identity,
+version validation and serialized content belong to the installed controller.
+
+Acknowledgement applies only to the currently displayed exchange when native
+input/visibility confirms it was viewed; a background render or opening the
+sidebar cannot mark the entire history read. Preserve a historical selection when
+new exchanges arrive. Foreign Helpers show only authorized public messages and
+neutral/public character assets, never a local private profile matched by ID.
+
+Acceptance must exercise real installed actions with injected execution and
+storage: concurrent requests, cancellation during connection/review, close/reentry
+while working, failed provider/history save, retry, blocked-thread/consent changes,
+foreign ownership, malformed/unknown history, receipt isolation, explicit Yogi
+scope, private global/project memory, and native Linux input against the real
+shared execution path. No route may claim completion from a fabricated answer or
+from calling an old native Worker-send implementation.
