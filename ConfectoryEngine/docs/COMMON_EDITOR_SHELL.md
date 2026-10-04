@@ -1688,3 +1688,13 @@ outside Git. Engine isolation and the full explicitly selected external Golemanc
 campaign pass. Android reference-source compilation and Windows native-fixture
 compilation pass with zero warnings/errors; actual Windows execution and the real
 Android APK remain exact-commit CI verification, not local device claims.
+
+Review checkpoint `b103c20a50a672c66e7848f530bf09b1e266bd26` was published
+by ordinary push with exact remote main and a clean tree. CI 37234082534 passed
+Android APK, portable and Linux-native jobs. Windows passed its existing 70 native
+checks, then the new review fixture failed before inspecting the dialog: the
+standalone native harness has no WPF `Application.Current`. The fixture now finds
+the production dialog through its owner's `OwnedWindows` collection. No review
+behavior or test assertion was removed; exact-commit Windows rerun is required.
+The next global-sidebar entry work is preserved in a named recovery stash while
+this correction is verified and published.

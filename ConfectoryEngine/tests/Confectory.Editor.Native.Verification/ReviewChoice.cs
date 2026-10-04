@@ -16,7 +16,7 @@ internal static partial class Program
             return batch;
         }
         Task<IReadOnlyList<string>> Open(ChangeReviewBatch batch) => (Task<IReadOnlyList<string>>)typeof(EditorWindow).GetMethod("ReviewSharedHelperChanges", Fields)!.Invoke(window, new object[] { batch, CancellationToken.None, "Native shared review fixture" })!;
-        Window Dialog() { var dialog = Application.Current.Windows.Cast<Window>().Single(w => w.Title == "Native shared review fixture"); dialog.UpdateLayout(); return dialog; }
+        Window Dialog() { var dialog = window.OwnedWindows.Cast<Window>().Single(w => w.Title == "Native shared review fixture"); dialog.UpdateLayout(); return dialog; }
         static void Click(Window dialog, string caption)
             => Descendants(dialog).OfType<Button>().Single(b => (b.Content as string)?.Contains(caption) == true).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         var review = Batch(); var task = Open(review); var dialog = Dialog();
