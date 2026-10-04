@@ -30,6 +30,7 @@ internal sealed class AndroidPackBackend(Context context, string viewId = "") : 
             "editor.vector" => new Vector(context),
             "editor.text" => new TextView(context),
             "editor.button" => new Button(context),
+            "editor.secret" => new Secret(context),
             "editor.input" => new EditText(context) { InputType = InputTypes.ClassText | InputTypes.TextFlagMultiLine },
             _ => throw new InvalidDataException("Unsupported Android editor renderer: " + renderer)
         };
@@ -112,7 +113,7 @@ internal sealed class AndroidPackBackend(Context context, string viewId = "") : 
         private bool disposed, pendingCompositionCheck;
         public long InputRevision { get; private set; }
         public AView Native => native;
-        public EditText? InputControl => native as EditText ?? (native as InlineEditor)?.Input;
+        public EditText? InputControl => native is Secret ? null : native as EditText ?? (native as InlineEditor)?.Input;
         public AView Control => wrapper;
         private bool setting;
         private readonly Dictionary<string, string> appearance = new(StringComparer.Ordinal);
@@ -161,6 +162,7 @@ internal sealed class AndroidPackBackend(Context context, string viewId = "") : 
                 { appearance[property] = value.Literal; StyleButton(); }
                 switch (property)
                 {
+                    case "clearRevision": ((Secret)native).Text = ""; break;
                     case "appearance": case "hoverForeground": case "hoverBackground": case "pressedBackground": break;
                     case "wrapText": if (InputControl is { } wrappedInput) wrappedInput.SetHorizontallyScrolling(!value.AsBoolean()); else if (native is TextView wrappedText && native is not Button) wrappedText.SetSingleLine(!value.AsBoolean()); break;
                     case "fontWeight": var weightedText = InputControl ?? native as TextView; if (weightedText is not null) weightedText.SetTypeface(global::Android.Graphics.Typeface.Default, value.Literal == "normal" ? global::Android.Graphics.TypefaceStyle.Normal : global::Android.Graphics.TypefaceStyle.Bold); break;
@@ -262,6 +264,8 @@ internal sealed class AndroidPackBackend(Context context, string viewId = "") : 
             { EventHandler handler = (_, _) => callback(UiValue.None); card.Click += handler; return new Release(() => card.Click -= handler); }
             if (name == "committed" && native is InlineEditor inline)
             { Action<string> action = value => callback(UiValue.Text(value)); inline.Committed += action; return new Release(() => inline.Committed -= action); }
+            if (name == "changed" && native is Secret secret)
+            { EventHandler<TextChangedEventArgs> handler = (_, _) => { if (!setting) { InputRevision++; callback(UiValue.Text(secret.Text ?? "")); } }; secret.TextChanged += handler; return new Release(() => secret.TextChanged -= handler); }
             if (name == "changed" && InputControl is { } text)
             {
                 EventHandler<TextChangedEventArgs> handler = (_, _) => { if (!setting) callback(UiValue.Text(text.Text ?? "")); };
@@ -271,7 +275,7 @@ internal sealed class AndroidPackBackend(Context context, string viewId = "") : 
         }
         public void Dispose()
         {
-            if (disposed) return; disposed = true;
+            if (disposed) return; disposed = true; if (native is Secret secret) secret.Text = "";
             if (InputControl is { } input) input.TextChanged -= InputChanged;
             if (native is SlotButton slot) slot.ReleaseImage();
             cleanup(); if (native is ViewGroup group) group.RemoveAllViews(); wrapper.RemoveAllViews();
@@ -279,6 +283,10 @@ internal sealed class AndroidPackBackend(Context context, string viewId = "") : 
             native.Dispose(); wrapper.Dispose();
         }
         private sealed class Release(Action action) : IDisposable { public void Dispose() => action(); }
+    }
+    private sealed class Secret(Context context) : EditText(context)
+    {
+        protected override void OnAttachedToWindow() { base.OnAttachedToWindow(); SaveEnabled = false; InputType = InputTypes.ClassText | InputTypes.TextVariationPassword; SetSingleLine(true); }
     }
     private sealed class Card : LinearLayout
     {

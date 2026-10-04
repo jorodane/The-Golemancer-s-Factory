@@ -20,11 +20,11 @@ adapters, regression checks and remote CI, actual Linux screen/input flows,
 final exact remote main SHA, and an executable package delivered through Library.
 Report source/reference compilation separately from desktop/device execution.
 
-Current next checkpoint: pack-owned startup motion and home branding. The recent
+Current next checkpoint: common Agent connection/model UI and secure input. The recent
 project checkpoint is published as f20337b404fdff3f2244eaaf5bae6b03a84c7f63;
-all five remote CI jobs passed in run 37183768783. Uncommitted StudioMotion,
-trusted Shell metadata, home brand view and native animation/frame adapters have
-passed local verification; publish this checkpoint and check remote CI. Continue Agent connection/model/Helper management next, then
+all five remote CI jobs passed in run 37183768783. Startup motion/home branding is published as
+e91cf44a4ac67bc72853c0956b43b8775b27d10c; all five remote CI jobs passed in
+run 37184934309. Continue Agent connection/model/Helper management next, then
 workspace, conversations, collaboration, pack management and granular review.
 Do not mistake this checkpoint for completion of the overall task.
 
@@ -40,7 +40,7 @@ Project packs cannot replace the trusted shell or access credentials.
 | Startup | vector logo, staged entrance, logo flight to home, Connect/Later, saved Agent skip | pack presentation, trusted motion, saved-identity state and home branding shared; local verification passed |
 | Agents | provider/auth/model/profile selection, restore, enabled state, private credentials | pending |
 | Helpers | avatar/character/memories, Main Helper and worker roles | creation and MAIN selection shared within project creation; profiles pending |
-| Project home | recent cards, icons, rename/delete, last opened | shared cards/actions in progress; branding/motion pending |
+| Project home | recent cards, icons, rename/delete, last opened | shared cards/actions, branding and motion published; native directory surfaces still pending |
 | Creation | name/icon/description/path, Main Agent/Helpers | shared controller and pack view mounted; portable and SDL input verified |
 | Workspace | independent project surface, role characters, movable panels and persisted layout | pending |
 | Conversation | send/stream/cancel/history/context, reviewed changes, no automatic requests on open | pending |
@@ -105,14 +105,58 @@ actual Linux SDL verified blank inert first frame, cubic entrance, keyboard
 Connect/Later, three-element flight, input restoration and saved-Agent automatic
 home entry. No external AI/auth request was performed. Phase screenshots are
 kept outside Git under /workspace/scratch/studio-motion-final.png.{startup,home}.png.
-Linux still has a legacy toolbar/manual project surface; Agent connection currently
-still uses the unfinished placeholder callback and must be replaced before final
-delivery. Full shell parity and Library package delivery remain unfinished.
+Linux still has a legacy toolbar/manual project surface; Agent connection now mounts the common view/controller in all three hosts; directory/profile and legacy reconnect flows remain pending. Full shell parity and Library package delivery remain unfinished.
 
 Resume next: implement the common Agent connection/model workflow and secure
 write-only password renderer, preserving Codex install/login consent and encrypted
-OS credential stores. Drafts are in /tmp/StudioAgentConnection.cs,
-/tmp/StudioAgentService.cs, /tmp/agent-ui.xml and /tmp/agent-secret.py; these are
-not applied or verified and must be reviewed before use. Prefer model-choice
+OS credential stores. The Agent controller/service, CoreTools view and write-only secret renderer are
+now mounted in Windows, Android and Linux as uncommitted changes. Linux uses
+Secret Service through secret-tool (stdin only) and an explicit-consent Codex/npm
+OS preparation adapter. Do not run actual authentication, paid requests, key
+writes or installations during verification. Latest portable fixture run passed 405 checks, including identity-save rollback
+and asynchronous credential cancellation. Actual SDL Agent secret/model/consent/
+connect/cancel and clipboard/window-state exclusion passed with injected services
+and in-memory credentials. Fresh Windows/Android reference recompilation and actual SDL startup dialog
+cancel/connect flight and private input verification passed. DLL-picker state
+restoration was reviewed in source and remains to receive native input coverage. Android activity destruction now closes/cancels the shared setup dialog.
+The /tmp drafts are stale; use repository source. Publish only after latest
+fixtures, native checks and the full required campaign pass. Remaining Agent
+profiles/Helper management, workspace, conversations, collaboration and pack/
+review flows are still pending.
+ Prefer model-choice
 command indexes over remote model IDs. Stage providers until identity/credential
 persistence succeeds; dispose unadopted providers on failure/cancellation.
+
+Latest exact published main: e91cf44a4ac67bc72853c0956b43b8775b27d10c.
+Its Windows/Linux/portable/Android/engine compatibility jobs passed. The current
+Agent work must preserve that baseline and the full remaining acceptance matrix.
+The uncommitted connection controller stages providers, requires API consent,
+uses indexed model commands, persists only encrypted credential references,
+rolls back failed identity saves and disposes unadopted providers. Real external
+AI/authentication has not been used. No final executable Library package has
+been delivered for the complete migration because it is not complete.
+
+## Structural checkpoint review
+
+CoreTools owns the common Agent connection elements and bindings. The shared
+EditorPacks controller owns consent, provider/model choices, staged connection,
+credential reference publication and save rollback. EditorStudioAgentService owns
+API/custom provider creation and model/account probe policy; native hosts supply
+only OS CLI preparation, credentials, UI dispatch and workspace options for this
+flow. Superseded native setup constructors and dead credential-save helpers were
+removed. Linux startup cancellation preserves its existing entrance and selected
+DLL browsing preserves the controller and form state.
+
+This does not establish full structural migration. Shared controllers currently
+execute from the engine EditorPacks assembly, not a pack-module action factory.
+Legacy native Agent menus/reconnect, profile/Helper, conversation, collaboration,
+pack management and Linux toolbar workflows remain active. Physical source
+relocation alone is insufficient: these paths must be replaced by the same trusted
+pack actions before the complete shell is accepted. Passing behavioral checks for
+one flow is not evidence that the remaining native business workflows migrated.
+
+Agent connection checkpoint validation: engine isolation, Studio 225, pack 405,
+authoring 39 and the complete explicitly selected external consumer campaign
+passed. Windows/Android reference rebuild and actual SDL smoke passed. No real
+AI/key-vault/authentication request or CLI installation was used. Remote CI has
+not yet been run for this uncommitted checkpoint.

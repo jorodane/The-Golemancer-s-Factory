@@ -25,7 +25,12 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
     private EditorStudioStartupState? studioStartup;
     private readonly System.Diagnostics.Stopwatch studioClock = new(), homeFlightClock = new();
     private readonly List<(Element Copy, SKRect From, string Target)> brandFlight = [];
+    private readonly Dictionary<string, SKRect> startupBrandOrigins = new();
 
+    private EditorStudioAgentConnection? studioAgent;
+    private IEditorAssistant? connectedAgent;
+    private AiDirectory studioDirectory = new();
+    private readonly LinuxAiCredentials aiCredentials = new();
     private EditorStudioProjectCreation? studioCreation;
     private EditorStudioProjectHome? sharedProjectHome;
     private readonly AssistantSettings projectSettings = AssistantSettings.Load(AssistantSettings.DefaultPath);
@@ -160,20 +165,39 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
         var e = New("editor.inline", id, value); e.Set("multiline", UiValue.Boolean(multiline)); e.Listen("changed", v => changed(v.Literal));
         if (multiline) e.UpdateLayout(new() { Size = new(0, 320) }); return e;
     }
-    private void Page(string name, string page)
+    private void Page(string name, string page, bool preserveStartup = false)
     {
-        activeWindow = null; studioStartView?.Dispose(); studioStartView = null; foreach (var c in controls.ToArray()) c.Dispose(); controls.Clear(); mapButtons.Clear();
+        activeWindow = null; if (!preserveStartup) { studioStartView?.Dispose(); studioStartView = null; } foreach (var c in controls.ToArray()) c.Dispose(); controls.Clear(); mapButtons.Clear();
         title = name; mode = page; scroll = 0; root = Stack("root"); var bar = Stack("toolbar", true); Add(root, bar);
         Add(bar, Button("home", "← Project", Home)); Add(bar, Button("concepts", "Concepts", () => ShowMap())); Add(bar, Button("packs", "Packs", ShowPacks)); Add(bar, Button("functions", "Functions", ShowFunctions));
         Invalidate();
     }
     private void StartStudio(AiDirectory? directory = null)
     {
-        mode = "startup"; studioPresentation = new(EditorEngineDistribution.Open(engineDirectory));
-        studioStartup = new(studioPresentation.Motion, directory ?? AiDirectory.Load(AiDirectory.DefaultPath));
+        startupBrandOrigins.Clear(); mode = "startup"; studioPresentation = new(EditorEngineDistribution.Open(engineDirectory));
+        studioDirectory = directory ?? AiDirectory.Load(AiDirectory.DefaultPath); studioStartup = new(studioPresentation.Motion, studioDirectory);
         studioStartView?.Dispose(); studioStartView = studioPresentation.Start(backend,
-            () => { status = "Agent management migration is in progress"; Home(); }, EnterStudioHome);
+            () => ShowAgentSetup(), EnterStudioHome);
         root = (Element)studioStartView.Root; studioClock.Restart(); Tick(); Invalidate();
+    }
+    private void ShowAgentSetup(IEditorStudioAgentService? service = null, IAiCredentialStore? credentials = null, AiDirectory? directory = null, Action? saveDirectory = null)
+    {
+        bool returnToStartup = mode == "startup" && studioStartView is not null;
+        if (returnToStartup) foreach (string id in new[] { "logo", "brand-title", "brand-subtitle" }) startupBrandOrigins[id] = ((Element)studioStartView!.Element(id)).Bounds;
+        var presentation = new EditorStudioPresentation(EditorEngineDistribution.Open(engineDirectory));
+        FinishStudioHomeFlight(); studioAgent?.Dispose(); Page(presentation.Text("editor.studio.agent-connection", "agent-heading"), "agent-setup", returnToStartup);
+        directory ??= studioDirectory; credentials ??= aiCredentials;
+        service ??= new EditorStudioAgentService(() => new() { ProjectIdentity = session?.Project.Identity ?? "confectory.editor", StateDirectory = session?.StateDirectory ?? Path.Combine(Path.GetDirectoryName(AiDirectory.DefaultPath)!, "Studio"), AccessEnabled = true, HistoryEnabled = true },
+            externalDll: true, prepareCodex: async token => new(await LinuxCodexPreparation.Prepare(token), Path.Combine(AppContext.BaseDirectory, "Confectory.Assistant.Codex.dll")), needsInstallation: LinuxCodexPreparation.Required);
+        studioAgent = new(presentation, backend, directory, credentials, service, "", saveDirectory ?? (() => directory.Save(AiDirectory.DefaultPath)),
+            (_, connected) => { connectedAgent?.Dispose(); connectedAgent = connected.Assistant; if (returnToStartup) EnterStudioHome(); else Home(); },
+            () => { if (returnToStartup) { studioAgent?.Dispose(); studioAgent = null; mode = "startup"; root = (Element)studioStartView!.Root; scroll = 0; Tick(); Invalidate(); } else Home(); },
+            selected =>
+            {
+                void Restore() { if (studioAgent is null) return; mode = "agent-setup"; root = (Element)studioAgent.View.Root; scroll = 0; Invalidate(); }
+                Ask("제공자 DLL 경로", "", path => { selected(path); Restore(); }, Restore, preserveStartup: returnToStartup);
+            }, OnUi, () => !busy);
+        root = (Element)studioAgent.View.Root; Invalidate();
     }
     private void EnterStudioHome()
     {
@@ -184,7 +208,7 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
             var copy = (Element)backend.Create(source.Renderer, "flight-" + id, new());
             foreach (string property in source.Renderer == "editor.vector" ? new[] { "polygons" } : new[] { "text", "foreground", "fontWeight", "fontSize", "wrapText" }) copy.Set(property, source.Value(property));
             copy.Set("margin", UiValue.Number(0)); copy.Set("enabled", UiValue.Boolean(false));
-            brandFlight.Add((copy, source.Bounds, "home-" + id));
+            brandFlight.Add((copy, source.Bounds.IsEmpty && startupBrandOrigins.TryGetValue(id, out var original) ? original : source.Bounds, "home-" + id));
         }
         Home(); foreach (string id in new[] { "home-logo", "home-brand-title", "home-brand-subtitle" }) ((Element)studioHomeBrandView!.Element(id)).MotionOpacity = 0;
         homeFlightClock.Restart(); Invalidate();
@@ -196,6 +220,7 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
     }
     private void Home()
     {
+        studioAgent?.Dispose(); studioAgent = null;
         studioCreation?.Dispose(); studioCreation = null;
         sharedProjectHome?.Dispose(); sharedProjectHome = null;
         Page(session is null ? "프로젝트" : ProjectName, "home");
@@ -250,9 +275,9 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
         string state = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Confectory", "Linux", project.Identity);
         session = new(project.Manifest, state); editor = new(session); var entry = projectSettings.Register(project); entry.LastOpenedUtc = DateTime.UtcNow.ToString("O"); projectSettings.Save(AssistantSettings.DefaultPath); Home();
     }
-    private void Ask(string prompt, string initial, Action<string> apply, Action back, bool multiline = false)
+    private void Ask(string prompt, string initial, Action<string> apply, Action back, bool multiline = false, bool preserveStartup = false)
     {
-        Page(prompt, "form"); string text = initial; Add(root, InputBox("answer", text, value => text = value, multiline));
+        Page(prompt, "form", preserveStartup); string text = initial; Add(root, InputBox("answer", text, value => text = value, multiline));
         Add(root, Button("confirm", "Apply", () => { apply(text); })); Add(root, Button("cancel", "Cancel", back));
     }
     private void Choose(string prompt, IEnumerable<(string Id, string Title)> values, Action<string> select, Action back)
@@ -513,5 +538,5 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
         }, ShowDocuments, true);
         if (!session.CanEdit(path)) Disable(root.Children.First(c => c.Id == "confirm"));
     }
-    public void Dispose() { if (disposed) return; disposed = true; lifetime.Cancel(); pendingReview?.Cancel(); windows.Dispose(); execution?.Dispose(); runner?.Dispose(); FinishStudioHomeFlight(); sharedProjectHome?.Dispose(); studioCreation?.Dispose(); studioStartView?.Dispose(); studioHomeBrandView?.Dispose(); backend.Dispose(); lifetime.Dispose(); }
+    public void Dispose() { if (disposed) return; disposed = true; lifetime.Cancel(); pendingReview?.Cancel(); windows.Dispose(); execution?.Dispose(); runner?.Dispose(); FinishStudioHomeFlight(); connectedAgent?.Dispose(); studioAgent?.Dispose(); sharedProjectHome?.Dispose(); studioCreation?.Dispose(); studioStartView?.Dispose(); studioHomeBrandView?.Dispose(); backend.Dispose(); lifetime.Dispose(); }
 }

@@ -50,6 +50,61 @@ internal static class LiveViewVerification
                 Check(initialMotion.Opacity == 0 && !initialMotion.Enabled && Math.Abs(midpoint.Opacity - .875) < .00001 && midpoint.Rise > 0, "all adapters sample the same blank frame and cubic entrance on " + platform);
                 Check(presentation.Motion.Sample(presentation.Motion.Entrances[3], 10000, true).Opacity == 0 && startupState.BeginHome() && !startupState.BeginHome() && !startupState.AutomaticHomeDue(10000), "saved Agent hides Connect/Later and home entry is idempotent on " + platform);
                 EditorNativeSchema.PreflightView(presentation.Catalog, "editor.studio.brand", new UiContext(), platform);
+                var connectionDirectory = new AiDirectory(); var secretStore = new Secrets(); var service = new AgentService();
+                int identitySaves = 0, adopted = 0; EditorStudioConnectedAgent? adoptedAgent = null;
+                using (var setup = new EditorStudioAgentConnection(presentation, new Backend(platform), connectionDirectory, secretStore, service, "", () => identitySaves++, (_, connected) => { adopted++; adoptedAgent = connected; }, () => { }, _ => { }, action => action()))
+                {
+                    void AgentAction(string id) => ((Element)setup.View.Element(id)).Activate();
+                    void AgentEdit(string id, string text) => ((Element)setup.View.Element(id)).Emit("changed", UiValue.Text(text));
+                    Check(service.ModelCalls == 0 && service.ConnectCalls == 0 && secretStore.Reads == 0, "mounting Agent setup cannot transmit credentials or start a provider on " + platform);
+                    AgentAction("agent-openai"); AgentEdit("agent-secret", "synthetic-private-key"); AgentEdit("agent-model", "fixture/model-one");
+                    AgentAction("agent-models"); AgentAction("agent-connect");
+                    Check(service.ModelCalls == 0 && service.ConnectCalls == 0 && connectionDirectory.Agents.Count == 0, "API models and account connection require explicit consent on " + platform);
+                    AgentAction("agent-consent"); AgentAction("agent-models"); AgentAction("model-1");
+                    Check(service.ModelCalls == 1 && ((Element)setup.View.Element("agent-model")).Text == "fixture/model-two", "explicit model lookup uses safe choice command indexes and retains the selected ID on " + platform);
+                    AgentAction("agent-anthropic"); AgentAction("agent-connect");
+                    Check(service.ConnectCalls == 0, "provider switching clears secret and transmission consent on " + platform);
+                    AgentAction("agent-openai"); AgentEdit("agent-secret", "synthetic-private-key"); AgentEdit("agent-model", "fixture/model-two"); AgentAction("agent-consent"); AgentAction("agent-connect");
+                    var connectedProfile = connectionDirectory.Agents.Single();
+                    Check(service.ConnectCalls == 1 && adopted == 1 && identitySaves == 1 && secretStore.Values[connectedProfile.CredentialKey] == "synthetic-private-key" && connectedProfile.Connection.Model == "fixture/model-two", "only confirmed connections persist private identities and transfer provider ownership on " + platform);
+                    Check(!EditorSession.Serialize(connectionDirectory).Contains("synthetic-private-key"), "private Agent directory stores credential references only on " + platform);
+                }
+                adoptedAgent!.Assistant.Dispose();
+                var failedStore = new Secrets { RejectWrite = true }; var failingService = new AgentService();
+                using (var setup = new EditorStudioAgentConnection(presentation, new Backend(platform), new(), failedStore, failingService, "", () => { }, (_, _) => throw new Exception("must not adopt"), () => { }, _ => { }, action => action()))
+                {
+                    ((Element)setup.View.Element("agent-secret")).Emit("changed", UiValue.Text("synthetic-private-key"));
+                    ((Element)setup.View.Element("agent-model")).Emit("changed", UiValue.Text("fixture-model"));
+                    ((Element)setup.View.Element("agent-consent")).Activate(); ((Element)setup.View.Element("agent-connect")).Activate();
+                    Check(failingService.Candidate!.Disposed && failedStore.Values.Count == 0, "credential persistence failure disposes the staged provider without adopting it on " + platform);
+                }
+                var preservedDirectory = new AiDirectory(); var preservedProfile = preservedDirectory.AddAgent("Existing", new() { Provider = "openai", Model = "old-model" });
+                preservedProfile.CredentialKey = Guid.NewGuid().ToString("N"); var preservedStore = new Secrets(); preservedStore.Values[preservedProfile.CredentialKey] = "old-synthetic-key";
+                string oldCredentialSlot = preservedProfile.CredentialKey; var saveFailureService = new AgentService();
+                using (var setup = new EditorStudioAgentConnection(presentation, new Backend(platform), preservedDirectory, preservedStore, saveFailureService, preservedProfile.Id, () => throw new IOException("fixture identity save failure"), (_, _) => throw new Exception("must not adopt"), () => { }, _ => { }, action => action()))
+                {
+                    ((Element)setup.View.Element("agent-secret")).Emit("changed", UiValue.Text("replacement-synthetic-key"));
+                    ((Element)setup.View.Element("agent-model")).Emit("changed", UiValue.Text("new-model"));
+                    ((Element)setup.View.Element("agent-consent")).Activate(); ((Element)setup.View.Element("agent-connect")).Activate();
+                    Check(saveFailureService.Candidate!.Disposed && !setup.Working && preservedProfile.Connection.Model == "old-model" && preservedProfile.CredentialKey == oldCredentialSlot && preservedStore.Values.Count == 1 && preservedStore.Values[oldCredentialSlot] == "old-synthetic-key", "failed identity save preserves the original profile/key and removes only the new credential slot on " + platform);
+                }
+                var asyncStore = new AsyncSecrets(); var cancelledDirectory = new AiDirectory(); var cancelService = new AgentService();
+                using (var setup = new EditorStudioAgentConnection(presentation, new Backend(platform), cancelledDirectory, asyncStore, cancelService, "", () => { }, (_, _) => throw new Exception("must not adopt"), () => { }, _ => { }, action => action()))
+                {
+                    ((Element)setup.View.Element("agent-secret")).Emit("changed", UiValue.Text("synthetic-private-key")); ((Element)setup.View.Element("agent-model")).Emit("changed", UiValue.Text("fixture-model"));
+                    ((Element)setup.View.Element("agent-consent")).Activate(); ((Element)setup.View.Element("agent-connect")).Activate();
+                    Check(asyncStore.Writing && cancelledDirectory.Agents.Count == 0, "async OS credential preparation does not publish an identity before it finishes on " + platform);
+                    ((Element)setup.View.Element("agent-cancel")).Activate();
+                    Check(SpinWait.SpinUntil(() => cancelService.Candidate!.Disposed && !setup.Working && asyncStore.Deletes == 1, TimeSpan.FromSeconds(3)) && cancelledDirectory.Agents.Count == 0 && asyncStore.Deletes == 1, "cancelled OS credential preparation disposes the candidate and cleans its private slot on " + platform);
+                }
+                var installService = new AgentService { NeedInstall = true }; var installationDirectory = new AiDirectory();
+                using (var setup = new EditorStudioAgentConnection(presentation, new Backend(platform), installationDirectory, new Secrets(), installService, "", () => { }, (_, connected) => connected.Assistant.Dispose(), () => { }, _ => { }, action => action()))
+                {
+                    ((Element)setup.View.Element("agent-connect")).Activate();
+                    Check(installService.ConnectCalls == 0, "missing Codex cannot install or connect before explicit installation consent on " + platform);
+                    ((Element)setup.View.Element("agent-install-consent")).Activate(); ((Element)setup.View.Element("agent-connect")).Activate();
+                    Check(installService.ConnectCalls == 1 && installationDirectory.Agents.Count == 1, "common Codex installation consent reaches only the fixture service on " + platform);
+                }
                 var helper = directory.CreateHelper(agent.Id, "First Helper");
                 int saves = 0, cancellations = 0;
                 WorkspaceProject? opened = null;
@@ -190,6 +245,40 @@ internal static class LiveViewVerification
         Console.WriteLine("LIVE_VIEW_CHECKS=" + checks);
     }
 
+    private sealed class Secrets : IAiCredentialStore
+    {
+        public readonly Dictionary<string, string> Values = new(); public int Reads; public bool RejectWrite;
+        public string Read(string key) { Reads++; return Values.TryGetValue(key, out var value) ? value : ""; }
+        public void Write(string key, string value) { if (RejectWrite) throw new IOException("fixture credential failure"); Values[key] = value; }
+        public void Delete(string key) => Values.Remove(key);
+    }
+    private sealed class AsyncSecrets : IEditorStudioAsyncCredentialStore
+    {
+        public bool Writing; public int Deletes;
+        public string Read(string slot) => ""; public void Write(string slot, string secret) => throw new Exception("Use async OS storage"); public void Delete(string slot) => Deletes++;
+        public Task<string> ReadAsync(string slot, CancellationToken cancellation) => Task.FromResult("");
+        public Task WriteAsync(string slot, string secret, CancellationToken cancellation)
+        {
+            Writing = true; var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            cancellation.Register(() => completion.TrySetCanceled(cancellation)); return completion.Task;
+        }
+    }
+    private sealed class AgentService : IEditorStudioAgentService
+    {
+        public int ModelCalls, ConnectCalls; public TestAssistant? Candidate; public bool NeedInstall;
+        public bool Supports(string provider) => provider is "openai" or "anthropic" || NeedInstall && provider == "codex";
+        public bool InstallationRequired(string provider) => NeedInstall && provider == "codex";
+        public Task<IReadOnlyList<AssistantModel>> Models(EditorAiConnection connection, string secret, CancellationToken cancellation)
+        { ModelCalls++; return Task.FromResult<IReadOnlyList<AssistantModel>>(new[] { new AssistantModel { Id = "fixture/model-one", Name = "One" }, new AssistantModel { Id = "fixture/model-two", Name = "Two" } }); }
+        public Task<EditorStudioConnectedAgent> Connect(EditorAiConnection connection, string secret, CancellationToken cancellation)
+        { ConnectCalls++; Candidate = new(); return Task.FromResult(new EditorStudioConnectedAgent(Candidate, new AssistantAccount())); }
+    }
+    private sealed class TestAssistant : IEditorAssistant
+    {
+        public bool Disposed; public string Name => "fixture";
+        public Task<string> ReplyAsync(ContextRequest request, IAssistantWorkspace workspace, CancellationToken cancellation) => throw new Exception("No inference during setup");
+        public void Dispose() => Disposed = true;
+    }
     private sealed class Backend(string platform = "windows") : IUiBackend
     {
         public readonly List<Element> All = [];

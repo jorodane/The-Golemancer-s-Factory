@@ -29,8 +29,8 @@ public sealed class LinuxPackBackend(Action invalidate) : IUiBackend, IDisposabl
     }
     public void BeginFrame() { foreach (var e in elements) e.Bounds = SKRect.Empty; }
     public SKRect Bounds(string id) => elements.Single(e => e.Id == id).Bounds;
-    public EditorWindowState Capture() => new() { Values = elements.Where(e => e.IsInput).ToDictionary(e => e.Id, e => e.Text("text"), StringComparer.Ordinal) };
-    public void Restore(EditorWindowState state) { foreach (var e in elements.Where(e => e.IsInput)) if (state.Values.TryGetValue(e.Id, out var text)) e.Set("text", UiValue.Text(text)); }
+    public EditorWindowState Capture() => new() { Values = elements.Where(e => e.IsInput && e.Renderer != "editor.secret").ToDictionary(e => e.Id, e => e.Text("text"), StringComparer.Ordinal) };
+    public void Restore(EditorWindowState state) { foreach (var e in elements.Where(e => e.IsInput && e.Renderer != "editor.secret")) if (state.Values.TryGetValue(e.Id, out var text)) e.Set("text", UiValue.Text(text)); }
     public float Draw(Element root, SKCanvas canvas, SKRect bounds)
     {
         canvas.Save(); canvas.ClipRect(bounds); clip = canvas.LocalClipBounds; float height = Paint(root, canvas, bounds.Left, bounds.Top, bounds.Width); canvas.Restore(); return height;
@@ -110,6 +110,7 @@ public sealed class LinuxPackBackend(Action invalidate) : IUiBackend, IDisposabl
         else
         {
             bool input = e.IsInput; string text = input && focused == e ? e.Text("text") + e.Composition : e.Text("text");
+            if (e.Renderer == "editor.secret") text = new string('•', text.Length);
             height = e.Renderer == "editor.slot" ? 76 : Math.Max(38, size + 20);
             if (e.Bool("multiline") || e.Renderer == "editor.text" && e.Bool("wrapText")) height = Math.Max(height, TextLines(text, Math.Max(8, (int)(width / (size * .62)))).Length * (size + 5) + 16);
             if (e.Layout.Size.Y > 0) height = (float)e.Layout.Size.Y;
@@ -175,6 +176,7 @@ public sealed class LinuxPackBackend(Action invalidate) : IUiBackend, IDisposabl
             if (focused is not { } e) return;
             if (!e.IsInput) { if (input.Key is "Enter" or "Space") e.Emit("activate", e.Renderer == "editor.slot" ? UiValue.Text(e.Text("value")) : UiValue.None); invalidate(); return; }
             if (control && input.Key == "A") { e.Selection = 0; e.Caret = e.Text("text").Length; }
+            else if (control && e.Renderer == "editor.secret" && input.Key is "C" or "X") { }
             else if (control && input.Key == "C") NativeWindow.Clipboard = Selected(e);
             else if (control && input.Key == "X") { NativeWindow.Clipboard = Selected(e); Edit(e, ""); }
             else if (control && input.Key == "V") Edit(e, NativeWindow.Clipboard);
@@ -222,7 +224,7 @@ public sealed class LinuxPackBackend(Action invalidate) : IUiBackend, IDisposabl
         internal SKBitmap? Image;
         internal bool Disposed;
         public long InputRevision { get; private set; }
-        public bool IsInput => Renderer is "editor.input" or "editor.inline";
+        public bool IsInput => Renderer is "editor.input" or "editor.inline" or "editor.secret";
         internal Element? Parent;
         public bool Visible => Bool("visible") && (Parent?.Visible ?? true);
         public bool Enabled => Bool("enabled") && (Parent?.Enabled ?? true);
@@ -239,6 +241,7 @@ public sealed class LinuxPackBackend(Action invalidate) : IUiBackend, IDisposabl
             SKBitmap? decoded = property == "image" && value.Literal.Length > 0 ? SKBitmap.Decode(Convert.FromBase64String(value.Literal.Substring(value.Literal.IndexOf(',') + 1))) ?? throw new InvalidDataException("Invalid bitmap.") : null;
             return () =>
             {
+                if (property == "clearRevision") { values["text"] = UiValue.Text(""); Caret = Selection = 0; }
                 if (property == "image") { Image?.Dispose(); Image = decoded; }
                 if (property == "text" && IsInput)
                 {
@@ -258,7 +261,7 @@ public sealed class LinuxPackBackend(Action invalidate) : IUiBackend, IDisposabl
         public void InsertChild(int index, IUiElement child) { var element = (Element)child; element.Parent = this; Children.Insert(index, element); }
         public IDisposable Listen(string name, Action<UiValue> handler) { if (!listeners.TryGetValue(name, out var list)) listeners[name] = list = []; list.Add(handler); return new Subscription(() => list.Remove(handler)); }
         internal void Emit(string name, UiValue value) { if (listeners.TryGetValue(name, out var list)) foreach (var handler in list.ToArray()) handler(value); }
-        public void Dispose() { if (Disposed) return; Disposed = true; Image?.Dispose(); listeners.Clear(); Children.Clear(); owner.elements.Remove(this); if (owner.focused == this) owner.Focus(null); if (owner.hovered == this) owner.hovered = null; if (owner.pressed == this) owner.pressed = null; }
+        public void Dispose() { if (Disposed) return; Disposed = true; Image?.Dispose(); values.Clear(); listeners.Clear(); Children.Clear(); owner.elements.Remove(this); if (owner.focused == this) owner.Focus(null); if (owner.hovered == this) owner.hovered = null; if (owner.pressed == this) owner.pressed = null; }
         private sealed class Subscription(Action cleanup) : IDisposable { public void Dispose() => cleanup(); }
     }
 }

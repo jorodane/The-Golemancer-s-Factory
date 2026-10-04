@@ -21,6 +21,7 @@ public sealed partial class MainActivity
     private LinearLayout welcome = null!;
     private Button editorAiButton = null!;
     private View aiToolbar = null!;
+    private Dialog? agentConnectionDialog;
     private bool aiConnecting;
     private bool aiWorking => mobileWorkers.Any(w => w.Cancellation is not null);
     private string AiSettingsPath => Path.Combine(root, "ai-connections.json");
@@ -69,60 +70,20 @@ public sealed partial class MainActivity
     private void ShowEditorAiSetup()
     {
         if (aiWorking || aiConnecting || operation.CurrentCount == 0) return;
-        new AlertDialog.Builder(this).SetTitle("에디터 AI 선택")!
-            .SetItems(new[] { "Claude · Anthropic API", "OpenAI API" }, (_, e) => ApiSetup(e.Which == 0 ? "anthropic" : "openai"))!
-            .Show();
-    }
-    private void ApiSetup(string id)
-    {
-        var layout = new LinearLayout(this) { Orientation = Orientation.Vertical }; var scroll = new ScrollView(this); scroll.AddView(layout);
-        var key = new EditText(this) { Hint = "새 에이전트의 API 키", SaveEnabled = false, InputType = InputTypes.ClassText | InputTypes.TextVariationPassword };
-        var model = new EditText(this) { Hint = "API 모델 ID", Text = aiConnections.Editor.Provider == id ? aiConnections.Editor.Model : "" };
-        layout.AddView(new TextView(this) { Text = "API 키는 Android Keystore로 암호화해서 이 기기에 저장해. 웹 서비스 구독·로그인과 별도의 API 연결이야." }); layout.AddView(key); layout.AddView(model);
-        var consent = new CheckBox(this) { Text = "API 요청과 사용량에 따른 과금에 동의해. 질문과 필요한 팩 문맥이 선택한 서비스로 전송돼." }; layout.AddView(consent);
-        layout.AddView(new TextView(this) { Text = "전송 대상: " + new EditorAiConnection { Provider = id }.ApiOrigin });
-        var note = new TextView(this); layout.AddView(note);
-        var dialogCancellation = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token); var token = dialogCancellation.Token;
-        bool working = false;
-        var dialog = new AlertDialog.Builder(this).SetTitle(id == "anthropic" ? "Claude API 연결" : "OpenAI API 연결")!.SetView(scroll)!
-            .SetNegativeButton("취소", (_, _) => { })!.SetPositiveButton("연결 확인 · 사용", (EventHandler<DialogClickEventArgs>)null!)!.Create()!;
-        layout.AddView(AiAction("API 모델 목록 확인", async () =>
-        {
-            if (working) return;
-            try
+        agentConnectionDialog?.Dismiss();
+        var service = new EditorStudioAgentService(AndroidAiOptions);
+        var presentation = new EditorStudioPresentation(InstalledEngine);
+        var dialog = new Dialog(this); agentConnectionDialog = dialog; dialog.SetTitle(presentation.Text("editor.studio.agent-connection", "agent-heading"));
+        var model = new EditorStudioAgentConnection(presentation, new AndroidPackBackend(this), mobileDirectory, aiCredentials, service, mobileEditingAgent, SaveMobileDirectory,
+            (profile, connected) =>
             {
-                if (!consent.Checked) throw new InvalidOperationException("서비스에 API 키를 보내 모델 목록을 확인하는 데 동의해줘.");
-                working = true; note.Text = "모델 목록을 확인하고 있어…";
-                using var probe = new ApiAssistant(); probe.Configure(new() { Provider = id, Model = "model-selection" }, key.Text ?? "");
-                var models = await probe.ModelsAsync(token); token.ThrowIfCancellationRequested();
-                new AlertDialog.Builder(this).SetTitle("사용할 모델")!.SetItems(models.Select(m => m.Name).ToArray(), (_, e) => model.Text = models[e.Which].Id)!.Show();
-                note.Text = "모델을 고른 뒤 연결해줘. 질문이나 팩은 아직 전송하지 않았어.";
-            }
-            catch (Exception e) { note.Text = e is OperationCanceledException ? "확인을 취소했어." : e.Message; }
-            finally { working = false; }
-        }));
-        dialog.DismissEvent += (_, _) => { dialogCancellation.Cancel(); dialogCancellation.Dispose(); }; dialog.Show();
-        dialog.GetButton((int)DialogButtonType.Positive)!.Click += async (_, _) =>
-        {
-            if (working || aiWorking || aiConnecting) return; ApiAssistant? candidate = null;
-            try
-            {
-                if (!consent.Checked) throw new InvalidOperationException("API 전송과 과금을 확인하고 동의해줘.");
-                working = true; aiConnecting = true; note.Text = "연결을 확인하고 있어…";
-                var next = new EditorAiConnection { Provider = id, Model = model.Text?.Trim() ?? "" }; next.Validate();
-                string secret = key.Text ?? "";
-                candidate = new(); candidate.Configure(next, secret); await candidate.ConnectAsync(AndroidAiOptions(), token); token.ThrowIfCancellationRequested();
-
-                editorAi?.Dispose(); editorAi = candidate; candidate = null; aiConnections.Editor = next; SaveAiConnections();
-                var profile = mobileDirectory.Agents.FirstOrDefault(a => a.Id == mobileEditingAgent);
-                if (profile is null) profile = mobileDirectory.AddAgent(next.Name + " " + (mobileDirectory.Agents.Count + 1), next);
-                else { profile.Connection = next; profile.Enabled = true; mobileDirectory.SelectedAgentId = profile.Id; foreach (var worker in mobileWorkers.Where(w => w.Participant.AgentId == profile.Id)) { worker.Assistant?.Dispose(); worker.Assistant = null; } }
-                mobileEditingAgent = ""; profile.CredentialKey = profile.Id; aiCredentials.Write(profile.Id, secret); SaveMobileDirectory();
-                aiConnections.SetupCompleted = true; SaveAiConnections(); dialog.Dismiss(); Report("에이전트 연결됨 · " + next.Name);
-            }
-            catch (Exception e) { note.Text = e is OperationCanceledException ? "연결을 취소했어." : e.Message; }
-            finally { candidate?.Dispose(); working = false; aiConnecting = false; }
-        };
+                SelectMobileAgent(profile); editorAi?.Dispose(); editorAi = (ApiAssistant)connected.Assistant;
+                foreach (var worker in mobileWorkers.Where(w => w.Participant.AgentId == profile.Id)) { worker.Assistant?.Dispose(); worker.Assistant = null; }
+                mobileEditingAgent = ""; aiConnections.SetupCompleted = true; SaveAiConnections(); dialog.Dismiss(); Report("에이전트 연결됨 · " + profile.Connection.Name);
+            }, () => dialog.Dismiss(), _ => { }, OnAiUi, () => !aiWorking && !aiConnecting && operation.CurrentCount > 0);
+        var scroll = new ScrollView(this); scroll.AddView(((AndroidPackBackend.Element)model.View.Root).Control);
+        dialog.SetContentView(scroll); dialog.DismissEvent += (_, _) => { model.Dispose(); if (ReferenceEquals(agentConnectionDialog, dialog)) agentConnectionDialog = null; }; dialog.Show();
+        dialog.Window?.SetLayout(Math.Min(Resources!.DisplayMetrics!.WidthPixels - Dp(24), Dp(610)), ViewGroup.LayoutParams.WrapContent);
     }
     private AssistantConnection AndroidAiOptions() => new() { ProjectIdentity = studioSession.Project.Identity, StateDirectory = studioSession.StateDirectory, AccessEnabled = true, HistoryEnabled = true };
     private async Task<bool> ConnectEditorAi()

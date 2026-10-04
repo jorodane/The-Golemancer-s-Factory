@@ -23,6 +23,7 @@ public sealed class ApiAssistant : IResidentAssistant
     public ApiAssistant(HttpMessageHandler handler) { http = new(handler) { Timeout = TimeSpan.FromMinutes(3) }; }
     public string Name => profile.Name;
     public string Model { get; set; } = "";
+    public IReadOnlyList<AssistantModel> AvailableModels { get; private set; } = Array.Empty<AssistantModel>();
     public string ThreadId { get; private set; } = "";
     public bool IsConnected => connected && !disposed;
     public event Action<AssistantEvent>? Progress;
@@ -38,7 +39,7 @@ public sealed class ApiAssistant : IResidentAssistant
     {
         if (!options.AccessEnabled) throw new InvalidOperationException("이 작업공간의 에디터 AI 사용이 꺼져 있어.");
         connection = options; connected = false; NewConversation();
-        var available = await ModelsAsync(cancellation).ConfigureAwait(false);
+        var available = await ModelsAsync(cancellation).ConfigureAwait(false); AvailableModels = available;
         if (!available.Any(m => m.Id == Model)) throw new InvalidDataException("이 API 계정에서 모델을 찾지 못했어. 모델 목록에서 다시 선택해줘.");
         connected = true; return Account();
     }

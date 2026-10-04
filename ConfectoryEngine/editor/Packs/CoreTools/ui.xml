@@ -5,6 +5,7 @@
   <Widget id="editor.button" extends="editor.text"><Property name="appearance" type="text" default="standard"><Option value="standard" /><Option value="quiet" /><Option value="accent" /></Property><Property name="hoverForeground" type="text" default="" /><Property name="hoverBackground" type="text" default="" /><Property name="pressedBackground" type="text" default="" /><Event name="activate" payload="none" /><Renderer platform="*" key="editor.button" /></Widget>
   <Widget id="editor.input" extends="editor.text"><Event name="changed" payload="text" /><Renderer platform="*" key="editor.input" /></Widget>
   <Widget id="editor.inline" extends="editor.input"><Event name="committed" payload="text" /><Property name="placeholder" type="text" default="" /><Property name="multiline" type="boolean" default="false" /><Renderer platform="*" key="editor.inline" /></Widget>
+  <Widget id="editor.secret" extends="editor.element"><Property name="clearRevision" type="number" default="0" min="0" max="1000000" /><Event name="changed" payload="text" /><Renderer platform="*" key="editor.secret" /></Widget>
   <Widget id="editor.card" extends="editor.stack"><Property name="selected" type="boolean" default="false" /><Event name="activate" payload="none" /><Renderer platform="*" key="editor.card" /></Widget>
   <Widget id="editor.wrap" extends="editor.stack"><Renderer platform="*" key="editor.wrap" /></Widget>
   <Widget id="editor.tile" extends="editor.card"><Property name="borderStyle" type="text" default="solid"><Option value="solid" /><Option value="dashed" /></Property><Renderer platform="*" key="editor.tile" /></Widget>
@@ -105,5 +106,33 @@
   <View id="editor.core.inspector"><Node id="inspectorRoot" widget="editor.stack"><Slot name="children" export="true">
     <Node id="inspectorHeading" widget="editor.text"><Bind property="text" source="editor.object.title" /><Set property="fontSize" value="20" /></Node>
     <Node id="inspectorBody" widget="editor.stack"><Slot name="children" export="true" /></Node>
+  </Slot></Node></View>
+  <View id="editor.studio.agent-connection"><Node id="agent-form" widget="editor.stack"><Slot name="children">
+    <Node id="agent-heading" order="0" widget="editor.text"><Set property="text" value="에디터 안에서 작업할 AI" /><Set property="fontSize" value="23" /></Node>
+    <Node id="agent-provider-choices" order="10" widget="editor.grid"><Set property="columns" value="2" /><Slot name="children">
+      <Node id="agent-codex" order="0" widget="editor.studio.choice"><Set property="text" value="Codex · 이 기기의 ChatGPT 계정" /><Bind property="enabled" source="studio.agent.codexSupported" /><On event="activate" command="studio.agent.codex" /></Node>
+      <Node id="agent-anthropic" order="10" widget="editor.studio.choice"><Set property="text" value="Claude · Anthropic API" /><Bind property="enabled" source="studio.agent.anthropicSupported" /><On event="activate" command="studio.agent.anthropic" /></Node>
+      <Node id="agent-openai" order="20" widget="editor.studio.choice"><Set property="text" value="OpenAI API" /><Bind property="enabled" source="studio.agent.openaiSupported" /><On event="activate" command="studio.agent.openai" /></Node>
+      <Node id="agent-custom" order="30" widget="editor.studio.choice"><Set property="text" value="외부 제공자 DLL" /><Bind property="enabled" source="studio.agent.customSupported" /><On event="activate" command="studio.agent.custom" /></Node>
+    </Slot></Node>
+    <Node id="agent-destination" order="20" widget="editor.text"><Bind property="text" source="studio.agent.destination" /></Node>
+    <Node id="agent-install-consent" order="25" widget="editor.button"><Bind property="visible" source="studio.agent.needsInstall" /><Bind property="enabled" source="studio.agent.idle" /><Bind property="text" source="studio.agent.installLabel" /><On event="activate" command="studio.agent.installConsent" /></Node>
+    <Node id="agent-api" order="30" widget="editor.stack"><Bind property="visible" source="studio.agent.api" /><Bind property="enabled" source="studio.agent.idle" /><Slot name="children">
+      <Node id="agent-key-label" order="0" widget="editor.text"><Set property="text" value="API 키 · 이 기기의 암호화 저장소에 저장. 기존 연결의 키를 쓰려면 비워 둬." /></Node>
+      <Node id="agent-secret" order="10" widget="editor.secret"><Set property="foreground" value="#E9EFF6" /><Set property="background" value="#11171F" /><Bind property="clearRevision" source="studio.agent.secretReset" /><On event="changed" command="studio.agent.secret" /></Node>
+      <Node id="agent-model-label" order="20" widget="editor.text"><Set property="text" value="모델 ID · 목록에서 선택하거나 직접 입력" /></Node>
+      <Node id="agent-model" order="30" widget="editor.inline"><Bind property="text" source="studio.agent.model" /><On event="changed" command="studio.agent.model" /></Node>
+      <Node id="agent-consent" order="40" widget="editor.button"><Bind property="text" source="studio.agent.consentLabel" /><On event="activate" command="studio.agent.consent" /></Node>
+      <Node id="agent-transmission" order="50" widget="editor.text"><Set property="text" value="질문과 필요한 팩 문맥이 선택한 서비스로 전송돼. 웹 구독·로그인과 별도의 API 연결이야." /></Node>
+      <Node id="agent-models" order="60" widget="editor.button"><Set property="text" value="API 모델 목록 확인" /><On event="activate" command="studio.agent.models" /></Node>
+      <Node id="agent-model-choices" order="70" widget="editor.stack"><Slot name="children" export="true" /></Node>
+    </Slot></Node>
+    <Node id="agent-dll-group" order="40" widget="editor.stack"><Bind property="visible" source="studio.agent.custom" /><Bind property="enabled" source="studio.agent.idle" /><Slot name="children">
+      <Node id="agent-dll" order="0" widget="editor.inline"><Bind property="text" source="studio.agent.dll" /><On event="changed" command="studio.agent.dll" /></Node>
+      <Node id="agent-dll-browse" order="10" widget="editor.button"><Set property="text" value="제공자 DLL 선택" /><On event="activate" command="studio.agent.browse" /></Node>
+    </Slot></Node>
+    <Node id="agent-note" order="50" widget="editor.text"><Bind property="text" source="studio.agent.note" /></Node>
+    <Node id="agent-connect" order="60" widget="editor.button"><Set property="text" value="연결 확인 · 사용" /><Bind property="enabled" source="studio.agent.idle" /><On event="activate" command="studio.agent.connect" /></Node>
+    <Node id="agent-cancel" order="70" widget="editor.button"><Set property="text" value="취소" /><On event="activate" command="studio.agent.cancel" /></Node>
   </Slot></Node></View>
 </Ui>

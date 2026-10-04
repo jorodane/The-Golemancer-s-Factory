@@ -78,24 +78,6 @@ public sealed partial class EditorWindow
         if (agent is not null) aiDirectory.SelectedAgentId = agent.Id;
         RefreshAiMenus();
     }
-    private string SetupCredential(string providerId)
-    {
-        var agent = aiDirectory.Agents.FirstOrDefault(a => a.Id == editingAgentId && a.Connection.Provider == providerId);
-        return agent is null ? "" : aiCredentials.Read(agent.CredentialKey.Length > 0 ? agent.CredentialKey : providerId);
-    }
-    private void RememberConnectedAgent(EditorAiConnection connection, string secret)
-    {
-        var agent = aiDirectory.Agents.FirstOrDefault(a => a.Id == editingAgentId);
-        if (agent is null) agent = aiDirectory.AddAgent(connection.Name + " " + (aiDirectory.Agents.Count + 1), connection);
-        else { agent.Connection = connection; agent.Enabled = true; aiDirectory.SelectedAgentId = agent.Id; }
-        if (connection.IsApi)
-        {
-            // One encrypted credential slot per connection, even for two accounts at the same provider.
-            aiCredentials.Write(agent.Id, secret); agent.CredentialKey = agent.Id;
-        }
-        foreach (var worker in workers.Where(w => w.Participant.AgentId == agent.Id)) { worker.Assistant?.Dispose(); worker.Assistant = null; }
-        SaveAiDirectory(); editingAgentId = "";
-    }
     private void RefreshStudioShell()
     {
         if (projectCommands is null || editorBody is null) return;

@@ -1,6 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><TargetFramework>net10.0</TargetFramework><OutputType>Exe</OutputType><PublishTrimmed>false</PublishTrimmed><PublishAot>false</PublishAot></PropertyGroup>
   <ItemGroup>
+    <Compile Include="../Shared/CodexInstallation.cs" Link="CodexInstallation.cs" />
+    <ProjectReference Include="../Confectory.Assistant.Api/Confectory.Assistant.Api.csproj" />
+    <ProjectReference Include="../Confectory.Assistant.Codex/Confectory.Assistant.Codex.csproj" />
     <ProjectReference Include="../Confectory.EditorPacks/Confectory.EditorPacks.csproj" />
     <ProjectReference Include="../../src/Confectory.Platform.Sdl/Confectory.Platform.Sdl.csproj" />
     <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="3.119.4" />

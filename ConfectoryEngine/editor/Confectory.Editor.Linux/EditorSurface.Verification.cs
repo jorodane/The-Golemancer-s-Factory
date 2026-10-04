@@ -1,6 +1,7 @@
 using Confectory.Contracts.UI;
 using Confectory.Platform.Sdl;
 using Confectory.Workspace;
+using Confectory.EditorPacks;
 using Element = Confectory.Editor.Linux.LinuxPackBackend.Element;
 
 namespace Confectory.Editor.Linux;
@@ -39,6 +40,36 @@ internal sealed partial class EditorSurface
         Check(!homeFlightClock.IsRunning && brandFlight.Count == 0, "home flight finishes and restores input");
         native.Paint(); if (screenshot.Length > 0) native.Screenshot(screenshot + ".home.png");
         string originalProject = session!.Project.Manifest;
+        var setupDirectory = new AiDirectory(); var setupCredentials = new VerificationCredentials(); var setupService = new VerificationAgentService();
+        ShowAgentSetup(setupService, setupCredentials, setupDirectory, () => { });
+        EditCreation("agent-secret", "synthetic-private-api-key"); EditCreation("agent-model", "fixture-model");
+        native.Paint(); if (screenshot.Length > 0) native.Screenshot(screenshot + ".agent.png");
+        NativeWindow.Clipboard = "clipboard-before-private-input";
+        Click("agent-secret"); native.PushKey(1073742048, true); native.PushKey('a', true); native.PushKey('a', false); native.PushKey('c', true); native.PushKey('c', false); native.PushKey(1073742048, false); native.Pump();
+        Check(NativeWindow.Clipboard == "clipboard-before-private-input" && !backend.Capture().Values.ContainsKey("agent-secret"), "native private input cannot enter clipboard or retained window state");
+        native.Paint(); scroll = Math.Max(0, contentHeight - viewportHeight + 150); Click("agent-connect");
+        Check(setupService.ConnectCalls == 0 && setupDirectory.Agents.Count == 0, "native API connection requires explicit transmission consent");
+        Click("agent-consent"); Click("agent-models");
+        native.Paint(); scroll = Math.Max(0, contentHeight - viewportHeight + 150); Click("model-0"); Click("agent-connect");
+        Check(mode == "home" && setupService.ConnectCalls == 1 && setupService.ModelCalls == 1 && setupDirectory.Agents.Count == 1 && setupCredentials.Values.Count == 1, "real SDL secret/model/consent input adopts only the fixture provider and keeps keys in its private store");
+        ShowAgentSetup(new VerificationAgentService(), new VerificationCredentials(), new(), () => { });
+        native.Paint(); scroll = Math.Max(0, contentHeight - viewportHeight + 150); Click("agent-cancel"); Check(mode == "home", "native Agent cancellation restores the home without a request");
+        StartStudio(new()); native.Paint();
+        var setupEntrance = System.Diagnostics.Stopwatch.StartNew();
+        while (setupEntrance.ElapsedMilliseconds < 1100) { native.Pump(); Tick(); native.Paint(); Thread.Sleep(5); }
+        var originalStartupView = studioStartView;
+        var startupCancelService = new VerificationAgentService();
+        ShowAgentSetup(startupCancelService, new VerificationCredentials(), new(), () => { });
+        native.Paint(); scroll = Math.Max(0, contentHeight - viewportHeight + 150); Click("agent-cancel");
+        Check(mode == "startup" && ReferenceEquals(studioStartView, originalStartupView) && startupCancelService.ConnectCalls == 0 && ((Element)studioStartView!.Element("connect")).Enabled, "Agent cancellation restores the same completed startup entrance without requests");
+        var startupConnectService = new VerificationAgentService();
+        ShowAgentSetup(startupConnectService, new VerificationCredentials(), new(), () => { });
+        EditCreation("agent-secret", "synthetic-startup-key"); EditCreation("agent-model", "fixture-model");
+        native.Paint(); scroll = Math.Max(0, contentHeight - viewportHeight + 150); Click("agent-consent"); Click("agent-connect");
+        Check(mode == "home" && startupConnectService.ConnectCalls == 1 && brandFlight.Count == 3 && brandFlight.All(item => !item.From.IsEmpty), "confirmed startup Agent connection preserves all three flight origins");
+        var setupFlight = System.Diagnostics.Stopwatch.StartNew();
+        while (homeFlightClock.IsRunning && setupFlight.ElapsedMilliseconds < 2000) { native.Pump(); Tick(); native.Paint(); Thread.Sleep(5); }
+        Check(!homeFlightClock.IsRunning && brandFlight.Count == 0, "Agent startup flight restores home input");
         ShowNewProject(new());
         void EditCreation(string id, string text)
         {
@@ -95,6 +126,30 @@ internal sealed partial class EditorSurface
         while ((mode == "startup" || homeFlightClock.IsRunning) && automaticClock.ElapsedMilliseconds < 2500) { native.Pump(); Tick(); native.Paint(); Thread.Sleep(5); }
         Check(mode == "home" && studioStartup!.SavedAgent == savedProfile && !homeFlightClock.IsRunning, "saved Agent automatically reaches home with the common motion state and no provider request");
         ShowObjects(concept.Id); status = "Native verification passed · SDL input, semantic save, DLL command and dynamic window"; native.Paint();
-        Console.WriteLine("LINUX_EDITOR_SMOKE_PASS SDL_WINDOW STARTUP PROJECT_CREATION PROJECT_HOME TEXT_INPUT POINTER SCHEMA_SAVE PACK_DLL DYNAMIC_VIEW");
+        Console.WriteLine("LINUX_EDITOR_SMOKE_PASS SDL_WINDOW STARTUP AGENT_CONNECTION PRIVATE_INPUT PROJECT_CREATION PROJECT_HOME TEXT_INPUT POINTER SCHEMA_SAVE PACK_DLL DYNAMIC_VIEW");
     }
+    private sealed class VerificationCredentials : IAiCredentialStore
+    {
+        public readonly Dictionary<string, string> Values = new();
+        public string Read(string key) => Values.TryGetValue(key, out var value) ? value : "";
+        public void Write(string key, string value) => Values[key] = value;
+        public void Delete(string key) => Values.Remove(key);
+    }
+    private sealed class VerificationAgentService : IEditorStudioAgentService
+    {
+        public int ConnectCalls, ModelCalls;
+        public bool Supports(string provider) => provider == "openai";
+        public bool InstallationRequired(string provider) => false;
+        public Task<IReadOnlyList<AssistantModel>> Models(EditorAiConnection connection, string secret, CancellationToken cancellation)
+        { ModelCalls++; return Task.FromResult<IReadOnlyList<AssistantModel>>(new[] { new AssistantModel { Id = "fixture-model", Name = "Fixture model" } }); }
+        public Task<EditorStudioConnectedAgent> Connect(EditorAiConnection connection, string secret, CancellationToken cancellation)
+        { ConnectCalls++; return Task.FromResult(new EditorStudioConnectedAgent(new VerificationAssistant(), new AssistantAccount())); }
+    }
+    private sealed class VerificationAssistant : IEditorAssistant
+    {
+        public string Name => "fixture";
+        public Task<string> ReplyAsync(ContextRequest request, IAssistantWorkspace workspace, CancellationToken cancellation) => throw new InvalidOperationException("No external inference in native verification.");
+        public void Dispose() { }
+    }
+
 }

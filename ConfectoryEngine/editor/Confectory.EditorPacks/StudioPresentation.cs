@@ -13,6 +13,7 @@ public sealed class EditorStudioPresentation
     private readonly UiDocument[] documents;
     private readonly XDocument[] xml;
     public XElement Template(string view) => new(xml.SelectMany(d => d.Root!.Elements("View")).Single(e => (string?)e.Attribute("id") == view).Element("Node")!);
+    public string Text(string view, string node) => (string)Template(view).DescendantsAndSelf("Node").Single(e => (string?)e.Attribute("id") == node).Elements("Set").Single(e => (string?)e.Attribute("property") == "text").Attribute("value")!;
     public UiCatalog Compose(string xml) => new(documents.Concat(new[] { UiXml.Read(new StringReader(xml)) }));
     public EditorStudioPresentation(EditorEngineDistribution engine)
     {

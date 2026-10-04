@@ -190,6 +190,14 @@ internal static class Program
             inline.Set("text", UiValue.Text("Host refresh"));
             type.GetMethod("Restore")!.Invoke(backend, [state]);
             Check(input.Text == "이름 변경" && input.SelectionStart == 2 && input.SelectionLength == 1 && events == 1, "native remount state preserves the inline text and selection without manufacturing user edits");
+            using var privateInput = backend.Create("editor.secret", "private-key", new()); card.Add("children", privateInput);
+            var password = (PasswordBox)Control(privateInput); int privateEvents = 0;
+            using var privateSubscription = privateInput.Listen("changed", _ => privateEvents++);
+            password.Password = "synthetic-native-secret";
+            var privateState = (Confectory.Editor.Contracts.EditorWindowState)type.GetMethod("Capture")!.Invoke(backend, null)!;
+            Check(privateEvents == 1 && !privateState.Values.Values.Contains("synthetic-native-secret"), "native secret edits never enter captured window state");
+            privateInput.Set("clearRevision", UiValue.Number(1));
+            Check(password.Password.Length == 0 && privateEvents == 1, "pack-owned private reset clears the native password without manufacturing edits");
             Key(input, System.Windows.Input.Key.Escape);
             Check(!input.IsVisible && input.Text == "Native item" && edited == "Native item", "Escape restores the inline baseline and updates the workspace draft");
         }

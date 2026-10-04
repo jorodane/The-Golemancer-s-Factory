@@ -1,4 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <ItemGroup><ProjectReference Include="../Confectory.Editor.Contracts/Confectory.Editor.Contracts.csproj" /><ProjectReference Include="../Confectory.Workspace/Confectory.Workspace.csproj" /></ItemGroup>
+  <ItemGroup><ProjectReference Include="../Confectory.Assistant.Api/Confectory.Assistant.Api.csproj" /><ProjectReference Include="../Confectory.Editor.Contracts/Confectory.Editor.Contracts.csproj" /><ProjectReference Include="../Confectory.Workspace/Confectory.Workspace.csproj" /></ItemGroup>
   <ItemGroup Condition="'$(TargetFramework)' == 'net48'"><Reference Include="System.IO.Compression" /></ItemGroup>
 </Project>

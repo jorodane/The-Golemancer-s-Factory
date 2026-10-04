@@ -27,6 +27,7 @@ internal sealed class EditorPackBackend(Action<string> point, Func<bool> pointin
             "editor.vector" => new Vector(),
             "editor.text" => new TextBlock { TextWrapping = TextWrapping.Wrap, Foreground = Brushes.WhiteSmoke },
             "editor.button" => new Button { Padding = new Thickness(10, 7, 10, 7), HorizontalAlignment = HorizontalAlignment.Stretch, Foreground = Brushes.WhiteSmoke, Background = new SolidColorBrush(Color.FromRgb(41, 59, 77)), BorderThickness = new Thickness(0) },
+            "editor.secret" => new PasswordBox(),
             "editor.input" => new TextBox { Padding = new Thickness(8), MinWidth = 180, Foreground = Brushes.WhiteSmoke, Background = new SolidColorBrush(Color.FromRgb(17, 23, 31)), CaretBrush = Brushes.WhiteSmoke },
             _ => throw new InvalidDataException("Unsupported editor renderer.") };
         if (viewId.Length > 0) control.SetValue(EditorWindow.YogiKeyProperty, EditorYogiContext.Prefix + viewId + "/" + nodeId);
@@ -153,6 +154,7 @@ internal sealed class EditorPackBackend(Action<string> point, Func<bool> pointin
                 { appearance[property] = value.Literal; StyleButton(); return; }
                 switch (property)
                 {
+                    case "clearRevision": ((PasswordBox)control).Clear(); break;
                     case "wrapText": if (InputControl is { } wrappedInput) wrappedInput.TextWrapping = value.AsBoolean() ? TextWrapping.Wrap : TextWrapping.NoWrap; else if (control is TextBlock wrappedText) wrappedText.TextWrapping = value.AsBoolean() ? TextWrapping.Wrap : TextWrapping.NoWrap; break;
                     case "fontWeight": var weight = value.Literal == "normal" ? FontWeights.Normal : value.Literal == "semibold" ? FontWeights.SemiBold : FontWeights.Bold; if (InputControl is { } weightedInput) weightedInput.FontWeight = weight; else if (control is Control weightedControl) weightedControl.FontWeight = weight; else if (control is TextBlock weightedText) weightedText.FontWeight = weight; break;
                     case "polygons": ((Vector)control).Polygons = EditorVector.Parse(value.Literal); ((Vector)control).InvalidateVisual(); break;
@@ -235,13 +237,15 @@ internal sealed class EditorPackBackend(Action<string> point, Func<bool> pointin
             { MouseButtonEventHandler h = (_, e) => { if (!e.Handled) handler(UiValue.None); }; KeyEventHandler key = (_, e) => { if (e.Key == Key.Enter && ReferenceEquals(e.OriginalSource, card)) { e.Handled = true; handler(UiValue.None); } }; card.MouseLeftButtonDown += h; card.KeyDown += key; return new Release(() => { card.MouseLeftButtonDown -= h; card.KeyDown -= key; }); }
             if (eventName == "committed" && control is InlineEditor inline)
             { Action<string> action = value => handler(UiValue.Text(value)); inline.Committed += action; return new Release(() => inline.Committed -= action); }
+            if (eventName == "changed" && control is PasswordBox password)
+            { RoutedEventHandler h = (_, _) => { if (!setting) { InputRevision++; handler(UiValue.Text(password.Password)); } }; password.PasswordChanged += h; return new Release(() => password.PasswordChanged -= h); }
             if (eventName == "changed" && InputControl is { } text)
             { TextChangedEventHandler h = (_, _) => { if (!setting) handler(UiValue.Text(text.Text)); }; text.TextChanged += h; return new Release(() => text.TextChanged -= h); }
             throw new InvalidDataException("Unsupported editor event.");
         }
         public void Dispose()
         {
-            if (disposed) return; disposed = true; cleanup();
+            if (disposed) return; disposed = true; cleanup(); if (control is PasswordBox password) password.Clear();
             if (InputControl is { } text)
             {
                 text.TextChanged -= InputChanged;
