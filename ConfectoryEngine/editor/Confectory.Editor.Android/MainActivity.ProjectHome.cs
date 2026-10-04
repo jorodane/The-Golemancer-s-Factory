@@ -92,7 +92,7 @@ public sealed partial class MainActivity
         {
             var worker = mobileWorkers.FirstOrDefault(w => w.Participant.Id == participant.Id) ?? LoadMobileWorker(participant);
             if (open) SelectMobileWorker(worker);
-        }, id => { if (id.Length > 0) SelectMobileAgent(mobileDirectory.Agent(id)); else { editorAi?.Dispose(); editorAi = null; aiConnections.Editor = new(); } SaveMobileDirectory(); }, id => mobileWorkers.Any(w => w.Participant.Id == id && w.Cancellation is not null), () => !aiWorking && !aiConnecting && operation.CurrentCount > 0, removed: RemoveMobileParticipants, workerSettings: id => ShowMobileWorkerSettings(mobileWorkers.Single(w => w.Participant.Id == id)));
+        }, id => { if (id.Length > 0) SelectMobileAgent(mobileDirectory.Agent(id)); else { editorAi?.Dispose(); editorAi = null; aiConnections.Editor = new(); } SaveMobileDirectory(); }, id => mobileWorkers.Any(w => w.Participant.Id == id && w.Cancellation is not null), () => !aiWorking && !aiConnecting && operation.CurrentCount > 0, removed: RemoveMobileParticipants, workerSettings: id => ShowMobileWorkerSettings(mobileWorkers.Single(w => w.Participant.Id == id)), manageAgents: ShowMobileAgentManagement);
     private void RemoveMobileParticipants(IReadOnlyList<Participant> removed)
     {
         var failures = new List<Exception>();
@@ -112,7 +112,7 @@ public sealed partial class MainActivity
         mobileManagement.RemoveAllViews(); mobileProfileIcons.Clear(); mobileManagement.SetPadding(Dp(6), Dp(25), Dp(6), Dp(12)); sharedMobileWorkspaceRoles?.Dispose(); sharedMobileWorkspaceRoles = null;
         if (MobileProject) { sharedMobileWorkspaceRoles = CreateMobileWorkspaceRoles(); mobileManagement.AddView(((AndroidPackBackend.Element)sharedMobileWorkspaceRoles.View.Root).Control); }
         mobileManagement.AddView(HomeLabel("AI 관리", 12)); HomeDivider(mobileManagement);
-        mobileManagement.AddView(HomeLabel("Agent", 11, true)); var agents = new List<View>();
+        mobileManagement.AddView(AiAction(mobileStudioPresentation.Text("editor.studio.workspace", "workspace-agent-management"), ShowMobileAgentManagement)); var agents = new List<View>();
         foreach (var agent in mobileDirectory.Agents.Where(a => a.Enabled))
         {
             View? circle = null; circle = MobileAiCircle(agent.Name, agent.AvatarPath, () => ShowMobileProfile(circle!, agent, null), selected: MobileProject && agent.Id == mobileProjectStudio.MainAgentId);
@@ -170,7 +170,7 @@ public sealed partial class MainActivity
         var profile = presentation.Actions.Profile(presentation, new AndroidPackBackend(this), mobileDirectory, agent?.Id ?? "", helper?.Id ?? "", root,
             studioSession.Project.Identity, SaveMobileDirectory,
             () => { if (helper is not null) presentation.Actions.Participants(mobileDirectory, studioSession.Collaboration).RefreshHelperName(helper.Id); RefreshMobileManagement(); RefreshMobileHome(); RefreshMobileStudioDirectories(); },
-            () => { dialog.Dismiss(); SelectMobileAgent(agent!); mobileEditingAgent = agent!.Id; ShowEditorAiSetup(); },
+            () => { dialog.Dismiss(); mobileEditingAgent = agent!.Id; ShowEditorAiSetup(); },
             () => { dialog.Dismiss(); var worker = CreateMobileWorker(helper!); if (worker is not null) OpenMobileWorker(worker); }, () => dialog.Dismiss(),
             apply => PickMobileImage(bytes => apply(bytes, ".png"), presentation.Actions.ProfileImageMaximumBytes), MobileStudioProfilePreview, OnAiUi, () => !aiWorking && !aiConnecting && operation.CurrentCount > 0);
         dialog.SetTitle(((TextView)((AndroidPackBackend.Element)profile.View.Element("profile-title")).Native).Text);
@@ -187,12 +187,7 @@ public sealed partial class MainActivity
         using var output = new MemoryStream(); if (!bitmap.Compress(Bitmap.CompressFormat.Png!, 100, output)) throw new IOException("이미지 미리보기를 만들지 못했어.");
         return "data:image/png;base64," + Convert.ToBase64String(output.ToArray());
     }
-    private void DisconnectMobileAgent(AiAgentProfile agent)
-    {
-        if (mobileWorkers.Any(w => w.Participant.AgentId == agent.Id && w.Cancellation is not null)) throw new InvalidOperationException("이 Agent의 작업을 먼저 끝내줘."); agent.Enabled = false;
-        foreach (var worker in mobileWorkers.Where(w => w.Participant.AgentId == agent.Id)) { worker.Assistant?.Dispose(); worker.Assistant = null; }
-        if (mobileDirectory.SelectedAgentId == agent.Id) { editorAi?.Dispose(); editorAi = null; aiConnections.DisconnectEditor(); }
-    }
+    private void DisconnectMobileAgent(AiAgentProfile agent) { using var management = CreateMobileAgentManagement(() => { }); management.Disconnect(agent.Id); }
     private void DisconnectMobileHelper(AiHelper helper)
     {
         using var workspace = CreateMobileWorkspaceRoles(); workspace.RemoveHelper(helper.Id); RefreshMobileHome();

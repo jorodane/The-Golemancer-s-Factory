@@ -30,6 +30,7 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
     private EditorStudioAgentConnection? studioAgent;
     private IEditorStudioProfile? studioProfile;
     private IEditorStudioWorkerSettings? studioWorkerSettings;
+    private IEditorStudioAgentManagement? studioAgentManagement;
     private IEditorStudioDirectory? sharedStudioDirectory;
     private IEditorAssistant? connectedAgent;
     private AiDirectory studioDirectory = new();
@@ -136,7 +137,7 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
             return;
         }
         canvas.Save();
-        if (mode is "profile" or "directory" or "home" or "worker-settings") canvas.ClipRect(new SKRect(20, 56, width - 20, height - 40));
+        if (mode is "profile" or "directory" or "home" or "worker-settings" or "agent-management") canvas.ClipRect(new SKRect(20, 56, width - 20, height - 40));
         contentHeight = activeWindow is not null && focusLayout ? 0 : backend.Draw(root, canvas, new(20, 56 - scroll, width - 20, height - 40));
         canvas.Restore();
         if (activeWindow is not null)
@@ -174,6 +175,7 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
     private void Page(string name, string page, bool preserveStartup = false, bool preserveProfile = false, bool preserveDirectory = false)
     {
         studioWorkerSettings?.Dispose(); studioWorkerSettings = null;
+        studioAgentManagement?.Dispose(); studioAgentManagement = null;
         if (!preserveDirectory) { sharedStudioDirectory?.Dispose(); sharedStudioDirectory = null; }
         if (!preserveProfile) { studioProfile?.Dispose(); studioProfile = null; }
         activeWindow = null; if (!preserveStartup) { studioStartView?.Dispose(); studioStartView = null; } foreach (var c in controls.ToArray()) c.Dispose(); controls.Clear(); mapButtons.Clear();
@@ -189,6 +191,11 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
             () => ShowAgentSetup(), EnterStudioHome);
         root = (Element)studioStartView.Root; studioClock.Restart(); Tick(); Invalidate();
     }
+    private IEditorStudioAgentService CreateLinuxAgentService(EditorStudioPresentation presentation)
+    {
+        return new EditorStudioAgentService(presentation, () => new() { ProjectIdentity = session?.Project.Identity ?? "confectory.editor", StateDirectory = session?.StateDirectory ?? Path.Combine(Path.GetDirectoryName(AiDirectory.DefaultPath)!, "Studio"), AccessEnabled = true, HistoryEnabled = true },
+            externalDll: true, prepareCodex: async token => new(await LinuxCodexPreparation.Prepare(token), Path.Combine(AppContext.BaseDirectory, "Confectory.Assistant.Codex.dll")), needsInstallation: LinuxCodexPreparation.Required);
+    }
     private void ShowAgentSetup(IEditorStudioAgentService? service = null, IAiCredentialStore? credentials = null, AiDirectory? directory = null, Action? saveDirectory = null, string editingId = "")
     {
         bool returnToDirectory = sharedStudioDirectory is not null && mode is "directory" or "profile";
@@ -198,8 +205,7 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
         var presentation = new EditorStudioPresentation(EditorEngineDistribution.Open(engineDirectory));
         FinishStudioHomeFlight(); studioAgent?.Dispose(); Page(presentation.Text("editor.studio.agent-connection", "agent-heading"), "agent-setup", returnToStartup, preserveDirectory: returnToDirectory);
         directory ??= studioDirectory; credentials ??= aiCredentials;
-        service ??= new EditorStudioAgentService(presentation, () => new() { ProjectIdentity = session?.Project.Identity ?? "confectory.editor", StateDirectory = session?.StateDirectory ?? Path.Combine(Path.GetDirectoryName(AiDirectory.DefaultPath)!, "Studio"), AccessEnabled = true, HistoryEnabled = true },
-            externalDll: true, prepareCodex: async token => new(await LinuxCodexPreparation.Prepare(token), Path.Combine(AppContext.BaseDirectory, "Confectory.Assistant.Codex.dll")), needsInstallation: LinuxCodexPreparation.Required);
+        service ??= CreateLinuxAgentService(presentation);
         studioAgent = new(presentation, backend, directory, credentials, service, editingId, saveDirectory ?? (() => directory.Save(AiDirectory.DefaultPath)),
             (_, connected) => { connectedAgent?.Dispose(); connectedAgent = connected.Assistant; if (returnToStartup) EnterStudioHome(); else if (returnToDirectory) RestoreStudioDirectory(); else Home(); },
             () => { if (returnToStartup) { studioAgent?.Dispose(); studioAgent = null; mode = "startup"; root = (Element)studioStartView!.Root; scroll = 0; Tick(); Invalidate(); } else if (returnToDirectory) RestoreStudioDirectory(); else Home(); },
@@ -239,6 +245,17 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
             picker ?? (apply => Ask("이미지 파일 경로", "", path => { var info = new FileInfo(path); if (info.Length > presentation.Actions.ProfileImageMaximumBytes) throw new InvalidDataException("12 MiB 이하 이미지를 선택해줘."); apply(File.ReadAllBytes(path), Path.GetExtension(path)); Restore(); }, Restore, preserveProfile: true, preserveDirectory: true)),
             StudioProfilePreview, OnUi, () => !busy);
         title = ((Element)studioProfile.View.Element("profile-title")).Text("text"); root = (Element)studioProfile.View.Root; Invalidate();
+    }
+    private void ShowAgentManagement(AiDirectory? directory = null, Action? save = null, IEditorStudioAgentService? service = null, Action<AiAgentProfile>? reconnect = null)
+    {
+        var presentation = new EditorStudioPresentation(EditorEngineDistribution.Open(engineDirectory)); directory ??= studioDirectory;
+        Page(presentation.Text("editor.studio.agent-management", "agent-management-title"), "agent-management");
+        studioAgentManagement = presentation.Actions.AgentManagement(presentation, backend, directory, session?.Collaboration, service ?? CreateLinuxAgentService(presentation),
+            save ?? (() => directory.Save(AiDirectory.DefaultPath)), _ => busy,
+            reconnect ?? (agent => ShowAgentSetup(directory: directory, saveDirectory: save, editingId: agent.Id)),
+            agent => ShowStudioProfile(agent, null, directory, save: save),
+            (agent, _, selected) => { if (selected) { try { connectedAgent?.Dispose(); } finally { connectedAgent = null; } } Invalidate(); }, Home);
+        root = (Element)studioAgentManagement.View.Root; Invalidate();
     }
     private void ShowWorkerSettings(string participantId)
     {
@@ -282,11 +299,12 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
         var presentation = new EditorStudioPresentation(EditorEngineDistribution.Open(engineDirectory));
         return presentation.Actions.Workspace(presentation, backend, studioDirectory, session.Project, linuxProjectRoles, session.Collaboration,
             () => studioDirectory.Save(AiDirectory.DefaultPath), (participant, open) => { status = participant.Name + "가 참여했어. 아직 AI 요청은 하지 않았어."; Invalidate(); },
-            id => { connectedAgent?.Dispose(); connectedAgent = null; if (id.Length > 0) studioDirectory.SelectedAgentId = id; studioDirectory.Save(AiDirectory.DefaultPath); }, _ => false, () => !busy, workerSettings: ShowWorkerSettings);
+            id => { connectedAgent?.Dispose(); connectedAgent = null; if (id.Length > 0) studioDirectory.SelectedAgentId = id; studioDirectory.Save(AiDirectory.DefaultPath); }, _ => false, () => !busy, workerSettings: ShowWorkerSettings, manageAgents: () => ShowAgentManagement());
     }
     private void Home()
     {
         studioWorkerSettings?.Dispose(); studioWorkerSettings = null;
+        studioAgentManagement?.Dispose(); studioAgentManagement = null;
         studioProfile?.Dispose(); studioProfile = null;
         studioAgent?.Dispose(); studioAgent = null;
         studioCreation?.Dispose(); studioCreation = null;
@@ -607,5 +625,5 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
         }, ShowDocuments, true);
         if (!session.CanEdit(path)) Disable(root.Children.First(c => c.Id == "confirm"));
     }
-    public void Dispose() { if (disposed) return; disposed = true; lifetime.Cancel(); studioWorkerSettings?.Dispose(); pendingReview?.Cancel(); sharedWorkspaceRoles?.Dispose(); windows.Dispose(); execution?.Dispose(); runner?.Dispose(); FinishStudioHomeFlight(); sharedStudioDirectory?.Dispose(); studioProfile?.Dispose(); connectedAgent?.Dispose(); studioAgent?.Dispose(); sharedProjectHome?.Dispose(); studioCreation?.Dispose(); studioStartView?.Dispose(); studioHomeBrandView?.Dispose(); backend.Dispose(); lifetime.Dispose(); }
+    public void Dispose() { if (disposed) return; disposed = true; lifetime.Cancel(); studioAgentManagement?.Dispose(); studioWorkerSettings?.Dispose(); pendingReview?.Cancel(); sharedWorkspaceRoles?.Dispose(); windows.Dispose(); execution?.Dispose(); runner?.Dispose(); FinishStudioHomeFlight(); sharedStudioDirectory?.Dispose(); studioProfile?.Dispose(); connectedAgent?.Dispose(); studioAgent?.Dispose(); sharedProjectHome?.Dispose(); studioCreation?.Dispose(); studioStartView?.Dispose(); studioHomeBrandView?.Dispose(); backend.Dispose(); lifetime.Dispose(); }
 }

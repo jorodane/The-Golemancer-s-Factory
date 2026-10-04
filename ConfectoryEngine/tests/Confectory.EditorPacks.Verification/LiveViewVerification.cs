@@ -237,6 +237,7 @@ internal static class LiveViewVerification
                     Check(workspaceHub.State.Participants.Count == priorParticipants && directoryWrites == priorDirectoryWrites, "saved Helper restoration stays owner-local and idempotent without provider or credential actions on " + platform);
                     workspace.Dispose(); Reject(() => workspace.JoinHelper(workspaceHelper.Id), "disposed workspace actions cannot mutate a previous project on " + platform);
                 }
+                AgentManagementVerification.Run(presentation, new Backend(platform), creationRoot, platform, Check, Reject);
                 WorkerSettingsVerification.Run(presentation, new Backend(platform), creationRoot, platform, Check, Reject);
                 ParticipantLifecycleVerification.Run(presentation, new Backend(platform), creationRoot, platform, Check, Reject);
                 var helper = directory.CreateHelper(agent.Id, "First Helper");

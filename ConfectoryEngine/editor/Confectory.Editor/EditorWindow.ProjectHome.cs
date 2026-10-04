@@ -108,7 +108,7 @@ public sealed partial class EditorWindow
             if (worker is null) { CreateWorker(participant); worker = workers.Single(w => w.Participant.Id == participant.Id); }
             if (open) { SelectWorker(worker); ShowProjectWorkspace(); tabs.SelectedIndex = 0; }
             SetStatus(participant.Name + "가 참여했어. 개인 기억은 이 도우미에게만 전달돼.");
-        }, id => { SelectStoredAgent(id); SaveAiDirectory(); }, id => workers.Any(w => w.Participant.Id == id && w.Running), () => !busy && !PendingReviews, removed: RemoveStudioParticipants, workerSettings: id => ShowWorkerSettings(workers.Single(w => w.Participant.Id == id)));
+        }, id => { SelectStoredAgent(id); SaveAiDirectory(); }, id => workers.Any(w => w.Participant.Id == id && w.Running), () => !busy && !PendingReviews, removed: RemoveStudioParticipants, workerSettings: id => ShowWorkerSettings(workers.Single(w => w.Participant.Id == id)), manageAgents: ShowStudioAgentManagement);
     private void RemoveStudioParticipants(IReadOnlyList<Participant> removed)
     {
         var failures = new List<Exception>();
@@ -131,7 +131,7 @@ public sealed partial class EditorWindow
         sharedWorkspaceRoles?.Dispose(); sharedWorkspaceRoles = null;
         if (session is not null && !Standalone) { sharedWorkspaceRoles = CreateStudioWorkspace(); aiManagement.Children.Add(((EditorPackBackend.Element)sharedWorkspaceRoles.View.Root).Control); }
         aiManagement.Children.Add(Label("AI 관리", 13)); aiManagement.Children.Add(new Border { Height = 1, Background = MutedInk, Margin = new Thickness(4, 12, 4, 16) });
-        aiManagement.Children.Add(Label("Agent", 11, MutedInk)); var agents = new UniformGrid { Columns = 2 };
+        aiManagement.Children.Add(BareButton(Label(studioPresentation.Text("editor.studio.workspace", "workspace-agent-management"), 11, MutedInk), ShowStudioAgentManagement)); var agents = new UniformGrid { Columns = 2 };
         foreach (var agent in aiDirectory.Agents.Where(a => a.Enabled))
         {
             Button? circle = null; circle = AiCircle(agent.Name, agent.AvatarPath, () => ShowAiProfile(circle!, agent, null), selected: session is not null && !Standalone && agent.Id == projectStudio.MainAgentId); circle.Tag = "ai-profile";
@@ -227,7 +227,7 @@ public sealed partial class EditorWindow
         var profile = presentation.Actions.Profile(presentation, new EditorPackBackend(_ => { }, () => false), aiDirectory, agent?.Id ?? "", helper?.Id ?? "",
             Path.GetDirectoryName(AiDirectory.DefaultPath)!, session?.Project.Identity ?? "", () => aiDirectory.Save(AiDirectory.DefaultPath),
             () => { if (helper is not null && session is not null) { var updated = presentation.Actions.Participants(aiDirectory, session.Collaboration).RefreshHelperName(helper.Id); foreach (var worker in workers.Where(w => updated.Contains(w.Participant))) RenderWorker(worker); } RefreshAiManagement(); RefreshStudioShell(); RefreshStudioDirectories(); },
-            () => { window.Close(); editingAgentId = agent!.Id; SelectStoredAgent(agent.Id); ShowEditorAiSetup(); },
+            () => { window.Close(); editingAgentId = agent!.Id; ShowEditorAiSetup(); },
             () => { window.Close(); JoinHelper(helper!); }, window.Close,
             apply => { var picker = new OpenFileDialog { Filter = "이미지|*.png;*.jpg;*.jpeg;*.bmp" }; if (picker.ShowDialog(window) != true) return; if (new FileInfo(picker.FileName).Length > presentation.Actions.ProfileImageMaximumBytes || AvatarBrush(picker.FileName) is null) throw new InvalidDataException("12 MiB 이하 이미지를 선택해줘."); apply(File.ReadAllBytes(picker.FileName), Path.GetExtension(picker.FileName)); },
             StudioProfilePreview, action => Dispatcher.Invoke(action), () => !busy && !WorkersRunning);
@@ -243,12 +243,7 @@ public sealed partial class EditorWindow
         var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(image)); using var output = new MemoryStream(); encoder.Save(output);
         return "data:image/png;base64," + Convert.ToBase64String(output.ToArray());
     }
-    private void DisconnectAgent(AiAgentProfile agent)
-    {
-        if (publicMentions.Count > 0 || workers.Any(w => w.Participant.AgentId == agent.Id && w.Running)) throw new InvalidOperationException("이 Agent의 작업을 먼저 끝내줘.");
-        agent.Enabled = false; foreach (var worker in workers.Where(w => w.Participant.AgentId == agent.Id)) { worker.Assistant?.Dispose(); worker.Assistant = null; }
-        if (aiDirectory.SelectedAgentId == agent.Id) SelectStoredAgent("");
-    }
+    private void DisconnectAgent(AiAgentProfile agent) { using var management = CreateStudioAgentManagement(() => { }); management.Disconnect(agent.Id); }
     private void DisconnectHelper(AiHelper helper)
     {
         using var workspace = CreateStudioWorkspace(); workspace.RemoveHelper(helper.Id);

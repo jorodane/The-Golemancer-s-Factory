@@ -28,16 +28,13 @@ public sealed partial class EditorWindow
     private void RefreshAiMenus() { editorAiMenu.Header = "AI 관리 · " + aiConnections.Editor.Name; RefreshRecipients(); }
     private void ReadyForPackSelection() { if (!studioReady) CompleteStudioSetup(); }
     private void CompleteStudioSetup() => EnterProjectHome(() => { studioReady = true; aiConnections.SetupCompleted = true; SaveAiConnections(); RefreshStudioShell(); });
-    private void ShowEditorAiSetup()
+    private IEditorStudioAgentService CreateStudioAgentService(EditorStudioPresentation presentation)
     {
-        if (busy || WorkersRunning) return;
-        var presentation = new EditorStudioPresentation(InstalledEngine);
-        var dialog = new Window { Owner = this, Title = presentation.Text("editor.studio.agent-connection", "agent-heading"), Width = 610, SizeToContent = SizeToContent.Height, WindowStartupLocation = WindowStartupLocation.CenterOwner, Background = PanelInk, Foreground = TextInk };
         bool NeedsInstallation()
         {
             try { _ = CodexInstallation.ResolveExecutable(codexPath.Text.Trim()); return false; } catch (FileNotFoundException) { return true; }
         }
-        var service = new EditorStudioAgentService(presentation, () =>
+        return new EditorStudioAgentService(presentation, () =>
         {
             var options = SelectedAiOptions();
             if (conversation is not null) { options.ConversationDirectory = conversation.ConversationsPath; options.ConversationProject = conversation.Id; }
@@ -50,6 +47,13 @@ public sealed partial class EditorWindow
             if (prepared.NeedsNode) throw new InvalidOperationException(prepared.Reason + " Node.js 설치 후 다시 연결해줘.");
             return new(prepared.Executable, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Providers", "Confectory.Assistant.Codex.dll"));
         }, needsInstallation: NeedsInstallation);
+    }
+    private void ShowEditorAiSetup()
+    {
+        if (busy || WorkersRunning) return;
+        var presentation = new EditorStudioPresentation(InstalledEngine);
+        var dialog = new Window { Owner = this, Title = presentation.Text("editor.studio.agent-connection", "agent-heading"), Width = 610, SizeToContent = SizeToContent.Height, WindowStartupLocation = WindowStartupLocation.CenterOwner, Background = PanelInk, Foreground = TextInk };
+        var service = CreateStudioAgentService(presentation);
         EditorStudioAgentConnection? model = null;
         model = new(presentation, new EditorPackBackend(_ => { }, () => false), aiDirectory, aiCredentials, service, editingAgentId, SaveAiDirectory,
             (profile, connected) =>

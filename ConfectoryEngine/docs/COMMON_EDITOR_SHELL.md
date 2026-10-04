@@ -583,3 +583,113 @@ net48 source compilation passed with zero warnings/errors. Android local build/
 device execution remains unavailable; exact pushed CI must confirm its build and
 remote Windows/Linux native execution. Provider behavior remains fixture-backed;
 no paid inference, real authentication or production credential writes occurred.
+
+## Agent management acceptance contract (next checkpoint)
+
+The installed factory must own the management view and explicit disconnect/
+reconnect decisions. Disconnect checks active use before any write, disables the
+private device-owned source, clears its selected identity, persists before runtime
+cleanup, and preserves credentials, Helpers/global memories, participant metadata,
+history and review evidence. Runtime cleanup receives only locally controlled
+participants; another owner's matching AgentId is not authority to dispose it.
+A private-source action must not create new project locks or mutate project roles.
+Failed persistence restores the private source/selection and skips cleanup;
+cleanup failure remains explicit after the committed disable and supports retry.
+Reconnect opens the existing shared consent/setup form for the exact source; it
+must not enable, authenticate, read credentials or make model calls by itself.
+All hosts expose the same management elements and actions. Provider availability
+comes from the installed AgentService and OS adapter capabilities. Mount, cancel
+and reentry remain inert. Existing account/model/legacy Codex and conversation
+features remain present until separately migrated, never deleted for this stage.
+
+Worker settings published implementation:
+68221d172bd3ab327445603c3791ef0bb9ad39a2. All five exact-commit CI jobs passed:
+https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37199014887.
+
+## Agent source-management continuation checkpoint
+
+`StudioAgentManagement` and the common `editor.studio.agent-management` definition
+are owned by the installed CoreTools factory. Windows and Android expose that
+form from their Agent sidebar heading and shared workspace entry. Linux exposes
+the same entry/form. Existing circular icons, private profiles, worker logs,
+conversation actions, provider/account/model features and the old explicit Codex
+connection workflow remain; they were not deleted to satisfy this checkpoint.
+Windows/Android private profile disconnect, Android's old AI-menu disconnect and
+Linux's new management controls use the installed action. Private profile setup
+no longer selects/disposes the current runtime merely for opening reconfiguration.
+
+Disconnect checks active use, saves the disabled private source and cleared
+selected identity before native cleanup, and passes only owner-controlled AI
+participants to that callback. Helpers/global memories, credentials, public
+participation, histories and review evidence remain. Failed persistence restores
+memory and compensates already written directory bytes. Runtime cleanup failure
+is explicit after the committed disable; the form permits cleanup retry without
+resurrecting or redundantly writing the source. Native adapters clear/dispose their
+provider references and refresh windows, rather than owning disable/selection
+policy. A source can be managed before a project is open; this private device
+operation grants no project authority and requires no project work lock.
+
+Reconnect validates active-use/provider capability and routes the exact identity
+to existing shared consent/setup. It never enables the source, reads credentials,
+queries models, installs a CLI or authenticates merely by being opened. The real
+OS-capable AgentService builders are reused; no fake supported-provider fallback
+was added. Unsupported sources remain inspectable/reconfigurable in profiles.
+Owner-local effective-model inspection also now uses read authority, while worker
+settings mutations/auto-confirm remain work-authorized. This preserves the
+separation between inspecting private device configuration and editing a project.
+
+Portable coverage includes inert mounting, profile/reconnect routing, active-use
+denial, failed/private post-write persistence and compensation, selected-source
+clearing, owner-filtered cleanup, global/private/audit preservation, repeated
+cleanup, cleanup failure/retry, unsupported providers, cancellation, projectless
+management and disposal. All provider calls are forbidden by the injected
+management service. Actual SDL additionally opens the common management entry,
+disables a fixture source while retaining Helper memory/public participation,
+reconnects without activation/model/credential requests, and closes/reenters.
+The common management screenshot was inspected outside Git.
+
+Precise next handoff (the assigned stage is still incomplete):
+
+1. Replace remaining native circular sidebar cards/status/popup/menu definitions
+   in `EditorWindow.ProjectHome.cs`, `EditorWindow.CollaborationUi.cs`,
+   `MainActivity.ProjectHome.cs`, `MainActivity.Presence.cs` and
+   `MainActivity.Timeline.cs` with common pack definitions and primitive adapter
+   gesture/render hooks. Preserve double-click/tap, Yogi drop and owner-specific
+   public/private actions. Current common workspace/settings/management views
+   coexist with native sidebar icons; this is not full sidebar parity.
+2. Move ordinary-worker creation and promotion-name/character/movable-window
+   definitions. Public worker name/model/task/auto-confirm settings and layout/
+   display/removal/promotion persistence policy are already migrated; do not
+   duplicate them. The separate private global Helper profile keeps its own name
+   and concise significant cross-project memories.
+3. Complete saved-Agent connection execution and live account/model presentation
+   from Windows `ConnectSelectedEditorAi`/legacy Codex and Android
+   `ConnectEditorAi`/AI menu via installed CoreTools. Shared setup and provider
+   construction policy already exist; preserve legacy options/history/auth flows.
+   This checkpoint completes source disable/reconnect routing, not every Agent
+   execution/account/model-management gap. Use injected services for cancel,
+   disposal/reentry/failure checks; no real credentials or paid requests.
+4. Finish shared conversation execution/UI across all three hosts. Existing
+   Windows/Android worker flows remain active; Linux still lacks actual worker/
+   send/stream/cancel/history/context/review execution. Its conversation action
+   stays disabled until real shared support exists. Preserve semantic locality,
+   frozen scoped context, global/private Helper memory, reviewed local changes
+   and existing incoming-change/clash callbacks; never add a lock system.
+5. Collaboration/Yogi full parity, packs/review and final Linux package remain
+   subsequent stages. Supervisor/table/augment/render authoring stay out of scope.
+
+No user action or external-access blocker was identified. Continue this authorized
+scope from the existing changes/checkpoints; do not restart or ask for approval.
+Verification/publication evidence follows after final checks.
+
+Final local management checks: installed packs 857 (live views/actions 574),
+Studio 225, Authoring 39, engine isolation and the explicitly selected external
+consumer clean build/full verification campaign passed. Actual self-contained
+Linux SDL passed management disable/reconnect/close plus settings, role,
+startup/Agent/profile/global-memory/home/creation and semantic-editing regressions.
+Windows/native-test and CoreTools net48 source builds passed with zero warnings/
+errors. Android local workload/device execution remains unavailable; remote build
+and native jobs must be checked against the exact pushed commit. Authentication,
+paid inference and production credential writes remain intentionally untested;
+management provider calls are forbidden in its injected fixtures. This checkpoint
+is ready for ordinary publication and exact-main CI verification.

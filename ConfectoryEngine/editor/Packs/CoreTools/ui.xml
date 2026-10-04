@@ -187,6 +187,7 @@
     <Node id="workspace-helper-heading" order="30" widget="editor.text"><Set property="text" value="Helper · 개인 기억은 이 Helper에게만 전달돼." /></Node>
     <Node id="workspace-helpers" order="40" widget="editor.stack"><Slot name="children" export="true" /></Node>
     <Node id="workspace-workers" order="45" widget="editor.stack"><Slot name="children" export="true" /></Node>
+    <Node id="workspace-agent-management" order="48" widget="editor.button"><Set property="text" value="Agent 관리" /><Bind property="enabled" source="studio.workspace.canManage" /><On event="activate" command="studio.workspace.manageAgents" /></Node>
     <Node id="workspace-note" order="50" widget="editor.text"><Bind property="text" source="studio.workspace.note" /></Node>
   </Slot></Node></View>
   <View id="editor.studio.worker-settings"><Node id="worker-settings-root" widget="editor.stack"><Slot name="children">
@@ -198,5 +199,12 @@
     <Node id="worker-settings-save" order="50" widget="editor.button"><Set property="text" value="이름 · 모델 · 작업 설정 저장" /><On event="activate" command="studio.worker.save" /></Node>
     <Node id="worker-settings-note" order="60" widget="editor.text"><Bind property="text" source="studio.worker.note" /></Node>
     <Node id="worker-settings-cancel" order="70" widget="editor.button"><Set property="text" value="닫기 · 미저장 편집 취소" /><On event="activate" command="studio.worker.close" /></Node>
+  </Slot></Node></View>
+  <View id="editor.studio.agent-management"><Node id="agent-management-root" widget="editor.stack"><Slot name="children">
+    <Node id="agent-management-title" widget="editor.text"><Set property="text" value="Agent 관리 · 이 기기의 연결 원본" /></Node>
+    <Node id="agent-management-boundary" order="10" widget="editor.text"><Set property="text" value="연결 해제는 인증 슬롯·Helper·개인 경험을 삭제하지 않아. 다시 연결은 별도의 명시적인 연결 확인이 필요해." /></Node>
+    <Node id="agent-management-agents" order="20" widget="editor.stack"><Slot name="children" export="true" /></Node>
+    <Node id="agent-management-note" order="30" widget="editor.text"><Bind property="text" source="studio.management.note" /></Node>
+    <Node id="agent-management-close" order="40" widget="editor.button"><Set property="text" value="닫기" /><On event="activate" command="studio.management.close" /></Node>
   </Slot></Node></View>
 </Ui>

@@ -166,6 +166,17 @@ internal sealed partial class EditorSurface
         Reveal("worker-settings-cancel"); Click("worker-settings-cancel"); Reveal("workspace-worker-settings-0"); Click("workspace-worker-settings-0");
         EditCreation("worker-settings-name", "Cancelled SDL draft"); Reveal("worker-settings-cancel"); Click("worker-settings-cancel");
         Check(settingsParticipant.Name == "SDL saved worker" && mode == "home", "actual SDL settings reentry and cancellation preserve saved state");
+        Reveal("workspace-agent-management"); Click("workspace-agent-management");
+        Check(mode == "agent-management", "actual SDL workspace opens the installed Agent management view");
+        Reveal("agent-management-close"); Click("agent-management-close");
+        var managementService = new VerificationAgentService(); int managementSaves = 0, managementReconnects = 0;
+        ShowAgentManagement(profileDirectory, () => managementSaves++, managementService, agent => { Check(agent.Id == profileAgent.Id, "actual SDL reconnect routes exact private source"); managementReconnects++; });
+        Reveal("agent-management-0-disconnect"); Click("agent-management-0-disconnect");
+        Check(!profileAgent.Enabled && profileDirectory.SelectedAgentId.Length == 0 && globalHelper.Enabled && globalHelper.Memories.Count > 0 && session.Collaboration.State.Participants.Contains(settingsParticipant) && managementSaves == 1, "actual SDL Agent disable preserves Helper memory and public worker participation");
+        Reveal("agent-management-0-reconnect"); Click("agent-management-0-reconnect");
+        Check(managementReconnects == 1 && !profileAgent.Enabled && managementService.ConnectCalls == 0 && managementService.ModelCalls == 0, "actual SDL reconnect remains inert pending separate consent and confirmation");
+        if (screenshot.Length > 0) native.Screenshot(screenshot + ".management.png");
+        Reveal("agent-management-close"); Click("agent-management-close");
         if (screenshot.Length > 0) native.Screenshot(screenshot + ".roles.png");
         Open(originalProject);
         Page("Native input verification", "verification");

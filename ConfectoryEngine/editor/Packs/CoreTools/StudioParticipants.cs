@@ -34,7 +34,8 @@ public sealed partial class StudioParticipants : IEditorStudioParticipants
     }
     public string Model(string participantId)
     {
-        _ = collaboration.Require(actor, ParticipantPermission.Work); collaboration.RequireControl(actor, participantId);
+        _ = collaboration.Require(actor, ParticipantPermission.None);
+        if (!collaboration.CanControl(actor, participantId)) throw new UnauthorizedAccessException("소유한 작업자의 개인 연결 모델만 읽을 수 있어.");
         var participant = collaboration.Require(participantId, ParticipantPermission.None);
         if (participant.Kind != ParticipantKind.AI) throw new InvalidOperationException("AI 작업자를 선택해줘.");
         var agent = directory.Agent(participant.AgentId);

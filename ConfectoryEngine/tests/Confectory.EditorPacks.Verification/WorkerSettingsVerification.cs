@@ -29,6 +29,9 @@ internal static class WorkerSettingsVerification
         var reopened = new CollaborationWorkspace(folder).Require(worker.Id, ParticipantPermission.None);
         Check(reopened.Model == "override-model" && reopened.AutoConfirm && remote.Name == "Remote" && !File.ReadAllText(file).Contains("private-fixture-reference"), "settings survive reopen and leave other-owner and private state unchanged");
         var participants = presentation.Actions.Participants(directory, hub);
+        hub.Require("human", ParticipantPermission.Work).Permissions = ParticipantPermission.None;
+        Check(participants.Model(worker.Id) == "override-model", "read-only owner may inspect local model without a project work grant");
+        hub.Require("human", ParticipantPermission.None).Permissions = ParticipantPermission.Talk | ParticipantPermission.Work | ParticipantPermission.Apply;
         Check(participants.Model(worker.Id) == "override-model", "common effective model honors worker override");
         Edit("model", ""); settings.Save(); Check(participants.Model(worker.Id) == "default-model", "clearing override restores the source Agent model");
         Reject(() => participants.Model(remote.Id), "effective model lookup denies another owner's private Agent");

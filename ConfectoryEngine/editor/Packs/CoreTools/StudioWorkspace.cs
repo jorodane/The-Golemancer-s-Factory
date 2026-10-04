@@ -21,18 +21,19 @@ public sealed partial class StudioWorkspace : IEditorStudioWorkspace
     private readonly Func<bool> idle;
     private readonly Action<IReadOnlyList<Participant>>? removed;
     private readonly Action<string>? workerSettings;
+    private readonly Action? manageAgents;
     private readonly UiSignal note = new(UiValue.Text(""));
     private bool disposed;
     public EditorLiveView View { get; }
 
     public StudioWorkspace(EditorStudioPresentation presentation, IUiBackend backend, AiDirectory directory, WorkspaceProject project,
         ProjectStudio roles, CollaborationWorkspace collaboration, Action saveDirectory, Action<Participant, bool> joined,
-        Action<string> selectedAgent, Func<string, bool> running, Func<bool>? idle, Action<IReadOnlyList<Participant>>? removed, Action<string>? workerSettings)
+        Action<string> selectedAgent, Func<string, bool> running, Func<bool>? idle, Action<IReadOnlyList<Participant>>? removed, Action<string>? workerSettings, Action? manageAgents)
     {
         this.presentation = presentation; this.directory = directory; this.project = project; this.roles = roles;
         this.collaboration = collaboration; this.saveDirectory = saveDirectory; this.joined = joined; this.selectedAgent = selectedAgent;
         this.running = running; this.idle = idle ?? (() => true);
-        this.removed = removed; this.workerSettings = workerSettings;
+        this.removed = removed; this.workerSettings = workerSettings; this.manageAgents = manageAgents;
         var state = State(); View = new(state.Catalog, "editor.studio.workspace.state", state.Context, backend);
     }
     private bool ProjectRoles => project.Id != "confectory.editor";
@@ -118,12 +119,14 @@ public sealed partial class StudioWorkspace : IEditorStudioWorkspace
     {
         var context = new UiContext(); context.AddValue("studio.workspace.title", new UiSignal(UiValue.Text(project.Name + " · 역할")));
         context.AddValue("studio.workspace.note", note);
+        context.AddValue("studio.workspace.canManage", new UiSignal(UiValue.Boolean(manageAgents is not null)));
         var agents = new List<XElement>(); var helpers = new List<XElement>();
         XElement Button(string id, string title, string command, bool enabled = true) => new("Node", new XAttribute("id", id), new XAttribute("order", agents.Count + helpers.Count), new XAttribute("widget", "editor.button"),
             new XElement("Set", new XAttribute("property", "text"), new XAttribute("value", title)),
             new XElement("Set", new XAttribute("property", "enabled"), new XAttribute("value", enabled ? "true" : "false")),
             new XElement("On", new XAttribute("event", "activate"), new XAttribute("command", command)));
         void Command(string id, Action action) => context.AddCommand(id, UiValueKind.None, _ => Guard(action));
+        Command("studio.workspace.manageAgents", () => manageAgents?.Invoke());
         Command("studio.workspace.clearAgent", () => SelectMainAgent(""));
         foreach (var agent in directory.Agents.ToArray())
         {

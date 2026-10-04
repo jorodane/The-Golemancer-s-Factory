@@ -64,7 +64,7 @@ public sealed partial class MainActivity
                 if (e.Which == 0) ShowEditorAiSetup();
                 else if (e.Which == 1) OpenEditorAiChat();
                 else if (e.Which == 2) Work(async () => { if (await ConnectEditorAi()) Report("에디터 AI 연결됨 · " + aiConnections.Editor.Name); });
-                else { var selected = mobileDirectory.Agents.FirstOrDefault(a => a.Id == mobileDirectory.SelectedAgentId); if (selected is not null) { selected.Enabled = false; foreach (var worker in mobileWorkers.Where(w => w.Participant.AgentId == selected.Id)) { worker.Assistant?.Dispose(); worker.Assistant = null; } SaveMobileDirectory(); } editorAi?.Dispose(); editorAi = null; aiConnections.DisconnectEditor(); SaveAiConnections(); Report("에이전트 연결을 해제했어."); }
+                else { var selected = mobileDirectory.Agents.FirstOrDefault(a => a.Id == mobileDirectory.SelectedAgentId); if (selected is not null) DisconnectMobileAgent(selected); else { editorAi?.Dispose(); editorAi = null; aiConnections.DisconnectEditor(); SaveAiConnections(); } Report("에이전트 연결을 해제했어."); }
             })!.Show();
     }
     private void ShowEditorAiSetup()
