@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-android</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <SupportedOSPlatformVersion>26</SupportedOSPlatformVersion>
+    <TargetPlatformVersion>36.0</TargetPlatformVersion>
+    <ApplicationId>com.confectory.editor</ApplicationId>
+    <ApplicationTitle>Confectory</ApplicationTitle>
+    <ApplicationVersion>1</ApplicationVersion><ApplicationDisplayVersion>0.1.0</ApplicationDisplayVersion>
+    <RuntimeIdentifiers>android-arm64;android-x64</RuntimeIdentifiers>
+    <AndroidPackageFormats Condition="'$(AndroidPackageFormats)' == ''">apk</AndroidPackageFormats><AndroidBuildApplicationPackage>true</AndroidBuildApplicationPackage>
+    <EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
+    <PublishTrimmed>false</PublishTrimmed><RunAOTCompilation>false</RunAOTCompilation><PublishAot>false</PublishAot>
+    <AndroidUseAssemblyStore>true</AndroidUseAssemblyStore><AndroidEnableAssemblyCompression>true</AndroidEnableAssemblyCompression>
+    <AndroidEnableMarshalMethods>false</AndroidEnableMarshalMethods>
+    <EditorEngineBundleRoot>$(MSBuildProjectDirectory)/obj/EngineBundle/$(Configuration)</EditorEngineBundleRoot>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(ConfectoryPlayBuild)' == 'true'">
+    <AndroidPackageFormats>aab</AndroidPackageFormats>
+    <AndroidKeyStore>true</AndroidKeyStore>
+    <AndroidUseApkSigner>false</AndroidUseApkSigner>
+    <AndroidDebuggable>false</AndroidDebuggable>
+  </PropertyGroup>
+  <Target Name="ValidatePlayBuild" BeforeTargets="PrepareForBuild" Condition="'$(ConfectoryPlayBuild)' == 'true'">
+    <Error Condition="'$(Configuration)' != 'Release'" Text="Play builds require Release." />
+    <Error Condition="'$(RuntimeIdentifier)' != 'android-arm64'" Text="Play builds require android-arm64." />
+    <Error Condition="'$(AndroidSigningKeyStore)' == '' Or !Exists('$(AndroidSigningKeyStore)')" Text="Supply an existing upload keystore." />
+    <Error Condition="'$(AndroidSigningKeyAlias)' == '' Or '$(AndroidSigningStorePass)' == '' Or '$(AndroidSigningKeyPass)' == ''" Text="Supply upload key alias and password files." />
+  </Target>
+  <ItemGroup>
+    <Compile Include="../Shared/ConfectoryStartPage.cs" Link="ConfectoryStartPage.cs" />
+    <ProjectReference Include="../Confectory.EditorPacks/Confectory.EditorPacks.csproj" AdditionalProperties="EngineTargetFramework=net10.0" />
+    <ProjectReference Include="../Confectory.Assistant.Api/Confectory.Assistant.Api.csproj" AdditionalProperties="EngineTargetFramework=net10.0" />
+    <ProjectReference Include="../Packs/CoreTools/Confectory.Editor.CoreTools.csproj;../examples/MobileLab/Confectory.Editor.MobileLab.csproj" AdditionalProperties="EngineTargetFramework=net10.0" ReferenceOutputAssembly="false" />
+    <AndroidAsset Include="$(EditorEngineBundleRoot)/Engine.zip" LogicalName="Engine.zip" Link="Engine.zip" />
+    <AndroidAsset Include="../examples/MobileLab/*.xml;../examples/MobileLab/*.cs;../examples/MobileLab/*.csproj"><Link>Plugins/editor.lab.mobile/%(Filename)%(Extension)</Link></AndroidAsset>
+    <AndroidAsset Include="../examples/MobileLab/Bin/net10.0/Confectory.Editor.MobileLab.dll"><Link>Plugins/editor.lab.mobile/Bin/net10.0/Confectory.Editor.MobileLab.dll</Link></AndroidAsset>
+  </ItemGroup>
+  <Target Name="BundleConfectory" BeforeTargets="_ComputeAndroidAssetsPaths" DependsOnTargets="ResolveProjectReferences">
+    <MSBuild Projects="$(MSBuildThisFileDirectory)../Confectory.Tool/Confectory.Tool.csproj" Targets="Restore;Build" Properties="Configuration=$(Configuration);EngineTargetFramework=net10.0;TargetFramework=net10.0;SelfContained=false" RemoveProperties="RuntimeIdentifier;RuntimeIdentifiers" />
+    <Exec Command="dotnet &quot;$(MSBuildThisFileDirectory)../Confectory.Tool/bin/$(Configuration)/net10.0/Confectory.Tool.dll&quot; bundle-engine --recipe &quot;$(MSBuildThisFileDirectory)../engine.xml&quot; --output &quot;$(EditorEngineBundleRoot)/Content&quot; --archive &quot;$(EditorEngineBundleRoot)/Engine.zip&quot;" />
+  </Target>
+</Project>

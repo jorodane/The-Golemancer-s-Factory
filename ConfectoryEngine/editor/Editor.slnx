@@ -1,0 +1,16 @@
+<Solution>
+  <Project Path="../src/Confectory.Contracts/Confectory.Contracts.csproj" />
+  <Project Path="../src/Confectory.Runtime/Confectory.Runtime.csproj" />
+  <Project Path="Confectory.Workspace/Confectory.Workspace.csproj" />
+  <Project Path="Confectory.Tool/Confectory.Tool.csproj" />
+  <Project Path="Confectory.Editor/Confectory.Editor.csproj" />
+  <Project Path="Confectory.Assistant.Command/Confectory.Assistant.Command.csproj" />
+  <Project Path="Confectory.Assistant.Codex/Confectory.Assistant.Codex.csproj" />
+  <Project Path="Confectory.Assistant.Api/Confectory.Assistant.Api.csproj" />
+  <Project Path="Confectory.Launcher/Confectory.Launcher.csproj" />
+  <Project Path="Confectory.Editor.Contracts/Confectory.Editor.Contracts.csproj" />
+  <Project Path="Confectory.EditorPacks/Confectory.EditorPacks.csproj" />
+  <Project Path="Confectory.PackHost/Confectory.PackHost.csproj" />
+  <Project Path="Packs/CoreTools/Confectory.Editor.CoreTools.csproj" />
+  <Project Path="examples/MobileLab/Confectory.Editor.MobileLab.csproj" />
+</Solution>

@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup><ProjectReference Include="../Confectory.Workspace/Confectory.Workspace.csproj" /></ItemGroup>
+  <ItemGroup><Compile Include="../Shared/CodexInstallation.cs" Link="CodexInstallation.cs" /></ItemGroup>
+</Project>

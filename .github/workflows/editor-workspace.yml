@@ -6,6 +6,12 @@ on:
 permissions:
   contents: read
   statuses: write
+defaults:
+  run:
+    working-directory: ConfectoryEngine
+env:
+  CONFECTORY_TEST_PROJECT: ${{ github.workspace }}/ConfectoryProjects/Golemancer/Golemancer.packproject
+  CONFECTORY_ENGINE_ROOT: ${{ github.workspace }}/ConfectoryEngine
 jobs:
   portable:
     runs-on: ubuntu-latest
@@ -15,14 +21,16 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
+      - name: Independent engine without a consumer
+        run: python tools/verify-engine.py
       - name: Editor packs and main workspace
-        run: python tools/verify-editor-packs.py
+        run: python tools/verify-editor-packs.py --project "$CONFECTORY_TEST_PROJECT"
       - name: Worker identities and shared review
         run: python tools/verify-studio.py
       - name: Scoped editor authoring
         run: python tools/verify-authoring.py
       - name: Independent game and full campaign
-        run: python Golemancer/tools/verify-isolation.py
+        run: python tools/verify-project-layout.py --project "$CONFECTORY_TEST_PROJECT"
       - name: Report verification status
         if: always()
         uses: actions/github-script@v7
@@ -54,14 +62,14 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: engine-windows-receipt
-          path: engine-windows.json
+          path: ConfectoryEngine/engine-windows.json
       - name: Native workspace and worker interaction
         shell: pwsh
         run: |
-          dotnet build tests/PackEngine.Editor.Native.Verification/PackEngine.Editor.Native.Verification.csproj -c Release -p:EngineTargetFramework=net48 -p:UseSharedCompilation=false -m:1 --nologo -v:minimal
+          dotnet build tests/Confectory.Editor.Native.Verification/Confectory.Editor.Native.Verification.csproj -c Release -p:EngineTargetFramework=net48 -p:UseSharedCompilation=false -m:1 --nologo -v:minimal
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          Copy-Item tests/PackEngine.Editor.Native.Verification/bin/Release/net48/PackEngine.Editor.Native.Verification.exe* editor/Builds/Windows/
-          & editor/Builds/Windows/PackEngine.Editor.Native.Verification.exe $env:GITHUB_WORKSPACE
+          Copy-Item tests/Confectory.Editor.Native.Verification/bin/Release/net48/Confectory.Editor.Native.Verification.exe* editor/Builds/Windows/
+          & editor/Builds/Windows/Confectory.Editor.Native.Verification.exe "$env:GITHUB_WORKSPACE/ConfectoryEngine"
           exit $LASTEXITCODE
       - name: Report verification status
         if: always()
@@ -88,15 +96,15 @@ jobs:
           dotnet-version: '10.0.x'
       - run: dotnet workload install android
       - name: Android SDK dependencies
-        run: dotnet build editor/PackEngine.Editor.Android/PackEngine.Editor.Android.csproj -t:InstallAndroidDependencies -p:AcceptAndroidSdkLicenses=true -p:EngineTargetFramework=net10.0
+        run: dotnet build editor/Confectory.Editor.Android/Confectory.Editor.Android.csproj -t:InstallAndroidDependencies -p:AcceptAndroidSdkLicenses=true -p:EngineTargetFramework=net10.0
       - name: Native Android editor build
-        run: dotnet build editor/PackEngine.Editor.Android/PackEngine.Editor.Android.csproj -c Release -p:EngineTargetFramework=net10.0 -p:UseSharedCompilation=false -m:1 --nologo -v:minimal
+        run: dotnet build editor/Confectory.Editor.Android/Confectory.Editor.Android.csproj -c Release -p:EngineTargetFramework=net10.0 -p:UseSharedCompilation=false -m:1 --nologo -v:minimal
       - name: Packaged Android pack engine
-        run: python tools/verify-editor-engine.py --apk-directory editor/PackEngine.Editor.Android/bin/Release/net10.0-android --receipt engine-android.json
+        run: python tools/verify-editor-engine.py --apk-directory editor/Confectory.Editor.Android/bin/Release/net10.0-android --receipt engine-android.json
       - uses: actions/upload-artifact@v4
         with:
           name: engine-android-receipt
-          path: engine-android.json
+          path: ConfectoryEngine/engine-android.json
       - name: Report verification status
         if: always()
         uses: actions/github-script@v7
@@ -109,6 +117,9 @@ jobs:
               target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
             });
   engine-compatibility:
+    defaults:
+      run:
+        working-directory: .
     needs: [windows, android]
     runs-on: ubuntu-latest
     steps:

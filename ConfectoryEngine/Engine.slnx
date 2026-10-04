@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="src/Confectory.Contracts/Confectory.Contracts.csproj" />
+  <Project Path="src/Confectory.Runtime/Confectory.Runtime.csproj" />
+</Solution>

@@ -1,4 +1,2 @@
-Golemancer/Builds/Windows/*.exe binary
-Golemancer/Builds/Windows/*.dll binary
-Golemancer/Content/Packs/**/Bin/**/*.dll binary
-Golemancer/SDK/**/*.dll binary
+*.exe binary
+*.dll binary

@@ -1,0 +1,3 @@
+<ConfectoryEngine version="1" name="Confectory">
+  <Pack id="engine.ui.button" project="packs/Ui.Button/Confectory.Ui.Button.csproj" />
+</ConfectoryEngine>

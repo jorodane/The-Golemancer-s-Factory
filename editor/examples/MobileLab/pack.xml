@@ -1,4 +1,0 @@
-<ObjectPack id="editor.lab.mobile" version="1.0.0" contracts="editor-1" extends="editor.core.tools">
-  <Assembly path="Bin/{framework}/PackEngine.Editor.MobileLab.dll" />
-  <Ui path="ui.xml" /><Data path="editor.xml" /><Source path="PackEngine.Editor.MobileLab.csproj" />
-</ObjectPack>

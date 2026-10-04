@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../editor/Confectory.Launcher/Bootstrap.cs" Link="Bootstrap.cs" />
+    <Compile Include="../../editor/Shared/CodexInstallation.cs" Link="CodexInstallation.cs" />
+    <Compile Include="../../editor/Shared/CodexBootstrap.cs" Link="CodexBootstrap.cs" />
+    <Compile Include="../../editor/Shared/ProjectConversation.cs" Link="ProjectConversation.cs" />
+  </ItemGroup>
+</Project>

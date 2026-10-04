@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../editor/Confectory.Assistant.Api/Confectory.Assistant.Api.csproj" />
+    <ProjectReference Include="../../editor/Confectory.EditorPacks/Confectory.EditorPacks.csproj" />
+  </ItemGroup>
+</Project>

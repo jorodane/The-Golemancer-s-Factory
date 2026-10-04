@@ -1,1 +1,0 @@
-<ObjectPack id="editor.core.tools" version="1.0.0" contracts="editor-1"><Assembly path="Bin/{framework}/PackEngine.Editor.CoreTools.dll" /><Ui path="ui.xml" /><Data path="editor.xml" /><Source path="PackEngine.Editor.CoreTools.csproj" /></ObjectPack>

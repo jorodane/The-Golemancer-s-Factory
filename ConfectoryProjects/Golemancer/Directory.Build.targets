@@ -1,0 +1,20 @@
+<Project>
+  <PropertyGroup>
+    <ConfectorySdkCopyLocal Condition="'$(ConfectorySdkCopyLocal)' == ''">true</ConfectorySdkCopyLocal>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Confectory.Contracts">
+      <HintPath>$(ConfectorySdkDirectory)/Confectory.Contracts.dll</HintPath>
+      <Private>$(ConfectorySdkCopyLocal)</Private>
+    </Reference>
+    <Reference Include="Confectory.Runtime" Condition="'$(UseGameRuntime)' == 'true' Or '$(MSBuildProjectName)' == 'Golemancer.Runtime'">
+      <HintPath>$(ConfectorySdkDirectory)/Confectory.Runtime.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <ProjectReference Include="$(GolemancerGameRoot)src/Golemancer.Contracts/Golemancer.Contracts.csproj" Condition="'$(MSBuildProjectName)' != 'Golemancer.Contracts'" />
+    <ProjectReference Include="$(GolemancerGameRoot)src/Golemancer.Runtime/Golemancer.Runtime.csproj" Condition="'$(UseGameRuntime)' == 'true'" />
+  </ItemGroup>
+  <Target Name="RequireSelectedEngineSdk" BeforeTargets="PrepareForBuild">
+    <Error Condition="'$(ConfectorySdkDirectory)' == '' Or !Exists('$(ConfectorySdkDirectory)/Confectory.Contracts.dll')" Text="Build this project through ConfectoryEngine/Build.bat with its project path. The selected engine prepares its SDK automatically; no pre-existing Builds folder is needed." />
+  </Target>
+</Project>

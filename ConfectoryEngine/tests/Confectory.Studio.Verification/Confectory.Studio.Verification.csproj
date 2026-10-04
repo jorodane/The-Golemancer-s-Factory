@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType></PropertyGroup>
+  <ItemGroup><ProjectReference Include="../../editor/Confectory.Workspace/Confectory.Workspace.csproj" /></ItemGroup>
+</Project>

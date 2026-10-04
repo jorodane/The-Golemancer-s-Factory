@@ -1,0 +1,366 @@
+using System.Globalization;
+using System.Text.Json;
+using System.Windows;
+using System.Windows.Controls;
+using System.Xml.Linq;
+using Confectory.Contracts.UI;
+using Confectory.Editor.Contracts;
+using Confectory.EditorPacks;
+using Confectory.Runtime;
+using Confectory.Runtime.UI;
+using Confectory.Workspace;
+
+namespace Confectory.Editor;
+
+public sealed partial class EditorWindow
+{
+    private readonly StackPanel packRows = new();
+    private readonly ComboBox packChoice = new() { MinWidth = 240, Margin = new Thickness(4) }, packScope = new() { MinWidth = 160, Margin = new Thickness(4) }, packFiles = new() { MinWidth = 180, Margin = new Thickness(4) };
+    private readonly TextBox packId = Input(), packDocument = Input(true), packDiff = ReadBox();
+    private readonly TextBlock packStatus = Label("에디터팩 준비 중"), packPointLabel = Label("에디터 요소 포인팅 없음", 11);
+    private readonly List<EditorPackSource> packSources = [];
+    private readonly HashSet<string> enabledPackFolders = new(StringComparer.OrdinalIgnoreCase);
+    private readonly List<SemanticTarget> editorPoints = [];
+    private EditorPackRuntime? packGeneration;
+    private EditorPackChange? packChange;
+    private Grid? editorBody, editorRoot;
+    private string packOriginal = "", packOpenPath = "", packOpenId = "";
+    private bool packLoading, pendingEditorPackReload, packDefaultsLoaded;
+    private static string EditorPackSettings => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Confectory", "editor-packs.json");
+    private static string EditorPackHistory => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Confectory", "EditorPackChanges");
+    private static string SharedPackRoot => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Confectory", "EditorPacks");
+    private string ProjectPackRoot => session is null || Standalone ? "" : Path.Combine(session.Project.Root, "EditorPacks");
+    private string PackDotnet => Environment.GetEnvironmentVariable("CONFECTORY_DOTNET") ?? "dotnet";
+    private void AddEditorPacksTab(Grid root, Grid body)
+    {
+        editorRoot = root; editorBody = body;
+        try { if (File.Exists(EditorPackSettings)) { foreach (string folder in JsonSerializer.Deserialize<string[]>(File.ReadAllText(EditorPackSettings)) ?? []) enabledPackFolders.Add(folder); packDefaultsLoaded = true; } }
+        catch (Exception e) { AppendLog("에디터팩 설정: " + e.Message); }
+        var page = new StackPanel { Margin = new Thickness(16) };
+        page.Children.Add(Label("에디터 객체팩", 20));
+        page.Children.Add(Label("체크한 팩을 ‘선택한 팩 적용’으로 로드해. 프로젝트 전용 팩은 프로젝트를 닫을 때 해제돼. DLL 팩은 로컬 프로그램 권한으로 실행돼.", 12, MutedInk));
+        var toolbar = new WrapPanel(); toolbar.Children.Add(Action("프로젝트팩 가져오기", ImportProjectPack)); toolbar.Children.Add(Action("프로젝트팩 내보내기", ExportProjectPack)); toolbar.Children.Add(Action("팩 목록 새로고침", () => Guard(() => { if (!busy) DiscoverEditorPacks(); })));
+        toolbar.Children.Add(Action("선택한 팩 적용", () => PackWork(() => ReloadEditorPacks(null, operation!.Token)))); page.Children.Add(toolbar); page.Children.Add(packStatus); page.Children.Add(packRows); page.Children.Add(packPointLabel);
+        packScope.ItemsSource = new[] { "프로젝트 전용", "공용 플러그인" }; packScope.SelectedIndex = 0; packId.ToolTip = "예: my.editor.tools";
+        page.Children.Add(Label("새 팩 ID", 12)); page.Children.Add(packId); page.Children.Add(packScope);
+        var create = new WrapPanel(); create.Children.Add(Action("새 독립 패널 팩", () => CreateEditorPack(false))); create.Children.Add(Action("선택한 팩의 패널 상속", () => CreateEditorPack(true))); page.Children.Add(create);
+        var windows = new WrapPanel(); windows.Children.Add(packWindowChoice);
+        windows.Children.Add(Action("등록된 창 열기", () => OpenPackWindow(false)));
+        windows.Children.Add(Action("임시 테스트 창", () => OpenPackWindow(true)));
+        windows.Children.Add(Action("임시 창 해제", RemoveTemporaryPackWindow)); page.Children.Add(windows);
+        page.Children.Add(packChoice);
+        var editing = new WrapPanel(); editing.Children.Add(Action("팩 가리키기", () => Guard(() => { if (packChoice.SelectedItem is EditorPackSource s) PointEditorPack(s.Id, "pack.xml", "pack:" + s.Id); })));
+        editing.Children.Add(Action("DLL 구현 추가", () => Guard(() => { if (busy || packChoice.SelectedItem is not EditorPackSource s) return; EditorPackTemplates.AddImplementation(s); SelectEditorPack(); })));
+        editing.Children.Add(Action("선택 팩 빌드", () =>
+        {
+            if (busy || packChoice.SelectedItem is not EditorPackSource source) return;
+            PackWork(() => RunBuildWithRetry("에디터팩 빌드 · " + source.Id, () => source.Build(PackDotnet, AppDomain.CurrentDomain.BaseDirectory, operation!.Token), operation!.Token));
+        }));
+        editing.Children.Add(Action("팩 폴더 열기", () => Guard(() => { if (packChoice.SelectedItem is EditorPackSource s) System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(s.Folder) { UseShellExecute = true }); })));
+        page.Children.Add(editing); page.Children.Add(packFiles); packDocument.Height = 260; packDocument.FontFamily = new System.Windows.Media.FontFamily("Consolas"); packDocument.VerticalScrollBarVisibility = ScrollBarVisibility.Auto; packDocument.AcceptsTab = true; page.Children.Add(packMembers); page.Children.Add(packMemberForm); page.Children.Add(packDocument);
+        packMembers.SelectionChanged += (_, _) => ShowPackMember();
+        packDocument.TextChanged += (_, _) => { if (!packLoading) UpdatePackRoomDraft(false); };
+        var changes = new WrapPanel(); changes.Children.Add(Action("Room 채팅", () => OpenPublicChat(true, roomPath: PackRoomPath))); changes.Children.Add(Action("에디터팩 변경 미리보기", PreviewEditorPack));
+        changes.Children.Add(Action("초안 저장", () => Guard(() => UpdatePackRoomDraft(true))));
+        changes.Children.Add(Action("구조 / 전체 문서", () => { packWholeDocument = !packWholeDocument; RefreshPackStructure(); }));
+        changes.Children.Add(Action("검토한 변경 확정", () => ApplyEditorPack(false))); changes.Children.Add(Action("이 변경 되돌리기", () => ApplyEditorPack(true))); page.Children.Add(changes);
+        changes.Children.Add(Action("저장본 다시 읽기", () => Guard(() => { if (busy || packOpenId.Length == 0) return; packOriginal = packSources.Single(p => p.Id == packOpenId).Read(packOpenPath); packDocument.Text = packOriginal; })));
+        packDiff.Height = 150; page.Children.Add(packDiff); AddTab("에디터팩", new ScrollViewer { Content = page, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
+        packChoice.SelectionChanged += (_, _) => Guard(SelectEditorPack); packFiles.SelectionChanged += (_, _) => Guard(OpenEditorPackDocument);
+        pointingMode.SelectionChanged += (_, _) => { editorPoints.Clear(); packPointLabel.Text = "에디터 요소 포인팅 없음"; };
+        Loaded += (_, _) => { pendingEditorPackReload = true; QueueEditorPackReload(); };
+        Closed += (_, _) => StopEditorPacks();
+    }
+    private void DiscoverEditorPacks()
+    {
+        if (PackDocumentDirty()) throw new InvalidOperationException("먼저 에디터팩 문서 초안을 저장하거나 원본으로 되돌려줘.");
+        var found = InstalledEngine.Sources.Concat(EditorPackSource.Discover(SharedPackRoot, "plugin"))
+            .Concat(ProjectPackRoot.Length == 0 ? [] : EditorPackSource.Discover(ProjectPackRoot, "project")).ToArray();
+        if (found.Select(p => p.Id).Distinct(StringComparer.Ordinal).Count() != found.Length) throw new InvalidDataException("범위 간에 중복된 에디터팩 ID가 있어.");
+        packSources.Clear(); packSources.AddRange(found); packRows.Children.Clear();
+        if (EditorPackSelection.DeclarativeWorkspace(found) is { } workspace) enabledPackFolders.Add(workspace.Folder);
+        foreach (var source in packSources)
+        {
+            if (!packDefaultsLoaded && source.Scope == "core" && source.Id == "editor.core.tools") enabledPackFolders.Add(source.Folder);
+            var row = new WrapPanel(); var enabled = new CheckBox { Content = source.ToString(), IsChecked = source.IsReadOnly || enabledPackFolders.Contains(source.Folder), IsEnabled = !source.IsReadOnly, Foreground = TextInk, Margin = new Thickness(4) };
+            enabled.Click += (_, _) => { if (busy) { enabled.IsChecked = enabledPackFolders.Contains(source.Folder); return; } if (enabled.IsChecked == true) enabledPackFolders.Add(source.Folder); else enabledPackFolders.Remove(source.Folder); };
+            row.Children.Add(enabled); packRows.Children.Add(row);
+        }
+        packDefaultsLoaded = true;
+        packLoading = true; try { packChoice.ItemsSource = null; packChoice.ItemsSource = packSources.ToArray(); if (packSources.Count > 0) packChoice.SelectedIndex = 0; } finally { packLoading = false; }
+        SelectEditorPack();
+        packStatus.Text = packSources.Count + "개 발견 · 활성 " + (packGeneration?.Hashes.Count ?? 0) + "개";
+    }
+    private bool PackDocumentDirty(string pack = "", string path = "") => packOpenId.Length > 0 && packDocument.Text != packOriginal && (pack.Length == 0 || packOpenId == pack && (path.Length == 0 || packOpenPath == path));
+    private void SelectEditorPack()
+    {
+        if (packLoading) return;
+        if (PackDocumentDirty()) UpdatePackRoomDraft(true);
+        packFiles.ItemsSource = (packChoice.SelectedItem as EditorPackSource)?.Documents(); packFiles.SelectedIndex = 0;
+    }
+    private void OpenEditorPackDocument()
+    {
+        if (packLoading || packChoice.SelectedItem is not EditorPackSource source || packFiles.SelectedItem is not string path) return;
+        if (PackDocumentDirty()) UpdatePackRoomDraft(true);
+        packLoading = true; packOpenId = source.Id; packOpenPath = path; packOriginal = source.Read(path);
+        var saved = source.IsReadOnly ? null : session?.Collaboration.Room(PackRoomPath).Drafts.FirstOrDefault(d => d.ParticipantId == "human" && d.RequestId.Length == 0 && d.State == "draft");
+        packDocument.IsReadOnly = source.IsReadOnly;
+        packDocument.Text = saved?.Text ?? packOriginal; if (saved is not null) packOriginal = saved.BaseText;
+        packLoading = false; RefreshPackStructure();
+    }
+    private void PreviewEditorPack() => Guard(() =>
+    {
+        if (busy || packOpenId.Length == 0) return; var source = packSources.Single(s => s.Id == packOpenId); source.RequireWritable();
+        if (source.Read(packOpenPath) != packOriginal) throw new IOException("원본이 바뀌었어. 현재 문서를 다시 읽어줘.");
+        SemanticDocument.Validate(packOpenPath, packDocument.Text); EditorPackChange.Validate(packOpenPath, packDocument.Text, source.Id);
+        ShowEditorPackChange(new() { Pack = source.Id, Folder = source.Folder, Path = packOpenPath, Intent = "사용자 에디터팩 수정", Before = packOriginal, After = packDocument.Text });
+    });
+    private void ShowEditorPackChange(EditorPackChange change)
+    {
+        if (!Dispatcher.CheckAccess()) { Dispatcher.Invoke(() => ShowEditorPackChange(change)); return; }
+        packChange = change; packDiff.Text = change.Intent + " · " + change.State + "\n" + change.Pack + "/" + change.Path + "\n" + string.Join("\n", ChangeDifference.Compare(change.Path, change.Before, change.After).Select(c => c.Preview));
+        if (change.State != "preview" && packOpenId == change.Pack && packOpenPath == change.Path) { packOriginal = change.State == "undone" ? change.Before : change.After; packDocument.Text = packOriginal; }
+        AppendLog("에디터팩 변경 · " + change.Pack + " · " + change.State);
+    }
+    private void CreateEditorPack(bool inherit) => Guard(() =>
+    {
+        if (busy || PackDocumentDirty()) return;
+        string scope = packScope.SelectedIndex == 0 ? "project" : "plugin";
+        string root = scope == "project" ? ProjectPackRoot : SharedPackRoot;
+        if (root.Length == 0) throw new InvalidOperationException("프로젝트 전용 팩은 게임팩을 먼저 열어줘.");
+        ExtensionDefinition? parent = null;
+        if (inherit)
+        {
+            if (packChoice.SelectedItem is not EditorPackSource selected) throw new InvalidOperationException("상속할 팩을 선택해줘.");
+            parent = packGeneration?.Snapshot.Panels.FirstOrDefault(p => p.Pack == selected.Id) ?? throw new InvalidOperationException("이 팩의 패널을 먼저 로드해줘.");
+            if (scope == "core" && selected.Scope != "core" || scope == "plugin" && selected.Scope == "project") throw new InvalidOperationException("공용·코어 팩은 특정 프로젝트의 팩을 부모로 삼을 수 없어.");
+        }
+        var source = EditorPackTemplates.Create(root, scope, packId.Text.Trim(), parent); enabledPackFolders.Add(source.Folder); DiscoverEditorPacks();
+        packChoice.SelectedItem = packSources.Single(p => p.Id == source.Id); packStatus.Text = "팩을 만들었어. XML을 조정한 뒤 ‘선택한 팩 적용’을 눌러줘.";
+    });
+    private async void PackWork(Func<Task> action, bool connectAfter = false)
+    {
+        if (busy) return; SetBusy(true); operation = new();
+        try { await action(); SetStatus("에디터팩 작업을 완료했어."); }
+        catch (OperationCanceledException) { SetStatus("에디터팩 작업을 취소했어."); }
+        catch (Exception e) { packStatus.Text = "에디터팩 작업 실패 · 실행 기록에서 확인해줘."; SetStatus(e.Message); AppendLog(e.Message); }
+        finally { operation.Dispose(); operation = null; SetBusy(false); if (connectAfter && session is not null) ScheduleAutoConnect(); }
+    }
+    private readonly SemaphoreSlim reloadExecution = new(1, 1);
+    private async Task ReloadEditorPacks(IReadOnlyCollection<string>? authorized, CancellationToken cancellation)
+    {
+        await reloadExecution.WaitAsync(cancellation);
+        try { await ReloadEditorPacksCore(authorized, cancellation); }
+        finally { reloadExecution.Release(); }
+    }
+    private async Task ReloadEditorPacksCore(IReadOnlyCollection<string>? authorized, CancellationToken cancellation)
+    {
+        if (PackDocumentDirty()) throw new InvalidOperationException("에디터팩 초안을 먼저 저장해줘.");
+        var selected = packSources.Where(p => p.IsReadOnly || enabledPackFolders.Contains(p.Folder)).ToArray();
+        EditorPackRuntime? candidate = null;
+        try
+        {
+            void Authorize(IReadOnlyDictionary<string, string> hashes)
+            {
+                if (authorized is null) return;
+                var before = packGeneration?.Hashes ?? new Dictionary<string, string>();
+                var changed = before.Keys.Concat(hashes.Keys).Distinct(StringComparer.Ordinal).Where(id => !before.TryGetValue(id, out var old) || !hashes.TryGetValue(id, out var next) || old != next);
+                if (changed.Any(id => !authorized.Contains(id))) throw new InvalidOperationException("요청에서 허용하지 않은 에디터팩도 바뀌었어. 해당 팩의 수정 범위를 확인해줘.");
+            }
+            candidate = await Execution.Prepare(selected, cancellation, Authorize);
+            var next = candidate;
+            string? selectedSlot = (tabs.SelectedItem as TabItem)?.Tag as string;
+            packWindows.Refresh(next, definition => CreatePackWindow(next, definition));
+            Execution.Commit(next); packGeneration = next; candidate = null;
+            workspaceInitializationPending = true;
+            ApplyPackShell(false); RefreshPackWindowChoices();
+            if (selectedSlot is not null && tabs.Items.OfType<TabItem>().FirstOrDefault(t => t.Tag as string == selectedSlot) is { } selectedTab) tabs.SelectedItem = selectedTab;
+            Directory.CreateDirectory(Path.GetDirectoryName(EditorPackSettings)!); File.WriteAllText(EditorPackSettings, JsonSerializer.Serialize(enabledPackFolders.ToArray()));
+            packStatus.Text = "에디터팩 " + selected.Length + "개 적용 · 등록된 창 " + packWindows.Definitions.Count + "개 · 열린 창 " + packWindows.OpenIds.Count + "개";
+        }
+        finally { candidate?.Dispose(); }
+    }
+    private sealed record PackCommandRequest(IEditorPackRuntime Generation, string Command, UiValue Value, Dictionary<string, EditorViewEditSnapshot> Edits, Dictionary<string, string> Context);
+    private readonly Queue<PackCommandRequest> pendingPackCommands = new();
+    private bool executingPackCommand;
+    private async void ExecuteEditorCommand(IEditorPackRuntime generation, string command, UiValue value, Dictionary<string, string>? context = null)
+    {
+        if (!ReferenceEquals(generation, packGeneration) || busy && !executingPackCommand) return;
+        pendingPackCommands.Enqueue(new(generation, command, value, packWindows.CaptureViewEdits(), context ?? WindowCommandContext("", "")));
+        if (executingPackCommand) return;
+        executingPackCommand = true;
+        try
+        {
+            while (pendingPackCommands.Count > 0)
+            {
+                var request = pendingPackCommands.Dequeue();
+                if (ReferenceEquals(request.Generation, packGeneration)) await ExecuteEditorCommandCore(request);
+            }
+        }
+        finally { executingPackCommand = false; pendingPackCommands.Clear(); }
+    }
+    private async Task ExecuteEditorCommandCore(PackCommandRequest request)
+    {
+        var generation = request.Generation; string command = request.Command; var value = request.Value;
+        string nextCommand = "", nextPayload = "";
+        SetBusy(true); operation = new();
+        try
+        {
+            string ownerPack = generation.Snapshot.Commands.Single(c => c.Id == command).Pack;
+            using var project = session is null ? null : new EditorPackProjectData(session, ownerPack, action => Dispatcher.Invoke(action));
+            request.Context["editorPack"] = ownerPack;
+            var result = await generation.Execute(new() { Command = command, Payload = value.Literal, Context = request.Context }, operation.Token, project);
+            if (!ReferenceEquals(generation, packGeneration)) return;
+            var preparedView = result.View is null ? null : EditorDynamicViews.Prepare(generation, ownerPack, result.View);
+            var pickerObjects = result.PickObject is null ? null : project?.ListObjects(result.PickObject.Kind, result.PickObject.Pack) ?? throw new InvalidOperationException("먼저 프로젝트를 열어줘.");
+            string reviewOutcome = "";
+            if (result.DocumentChanges.Count > 0)
+            {
+                if (project is null) throw new InvalidOperationException("먼저 프로젝트를 열어줘.");
+                var review = project.CreateReview(result.DocumentChanges);
+                try
+                {
+                    if (review.Items.Count > 0)
+                    {
+                        var selected = await ReviewChanges(review, operation.Token, "에디터팩 변경안 검토 · " + ownerPack);
+                        reviewOutcome = await review.Apply(selected, operation.Token);
+                        request.Context["reviewApplied"] = selected.Count > 0 ? "true" : "false";
+                        RefreshProject(); RebuildDocuments(); RefreshContext();
+                    }
+                    else { review.Cancel(); reviewOutcome = "파일 내용이 같아서 저장할 변경이 없어."; }
+                }
+                catch { review.Cancel(); throw; }
+            }
+            foreach (var effect in result.Effects)
+                switch (effect.Kind)
+                {
+                    case "refresh": RefreshProject(); break;
+                    case "tab":
+                        int tabIndex = effect.Value switch { "chat" => 0, "relations" => 1, "documents" => 2, "contract" => 3, "changes" => 4, "packs" => 6, _ => throw new InvalidDataException("Unknown editor tab.") };
+                        OpenNativeTool(tabIndex); break;
+                    case "layout":
+                        if (effect.Value is not ("focus" or "normal")) throw new InvalidDataException("Unknown editor layout.");
+                        ApplyPackShell(effect.Value == "focus"); break;
+                    default: throw new InvalidDataException("Unsupported editor host effect: " + effect.Kind);
+                }
+            foreach (var action in result.Windows) ManagePackWindow(ownerPack, action);
+            if (result.View is { } update)
+                packWindows.UpdateView(update.WindowId, ownerPack, preparedView!, request.Edits.TryGetValue(update.WindowId, out var edits) ? edits : null);
+            if (result.OpenXml.Length > 0) OpenElementXml(result.OpenXml);
+            if (result.SelectObject.Length > 0 && session?.Index.Nodes.ContainsKey(result.SelectObject) == true)
+            { session.Select(result.SelectObject); PointObject(result.SelectObject, "workspace"); RefreshPointing(); }
+            if (result.OpenObject is { } openObject) OpenElementEditor(openObject);
+            if (result.Continue is { } continuation)
+            {
+                if (!generation.Snapshot.Commands.Any(c => c.Id == continuation.Command && c.Pack == ownerPack && string.Equals(c.Fields["payload"], "Text", StringComparison.OrdinalIgnoreCase))) throw new InvalidDataException("Continue uses a Text command owned by this pack.");
+                nextCommand = continuation.Command; nextPayload = continuation.Payload;
+            }
+            if (result.PickObject is { } picker)
+            {
+                if (project is null) throw new InvalidOperationException("먼저 프로젝트를 열어줘.");
+                var callback = generation.Snapshot.Commands.SingleOrDefault(c => c.Id == picker.Command && c.Pack == ownerPack && string.Equals(c.Fields["payload"], "Text", StringComparison.OrdinalIgnoreCase)) ?? throw new InvalidDataException("Declare an owned Text command for the selection callback.");
+                if (ChooseCatalogObject(pickerObjects!, picker) is { } selected) { nextCommand = callback.Id; nextPayload = selected.Key; }
+            }
+            if (reviewOutcome.Length > 0) SetStatus(reviewOutcome);
+            else if (result.Message.Length > 0) SetStatus(result.Message);
+        }
+        catch (Exception e) { SetStatus(e.Message); AppendLog("에디터팩: " + e.Message); }
+        finally { operation.Dispose(); operation = null; SetBusy(false); }
+        if (nextCommand.Length > 0) ExecuteEditorCommand(generation, nextCommand, UiValue.Text(nextPayload), request.Context);
+    }
+    private EditorProjectObject? ChooseCatalogObject(IReadOnlyList<EditorProjectObject> objects, EditorObjectPicker picker)
+    {
+        var dialog = new Window { Owner = this, Title = picker.Title, Width = 560, Height = 520, MinWidth = 320, MinHeight = 240, Background = PanelInk, Foreground = TextInk, WindowStartupLocation = WindowStartupLocation.CenterOwner };
+        var root = new DockPanel { Margin = new Thickness(12) }; dialog.Content = root; var filter = Input(); DockPanel.SetDock(filter, Dock.Top); root.Children.Add(filter);
+        var list = new ListBox { Background = BackgroundInk, Foreground = TextInk, DisplayMemberPath = "Title" }; EditorProjectObject? choice = null;
+        void Fill() { list.ItemsSource = objects.Where(o => (o.Title + " " + o.Id).IndexOf(filter.Text, StringComparison.OrdinalIgnoreCase) >= 0).ToArray(); }
+        filter.TextChanged += (_, _) => Fill(); Fill();
+        var bottom = new WrapPanel(); bottom.Children.Add(Action("선택", () => { if (list.SelectedItem is EditorProjectObject selected) { choice = selected; dialog.DialogResult = true; } })); bottom.Children.Add(Action("취소", () => dialog.DialogResult = false)); DockPanel.SetDock(bottom, Dock.Bottom); root.Children.Add(bottom); root.Children.Add(list);
+        list.MouseDoubleClick += (_, _) => { if (list.SelectedItem is EditorProjectObject selected) { choice = selected; dialog.DialogResult = true; } };
+        RememberWindow(dialog, "dialog:object-picker"); return dialog.ShowDialog() == true ? choice : null;
+    }
+    private void StopEditorPacks()
+    {
+        packWindows.Dispose(); packExecution?.Dispose(); packExecution = null; packGeneration?.Dispose(); packGeneration = null; editorPoints.Clear(); RefreshPackWindowChoices();
+        ApplyPackShell(false);
+    }
+    private void ApplyPackShell(bool focus)
+    {
+        var shell = packGeneration?.Snapshot.Shell;
+        editorBody!.ColumnDefinitions[0].Width = new GridLength(focus ? 0 : EditorNativeSchema.LayoutNumber(shell?.Fields["sidebarWidth"] ?? "250", 0, 600));
+        editorBody.ColumnDefinitions[4].Width = new GridLength(EditorNativeSchema.LayoutNumber(shell?.Fields["contextWidth"] ?? "300", 180, 700));
+        editorRoot!.RowDefinitions[2].Height = new GridLength(Math.Max(140, EditorNativeSchema.LayoutNumber(shell?.Fields["logHeight"] ?? "160", 0, 600)));
+        RefreshStudioShell();
+    }
+    private void EditorPackProjectChanged()
+    {
+        StopEditorPacks();
+        packOpenId = ""; packOriginal = ""; packDocument.Text = "";
+        pendingEditorPackReload = true; QueueEditorPackReload();
+    }
+    private void QueueEditorPackReload() => Dispatcher.BeginInvoke(new Action(() =>
+    {
+        if (!pendingEditorPackReload || busy || !studioReady || !projectWorkspaceVisible) return; pendingEditorPackReload = false;
+        PackWork(async () => { DiscoverEditorPacks(); await ReloadEditorPacks(null, operation!.Token); });
+    }));
+    private void PointEditorNode(string view, string node)
+    {
+        var inspection = packGeneration!.Catalog.InspectView(view);
+        var origin = inspection.Inheritance.Members.Where(p => p.Key.StartsWith("node." + node + ".", StringComparison.Ordinal))
+            .OrderByDescending(p => p.Key == "node." + node + ".property.text").Select(p => p.Value).First();
+        PointEditorPack(origin.Pack, origin.Document, "view:" + view + "/" + node, origin.Definition);
+    }
+    private void PointEditorPack(string pack, string path, string key, string definition = "")
+    {
+        if (busy || session?.Pointing.Mode is not ("single" or "range")) { SetStatus("먼저 ‘이거’ 포인팅 모드를 켜줘."); return; }
+        if (session.Pointing.Mode == "single") { editorPoints.Clear(); session.Pointing.Targets.Clear(); }
+        if (editorPoints.Count >= 64) throw new InvalidOperationException("한 번에 64개까지 가리킬 수 있어.");
+        if (!editorPoints.Any(p => p.Key == key)) editorPoints.Add(new() { Key = key, Pack = pack, File = path, Locator = definition, Surface = "editor-pack" });
+        packPointLabel.Text = string.Join(" · ", editorPoints.Select(p => p.Key)); SetStatus("에디터 요소 지정: " + key); RefreshPointing();
+    }
+    private void CaptureEditorPacks(ContextRequest request)
+    {
+        request.WritableEditorPacks = request.ReviewChanges ? packSources.Where(p => !p.IsReadOnly).Select(p => p.Id).ToList() : []; request.AllowEditorReload = false;
+        request.EditorInput = new() { Mode = session?.Pointing.Mode ?? "none", CapturedUtc = DateTime.UtcNow.ToString("O") };
+        if (request.EditorInput.Mode == "none") return;
+        foreach (var point in editorPoints)
+        {
+            var source = packSources.Single(p => p.Id == point.Pack); string text = source.Read(point.File), hash = WorkspaceProject.HashText(text);
+            request.EditorInput.Targets.Add(new() { Key = point.Key, Pack = point.Pack, File = point.File, Locator = point.Locator, Surface = point.Surface, DocumentHash = hash });
+            if (point.Locator.Length > 0)
+            {
+                using var input = System.Xml.XmlReader.Create(new StringReader(text), new() { DtdProcessing = System.Xml.DtdProcessing.Prohibit, XmlResolver = null });
+                var document = XDocument.Load(input); var definition = document.Root!.Elements().SingleOrDefault(e => (string?)e.Attribute("id") == point.Locator)
+                    ?? throw new IOException("가리킨 에디터 정의가 바뀌었어. 다시 지정해줘.");
+                string node = point.Key.Substring(point.Key.LastIndexOf('/') + 1);
+                var element = definition.Descendants().FirstOrDefault(e => e.Name == "Node" && (string?)e.Attribute("id") == node || e.Name == "Override" && (string?)e.Attribute("node") == node) ?? definition;
+                text = element.ToString(SaveOptions.DisableFormatting);
+            }
+            int remaining = Math.Max(0, request.CharacterBudget - request.Context.Sum(c => c.Content.Length));
+            if (remaining == 0) { request.Omitted.Add(point.Key); continue; }
+            int length = Math.Min(Math.Min(4000, remaining), text.Length);
+            request.Context.Add(new() { Path = "editor:" + point.Pack + "/" + point.File, Content = text.Substring(0, length), DocumentHash = hash, Hash = WorkspaceProject.HashText(text),
+                Partial = length < text.Length, Why = "에디터 요소: " + point.Key + " · confectory_editor inspect/read로 상속과 구현을 조회해." });
+        }
+    }
+    private IEditorPackAccess CreateEditorPackAgent(ContextRequest request) => CreateEditorPackAgent(request, null);
+    private IEditorPackAccess CreateEditorPackAgent(ContextRequest request, ChangeReviewBatch? review) => new EditorPackAgent(packSources.ToArray(), request, () => packGeneration,
+        (authorized, token) => Dispatcher.InvokeAsync(() => ReloadEditorPacks(authorized, token)).Task.Unwrap(), ShowEditorPackChange,
+        (tool, subject, result) => Dispatcher.Invoke(() => {
+            session?.RecordOperation(request.Id, "editor." + tool, subject, result.Contains("\"pending-review\"") ? "staged" : "completed");
+            if (tool is "list" or "find" or "read" or "inspect" or "api") session?.RecordEditorPackRead(request.Id, subject, result, WorkspaceProject.HashText(result), result.Contains("\"Partial\": true"));
+            AppendLog("editor." + tool + " · " + subject); }),
+        AppDomain.CurrentDomain.BaseDirectory, PackDotnet, EditorPackHistory,
+        (pack, path) => Dispatcher.Invoke(() => PackDocumentDirty(pack, path)), review,
+        () => Dispatcher.Invoke(() => (object)packWindows.Definitions.Select(d => new { Definition = d, Open = packWindows.OpenIds.Contains(d.Id) }).ToArray()),
+        (pack, action) => Dispatcher.Invoke(() => ManagePackWindow(pack, action)),
+        new Dictionary<string, string> { ["project"] = ProjectPackRoot, ["plugin"] = SharedPackRoot },
+        (source, added) => Dispatcher.Invoke(() =>
+        {
+            if (added) enabledPackFolders.Add(source.Folder); else enabledPackFolders.Remove(source.Folder);
+            DiscoverEditorPacks();
+            Directory.CreateDirectory(Path.GetDirectoryName(EditorPackSettings)!);
+            EditorSession.AtomicWrite(EditorPackSettings, System.Text.Encoding.UTF8.GetBytes(JsonSerializer.Serialize(enabledPackFolders.ToArray())));
+        })) { WorkingCopy = (pack, path) => Dispatcher.Invoke(() => ExternalWorkingCopy(pack, path)),
+            UpdateWorkingCopy = (pack, path, published, shared) => Dispatcher.Invoke(() => UpdateExternalWorkingCopy(pack, path, published, shared)) };
+}

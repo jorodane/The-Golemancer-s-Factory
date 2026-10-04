@@ -1,4 +1,0 @@
-<ObjectPack id="engine.ui.button" version="1.0.0" engineContracts="1">
-  <Assembly path="Bin/{framework}/PackEngine.Ui.Button.dll" />
-  <Ui path="ui.xml" />
-</ObjectPack>

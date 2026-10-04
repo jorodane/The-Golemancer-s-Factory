@@ -1,7 +1,0 @@
-<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup><OutputType>Exe</OutputType></PropertyGroup>
-  <ItemGroup>
-    <ProjectReference Include="../../editor/PackEngine.Workspace/PackEngine.Workspace.csproj" />
-    <ProjectReference Include="../../editor/PackEngine.Assistant.Codex/PackEngine.Assistant.Codex.csproj" />
-  </ItemGroup>
-</Project>

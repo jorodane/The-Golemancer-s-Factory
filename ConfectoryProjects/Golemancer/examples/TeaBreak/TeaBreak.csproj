@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><EnableDynamicLoading>true</EnableDynamicLoading><ConfectorySdkCopyLocal>false</ConfectorySdkCopyLocal></PropertyGroup>
+  <Target Name="StageExample" AfterTargets="Build">
+    <MakeDir Directories="$(MSBuildProjectDirectory)/Pack/Bin/$(TargetFramework)" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(MSBuildProjectDirectory)/Pack/Bin/$(TargetFramework)" />
+    <Copy Condition="Exists('$(TargetDir)$(AssemblyName).deps.json')" SourceFiles="$(TargetDir)$(AssemblyName).deps.json" DestinationFolder="$(MSBuildProjectDirectory)/Pack/Bin/$(TargetFramework)" />
+  </Target>
+</Project>

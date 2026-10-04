@@ -1,0 +1,10 @@
+<Project DefaultTargets="Publish">
+  <PropertyGroup><Destination>$(ConfectoryProjectRoot)/Builds/Android/</Destination></PropertyGroup>
+  <Target Name="Publish">
+    <Error Condition="'$(ConfectoryProjectRoot)' == '' Or !Exists('$(ConfectoryProjectRoot)/$(PackagePath)')" Text="Build the selected project's Android package first." />
+    <MakeDir Directories="$(Destination)" />
+    <Copy SourceFiles="$(ConfectoryProjectRoot)/$(PackagePath)" DestinationFiles="$(Destination)$(PackageName)" />
+    <GetFileHash Files="$(Destination)$(PackageName)" Algorithm="SHA256"><Output TaskParameter="Hash" PropertyName="PackageHash" /></GetFileHash>
+    <WriteLinesToFile File="$(Destination)SHA256SUMS" Lines="$(PackageHash)  $(PackageName)" Overwrite="true" Encoding="UTF-8" />
+  </Target>
+</Project>

@@ -1,8 +1,0 @@
-<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup><AssemblyVersion>1.0.0.0</AssemblyVersion></PropertyGroup>
-  <ItemGroup><ProjectReference Include="../../src/PackEngine.Contracts/PackEngine.Contracts.csproj" Private="false" /></ItemGroup>
-  <Target Name="PublishPack" AfterTargets="Build">
-    <MakeDir Directories="$(MSBuildProjectDirectory)/Bin/$(TargetFramework)" />
-    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(MSBuildProjectDirectory)/Bin/$(TargetFramework)" />
-  </Target>
-</Project>

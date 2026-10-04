@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <EngineTargetFramework Condition="'$(EngineTargetFramework)' == ''">net48</EngineTargetFramework>
+    <TargetFramework>$(EngineTargetFramework)</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><LangVersion>latest</LangVersion>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'net48'"><PackageReference Remove="Microsoft.NETFramework.ReferenceAssemblies.net48" /><PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net48" Version="1.0.3" PrivateAssets="all" /></ItemGroup>
+  <ItemGroup Condition="'$(ConfectoryEditorSdk)' == ''"><ProjectReference Include="../../Confectory.Editor.Contracts/Confectory.Editor.Contracts.csproj" Private="false" /></ItemGroup>
+  <ItemGroup Condition="'$(ConfectoryEditorSdk)' != ''"><Reference Include="Confectory.Contracts"><HintPath>$(ConfectoryEditorSdk)/Confectory.Contracts.dll</HintPath><Private>false</Private></Reference><Reference Include="Confectory.Editor.Contracts"><HintPath>$(ConfectoryEditorSdk)/Confectory.Editor.Contracts.dll</HintPath><Private>false</Private></Reference></ItemGroup>
+  <Target Name="PublishEditorPack" AfterTargets="Build" Condition="'$(ConfectoryEditorSdk)' == ''"><MakeDir Directories="$(MSBuildProjectDirectory)/Bin/$(TargetFramework)" /><Copy SourceFiles="$(TargetPath)" DestinationFolder="$(MSBuildProjectDirectory)/Bin/$(TargetFramework)" /></Target>
+</Project>

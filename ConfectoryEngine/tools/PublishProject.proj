@@ -1,0 +1,21 @@
+<Project DefaultTargets="Publish">
+  <PropertyGroup>
+    <ProjectRoot>$([System.IO.Path]::GetFullPath('$(ConfectoryProjectRoot)'))/</ProjectRoot>
+    <Destination>$(ProjectRoot)Builds/Windows/</Destination>
+  </PropertyGroup>
+  <Target Name="Publish">
+    <Error Condition="'$(ConfectoryProjectRoot)' == '' Or '$(HostDirectory)' == ''" Text="The engine runner supplies a project root and the project declares its host output." />
+    <ItemGroup>
+      <HostRuntime Include="$(ProjectRoot)$(HostDirectory)/*.exe;$(ProjectRoot)$(HostDirectory)/*.dll;$(ProjectRoot)$(HostDirectory)/*.config" />
+      <VerificationRuntime Include="$(ProjectRoot)$(VerificationDirectory)/$(VerificationName).exe;$(ProjectRoot)$(VerificationDirectory)/$(VerificationName).exe.config" Condition="'$(VerificationDirectory)' != ''" />
+    </ItemGroup>
+    <Error Condition="'@(HostRuntime)' == ''" Text="Build the selected project's host first." />
+    <MakeDir Directories="$(Destination)" />
+    <Copy SourceFiles="@(HostRuntime);@(VerificationRuntime)" DestinationFolder="$(Destination)" SkipUnchangedFiles="true" />
+    <ItemGroup><Published Include="$(Destination)*.exe;$(Destination)*.dll;$(Destination)*.config" /></ItemGroup>
+    <GetFileHash Files="@(Published)" Algorithm="SHA256" MetadataName="Sha256"><Output TaskParameter="Items" ItemName="Hashed" /></GetFileHash>
+    <WriteLinesToFile File="$(Destination)SHA256SUMS" Lines="@(Hashed->'%(Sha256)  %(Filename)%(Extension)')" Overwrite="true" Encoding="UTF-8" />
+    <WriteLinesToFile File="$(Destination)build-info.json" Lines="{ &quot;sourceCommit&quot;: &quot;$(SourceRevision)&quot;, &quot;target&quot;: &quot;net48&quot;, &quot;windowsGuiTested&quot;: false }" Overwrite="true" Encoding="UTF-8" />
+    <Message Importance="high" Text="Published selected project to $(Destination). Engine dependencies are copied from the freshly built host, not read from prior output." />
+  </Target>
+</Project>
