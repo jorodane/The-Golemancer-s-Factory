@@ -20,7 +20,12 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
     private EditorSession? session;
     private ConceptEditorController? editor;
     private Element root = null!;
-    private EditorLiveView? studioStartView;
+    private EditorLiveView? studioStartView, studioHomeBrandView;
+    private EditorStudioPresentation studioPresentation = null!;
+    private EditorStudioStartupState? studioStartup;
+    private readonly System.Diagnostics.Stopwatch studioClock = new(), homeFlightClock = new();
+    private readonly List<(Element Copy, SKRect From, string Target)> brandFlight = [];
+
     private EditorStudioProjectCreation? studioCreation;
     private EditorStudioProjectHome? sharedProjectHome;
     private readonly AssistantSettings projectSettings = AssistantSettings.Load(AssistantSettings.DefaultPath);
@@ -63,14 +68,30 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
         _ = Task.Run(async () => { try { await work(); } catch (Exception e) { ui.Enqueue(() => { status = e.Message; Invalidate(); }); } finally { ui.Enqueue(() => { busy = false; Invalidate(); var next = afterWork; afterWork = null; next?.Invoke(); if (!busy && deferredWork.Count > 0) Work(deferredWork.Dequeue()); }); } });
     }
     private void Guard(Action action) { if (busy) return; try { action(); } catch (Exception e) { status = e.Message; Invalidate(); } }
-    public override void Tick() { while (ui.TryDequeue(out var action)) action(); }
+    public override void Tick()
+    {
+        while (ui.TryDequeue(out var action)) action();
+        if (mode == "startup" && studioStartView is not null && studioStartup is not null)
+        {
+            double elapsed = studioClock.Elapsed.TotalMilliseconds;
+            foreach (var entrance in studioPresentation.Motion.Entrances)
+            {
+                var sample = studioPresentation.Motion.Sample(entrance, elapsed, studioStartup.SavedAgent is not null);
+                var element = (Element)studioStartView.Element(entrance.Node);
+                element.MotionOpacity = sample.Opacity; element.MotionRise = (float)sample.Rise; element.Set("enabled", UiValue.Boolean(sample.Enabled));
+            }
+            if (studioStartup.AutomaticHomeDue(elapsed)) EnterStudioHome();
+            else if (elapsed <= studioPresentation.Motion.Entrances.Max(e => e.Delay + e.Duration)) Invalidate();
+        }
+        if (homeFlightClock.IsRunning) Invalidate();
+    }
     public override void Suspend() { backend.Suspend(); activeWindow?.Backend.Suspend(); }
     public override void Input(NativeInput input)
     {
         if (input.Kind == NativeInputKind.Key && input.Key is "LeftShift" or "RightShift") { shift = input.Down; Invalidate(); }
         if (input.Kind == NativeInputKind.Wheel) { scroll = Math.Clamp(scroll - input.Value * 48, 0, Math.Max(0, contentHeight - viewportHeight + 150)); Invalidate(); return; }
         if (input.Kind == NativeInputKind.PointerMove && map is not null && mode == "map") { map.Hover = mapButtons.FirstOrDefault(p => p.Value.Bounds.Contains(input.X, input.Y)).Key ?? ""; Invalidate(); }
-        if (busy && activeWindow is null) return;
+        if (homeFlightClock.IsRunning || busy && activeWindow is null) return;
         try
         {
             if (activeWindow is not null && (input.Kind is not (NativeInputKind.PointerDown or NativeInputKind.PointerUp or NativeInputKind.PointerMove) || input.Y >= (focusLayout ? 56 : 145))) activeWindow.Backend.Input(input);
@@ -90,6 +111,22 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
         LinuxPackBackend.Text(canvas, title, 220, 35, 18, "#E6EDF3");
         LinuxPackBackend.Fill(canvas, new(0, height - 34, width, height), "#18232E");
         LinuxPackBackend.Text(canvas, (busy ? "● " : "") + status, 24, height - 12, 12, "#A9BBC8");
+        if (homeFlightClock.IsRunning)
+        {
+            double elapsed = homeFlightClock.Elapsed.TotalMilliseconds / studioPresentation.Motion.HomeDuration;
+            double eased = EditorStudioMotion.Progress(elapsed);
+            using var fade = new SKPaint { Color = SKColors.White.WithAlpha((byte)(eased * 255)) }; canvas.SaveLayer(fade);
+            contentHeight = backend.Draw(root, canvas, new(20, 56 - scroll, width - 20, height - 40)); canvas.Restore();
+            foreach (var (copy, from, target) in brandFlight)
+            {
+                var to = backend.Bounds(target);
+                float x = from.Left + (to.Left - from.Left) * (float)eased, y = from.Top + (to.Top - from.Top) * (float)eased;
+                float w = from.Width + (to.Width - from.Width) * (float)eased, h = from.Height + (to.Height - from.Height) * (float)eased;
+                copy.UpdateLayout(new() { Size = new(w, h) }); backend.Draw(copy, canvas, new(x, y, x + w, y + h));
+            }
+            if (elapsed >= 1) FinishStudioHomeFlight();
+            return;
+        }
         contentHeight = activeWindow is not null && focusLayout ? 0 : backend.Draw(root, canvas, new(20, 56 - scroll, width - 20, height - 40));
         if (activeWindow is not null)
         {
@@ -130,19 +167,41 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
         Add(bar, Button("home", "← Project", Home)); Add(bar, Button("concepts", "Concepts", () => ShowMap())); Add(bar, Button("packs", "Packs", ShowPacks)); Add(bar, Button("functions", "Functions", ShowFunctions));
         Invalidate();
     }
-    private void StartStudio()
+    private void StartStudio(AiDirectory? directory = null)
     {
-        mode = "startup";
-        studioStartView = new EditorStudioPresentation(EditorEngineDistribution.Open(engineDirectory)).Start(backend,
-            () => { status = "Agent management migration is in progress"; Home(); }, Home);
-        root = (Element)studioStartView.Root;
-        Invalidate();
+        mode = "startup"; studioPresentation = new(EditorEngineDistribution.Open(engineDirectory));
+        studioStartup = new(studioPresentation.Motion, directory ?? AiDirectory.Load(AiDirectory.DefaultPath));
+        studioStartView?.Dispose(); studioStartView = studioPresentation.Start(backend,
+            () => { status = "Agent management migration is in progress"; Home(); }, EnterStudioHome);
+        root = (Element)studioStartView.Root; studioClock.Restart(); Tick(); Invalidate();
+    }
+    private void EnterStudioHome()
+    {
+        if (studioStartup is null || !studioStartup.BeginHome()) return;
+        foreach (string id in new[] { "logo", "brand-title", "brand-subtitle" })
+        {
+            var source = (Element)studioStartView!.Element(id);
+            var copy = (Element)backend.Create(source.Renderer, "flight-" + id, new());
+            foreach (string property in source.Renderer == "editor.vector" ? new[] { "polygons" } : new[] { "text", "foreground", "fontWeight", "fontSize", "wrapText" }) copy.Set(property, source.Value(property));
+            copy.Set("margin", UiValue.Number(0)); copy.Set("enabled", UiValue.Boolean(false));
+            brandFlight.Add((copy, source.Bounds, "home-" + id));
+        }
+        Home(); foreach (string id in new[] { "home-logo", "home-brand-title", "home-brand-subtitle" }) ((Element)studioHomeBrandView!.Element(id)).MotionOpacity = 0;
+        homeFlightClock.Restart(); Invalidate();
+    }
+    private void FinishStudioHomeFlight()
+    {
+        homeFlightClock.Stop(); foreach (var item in brandFlight) item.Copy.Dispose(); brandFlight.Clear();
+        if (studioHomeBrandView is not null) foreach (string id in new[] { "home-logo", "home-brand-title", "home-brand-subtitle" }) ((Element)studioHomeBrandView.Element(id)).MotionOpacity = 1; Invalidate();
     }
     private void Home()
     {
         studioCreation?.Dispose(); studioCreation = null;
         sharedProjectHome?.Dispose(); sharedProjectHome = null;
         Page(session is null ? "프로젝트" : ProjectName, "home");
+        studioPresentation = new(EditorEngineDistribution.Open(engineDirectory)); studioHomeBrandView?.Dispose();
+        studioHomeBrandView = new(studioPresentation.Catalog, "editor.studio.brand", new Confectory.Runtime.UI.UiContext(), backend);
+        Add(root, (Element)studioHomeBrandView.Root);
         sharedProjectHome = new(new(EditorEngineDistribution.Open(engineDirectory)), backend, projectSettings,
             () => projectSettings.Save(AssistantSettings.DefaultPath), () => ShowNewProject(), Open,
             path => System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("xdg-open") { ArgumentList = { path } }),
@@ -151,7 +210,6 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
         Add(root, (Element)sharedProjectHome.View.Root);
         Add(root, Label("A native workspace for project-owned concepts, objects and packs."));
         Add(root, InputBox("project-path", projectPath, value => projectPath = value)); Add(root, Button("open-project", "Open project path", () => Open(projectPath)));
-        Add(root, Button("new-project", "새 프로젝트 만들기", () => ShowNewProject()));
         if (session is null) return;
         Add(root, Label(ProjectName, "project-title")); Add(root, Label($"{Space.Packs.Count} packs ready to edit"));
         var actions = Stack("project-actions", true); Add(root, actions);
@@ -455,5 +513,5 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
         }, ShowDocuments, true);
         if (!session.CanEdit(path)) Disable(root.Children.First(c => c.Id == "confirm"));
     }
-    public void Dispose() { if (disposed) return; disposed = true; lifetime.Cancel(); pendingReview?.Cancel(); windows.Dispose(); execution?.Dispose(); runner?.Dispose(); sharedProjectHome?.Dispose(); studioCreation?.Dispose(); studioStartView?.Dispose(); backend.Dispose(); lifetime.Dispose(); }
+    public void Dispose() { if (disposed) return; disposed = true; lifetime.Cancel(); pendingReview?.Cancel(); windows.Dispose(); execution?.Dispose(); runner?.Dispose(); FinishStudioHomeFlight(); sharedProjectHome?.Dispose(); studioCreation?.Dispose(); studioStartView?.Dispose(); studioHomeBrandView?.Dispose(); backend.Dispose(); lifetime.Dispose(); }
 }

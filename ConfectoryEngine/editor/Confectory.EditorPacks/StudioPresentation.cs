@@ -9,6 +9,7 @@ namespace Confectory.EditorPacks;
 public sealed class EditorStudioPresentation
 {
     public UiCatalog Catalog { get; }
+    public EditorStudioMotion Motion { get; }
     private readonly UiDocument[] documents;
     private readonly XDocument[] xml;
     public XElement Template(string view) => new(xml.SelectMany(d => d.Root!.Elements("View")).Single(e => (string?)e.Attribute("id") == view).Element("Node")!);
@@ -20,6 +21,11 @@ public sealed class EditorStudioPresentation
         xml = core.Manifest().Root!.Elements("Ui").Select(e => Confectory.Runtime.PackCompiler.ReadXml(core.PathFor((string)e.Attribute("path")!))).ToArray();
         documents = xml.Select(d => UiXml.Read(new StringReader(d.ToString()))).ToArray();
         Catalog = new UiCatalog(documents);
+        var layout = core.Manifest().Root!.Elements("Data").Select(e => Confectory.Runtime.PackCompiler.ReadXml(core.PathFor((string)e.Attribute("path")!)))
+            .SelectMany(d => d.Root!.Elements("Shell")).Single(e => e.Attribute("startupMotion") is not null);
+        Motion = new((string)layout.Attribute("startupMotion")!, (string)layout.Attribute("homeDuration")!, (string)layout.Attribute("autoHomeDelay")!);
+        var nodeIds = Template("editor.studio.start").DescendantsAndSelf("Node").Select(e => (string)e.Attribute("id")!).ToArray();
+        if (Motion.Entrances.Any(e => !nodeIds.Contains(e.Node))) throw new InvalidDataException("Startup motion references an absent pack node.");
     }
     public EditorLiveView Start(IUiBackend backend, Action connect, Action later)
     {

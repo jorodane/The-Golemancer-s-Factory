@@ -1,5 +1,5 @@
 <EditorExtensions version="1">
-  <Shell id="editor.core.layout" sidebarWidth="250" contextWidth="300" logHeight="150" />
+  <Shell id="editor.core.layout" sidebarWidth="250" contextWidth="300" logHeight="150" startupMotion="logo:140:480:10;brand-title:270:460:6;brand-subtitle:430:360:0;connect:630:360:0;later:740:310:0" homeDuration="650" autoHomeDelay="820" />
   <Command id="editor.core.notice" handler="editor.core.effect" payload="None"><Argument name="kind" value="message" /><Argument name="value" value="이 버튼과 화면은 에디터 객체팩에서 실행 중이야." /></Command>
   <Command id="editor.core.refresh" extends="editor.core.notice"><Argument name="kind" value="refresh" /><Argument name="value" value="" /></Command>
   <Command id="editor.core.documents" extends="editor.core.notice"><Argument name="kind" value="tab" /><Argument name="value" value="documents" /></Command>

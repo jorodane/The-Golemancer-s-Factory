@@ -67,24 +67,26 @@ internal sealed class EditorPackBackend(Action<string> point, Func<bool> pointin
             }
         }
     }
-    private sealed class Vector : FrameworkElement
+    private sealed class Vector : Image
     {
-        public EditorVector.Polygon[] Polygons = [];
-        protected override void OnRender(DrawingContext drawing)
+        public EditorVector.Polygon[] Polygons
         {
-            base.OnRender(drawing);
-            drawing.PushTransform(new ScaleTransform(ActualWidth / 96, ActualHeight / 96));
-            foreach (var polygon in Polygons)
+            set
             {
-                var shape = new StreamGeometry();
-                using (var path = shape.Open())
+                var drawing = new DrawingGroup();
+                drawing.Children.Add(new GeometryDrawing(Brushes.Transparent, null, new RectangleGeometry(new Rect(0, 0, 96, 96))));
+                foreach (var polygon in value)
                 {
-                    path.BeginFigure(new Point(polygon.Points[0], polygon.Points[1]), true, true);
-                    for (int i = 2; i < polygon.Points.Length; i += 2) path.LineTo(new Point(polygon.Points[i], polygon.Points[i + 1]), true, false);
+                    var shape = new StreamGeometry();
+                    using (var path = shape.Open())
+                    {
+                        path.BeginFigure(new Point(polygon.Points[0], polygon.Points[1]), true, true);
+                        for (int i = 2; i < polygon.Points.Length; i += 2) path.LineTo(new Point(polygon.Points[i], polygon.Points[i + 1]), true, false);
+                    }
+                    shape.Freeze(); drawing.Children.Add(new GeometryDrawing((Brush)new BrushConverter().ConvertFromString(polygon.Color)!, null, shape));
                 }
-                drawing.DrawGeometry((Brush)new BrushConverter().ConvertFromString(polygon.Color)!, null, shape);
+                var image = new DrawingImage(drawing); image.Freeze(); Source = image;
             }
-            drawing.Pop();
         }
     }
     internal sealed class Element : IEditorViewElement, IEditorFocusElement

@@ -12,11 +12,14 @@ namespace Confectory.Editor.Android;
 
 public sealed partial class MainActivity
 {
+    private EditorStudioPresentation mobileStudioPresentation = null!;
+    private EditorStudioStartupState? mobileStudioStartup;
+    private EditorLiveView? mobileHomeBrandView;
     private View mobileShell = null!;
     private EditorLiveView? mobileStudioStartView;
     private FrameLayout mobileStartPage = null!;
     private LinearLayout mobileStartPageContent = null!;
-    private readonly List<(View View, ConfectoryStartPage.Entrance Entrance)> mobileStartPageElements = [];
+    private readonly List<(View View, EditorStudioMotion.Entrance Entrance)> mobileStartPageElements = [];
     private bool mobileStartPagePlayed, mobileAutoEnterHome, mobileHomeTransitionPlayed;
     private FrameLayout mobileBrandFlight = null!;
     private readonly List<View> mobileHomeBrand = [];
@@ -27,29 +30,18 @@ public sealed partial class MainActivity
 
     private View BuildMobileHomeBrand()
     {
-        mobileHomeBrand.Clear();
-        var header = new FrameLayout(this);
-        var logo = new StartPageLogo(this) { ContentDescription = "Confectory 로고" };
-        var title = HomeLabel(ConfectoryStartPage.Title, 38); title.SetTypeface(Typeface.Default, TypefaceStyle.Bold); title.SetSingleLine(true);
-        var subtitle = HomeLabel(ConfectoryStartPage.Subtitle, 12, true); subtitle.SetSingleLine(true);
-        header.AddView(logo, new FrameLayout.LayoutParams(Dp(96), Dp(96)) { LeftMargin = -Dp(16) });
-        header.AddView(title, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WrapContent, ViewGroup.LayoutParams.WrapContent) { LeftMargin = Dp(80), TopMargin = Dp(40) });
-        header.AddView(subtitle, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WrapContent, ViewGroup.LayoutParams.WrapContent));
-        mobileHomeBrand.AddRange(new View[] { logo, title, subtitle });
-        header.LayoutParameters = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(128));
-        header.LayoutChange += (_, _) =>
+        mobileHomeBrand.Clear(); mobileHomeBrandView?.Dispose();
+        mobileHomeBrandView = new(mobileStudioPresentation.Catalog, "editor.studio.brand", new Confectory.Runtime.UI.UiContext(), new AndroidPackBackend(this));
+        foreach (string id in new[] { "home-logo", "home-brand-title", "home-brand-subtitle" })
         {
-            bool inline = Dp(88) + title.Width + subtitle.Width <= header.Width;
-            var layout = (FrameLayout.LayoutParams)subtitle.LayoutParameters!;
-            int left = inline ? Dp(88) + title.Width : Dp(80), top = inline ? Dp(72) : Dp(94);
-            if (layout.LeftMargin != left || layout.TopMargin != top) { layout.LeftMargin = left; layout.TopMargin = top; subtitle.LayoutParameters = layout; }
-        };
-        if (mobileFlyingBrand.Count > 0) foreach (var view in mobileHomeBrand) view.Alpha = 0;
-        return header;
+            var element = ((AndroidPackBackend.Element)mobileHomeBrandView.Element(id)).Control;
+            mobileHomeBrand.Add(element); if (mobileFlyingBrand.Count > 0) element.Alpha = 0;
+        }
+        return ((AndroidPackBackend.Element)mobileHomeBrandView.Root).Control;
     }
     private void BeginMobileHomeTransition()
     {
-        mobileHomeTransitionPlayed = true;
+        mobileStudioStartup?.BeginHome(); mobileHomeTransitionPlayed = true;
         if (mobileShell is ViewGroup group) { mobileShellFocus = group.DescendantFocusability; group.DescendantFocusability = DescendantFocusability.BlockDescendants; }
         if (mobileAutoHome is not null) mobileStartPage.RemoveCallbacks(mobileAutoHome);
         foreach (var item in mobileStartPageElements) { item.View.Animate()?.Cancel(); item.View.Enabled = false; }
@@ -60,7 +52,7 @@ public sealed partial class MainActivity
             View copy;
             if (painted is TextView text)
             { var label = new TextView(this) { Text = text.Text, Gravity = GravityFlags.Center, Typeface = text.Typeface }; label.SetTextSize(ComplexUnitType.Px, text.TextSize); label.SetTextColor(text.TextColors); label.SetSingleLine(true); copy = label; }
-            else copy = new StartPageLogo(this);
+            else copy = ((AndroidPackBackend.Element)mobileStudioStartView!.Element("logo")).CopyVector(this);
             copy.PivotX = copy.PivotY = 0;
             mobileBrandFlight.AddView(copy, new FrameLayout.LayoutParams(Math.Max(1, source.Width), Math.Max(1, source.Height)));
             copy.SetX(from.Left); copy.SetY(from.Top);
@@ -73,12 +65,12 @@ public sealed partial class MainActivity
             if (IsDestroyed || mobileHomeBrand.Count != 3) { FinishMobileHomeTransition(); return; }
             foreach (var view in mobileHomeBrand) view.Alpha = 0;
             mobileHomeAnimator = global::Android.Animation.ValueAnimator.OfFloat(0, 1)!;
-            mobileHomeAnimator.SetDuration(ConfectoryStartPage.HomeTransitionDuration);
+            mobileHomeAnimator.SetDuration(mobileStudioPresentation.Motion.HomeDuration);
             mobileHomeAnimator.SetInterpolator(new LinearInterpolator());
             mobileHomeAnimator.Update += (_, _) =>
             {
                 if (IsDestroyed || aiConnections.SelectedPack.Length > 0) { FinishMobileHomeTransition(); return; }
-                float eased = (float)ConfectoryStartPage.HomeProgress(mobileHomeAnimator.AnimatedFraction);
+                float eased = (float)EditorStudioMotion.Progress(mobileHomeAnimator.AnimatedFraction);
                 mobileShell.Alpha = eased;
                 int[] rootPosition = new int[2]; mobileBrandFlight.GetLocationOnScreen(rootPosition);
                 for (int i = 0; i < mobileFlyingBrand.Count; i++)
@@ -115,48 +107,24 @@ public sealed partial class MainActivity
         mobileStartPage = new(this); host.AddView(mobileStartPage, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent));
         mobileBrandFlight = new(this); host.AddView(mobileBrandFlight, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent));
         var backend = new AndroidPackBackend(this);
-        mobileStudioStartView = new EditorStudioPresentation(InstalledEngine).Start(backend,
+        mobileStudioPresentation = new EditorStudioPresentation(InstalledEngine);
+        mobileStudioStartView = mobileStudioPresentation.Start(backend,
             () => { try { ShowEditorAiSetup(); } catch (Exception e) { Report(e.Message); } },
             () => { try { aiConnections.SetupCompleted = true; SaveAiConnections(); } catch (Exception e) { Report(e.Message); } });
         var content = (AndroidPackBackend.Element)mobileStudioStartView.Root;
         mobileStartPageContent = (LinearLayout)content.Native;
         mobileStartPage.AddView(content.Control, new FrameLayout.LayoutParams(Dp(430), ViewGroup.LayoutParams.WrapContent, GravityFlags.Center));
-        foreach (var item in new[] { ("logo", ConfectoryStartPage.LogoEntrance), ("brand-title", ConfectoryStartPage.TitleEntrance),
-            ("brand-subtitle", ConfectoryStartPage.SubtitleEntrance), ("connect", ConfectoryStartPage.ConnectEntrance), ("later", ConfectoryStartPage.LaterEntrance) })
+        foreach (var entrance in mobileStudioPresentation.Motion.Entrances)
         {
-            var element = (AndroidPackBackend.Element)mobileStudioStartView.Element(item.Item1);
-            element.Control.Alpha = 0; element.Control.TranslationY = (float)(item.Item2.Rise * (Resources?.DisplayMetrics?.Density ?? 1));
+            var element = (AndroidPackBackend.Element)mobileStudioStartView.Element(entrance.Node);
+            element.Control.Alpha = 0; element.Control.TranslationY = (float)(entrance.Rise * (Resources?.DisplayMetrics?.Density ?? 1));
             element.Native.Enabled = false; element.Control.Enabled = false;
-            mobileStartPageElements.Add((element.Control, item.Item2));
+            mobileStartPageElements.Add((element.Control, entrance));
         }
 
         mobileStartPage.LayoutChange += (_, _) => FitMobileStartPage();
         mobileStartPageContent.LayoutChange += (_, _) => FitMobileStartPage();
         SetContentView(host); mobileStartPage.Post(PlayMobileStartPage);
-    }
-    private Button StartPageAction(string text, bool quiet)
-    {
-        var button = new Button(this) { Text = text, TextSize = quiet ? 12 : 15, Gravity = GravityFlags.Center, StateListAnimator = null, Elevation = 0 };
-        button.SetAllCaps(false); button.SetMinWidth(0); button.SetMinHeight(0); button.SetPadding(Dp(16), 0, Dp(16), 0);
-        if (quiet)
-        {
-            button.Background = null;
-            button.SetTextColor(new ColorStateList(
-                [new[] { global::Android.Resource.Attribute.StateHovered }, new[] { global::Android.Resource.Attribute.StateFocused }, new[] { global::Android.Resource.Attribute.StatePressed }, Array.Empty<int>()],
-                [Color.ParseColor(ConfectoryStartPage.Text).ToArgb(), Color.ParseColor(ConfectoryStartPage.Text).ToArgb(), Color.ParseColor(ConfectoryStartPage.Text).ToArgb(), Color.ParseColor(ConfectoryStartPage.Muted).ToArgb()]));
-        }
-        else
-        {
-            button.SetTypeface(Typeface.Default, TypefaceStyle.Bold); button.SetTextColor(Color.ParseColor(ConfectoryStartPage.ButtonText));
-            var colors = new StateListDrawable();
-            colors.AddState([global::Android.Resource.Attribute.StatePressed], Fill(ConfectoryStartPage.AccentPressed));
-            colors.AddState([global::Android.Resource.Attribute.StateHovered], Fill(ConfectoryStartPage.AccentHover));
-            colors.AddState([global::Android.Resource.Attribute.StateFocused], Fill(ConfectoryStartPage.AccentHover));
-            colors.AddState(Array.Empty<int>(), Fill(ConfectoryStartPage.Accent)); button.Background = colors;
-        }
-        return button;
-        GradientDrawable Fill(string color)
-        { var shape = new GradientDrawable(); shape.SetColor(Color.ParseColor(color)); shape.SetCornerRadius(Dp(8)); return shape; }
     }
     private void PlayMobileStartPage()
     {
@@ -164,8 +132,8 @@ public sealed partial class MainActivity
         FitMobileStartPage();
         if (mobileAutoEnterHome)
         {
-            mobileAutoHome = new Java.Lang.Runnable(() => { if (IsDestroyed || aiConnections.SetupCompleted) return; aiConnections.SetupCompleted = true; RefreshMobileHome(); });
-            mobileStartPage.PostDelayed(mobileAutoHome, ConfectoryStartPage.AutoHomeDelay);
+            mobileAutoHome = new Java.Lang.Runnable(() => { if (IsDestroyed || aiConnections.SetupCompleted || mobileStudioStartup?.AutomaticHomeDue(mobileStudioPresentation.Motion.AutoHomeDelay) != true) return; aiConnections.SetupCompleted = true; RefreshMobileHome(); });
+            mobileStartPage.PostDelayed(mobileAutoHome, mobileStudioPresentation.Motion.AutoHomeDelay);
         }
         foreach (var item in mobileStartPageElements)
         {
@@ -178,7 +146,7 @@ public sealed partial class MainActivity
                 if (IsDestroyed || aiConnections.SetupCompleted) return;
                 item.View.Enabled = true;
                 int index = mobileStartPageElements.IndexOf(item);
-                var ids = new[] { "logo", "brand-title", "brand-subtitle", "connect", "later" };
+                var ids = mobileStudioPresentation.Motion.Entrances.Select(e => e.Node).ToArray();
                 ((AndroidPackBackend.Element)mobileStudioStartView!.Element(ids[index])).Native.Enabled = true;
             }));
             animation.Start();
@@ -195,7 +163,7 @@ public sealed partial class MainActivity
     {
         if (mobileAutoHome is not null) mobileStartPage.RemoveCallbacks(mobileAutoHome);
         foreach (var item in mobileStartPageElements) item.View.Animate()?.Cancel();
-        FinishMobileHomeTransition();
+        FinishMobileHomeTransition(); mobileHomeBrandView?.Dispose(); mobileStudioStartView?.Dispose();
     }
     private void RefreshMobileStartPage()
     {
@@ -205,20 +173,5 @@ public sealed partial class MainActivity
         mobileStartPage.Visibility = aiConnections.SetupCompleted ? ViewStates.Gone : ViewStates.Visible;
 
     }
-    private sealed class StartPageLogo(global::Android.Content.Context context) : View(context)
-    {
-        private readonly Paint paint = new(PaintFlags.AntiAlias);
-        protected override void OnDraw(Canvas canvas)
-        {
-            base.OnDraw(canvas); canvas.Save(); canvas.Scale(Width / 96f, Height / 96f);
-            Draw(ConfectoryStartPage.LogoOutline, ConfectoryStartPage.Accent);
-            Draw(ConfectoryStartPage.LogoCenter, ConfectoryStartPage.Text); canvas.Restore();
-            void Draw(float[] points, string color)
-            {
-                using var path = new global::Android.Graphics.Path(); path.MoveTo(points[0], points[1]);
-                for (int i = 2; i < points.Length; i += 2) path.LineTo(points[i], points[i + 1]);
-                path.Close(); paint.Color = Color.ParseColor(color); canvas.DrawPath(path, paint);
-            }
-        }
-    }
+
 }

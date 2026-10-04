@@ -235,6 +235,7 @@ internal sealed class AndroidPackBackend(Context context, string viewId = "") : 
                 button.Background = fills; button.SetTextColor(global::Android.Graphics.Color.ParseColor(Color("foreground", "#E6EDF3")));
             }
         }
+        public AView CopyVector(Context context) => native is Vector vector ? new Vector(context) { Polygons = vector.Polygons } : throw new InvalidOperationException("Not a vector element.");
         public void Focus(bool selectAll = false)
         {
             if (native is InlineEditor inline) inline.Begin(); else native.RequestFocus();

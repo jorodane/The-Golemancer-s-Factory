@@ -56,7 +56,7 @@ public sealed class EditorPackCatalog : IEditorPackRegistry
             if (!panel && !shell && !window && !entry && !editor && e.Name != "Command") throw new InvalidDataException("Unknown editor extension: " + e.Name);
             var d = new ExtensionDefinition { Id = Required(e, "id"), Parent = (string?)e.Attribute("extends") ?? "", Pack = pack, Document = path };
             EditorPackNames.Check(d.Id); if (e.Attribute("extends") is not null) EditorPackNames.Check(d.Parent);
-            var allowed = entry ? new[] { "title", "surface", "group", "order", "command", "window", "category", "payload" } : editor ? new[] { "kind", "category", "title", "window", "command", "priority" } : shell ? new[] { "sidebarWidth", "contextWidth", "logHeight" } : window ? new[] { "title", "view", "autoOpen" } : panel ? new[] { "title", "view", "slot", "order" } : new[] { "handler", "payload" };
+            var allowed = entry ? new[] { "title", "surface", "group", "order", "command", "window", "category", "payload" } : editor ? new[] { "kind", "category", "title", "window", "command", "priority" } : shell ? new[] { "sidebarWidth", "contextWidth", "logHeight", "startupMotion", "homeDuration", "autoHomeDelay" } : window ? new[] { "title", "view", "autoOpen" } : panel ? new[] { "title", "view", "slot", "order" } : new[] { "handler", "payload" };
             foreach (var a in e.Attributes().Where(a => a.Name != "id" && a.Name != "extends"))
             { if (!allowed.Contains(a.Name.LocalName)) throw new InvalidDataException("Unknown extension attribute: " + a.Name); d.Fields.Add(a.Name.LocalName, a.Value); }
             foreach (var arg in e.Elements())
@@ -97,6 +97,8 @@ public sealed class EditorPackCatalog : IEditorPackRegistry
         {
             double sidebar = EditorNativeSchema.LayoutNumber(layout.Fields["sidebarWidth"], 0, 600), context = EditorNativeSchema.LayoutNumber(layout.Fields["contextWidth"], 180, 700);
             EditorNativeSchema.LayoutNumber(layout.Fields["logHeight"], 0, 600);
+            if (layout.Fields.TryGetValue("startupMotion", out var motion)) _ = new EditorStudioMotion(motion, layout.Fields["homeDuration"], layout.Fields["autoHomeDelay"]);
+            else if (layout.Fields.ContainsKey("homeDuration") || layout.Fields.ContainsKey("autoHomeDelay")) throw new InvalidDataException("Motion timing requires startupMotion.");
             if (sidebar + context > 1000) throw new InvalidDataException("Editor side columns must leave room for its work area.");
         }
         foreach (var p in panelOrigins) Snapshot.Origins.Add("panel:" + p.Key, p.Value);

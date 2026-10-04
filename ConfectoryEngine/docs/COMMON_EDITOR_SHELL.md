@@ -20,12 +20,13 @@ adapters, regression checks and remote CI, actual Linux screen/input flows,
 final exact remote main SHA, and an executable package delivered through Library.
 Report source/reference compilation separately from desktop/device execution.
 
-Current next checkpoint: common recent-project cards, inline rename, icon/folder
-actions and reversible deletion confirmation. Existing uncommitted changes in
-StudioProjectHome, CoreTools UI, native backends and home mounts implement this.
-SDL startup/create/home input verification, 358 pack checks, native adapter
-compilation and the full required campaign passed. Publish this checkpoint, then
-continue startup motion/state, Agent/Helper management and remaining shell flows.
+Current next checkpoint: pack-owned startup motion and home branding. The recent
+project checkpoint is published as f20337b404fdff3f2244eaaf5bae6b03a84c7f63;
+all five remote CI jobs passed in run 37183768783. Uncommitted StudioMotion,
+trusted Shell metadata, home brand view and native animation/frame adapters have
+passed local verification; publish this checkpoint and check remote CI. Continue Agent connection/model/Helper management next, then
+workspace, conversations, collaboration, pack management and granular review.
+Do not mistake this checkpoint for completion of the overall task.
 
 All three editor hosts must mount the same installed engine pack elements and
 invoke the same shared actions. Native adapters own drawing, input, measurement,
@@ -36,7 +37,7 @@ Project packs cannot replace the trusted shell or access credentials.
 
 | Flow | Existing behavior to preserve | Migration status |
 | --- | --- | --- |
-| Startup | vector logo, staged entrance, logo flight to home, Connect/Later, saved Agent skip | shared pack presentation mounted; native motion/state migration pending |
+| Startup | vector logo, staged entrance, logo flight to home, Connect/Later, saved Agent skip | pack presentation, trusted motion, saved-identity state and home branding shared; local verification passed |
 | Agents | provider/auth/model/profile selection, restore, enabled state, private credentials | pending |
 | Helpers | avatar/character/memories, Main Helper and worker roles | creation and MAIN selection shared within project creation; profiles pending |
 | Project home | recent cards, icons, rename/delete, last opened | shared cards/actions in progress; branding/motion pending |
@@ -92,3 +93,26 @@ delete confirmation/cancellation. Obsolete native card workflows were removed.
 Portable checks cover all three contracts; actual SDL text/Enter/pointer flows
 cover inline rename and delete cancellation. Windows and Android source/reference
 compilation passed; desktop/device execution remains a separate CI/device check.
+
+The home checkpoint f20337b uses 358 pack checks, native SDL flows, source/reference
+adapter compilation and the complete external consumer campaign. Its Windows,
+Linux native, portable, Android and engine compatibility CI jobs all passed.
+
+Startup motion/home brand checkpoint evidence: engine isolation, Studio 225,
+authoring 39, full external consumer campaign, and pack 369/live-view 88 checks
+passed. Windows and Android adapters were rebuilt without incremental outputs;
+actual Linux SDL verified blank inert first frame, cubic entrance, keyboard
+Connect/Later, three-element flight, input restoration and saved-Agent automatic
+home entry. No external AI/auth request was performed. Phase screenshots are
+kept outside Git under /workspace/scratch/studio-motion-final.png.{startup,home}.png.
+Linux still has a legacy toolbar/manual project surface; Agent connection currently
+still uses the unfinished placeholder callback and must be replaced before final
+delivery. Full shell parity and Library package delivery remain unfinished.
+
+Resume next: implement the common Agent connection/model workflow and secure
+write-only password renderer, preserving Codex install/login consent and encrypted
+OS credential stores. Drafts are in /tmp/StudioAgentConnection.cs,
+/tmp/StudioAgentService.cs, /tmp/agent-ui.xml and /tmp/agent-secret.py; these are
+not applied or verified and must be reviewed before use. Prefer model-choice
+command indexes over remote model IDs. Stage providers until identity/credential
+persistence succeeds; dispose unadopted providers on failure/cancellation.

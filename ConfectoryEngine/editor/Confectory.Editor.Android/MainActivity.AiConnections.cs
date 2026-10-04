@@ -40,7 +40,8 @@ public sealed partial class MainActivity
         foreach (string manifest in MobileProjects().Where(p => !p.Contains(".ConfectoryTrash"))) { try { mobileProjects.Register(WorkspaceProject.Open(manifest)); } catch (IOException e) { Report(e.Message); } }
         if (mobileDirectory.Agents.Count == 0 && aiConnections.Editor.Enabled) { mobileDirectory.AddAgent(aiConnections.Editor.Name, aiConnections.Editor, aiConnections.Editor.Provider); SaveMobileDirectory(); }
         // Restoring a supported identity must not start a provider or model request.
-        var startupAgent = mobileDirectory.StartupAgent(apiOnly: true);
+        mobileStudioStartup = new(mobileStudioPresentation.Motion, mobileDirectory, apiOnly: true);
+        var startupAgent = mobileStudioStartup.SavedAgent;
         if (startupAgent is not null) SelectMobileAgent(startupAgent);
         else aiConnections.Editor = new();
         mobileAutoEnterHome = startupAgent is not null;

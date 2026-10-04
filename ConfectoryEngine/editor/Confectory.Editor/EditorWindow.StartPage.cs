@@ -11,10 +11,13 @@ namespace Confectory.Editor;
 
 public sealed partial class EditorWindow
 {
+    private EditorStudioPresentation studioPresentation = null!;
+    private EditorStudioStartupState? studioStartup;
+    private EditorLiveView? studioHomeBrandView;
     private Grid? studioRoot;
     private EditorLiveView? studioStartView;
     private readonly Grid startPage = new() { Background = BackgroundInk };
-    private readonly List<(FrameworkElement Element, ConfectoryStartPage.Entrance Entrance)> startPageElements = [];
+    private readonly List<(FrameworkElement Element, EditorStudioMotion.Entrance Entrance)> startPageElements = [];
     private bool startPagePlayed, autoEnterHome, homeTransitionPlayed;
     private readonly Canvas brandFlight = new() { IsHitTestVisible = false };
     private readonly List<FrameworkElement> homeBrandElements = [];
@@ -24,16 +27,14 @@ public sealed partial class EditorWindow
 
     private FrameworkElement HomeBrand()
     {
-        homeBrandElements.Clear();
-        var header = new WrapPanel { Margin = new Thickness(-16, 0, 0, 32) };
-        var logo = new Image { Source = StartPageLogo(), Width = 96, Height = 96 };
-        var title = new TextBlock { Text = ConfectoryStartPage.Title, FontSize = 42, FontWeight = FontWeights.SemiBold,
-            Foreground = TextInk, VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(0, 0, 0, 12) };
-        var subtitle = new TextBlock { Text = ConfectoryStartPage.Subtitle, FontSize = 12, Foreground = Brush(ConfectoryStartPage.Muted),
-            VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(8, 0, 0, 12) };
-        foreach (var item in new FrameworkElement[] { logo, title, subtitle })
-        { homeBrandElements.Add(item); header.Children.Add(item); if (homeTransitionClock.IsRunning) item.Opacity = 0; }
-        return header;
+        homeBrandElements.Clear(); studioHomeBrandView?.Dispose();
+        studioHomeBrandView = new(studioPresentation.Catalog, "editor.studio.brand", new Confectory.Runtime.UI.UiContext(), new EditorPackBackend(_ => { }, () => false));
+        foreach (string id in new[] { "home-logo", "home-brand-title", "home-brand-subtitle" })
+        {
+            var element = ((EditorPackBackend.Element)studioHomeBrandView.Element(id)).Control;
+            homeBrandElements.Add(element); if (homeTransitionClock.IsRunning) element.Opacity = 0;
+        }
+        return ((EditorPackBackend.Element)studioHomeBrandView.Root).Control;
     }
     private void EnterProjectHome(Action enter)
     {
@@ -49,7 +50,7 @@ public sealed partial class EditorWindow
             {
                 var element = item.Element;
                 var from = element.TransformToVisual(brandFlight).TransformBounds(new Rect(element.RenderSize));
-                FrameworkElement copy = element is TextBlock text ? new TextBlock { Text = text.Text, FontSize = text.FontSize, FontWeight = text.FontWeight, Foreground = text.Foreground } : new Image { Source = StartPageLogo(), Width = 96, Height = 96 };
+                FrameworkElement copy = element is TextBlock text ? new TextBlock { Text = text.Text, FontSize = text.FontSize, FontWeight = text.FontWeight, Foreground = text.Foreground } : new Image { Source = ((Image)element).Source, Width = 96, Height = 96 };
                 var view = new Viewbox { Child = copy, Stretch = Stretch.Fill };
                 brandFlight.Children.Add(view); flyingBrand.Add((view, from));
             }
@@ -57,7 +58,7 @@ public sealed partial class EditorWindow
         try { enter(); }
         catch { FinishHomeTransition(); throw; }
         if (flyingBrand.Count != 3 || homeBrandElements.Count != 3) { FinishHomeTransition(); return; }
-        homeTransitionPlayed = true; homeTransitionClock.Restart();
+        studioStartup?.BeginHome(); homeTransitionPlayed = true; homeTransitionClock.Restart();
         studioRoot!.IsEnabled = false;
         foreach (var element in homeBrandElements) element.Opacity = 0;
         UpdateLayout(); CompositionTarget.Rendering += RenderHomeTransition;
@@ -67,8 +68,8 @@ public sealed partial class EditorWindow
     {
         if (!homeTransitionClock.IsRunning || studioRoot is null) return;
         if (projectWorkspaceVisible || !projectHomeView.IsVisible) { FinishHomeTransition(); return; }
-        double progress = Math.Min(1, homeTransitionClock.Elapsed.TotalMilliseconds / ConfectoryStartPage.HomeTransitionDuration);
-        double eased = ConfectoryStartPage.HomeProgress(progress);
+        double progress = Math.Min(1, homeTransitionClock.Elapsed.TotalMilliseconds / studioPresentation.Motion.HomeDuration);
+        double eased = EditorStudioMotion.Progress(progress);
         studioRoot.Opacity = eased;
         for (int i = 0; i < flyingBrand.Count; i++)
         {
@@ -97,72 +98,24 @@ public sealed partial class EditorWindow
         var host = new Grid { Background = BackgroundInk }; Content = host;
         host.Children.Add(shell); host.Children.Add(startPage); host.Children.Add(brandFlight);
         var backend = new EditorPackBackend(_ => { }, () => false);
-        studioStartView = new EditorStudioPresentation(InstalledEngine).Start(backend,
+        studioPresentation = new EditorStudioPresentation(InstalledEngine);
+        studioStartView = studioPresentation.Start(backend,
             () => Guard(() => { editingAgentId = ""; ShowEditorAiSetup(); }), () => Guard(CompleteStudioSetup));
         var content = ((EditorPackBackend.Element)studioStartView.Root).Control;
         startPage.Children.Add(new Viewbox { Child = content, Stretch = Stretch.Uniform, StretchDirection = StretchDirection.DownOnly,
             HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(32) });
-        foreach (var item in new[] { ("logo", ConfectoryStartPage.LogoEntrance), ("brand-title", ConfectoryStartPage.TitleEntrance),
-            ("brand-subtitle", ConfectoryStartPage.SubtitleEntrance), ("connect", ConfectoryStartPage.ConnectEntrance), ("later", ConfectoryStartPage.LaterEntrance) })
-            Add(((EditorPackBackend.Element)studioStartView.Element(item.Item1)).Control, item.Item2);
+        foreach (var entrance in studioPresentation.Motion.Entrances)
+            Add(((EditorPackBackend.Element)studioStartView.Element(entrance.Node)).Control, entrance);
 
         ContentRendered += (_, _) => { PlayStartPage(); ScheduleAutomaticHome(); };
-        Closed += (_, _) => { autoHomeTimer?.Stop(); StopStartPage(); FinishHomeTransition(); studioStartView?.Dispose(); };
-        void Add(FrameworkElement element, ConfectoryStartPage.Entrance entrance)
+        Closed += (_, _) => { autoHomeTimer?.Stop(); StopStartPage(); FinishHomeTransition(); studioStartView?.Dispose(); studioHomeBrandView?.Dispose(); };
+        void Add(FrameworkElement element, EditorStudioMotion.Entrance entrance)
         {
             element.Opacity = 0; element.IsHitTestVisible = false;
             if (element is Button button) button.IsEnabled = false;
             element.RenderTransform = new TranslateTransform(0, entrance.Rise);
             startPageElements.Add((element, entrance));
         }
-    }
-    private static DrawingImage StartPageLogo()
-    {
-        var drawing = new DrawingGroup();
-        drawing.Children.Add(new GeometryDrawing(Brushes.Transparent, null, new RectangleGeometry(new Rect(0, 0, 96, 96))));
-        drawing.Children.Add(new GeometryDrawing(Brush(ConfectoryStartPage.Accent), null, Polygon(ConfectoryStartPage.LogoOutline)));
-        drawing.Children.Add(new GeometryDrawing(TextInk, null, Polygon(ConfectoryStartPage.LogoCenter)));
-        var image = new DrawingImage(drawing); image.Freeze(); return image;
-        static StreamGeometry Polygon(float[] points)
-        {
-            var shape = new StreamGeometry();
-            using (var context = shape.Open())
-            {
-                context.BeginFigure(new Point(points[0], points[1]), true, true);
-                for (int i = 2; i < points.Length; i += 2) context.LineTo(new Point(points[i], points[i + 1]), true, false);
-            }
-            shape.Freeze(); return shape;
-        }
-    }
-    private static Button StartPageAction(string text, bool quiet)
-    {
-        var button = new Button { Content = text, HorizontalAlignment = HorizontalAlignment.Center, Cursor = Cursors.Hand, FocusVisualStyle = null,
-            Background = quiet ? null : Brush(ConfectoryStartPage.Accent), Foreground = Brush(quiet ? ConfectoryStartPage.Muted : ConfectoryStartPage.ButtonText),
-            BorderThickness = new Thickness(0), Padding = new Thickness(16, 0, 16, 0) };
-        var presenter = new FrameworkElementFactory(typeof(ContentPresenter));
-        presenter.SetValue(ContentPresenter.HorizontalAlignmentProperty, HorizontalAlignment.Center);
-        presenter.SetValue(ContentPresenter.VerticalAlignmentProperty, VerticalAlignment.Center);
-        var template = new ControlTemplate(typeof(Button));
-        if (quiet) template.VisualTree = presenter;
-        else
-        {
-            var border = new FrameworkElementFactory(typeof(Border));
-            border.SetValue(Border.CornerRadiusProperty, new CornerRadius(8));
-            border.SetValue(Border.BackgroundProperty, new TemplateBindingExtension(Control.BackgroundProperty));
-            border.AppendChild(presenter); template.VisualTree = border;
-        }
-        var hover = new Trigger { Property = IsMouseOverProperty, Value = true };
-        hover.Setters.Add(new Setter(quiet ? Control.ForegroundProperty : Control.BackgroundProperty, Brush(quiet ? ConfectoryStartPage.Text : ConfectoryStartPage.AccentHover)));
-        template.Triggers.Add(hover);
-        var focus = new Trigger { Property = IsKeyboardFocusedProperty, Value = true };
-        focus.Setters.Add(new Setter(quiet ? Control.ForegroundProperty : Control.BackgroundProperty, Brush(quiet ? ConfectoryStartPage.Text : ConfectoryStartPage.AccentHover)));
-        template.Triggers.Add(focus);
-        if (!quiet)
-        {
-            var pressed = new Trigger { Property = System.Windows.Controls.Primitives.ButtonBase.IsPressedProperty, Value = true };
-            pressed.Setters.Add(new Setter(Control.BackgroundProperty, Brush(ConfectoryStartPage.AccentPressed))); template.Triggers.Add(pressed);
-        }
-        button.Template = template; return button;
     }
     private void PlayStartPage()
     {
@@ -188,8 +141,8 @@ public sealed partial class EditorWindow
     private void ScheduleAutomaticHome()
     {
         if (!autoEnterHome || studioReady || autoHomeTimer is not null) return;
-        autoHomeTimer = new() { Interval = TimeSpan.FromMilliseconds(ConfectoryStartPage.AutoHomeDelay) };
-        autoHomeTimer.Tick += (_, _) => { autoHomeTimer.Stop(); Guard(CompleteStudioSetup); };
+        autoHomeTimer = new() { Interval = TimeSpan.FromMilliseconds(studioPresentation.Motion.AutoHomeDelay) };
+        autoHomeTimer.Tick += (_, _) => { autoHomeTimer.Stop(); if (studioStartup?.AutomaticHomeDue(studioPresentation.Motion.AutoHomeDelay) == true) Guard(CompleteStudioSetup); };
         autoHomeTimer.Start();
     }
     private void StopStartPage()

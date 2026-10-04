@@ -32,6 +32,8 @@ internal static class LiveViewVerification
         }
         Reject(() => EditorVector.Parse("#69D1BD:0,0 96,0 97,96"), "vector presentation rejects out-of-canvas coordinates");
         Reject(() => EditorVector.Parse("https://example.invalid/logo.svg"), "vector presentation cannot fetch remote resources");
+        Reject(() => new EditorStudioMotion("logo:0:1:0;logo:0:1:0", "650", "820"), "motion rejects missing/duplicate brand and action nodes");
+        Reject(() => new EditorStudioMotion("logo:0:1:999;brand-title:0:1:0;brand-subtitle:0:1:0;connect:0:1:0;later:0:1:0", "650", "820"), "motion bounds native animation geometry");
         string creationRoot = Path.Combine(Path.GetTempPath(), "studio-creation-" + Guid.NewGuid().ToString("N"));
         try
         {
@@ -40,6 +42,14 @@ internal static class LiveViewVerification
             {
                 var directory = new AiDirectory();
                 var agent = directory.AddAgent("Fixture Agent", new() { Provider = "openai", Model = "private-fixture-model" }, "private-credential-reference");
+                var startupState = new EditorStudioStartupState(presentation.Motion, directory, apiOnly: platform == "android");
+                Check(startupState.SavedAgent == agent && !startupState.AutomaticHomeDue(presentation.Motion.AutoHomeDelay - 1) && startupState.AutomaticHomeDue(presentation.Motion.AutoHomeDelay), "saved Agent restores without a provider request and follows pack timing on " + platform);
+                var logoMotion = presentation.Motion.Entrances[0];
+                var initialMotion = presentation.Motion.Sample(logoMotion, 0, false);
+                var midpoint = presentation.Motion.Sample(logoMotion, logoMotion.Delay + logoMotion.Duration / 2.0, false);
+                Check(initialMotion.Opacity == 0 && !initialMotion.Enabled && Math.Abs(midpoint.Opacity - .875) < .00001 && midpoint.Rise > 0, "all adapters sample the same blank frame and cubic entrance on " + platform);
+                Check(presentation.Motion.Sample(presentation.Motion.Entrances[3], 10000, true).Opacity == 0 && startupState.BeginHome() && !startupState.BeginHome() && !startupState.AutomaticHomeDue(10000), "saved Agent hides Connect/Later and home entry is idempotent on " + platform);
+                EditorNativeSchema.PreflightView(presentation.Catalog, "editor.studio.brand", new UiContext(), platform);
                 var helper = directory.CreateHelper(agent.Id, "First Helper");
                 int saves = 0, cancellations = 0;
                 WorkspaceProject? opened = null;

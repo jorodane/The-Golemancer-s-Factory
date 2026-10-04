@@ -37,6 +37,13 @@ public sealed class LinuxPackBackend(Action invalidate) : IUiBackend, IDisposabl
     }
     private float Paint(Element e, SKCanvas canvas, float x, float y, float width)
     {
+        if (e.MotionOpacity >= 1 && e.MotionRise == 0) return PaintContent(e, canvas, x, y, width);
+        using var paint = new SKPaint { Color = SKColors.White.WithAlpha((byte)(Math.Clamp(e.MotionOpacity, 0, 1) * 255)) };
+        canvas.SaveLayer(paint); canvas.Translate(0, e.MotionRise);
+        try { return PaintContent(e, canvas, x, y, width); } finally { canvas.Restore(); }
+    }
+    private float PaintContent(Element e, SKCanvas canvas, float x, float y, float width)
+    {
         if (!e.Visible) return 0;
         bool highlighted = e == hovered || e == focused;
         float margin = (float)e.Number("margin"), size = (float)e.Number("fontSize");
@@ -128,7 +135,7 @@ public sealed class LinuxPackBackend(Action invalidate) : IUiBackend, IDisposabl
             }
         }
         height = Math.Max((float)e.Layout.MinSize.Y, Math.Min(height, (float)(e.Layout.MaxSize?.Y ?? double.MaxValue)));
-        var hit = new SKRect(x, y, x + width, y + height); hit.Intersect(clip); e.Bounds = hit; e.LastHeight = height; return height + margin * 2;
+        var hit = new SKRect(x, y + e.MotionRise, x + width, y + e.MotionRise + height); hit.Intersect(clip); e.Bounds = hit; e.LastHeight = height; return height + margin * 2;
     }
     public static void Fill(SKCanvas canvas, SKRect rect, string color, float radius = 0) { using var paint = new SKPaint { Color = SKColor.Parse(color), IsAntialias = true }; canvas.DrawRoundRect(rect, radius, radius, paint); }
     public static void Text(SKCanvas canvas, string text, float x, float y, float size, string color, string weight = "normal")
@@ -208,6 +215,8 @@ public sealed class LinuxPackBackend(Action invalidate) : IUiBackend, IDisposabl
         public List<Element> Children { get; } = [];
         public SKRect Bounds { get; internal set; }
         internal float LastHeight;
+        internal double MotionOpacity = 1;
+        internal float MotionRise;
         internal int Caret, Selection;
         internal string Composition = "";
         internal SKBitmap? Image;
@@ -218,6 +227,7 @@ public sealed class LinuxPackBackend(Action invalidate) : IUiBackend, IDisposabl
         public bool Visible => Bool("visible") && (Parent?.Visible ?? true);
         public bool Enabled => Bool("enabled") && (Parent?.Enabled ?? true);
         public Element(LinuxPackBackend owner, string renderer, string id, UiLayout layout) { this.owner = owner; Renderer = renderer; Id = id; Layout = layout; }
+        internal UiValue Value(string name) => Get(name);
         public string Text(string name) => Get(name).Literal;
         public bool Bool(string name) => Get(name).Kind == UiValueKind.Boolean && Get(name).AsBoolean();
         public double Number(string name) => Get(name).Kind == UiValueKind.Number ? Get(name).AsNumber() : 0;
