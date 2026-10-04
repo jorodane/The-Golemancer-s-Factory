@@ -43,6 +43,23 @@ public interface IEditorStudioAgentConnection : IDisposable
     bool Working { get; }
 }
 
+public interface IEditorStudioSavedAgent : IDisposable
+{
+    bool Working { get; }
+    Task Connect(string agentId, CancellationToken cancellation);
+    void Cancel();
+}
+
+public sealed class EditorStudioAgentSetupRequiredException(string agentId) : InvalidOperationException("저장된 Agent의 실행 환경을 연결 설정에서 준비해줘.")
+{
+    public string AgentId { get; } = agentId;
+}
+
+public sealed class EditorStudioAgentPreparationException(string message, bool needsNode = false) : InvalidOperationException(message)
+{
+    public bool NeedsNode { get; } = needsNode;
+}
+
 public sealed record EditorStudioPortraitState(string Name, string Image = "", bool Main = false, bool Empty = false, bool Selected = false, int Size = 40, bool Worker = false, string State = "", bool Running = false, string Activity = "", int Unread = 0);
 
 public interface IEditorStudioPortrait : IDisposable
@@ -78,6 +95,7 @@ public interface IEditorStudioSidebarHost
 /// <summary>Private trusted-shell ABI. Never supplied to project modules or overlays.</summary>
 public interface IEditorStudioActions
 {
+    IEditorStudioSavedAgent SavedAgent(AiDirectory directory, IAiCredentialStore credentials, IEditorStudioAgentService service, Func<bool> allowed, Func<bool> idle, Action<AiAgentProfile, EditorStudioConnectedAgent> adopted, Action<bool> working, Action<Action> onUi, Func<AiAgentProfile, bool>? reusable = null);
     IEditorStudioSidebar Sidebar(EditorStudioPresentation presentation, IUiBackend backend, AiDirectory directory, CollaborationWorkspace? collaboration, ProjectStudio roles, bool project, Func<IEditorStudioWorkspace> workspace, Func<IEditorStudioAgentManagement> management, Func<IReadOnlyList<EditorStudioWorkerFact>> workers, Func<string, string> image, IEditorStudioSidebarHost host);
 
     IEditorStudioPortrait Portrait(EditorStudioPresentation presentation, IUiBackend backend, EditorStudioPortraitState state, Action activate);

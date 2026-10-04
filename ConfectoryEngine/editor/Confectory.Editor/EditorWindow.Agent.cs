@@ -118,46 +118,6 @@ public sealed partial class EditorWindow
         SetStatus(reason); AppendLog("Codex 연결: " + reason); Message("Codex 연결", reason); ShowCodexConnectionNotice(reason, needsNode);
         return new(false, reason, cancelled);
     }
-    private async Task<Confectory.Installation.CodexConnectionResult> ConnectCodexAsync()
-    {
-        if (session is null || conversation is null) return CodexConnectionFailed("먼저 작업할 게임팩을 열어줘.");
-        if (busy) return CodexConnectionFailed("진행 중인 작업이나 연결 설정을 마친 뒤 Codex를 다시 연결해줘.");
-        if (CurrentAccess is not { } access || !assistantSettings.ConnectionEnabled || !access.Enabled) return CodexConnectionFailed("대화·접근 설정에서 이 프로젝트의 Codex 사용을 허용해줘.");
-        SetBusy(true); codexConnectionNotice.Visibility = Visibility.Collapsed; operation = new();
-        try
-        {
-            var bootstrap = new Confectory.Installation.CodexBootstrap { Progress = CodexPreparationProgress };
-            if (codexPath.Text.Trim().Length > 0) bootstrap.FindCodex = () => Confectory.Installation.CodexInstallation.ResolveExecutable(codexPath.Text.Trim());
-            var prepared = await bootstrap.Prepare(operation.Token);
-            if (prepared.NeedsNode)
-            {
-                return CodexConnectionFailed(prepared.Reason + " 설치가 끝나면 ‘Codex 다시 연결’을 눌러줘.", needsNode: true);
-            }
-            string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Providers", "Confectory.Assistant.Codex.dll");
-            var loadedProvider = AssistantBridge.Load(path);
-            if (loadedProvider is not IResidentAssistant next) { loadedProvider.Dispose(); throw new InvalidDataException("The Codex provider does not implement resident sessions."); }
-            provider?.Dispose(); provider = next; models.ItemsSource = null; next.Progress += update => Dispatcher.BeginInvoke(new Action(() => { if (ReferenceEquals(provider, next)) AgentProgress(update); }));
-            var options = assistantSettings.Connection(access, prepared.Executable, session.StateDirectory);
-            options.ConversationDirectory = conversation.ConversationsPath; options.ConversationProject = conversation.Id;
-            var account = await next.ConnectAsync(options, operation.Token);
-            ShowAccount(account); submit.Content = "보내기";
-            if (!access.HistoryEnabled) conversationTitle.Text = "기록 접근 꺼짐 · 매 요청 새 대화";
-            string preferences = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Confectory", "codex-path.txt");
-            Directory.CreateDirectory(Path.GetDirectoryName(preferences)!); File.WriteAllText(preferences, codexPath.Text.Trim());
-            if (account.Type == "chatgpt") await LoadModels(next, operation.Token);
-            SetStatus("Codex 연결됨. " + account.Display);
-            if (account.Type == "chatgpt") codexConnectionNotice.Visibility = Visibility.Collapsed;
-            else ShowCodexConnectionNotice("Codex는 연결됐어. 작업하려면 ‘ChatGPT 로그인’을 눌러 이 PC의 Codex에 로그인해줘.", needsLogin: true);
-            try
-            {
-                { await RefreshThreadList(operation.Token); if (next.ThreadId.Length > 0 && access.HistoryEnabled) await OpenConversation(next.ThreadId, operation.Token); }
-            }
-            catch (Exception e) { historyStatus.Text = e.Message; AppendLog("대화 기록: " + e.Message); }
-            return new(true);
-        }
-        catch (Exception e) { provider?.Dispose(); provider = null; return CodexConnectionFailed(e is OperationCanceledException ? "Codex 연결 준비를 취소했어. 다시 연결하면 이어갈 수 있어." : e.Message, cancelled: e is OperationCanceledException); }
-        finally { operation?.Dispose(); operation = null; SetBusy(false); }
-    }
     private void CodexPreparationProgress(string line)
     {
         if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(() => CodexPreparationProgress(line))); return; }

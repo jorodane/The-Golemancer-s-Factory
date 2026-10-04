@@ -36,10 +36,19 @@ public sealed class StudioAgentService : IEditorStudioAgentService
     public async Task<EditorStudioConnectedAgent> Connect(EditorAiConnection connection, string secret, CancellationToken cancellation)
     {
         connection.Validate();
+        // Capture the request context before asynchronous OS preparation can yield.
+        var sourceOptions = options();
+        var selectedOptions = new AssistantConnection
+        {
+            Executable = sourceOptions.Executable, ProjectIdentity = sourceOptions.ProjectIdentity,
+            StateDirectory = sourceOptions.StateDirectory, ConversationDirectory = sourceOptions.ConversationDirectory,
+            ConversationProject = sourceOptions.ConversationProject, AccessEnabled = sourceOptions.AccessEnabled,
+            HistoryEnabled = sourceOptions.HistoryEnabled, BlockedThreads = sourceOptions.BlockedThreads.ToArray()
+        };
         var provider = await Create(connection, secret, cancellation).ConfigureAwait(false);
         try
         {
-            var selectedOptions = options(); if (connection.Provider == "codex") selectedOptions.Executable = codexExecutable;
+            if (connection.Provider == "codex") selectedOptions.Executable = codexExecutable;
             AssistantAccount? account = provider is IResidentAssistant resident ? await resident.ConnectAsync(selectedOptions, cancellation).ConfigureAwait(false) : null;
             IReadOnlyList<AssistantModel> models = provider is ApiAssistant api ? api.AvailableModels
                 : provider is IResidentAssistant cli && account?.Type == "chatgpt" ? await cli.ModelsAsync(cancellation).ConfigureAwait(false) : Array.Empty<AssistantModel>();

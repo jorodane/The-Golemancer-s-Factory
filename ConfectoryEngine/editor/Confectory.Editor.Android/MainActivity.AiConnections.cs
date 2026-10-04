@@ -15,7 +15,7 @@ public sealed partial class MainActivity
 {
     private AiConnections aiConnections = new();
     private AndroidAiCredentials aiCredentials = null!;
-    private ApiAssistant? editorAi;
+    private IResidentAssistant? editorAi;
     private EditorSession studioSession = null!;
     private ProjectRunner studioRunner = null!;
     private LinearLayout welcome = null!;
@@ -85,17 +85,34 @@ public sealed partial class MainActivity
         dialog.SetContentView(scroll); dialog.DismissEvent += (_, _) => { model.Dispose(); if (ReferenceEquals(agentConnectionDialog, dialog)) agentConnectionDialog = null; }; dialog.Show();
         dialog.Window?.SetLayout(Math.Min(Resources!.DisplayMetrics!.WidthPixels - Dp(24), Dp(610)), ViewGroup.LayoutParams.WrapContent);
     }
-    private AssistantConnection AndroidAiOptions() => new() { ProjectIdentity = studioSession.Project.Identity, StateDirectory = studioSession.StateDirectory, AccessEnabled = true, HistoryEnabled = true };
+    private AssistantConnection AndroidAiOptions() => mobileProjects.Connection(mobileProjects.Register(studioSession.Project), "", studioSession.StateDirectory);
     private async Task<bool> ConnectEditorAi()
     {
-        if (editorAi?.IsConnected == true) return true;
-        if (aiConnecting) { Report("AI 연결 확인이 진행 중이야."); return false; }
-        if (!aiConnections.Editor.Enabled) { Report("위쪽 에디터 AI 메뉴에서 연결해줘."); return false; }
-        if (!aiConnections.Editor.IsApi) { Report("Android에서는 Claude API 또는 OpenAI API를 선택해줘."); return false; }
-        var next = new ApiAssistant(); aiConnecting = true;
-        try { var profile = mobileDirectory.Agents.FirstOrDefault(a => a.Id == mobileDirectory.SelectedAgentId); next.Configure(aiConnections.Editor, aiCredentials.Read(profile?.CredentialKey is { Length: > 0 } slot ? slot : aiConnections.Editor.Provider)); await next.ConnectAsync(AndroidAiOptions(), lifetime.Token); editorAi?.Dispose(); editorAi = next; return true; }
-        catch { next.Dispose(); throw; }
-        finally { aiConnecting = false; }
+        IEditorStudioSavedAgent? connection = null; string selectedAgentId = "";
+        OnAiUi(() =>
+        {
+            var selectedSession = studioSession; var selected = aiConnections.Editor; string agentId = selectedAgentId = mobileDirectory.SelectedAgentId;
+            var options = AndroidAiOptions(); var access = mobileProjects.Register(selectedSession.Project);
+            var presentation = new EditorStudioPresentation(InstalledEngine);
+            connection = presentation.Actions.SavedAgent(mobileDirectory, aiCredentials, new EditorStudioAgentService(presentation, () => options),
+                () => !lifetime.IsCancellationRequested && ReferenceEquals(studioSession, selectedSession)
+                    && mobileDirectory.SelectedAgentId == agentId && ReferenceEquals(aiConnections.Editor, selected)
+                    && mobileProjects.ConnectionEnabled && access.Enabled && access.HistoryEnabled == options.HistoryEnabled
+                    && access.BlockedThreads.SequenceEqual(options.BlockedThreads),
+                () => !aiConnecting && !aiWorking,
+                (_, connected) =>
+                {
+                    if (connected.Assistant is not IResidentAssistant next) throw new InvalidDataException("연결 제공자가 상주 세션을 지원하지 않아.");
+                    var previous = editorAi; editorAi = next;
+                    try { previous?.Dispose(); } catch (Exception e) { Report("이전 연결 정리: " + e.Message); }
+                }, value => aiConnecting = value, OnAiUi,
+                profile => ReferenceEquals(profile.Connection, selected) && editorAi?.IsConnected == true);
+        });
+        using (connection)
+        {
+            try { await OnAiUiAsync(() => connection!.Connect(selectedAgentId, lifetime.Token)); return true; }
+            catch (EditorStudioAgentSetupRequiredException e) { OnAiUi(() => { mobileEditingAgent = e.AgentId; ShowEditorAiSetup(); }); return false; }
+        }
     }
     private void OpenEditorAiChat() { var worker = CreateMobileWorker(); if (worker is not null) OpenMobileWorker(worker); }
     private void OnAiUi(Action action)

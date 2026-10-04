@@ -198,9 +198,9 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
             () => ShowAgentSetup(), EnterStudioHome);
         root = (Element)studioStartView.Root; studioClock.Restart(); Tick(); Invalidate();
     }
-    private IEditorStudioAgentService CreateLinuxAgentService(EditorStudioPresentation presentation)
+    private IEditorStudioAgentService CreateLinuxAgentService(EditorStudioPresentation presentation, AssistantConnection? snapshot = null)
     {
-        return new EditorStudioAgentService(presentation, () => new() { ProjectIdentity = session?.Project.Identity ?? "confectory.editor", StateDirectory = session?.StateDirectory ?? Path.Combine(Path.GetDirectoryName(AiDirectory.DefaultPath)!, "Studio"), AccessEnabled = true, HistoryEnabled = true },
+        return new EditorStudioAgentService(presentation, () => snapshot ?? new() { ProjectIdentity = session?.Project.Identity ?? "confectory.editor", StateDirectory = session?.StateDirectory ?? Path.Combine(Path.GetDirectoryName(AiDirectory.DefaultPath)!, "Studio"), AccessEnabled = true, HistoryEnabled = true },
             externalDll: true, prepareCodex: async token => new(await LinuxCodexPreparation.Prepare(token), Path.Combine(AppContext.BaseDirectory, "Confectory.Assistant.Codex.dll")), needsInstallation: LinuxCodexPreparation.Required);
     }
     private void ShowAgentSetup(IEditorStudioAgentService? service = null, IAiCredentialStore? credentials = null, AiDirectory? directory = null, Action? saveDirectory = null, string editingId = "")
@@ -371,6 +371,7 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
     public void Open(string path)
     {
         var project = WorkspaceProject.Open(path); runner?.Dispose(); runner = null; objectWindows.Clear(); pendingReview?.Cancel(); pendingReview = null; windows.Dispose(); windows = new(); execution?.Dispose(); runtime = null;
+        connectedAgent?.Dispose(); connectedAgent = null; connectedAgentId = ""; connectedAgentSession = null;
         projectPath = project.Manifest;
         string state = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Confectory", "Linux", project.Identity);
         session = new(project.Manifest, state); linuxProjectRoles = ProjectStudio.Load(project); using (var workspace = CreateLinuxWorkspaceRoles()) workspace.RestoreHelpers(); editor = new(session); var entry = projectSettings.Register(project); entry.LastOpenedUtc = DateTime.UtcNow.ToString("O"); projectSettings.Save(AssistantSettings.DefaultPath); Home();

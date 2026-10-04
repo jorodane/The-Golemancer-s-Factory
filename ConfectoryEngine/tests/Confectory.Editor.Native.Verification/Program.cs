@@ -53,6 +53,48 @@ internal static class Program
         string directory = System.IO.Path.Combine(engineRoot, "TestResults", "native"); System.IO.Directory.CreateDirectory(directory);
         using var output = System.IO.File.Create(System.IO.Path.Combine(directory, "project-home.png")); encoder.Save(output);
     }
+    private static void VerifySavedAgent(EditorWindow window)
+    {
+        var directory = Field<AiDirectory>(window, "aiDirectory");
+        var profile = directory.AddAgent("Native saved source", new() { Provider = "openai", Model = "fixture-model" }, "fixture-slot");
+        Call(window, "SelectStoredAgent", profile.Id);
+        var service = new SavedService(); var vault = new SavedCredentials();
+        Task Connect() => (Task)window.GetType().GetMethod("ConnectSavedEditorAi", Fields)!.Invoke(window, [service, vault])!;
+        bool Connected(Task task) { task.GetAwaiter().GetResult(); var result = task.GetType().GetProperty("Result")!.GetValue(task)!; return (bool)result.GetType().GetProperty("Connected")!.GetValue(result)!; }
+        var initial = Connect(); PumpUntil(() => initial.IsCompleted, "Native saved connection");
+        Check(Connected(initial) && service.Calls == 1 && vault.Reads == 1 && !Field<bool>(window, "busy"), "native saved-source adapter adopts injected provider through installed actions");
+        var retained = Field<SavedAssistant>(window, "provider");
+        service.Pending = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        var pending = Connect(); Field<CancellationTokenSource>(window, "operation").Cancel();
+        var late = new SavedAssistant(); service.Pending.SetResult(new(late, new()));
+        PumpUntil(() => pending.IsCompleted, "Native late connection cancellation");
+        Check(!Connected(pending) && late.Disposed && !retained.Disposed && ReferenceEquals(Field<IEditorAssistant>(window, "provider"), retained) && !Field<bool>(window, "busy"), "native cancellation preserves incumbent and disposes late provider");
+        service.Pending = null; var retry = Connect(); PumpUntil(() => retry.IsCompleted, "Native connection retry");
+        Check(Connected(retry) && retained.Disposed && vault.Writes == 0, "native saved connection retries without credential persistence");
+        Call(window, "SelectStoredAgent", ""); directory.Agents.Remove(profile); directory.SelectedAgentId = "";
+    }
+    private sealed class SavedCredentials : IAiCredentialStore
+    {
+        public int Reads, Writes;
+        public string Read(string key) { if (key != "fixture-slot") throw new Exception("Wrong private slot"); Reads++; return "synthetic-key"; }
+        public void Write(string key, string value) { Writes++; throw new Exception("No writes"); }
+        public void Delete(string key) { Writes++; throw new Exception("No deletes"); }
+    }
+    private sealed class SavedService : Confectory.EditorPacks.IEditorStudioAgentService
+    {
+        public int Calls; public TaskCompletionSource<Confectory.EditorPacks.EditorStudioConnectedAgent>? Pending;
+        public bool Supports(string provider) => provider == "openai";
+        public bool InstallationRequired(string provider) => false;
+        public Task<IReadOnlyList<AssistantModel>> Models(EditorAiConnection connection, string secret, CancellationToken cancellation) => throw new Exception("No paid request");
+        public Task<Confectory.EditorPacks.EditorStudioConnectedAgent> Connect(EditorAiConnection connection, string secret, CancellationToken cancellation)
+        { Calls++; return Pending?.Task ?? Task.FromResult(new Confectory.EditorPacks.EditorStudioConnectedAgent(new SavedAssistant(), new())); }
+    }
+    private sealed class SavedAssistant : IEditorAssistant
+    {
+        public bool Disposed; public string Name => "Native fixture";
+        public Task<string> ReplyAsync(ContextRequest request, IAssistantWorkspace workspace, CancellationToken cancellation) => throw new Exception("No inference");
+        public void Dispose() => Disposed = true;
+    }
     [STAThread]
     private static int Main(string[] args)
     {
@@ -128,6 +170,7 @@ internal static class Program
             Check(Descendants(host).Any(n => n.GetType().Name == "Card") && Descendants(host).OfType<TextBlock>().Any(t => itemTitles.Contains(t.Text))
                 && !Descendants(host).OfType<TextBox>().Any(t => t.IsVisible && t.Text.Contains("<ObjectPack")), "the native main view renders actual project item cards instead of source documents");
 
+            VerifySavedAgent(window);
             var participant = session.Collaboration.Register("worker-native-smoke", "Native worker", ParticipantKind.AI, ParticipantPermission.Talk | ParticipantPermission.Work);
             participant.X = 100; participant.Y = 120; Call(window, "CreateWorker", participant);
             var layer = Field<Canvas>(window, "participantsCanvas"); window.UpdateLayout();

@@ -1080,3 +1080,55 @@ attachment/rendering. Existing Codex account/login notices, model choices and
 private conversation restoration must survive migration. Verify with injected
 services, including late completion after cancel/dispose and source/context
 changes during a pending connection. This runtime checkpoint does not expose direct Worker chat or promotion.
+
+### Saved-source runtime checkpoint and confirmed next direction
+
+The confirmed supervision specification is published as
+`a45a89b1dd62cc89119192e628e249209d82d89a`; all five jobs passed in
+[CI 37213271759](https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37213271759).
+Follow `HELPER_SUPERVISION.md` before continuing conversation work. The promotion
+stash above is superseded and must not be applied.
+
+`CoreTools/StudioSavedAgent.cs` implements the installed factory's explicit saved
+connection action. It validates exact source/credential slot, enabled/support and
+workspace facts, snapshots provider settings, gates overlapping attempts, rejects
+changes during vault/provider waits, and transfers only a current successful
+candidate. Failed adoption/cancel/disposal retains the incumbent. Even throwing
+candidate cleanup releases the action for reentry. Credential stores are read
+only. Resident reuse is an explicit host fact checked after pack authorization;
+missing runtime preparation returns the exact source to shared setup/consent.
+`StudioAgentService` captures private request options before asynchronous CLI
+preparation. Native hosts supply OS preparation, vaults, UI dispatch and provider
+attachment; they do not create saved provider candidates themselves.
+
+Windows uses this action for API/custom/Codex saved reconnect and preserves
+account/model selection, CLI login/Node guidance, path preference and private
+history restoration. Its new injected native GUI fixture covers initial adoption,
+late cancellation/incumbent preservation and retry without credential writes.
+Android uses the same action for saved API sources and releases a provider when
+changing projects so its connection cannot retain the old project's options.
+Linux has the same explicit saved connection boundary with actual SDL completion,
+cancel and retry fixtures; Helper request routing into this boundary is still a
+subsequent implementation, not a completed Linux conversation feature.
+
+Local acceptance: installed-pack verification **1,265 checks**; independent engine
+verification passes without a consumer; Windows net48 native source/test build
+passes with zero warnings/errors. Actual SDL saved-source adoption/cancellation/
+retry and the full explicit consumer campaign pass; Studio reports 225 checks.
+Remote CI for this code checkpoint is pending publication. Logs and
+screenshots remain outside Git under `/workspace/scratch/saved-agent-*`. No paid
+inference, external authentication or production credential writes were performed.
+Physical Android interaction and live provider account/history integration remain
+unverified; fixture results do not imply those tests passed.
+
+Next coherent work is explicit supervisor assignment and recoverable record
+migration, then common Helper-facing conversation/character/request actions and
+workload/object indicators. Preserve promoted Helper identities and global memory;
+do not infer a Worker supervisor from `OwnerId`, Agent source, MAIN fallback or
+visual position. Existing published Worker-direct views remain until the tested
+replacement paths land. Durable Task/Callback identity, chief-executor journal,
+recruitment snapshots and fenced temporary-supervisor recovery follow the spec's
+persistence checkpoint. Chief-only augment implementation remains separately
+scoped. Collaboration/YogiBox, remaining packs/review and final full Linux
+shell/package parity are still later work. This runtime checkpoint does not close
+the larger workspace/participant/conversation migration.

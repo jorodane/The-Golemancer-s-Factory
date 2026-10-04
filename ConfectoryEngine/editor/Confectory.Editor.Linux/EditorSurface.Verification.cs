@@ -12,6 +12,7 @@ internal sealed partial class EditorSurface
     // Invoked only with --smoke on an isolated, newly created project.
     public void VerifyNative(NativeWindow native, string screenshot = "")
     {
+        VerifySavedAgent(native);
         void Check(bool condition, string message) { if (!condition) throw new InvalidOperationException("Linux native verification: " + message + " / " + status); }
         void Click(string id, LinuxPackBackend? target = null)
         {
@@ -275,18 +276,20 @@ internal sealed partial class EditorSurface
     private sealed class VerificationAgentService : IEditorStudioAgentService
     {
         public int ConnectCalls, ModelCalls;
+        public TaskCompletionSource<EditorStudioConnectedAgent>? Pending;
         public bool Supports(string provider) => provider == "openai";
         public bool InstallationRequired(string provider) => false;
         public Task<IReadOnlyList<AssistantModel>> Models(EditorAiConnection connection, string secret, CancellationToken cancellation)
         { ModelCalls++; return Task.FromResult<IReadOnlyList<AssistantModel>>(new[] { new AssistantModel { Id = "fixture-model", Name = "Fixture model" } }); }
         public Task<EditorStudioConnectedAgent> Connect(EditorAiConnection connection, string secret, CancellationToken cancellation)
-        { ConnectCalls++; return Task.FromResult(new EditorStudioConnectedAgent(new VerificationAssistant(), new AssistantAccount())); }
+        { ConnectCalls++; return Pending?.Task ?? Task.FromResult(new EditorStudioConnectedAgent(new VerificationAssistant(), new AssistantAccount())); }
     }
     private sealed class VerificationAssistant : IEditorAssistant
     {
+        public bool Disposed;
         public string Name => "fixture";
         public Task<string> ReplyAsync(ContextRequest request, IAssistantWorkspace workspace, CancellationToken cancellation) => throw new InvalidOperationException("No external inference in native verification.");
-        public void Dispose() { }
+        public void Dispose() { Disposed = true; }
     }
 
 }

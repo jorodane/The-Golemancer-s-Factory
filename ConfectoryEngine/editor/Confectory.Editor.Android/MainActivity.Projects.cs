@@ -37,7 +37,7 @@ public sealed partial class MainActivity
         ObserveMobileIncidents(); studioSession.Collaboration.Changed += RefreshMobilePresence;
         if (project && !Directory.Exists(Path.Combine(studioSession.Project.Root, "EditorPacks"))) Confectory.EditorPacks.EditorPackTemplates.CreateWorkspace(Path.Combine(studioSession.Project.Root, "EditorPacks"), empty: true);
         foreach (var participant in studioSession.Collaboration.State.Participants.Where(p => p.Kind == ParticipantKind.AI)) LoadMobileWorker(participant);
-        editorAi?.NewConversation(); SyncMobileProjectHelpers();
+        editorAi?.Dispose(); editorAi = null; SyncMobileProjectHelpers();
     }
     private void OpenMobileProject(string manifest)
     {

@@ -28,23 +28,25 @@ public sealed partial class EditorWindow
     private void RefreshAiMenus() { editorAiMenu.Header = "AI 관리 · " + aiConnections.Editor.Name; RefreshRecipients(); }
     private void ReadyForPackSelection() { if (!studioReady) CompleteStudioSetup(); }
     private void CompleteStudioSetup() => EnterProjectHome(() => { studioReady = true; aiConnections.SetupCompleted = true; SaveAiConnections(); RefreshStudioShell(); });
-    private IEditorStudioAgentService CreateStudioAgentService(EditorStudioPresentation presentation)
+    private IEditorStudioAgentService CreateStudioAgentService(EditorStudioPresentation presentation, AssistantConnection? snapshot = null)
     {
+        string requestedCodexPath = codexPath.Text.Trim();
         bool NeedsInstallation()
         {
-            try { _ = CodexInstallation.ResolveExecutable(codexPath.Text.Trim()); return false; } catch (FileNotFoundException) { return true; }
+            try { _ = CodexInstallation.ResolveExecutable(requestedCodexPath); return false; } catch (FileNotFoundException) { return true; }
         }
         return new EditorStudioAgentService(presentation, () =>
         {
+            if (snapshot is not null) return snapshot;
             var options = SelectedAiOptions();
             if (conversation is not null) { options.ConversationDirectory = conversation.ConversationsPath; options.ConversationProject = conversation.Id; }
             return options;
         }, externalDll: true, prepareCodex: async cancellation =>
         {
             var bootstrap = new CodexBootstrap { Progress = CodexPreparationProgress };
-            if (codexPath.Text.Trim().Length > 0) bootstrap.FindCodex = () => CodexInstallation.ResolveExecutable(codexPath.Text.Trim());
+            if (requestedCodexPath.Length > 0) bootstrap.FindCodex = () => CodexInstallation.ResolveExecutable(requestedCodexPath);
             var prepared = await bootstrap.Prepare(cancellation);
-            if (prepared.NeedsNode) throw new InvalidOperationException(prepared.Reason + " Node.js 설치 후 다시 연결해줘.");
+            if (prepared.NeedsNode) throw new EditorStudioAgentPreparationException(prepared.Reason + " Node.js 설치 후 다시 연결해줘.", needsNode: true);
             return new(prepared.Executable, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Providers", "Confectory.Assistant.Codex.dll"));
         }, needsInstallation: NeedsInstallation);
     }
@@ -81,36 +83,82 @@ public sealed partial class EditorWindow
 
         providerLabel.Text = loaded?.Name ?? next.Name + " · 연결 준비 중";
     }
-    private async Task<bool> ConnectSelectedEditorAi()
+    private async Task<bool> ConnectSelectedEditorAi() => (await ConnectSavedEditorAi()).Connected;
+
+    private async Task<CodexConnectionResult> ConnectSavedEditorAi(IEditorStudioAgentService? injectedService = null, IAiCredentialStore? injectedCredentials = null)
     {
-        if (busy || session is null || CurrentAccess is not { } access || !assistantSettings.ConnectionEnabled || !access.Enabled) return false;
-        var selected = aiConnections.Editor;
-        if (!selected.Enabled) { SetStatus("에디터 AI가 해제돼 있어. 위쪽 메뉴에서 연결해줘."); return false; }
-        if (provider is IResidentAssistant { IsConnected: true }) return true;
-        if (selected.Provider == "codex") { bool result = (await ConnectCodexAsync()).Connected; RefreshAiMenus(); RefreshStudioShell(); return result; }
-        SetBusy(true); operation = new(); IEditorAssistant? candidate = null;
+        var selectedSession = session; var selectedAccess = CurrentAccess; string agentId = aiDirectory.SelectedAgentId;
+        if (selectedSession is null || selectedAccess is null) return new(false, "에디터 작업공간을 먼저 준비해줘.");
+        var selected = aiConnections.Editor; bool codex = selected.Provider == "codex", reused = false;
+        using var cancellation = new CancellationTokenSource();
+        EventHandler closed = (_, _) => cancellation.Cancel(); Closed += closed;
         try
         {
-            if (selected.IsApi)
+            var options = SelectedAiOptions();
+            if (conversation is not null) { options.ConversationDirectory = conversation.ConversationsPath; options.ConversationProject = conversation.Id; }
+            var presentation = new EditorStudioPresentation(InstalledEngine);
+            var service = injectedService ?? CreateStudioAgentService(presentation, options);
+            using var connection = presentation.Actions.SavedAgent(aiDirectory, injectedCredentials ?? aiCredentials, service,
+                () => ReferenceEquals(session, selectedSession) && ReferenceEquals(CurrentAccess, selectedAccess)
+                    && aiDirectory.SelectedAgentId == agentId && ReferenceEquals(aiConnections.Editor, selected)
+                    && assistantSettings.ConnectionEnabled && selectedAccess.Enabled && selectedAccess.HistoryEnabled == options.HistoryEnabled
+                    && selectedAccess.BlockedThreads.SequenceEqual(options.BlockedThreads),
+                () => !busy,
+                (_, connected) =>
+                {
+                    var previous = provider;
+                    provider = connected.Assistant;
+                    try
+                    {
+                        if (provider is IResidentAssistant resident)
+                            resident.Progress += update => Dispatcher.BeginInvoke(new Action(() => { if (ReferenceEquals(provider, connected.Assistant)) AgentProgress(update); }));
+                        providerLabel.Text = provider.Name;
+                        if (connected.Account is not null) ShowAccount(connected.Account);
+                        models.ItemsSource = connected.Models ?? Array.Empty<AssistantModel>();
+                        if (provider is IResidentAssistant next)
+                            models.SelectedItem = connected.Models?.FirstOrDefault(m => m.Id == next.Model) ?? connected.Models?.FirstOrDefault(m => m.Default) ?? connected.Models?.FirstOrDefault();
+                        submit.Content = "보내기";
+                        if (codex)
+                        {
+                            if (!selectedAccess.HistoryEnabled) conversationTitle.Text = "기록 접근 꺼짐 · 매 요청 새 대화";
+                            if (connected.Account?.Type == "chatgpt") codexConnectionNotice.Visibility = Visibility.Collapsed;
+                            else ShowCodexConnectionNotice("Codex는 연결됐어. 작업하려면 ‘ChatGPT 로그인’을 눌러 이 PC의 Codex에 로그인해줘.", needsLogin: true);
+                        }
+                    }
+                    catch { provider = previous; throw; }
+                    try { previous?.Dispose(); } catch (Exception e) { AppendLog("이전 연결 정리: " + e.Message); }
+                },
+                value => { if (value) { operation = cancellation; SetBusy(true); } },
+                action => Dispatcher.Invoke(action),
+                profile => reused = ReferenceEquals(profile.Connection, selected) && provider is IResidentAssistant { IsConnected: true });
+            await connection.Connect(agentId, cancellation.Token);
+            if (!reused && codex && provider is IResidentAssistant next)
             {
-                var profile = aiDirectory.Agents.FirstOrDefault(a => a.Id == aiDirectory.SelectedAgentId);
-                var api = new ApiAssistant(); candidate = api; api.Configure(selected, aiCredentials.Read(profile?.CredentialKey is { Length: > 0 } slot ? slot : selected.Provider));
-                var account = await api.ConnectAsync(SelectedAiOptions(), operation.Token);
-                provider?.Dispose(); provider = api; candidate = null;
-                api.Progress += update => Dispatcher.BeginInvoke(new Action(() => { if (ReferenceEquals(provider, api)) AgentProgress(update); }));
-                ShowAccount(account); await LoadModels(api, operation.Token);
+                try
+                {
+                    string preferences = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Confectory", "codex-path.txt");
+                    Directory.CreateDirectory(Path.GetDirectoryName(preferences)!); File.WriteAllText(preferences, codexPath.Text.Trim());
+                    await RefreshThreadList(cancellation.Token);
+                    if (next.ThreadId.Length > 0 && selectedAccess.HistoryEnabled) await OpenConversation(next.ThreadId, cancellation.Token);
+                }
+                catch (Exception e) { historyStatus.Text = e.Message; AppendLog("대화 기록/연결 설정: " + e.Message); }
             }
-            else
-            {
-                candidate = AssistantBridge.Load(selected.AssemblyPath);
-                if (candidate is IResidentAssistant resident) await resident.ConnectAsync(SelectedAiOptions(), operation.Token);
-                provider?.Dispose(); provider = candidate; candidate = null; providerLabel.Text = provider.Name;
-            }
-            SetStatus(selected.Name + " 연결됨"); return true;
+            SetStatus(selected.Name + " 연결됨"); RefreshAiMenus(); RefreshStudioShell(); return new(true);
         }
-        catch (Exception e) { providerLabel.Text = selected.Name + " · 연결 준비 필요"; SetStatus(e is OperationCanceledException ? "AI 연결을 취소했어." : e.Message); AppendLog(status.Text); return false; }
-        finally { candidate?.Dispose(); operation?.Dispose(); operation = null; SetBusy(false); }
+        catch (EditorStudioAgentSetupRequiredException e)
+        {
+            if (ReferenceEquals(operation, cancellation)) { operation = null; SetBusy(false); }
+            SetStatus(e.Message); editingAgentId = e.AgentId; ShowEditorAiSetup(); return new(false, e.Message);
+        }
+        catch (Exception e)
+        {
+            if (codex) return CodexConnectionFailed(e is OperationCanceledException ? "Codex 연결 준비를 취소했어. 다시 연결하면 이어갈 수 있어." : e.Message,
+                needsNode: e is EditorStudioAgentPreparationException { NeedsNode: true }, cancelled: e is OperationCanceledException);
+            providerLabel.Text = selected.Name + " · 연결 준비 필요"; SetStatus(e is OperationCanceledException ? "AI 연결을 취소했어." : e.Message); AppendLog(status.Text); return new(false, e.Message, e is OperationCanceledException);
+        }
+        finally { Closed -= closed; if (ReferenceEquals(operation, cancellation)) { operation = null; SetBusy(false); } }
     }
+
 }
 
 internal sealed class WindowsAiCredentials : IAiCredentialStore
