@@ -6,7 +6,7 @@ using SkiaSharp;
 namespace Confectory.Editor.Linux;
 
 /// <summary>Retained canvas controls for the same editor renderer contracts as WPF and Android.</summary>
-public sealed class LinuxPackBackend(Action invalidate) : IUiBackend, IDisposable
+public sealed partial class LinuxPackBackend(Action invalidate) : IUiBackend, IDisposable
 {
     private readonly List<Element> elements = [];
     private Element? focused, pressed, hovered;
@@ -95,6 +95,11 @@ public sealed class LinuxPackBackend(Action invalidate) : IUiBackend, IDisposabl
             if (wrap) height += rowHeight;
             height += padding * 2;
         }
+        else if (e.Renderer == "editor.portrait")
+        {
+            height = e.Layout.Size.Y > 0 ? (float)e.Layout.Size.Y : (float)e.Number("diameter") + 25;
+            PaintPortrait(e, canvas, x, y, width, height);
+        }
         else if (e.Renderer == "editor.vector")
         {
             height = e.Layout.Size.Y > 0 ? (float)e.Layout.Size.Y : 96;
@@ -174,7 +179,7 @@ public sealed class LinuxPackBackend(Action invalidate) : IUiBackend, IDisposabl
         }
         else if (input.Kind == NativeInputKind.PointerDown)
         {
-            pressed = elements.LastOrDefault(e => e.Enabled && e.Visible && e.Bounds.Contains(input.X, input.Y) && (e.IsInput || e.Renderer is "editor.button" or "editor.card" or "editor.tile" or "editor.slot"));
+            pressed = elements.LastOrDefault(e => e.Enabled && e.Visible && e.Bounds.Contains(input.X, input.Y) && (e.IsInput || e.Renderer is "editor.button" or "editor.card" or "editor.tile" or "editor.slot" or "editor.portrait"));
             Focus(pressed); invalidate();
         }
         else if (input.Kind == NativeInputKind.PointerUp)
@@ -189,7 +194,7 @@ public sealed class LinuxPackBackend(Action invalidate) : IUiBackend, IDisposabl
             if (input.Key is "LeftCtrl" or "RightCtrl") control = input.Down;
             if (input.Key is "LeftShift" or "RightShift") shift = input.Down;
             if (!input.Down) return;
-            if (input.Key == "Tab") { var inputs = elements.Where(e => (e.IsInput || e.Renderer is "editor.button" or "editor.card" or "editor.tile" or "editor.slot") && e.Visible && e.Enabled && !e.Bounds.IsEmpty).ToArray(); if (inputs.Length > 0) { int i = Array.IndexOf(inputs, focused); Focus(inputs[(i + (shift ? inputs.Length - 1 : 1) + inputs.Length) % inputs.Length]); } return; }
+            if (input.Key == "Tab") { var inputs = elements.Where(e => (e.IsInput || e.Renderer is "editor.button" or "editor.card" or "editor.tile" or "editor.slot" or "editor.portrait") && e.Visible && e.Enabled && !e.Bounds.IsEmpty).ToArray(); if (inputs.Length > 0) { int i = Array.IndexOf(inputs, focused); Focus(inputs[(i + (shift ? inputs.Length - 1 : 1) + inputs.Length) % inputs.Length]); } return; }
             if (focused is not { } e) return;
             if (!e.IsInput) { if (input.Key is "Enter" or "Space") e.Emit("activate", e.Renderer == "editor.slot" ? UiValue.Text(e.Text("value")) : UiValue.None); invalidate(); return; }
             if (e.Renderer == "editor.readonly" && input.Key is "Up" or "Down" or "PageUp" or "PageDown") { e.FirstLine = Math.Clamp(e.FirstLine + (input.Key is "Up" or "PageUp" ? -1 : 1) * (input.Key is "PageUp" or "PageDown" ? e.VisibleLines : 1), 0, Math.Max(0, e.LineCount - e.VisibleLines)); invalidate(); return; }

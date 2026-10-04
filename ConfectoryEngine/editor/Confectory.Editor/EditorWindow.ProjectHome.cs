@@ -42,24 +42,23 @@ public sealed partial class EditorWindow
         }
         catch (Exception e) when (e is IOException or NotSupportedException or ArgumentException) { return null; }
     }
-    private static Button AiCircle(string name, string avatar, Action click, bool main = false, bool empty = false, bool selected = false, int size = 40)
+    private string AiPortraitImage(string path)
     {
-        var grid = new Grid { Width = size, Height = size + 18 };
-        var circle = new Ellipse { Width = size, Height = size, VerticalAlignment = VerticalAlignment.Bottom, Fill = empty ? Brushes.Transparent : AvatarBrush(avatar) ?? PanelInk,
-            Stroke = main ? MainInk : selected ? AccentInk : MutedInk, StrokeThickness = main || selected ? 2 : 1 };
-        if (empty) circle.StrokeDashArray = new DoubleCollection { 3, 3 }; grid.Children.Add(circle);
-        if (empty || AvatarBrush(avatar) is null)
-        {
-            var text = Label(empty ? "+" : new System.Globalization.StringInfo(name).SubstringByTextElements(0, Math.Min(1, new System.Globalization.StringInfo(name).LengthInTextElements)), empty ? 22 : 16, empty ? MutedInk : TextInk);
-            text.Margin = new Thickness(0); text.Width = size; text.Height = size; text.VerticalAlignment = VerticalAlignment.Bottom; text.TextAlignment = TextAlignment.Center; text.Padding = new Thickness(0, (size - 23) / 2.0, 0, 0); grid.Children.Add(text);
-        }
-        if (main)
-        {
-            var label = new Border { Background = MainInk, Padding = new Thickness(4, 1, 4, 1), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Top };
-            label.Child = new TextBlock { Text = "MAIN", FontSize = 9, FontWeight = FontWeights.Bold, Foreground = Brushes.White }; grid.Children.Add(label);
-        }
-        var button = BareButton(grid, click); button.Margin = new Thickness(4, 0, 4, 7); button.ToolTip = empty ? name : name + (main ? " · Main Helper" : ""); button.SetValue(AutomationProperties.NameProperty, empty ? name : name + (main ? " MAIN" : "")); return button;
+        string image = "";
+        try { if (File.Exists(path) && new FileInfo(path).Length <= studioPresentation.Actions.ProfileImageMaximumBytes) image = StudioProfilePreview(File.ReadAllBytes(path), Path.GetExtension(path)); }
+        catch (Exception e) when (e is IOException or NotSupportedException or ArgumentException) { }
+        return image;
     }
+    private IEditorStudioPortrait CreateAiPortrait(EditorStudioPortraitState state, Action click)
+    {
+        string image = state.Empty ? "" : AiPortraitImage(state.Image);
+        var portrait = studioPresentation.Actions.Portrait(studioPresentation, new EditorPackBackend(_ => { }, () => false), state with { Image = image }, () => HomeAction(click));
+        var control = ((EditorPackBackend.Element)portrait.View.Root).Control;
+        control.SetValue(AutomationProperties.NameProperty, state.Name + (state.Main ? " MAIN" : ""));
+        control.Unloaded += (_, _) => portrait.Dispose(); return portrait;
+    }
+    private Button AiCircle(string name, string avatar, Action click, bool main = false, bool empty = false, bool selected = false, int size = 40)
+        => (Button)((EditorPackBackend.Element)CreateAiPortrait(new(name, avatar, main, empty, selected, size), click).View.Root).Control;
     private void HomeAction(Action action)
     {
         try { action(); }
@@ -109,7 +108,7 @@ public sealed partial class EditorWindow
             RefreshRecipients();
             if (open) { SelectWorker(worker); ShowProjectWorkspace(); tabs.SelectedIndex = 0; }
             SetStatus(participant.Name + "가 참여했어. 개인 기억은 이 도우미에게만 전달돼.");
-        }, id => { SelectStoredAgent(id); SaveAiDirectory(); }, id => workers.Any(w => w.Participant.Id == id && w.Running), () => !busy && !PendingReviews, removed: RemoveStudioParticipants, workerSettings: id => ShowWorkerSettings(workers.Single(w => w.Participant.Id == id)), manageAgents: ShowStudioAgentManagement, supportsProvider: CreateStudioAgentService(studioPresentation).Supports);
+        }, id => { SelectStoredAgent(id); SaveAiDirectory(); }, id => workers.Any(w => w.Participant.Id == id && w.Running), () => !busy && !PendingReviews, removed: RemoveStudioParticipants, workerSettings: id => ShowWorkerSettings(workers.Single(w => w.Participant.Id == id)), manageAgents: ShowStudioAgentManagement, supportsProvider: CreateStudioAgentService(studioPresentation).Supports, portraitImage: AiPortraitImage);
     private void RemoveStudioParticipants(IReadOnlyList<Participant> removed)
     {
         var failures = new List<Exception>();
@@ -163,18 +162,11 @@ public sealed partial class EditorWindow
         bool main = !Standalone && helper?.Id == projectStudio.MainHelperId;
         int unread = session!.Collaboration.Unread("human", worker.Participant.Id).Count;
         string state = worker.Turns.LastOrDefault()?.State ?? "";
-        string status = ConversationTimeline.Activity(state, worker.Running, worker.Activity);
-        Brush ink = worker.Running ? Brush("#F0B866") : state is "failed" or "interrupted" or "cancelled" or "suspended" ? MainInk : state is "review" or "needs-user" or "handoff" ? AccentInk : MutedInk;
         Button? circle = null;
-        circle = AiCircle(worker.Participant.Name, helper?.AvatarPath ?? "", () =>
-        {
-            ShowWorkerProfile(circle!, worker);
-        }, main: main);
+        var portrait = CreateAiPortrait(new(worker.Participant.Name, helper?.AvatarPath ?? "", Main: main, Worker: true, State: state, Running: worker.Running, Activity: worker.Activity, Unread: unread), () => ShowWorkerProfile(circle!, worker));
+        string status = portrait.Status; Brush ink = Brush(portrait.Ink);
+        circle = (Button)((EditorPackBackend.Element)portrait.View.Root).Control;
         circle.Tag = "ai-profile"; BindYogiDrop(circle, box => ReceiveWorkerYogi(worker, box));
-        var icon = (Grid)circle.Content;
-        icon.Children.OfType<Ellipse>().First().Stroke = ink;
-        if (main) icon.Children.Add(new Ellipse { Width = 34, Height = 34, Margin = new Thickness(0, 0, 0, 3), VerticalAlignment = VerticalAlignment.Bottom, Stroke = MainInk, StrokeThickness = 1, IsHitTestVisible = false });
-        if (unread > 0) icon.Children.Add(new Ellipse { Width = 8, Height = 8, Fill = Brush("#61B6FF"), HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center, IsHitTestVisible = false });
         var menu = new ContextMenu();
         void Entry(string text, Action click) { var item = new MenuItem { Header = text }; item.Click += (_, _) => HomeAction(click); menu.Items.Add(item); }
         Entry("대화창 열기", () => ShowParticipantAnswers(worker.Participant.Id));
@@ -188,7 +180,7 @@ public sealed partial class EditorWindow
         Entry("대화창 닫기", () => StudioParticipantActions().Display(worker.Participant.Id, CharacterDisplay.Hidden)); circle.ContextMenu = menu;
         circle.PreviewMouseLeftButtonDown += (_, e) => { if (e.ClickCount != 2) return; e.Handled = true; menu.IsOpen = false; aiProfile?.SetCurrentValue(Popup.IsOpenProperty, false); HomeAction(() => ShowParticipantAnswers(worker.Participant.Id)); };
         circle.ToolTip = worker.Participant.Name + " · " + status + (unread > 0 ? "\n" + session.Collaboration.Unread("human", worker.Participant.Id).Last().Text.Substring(0, Math.Min(120, session.Collaboration.Unread("human", worker.Participant.Id).Last().Text.Length)) : "");
-        var panel = new StackPanel { Width = 44, Margin = new Thickness(2, 0, 2, 10), Tag = "worker-sidebar:" + worker.Participant.Id }; circle.Margin = new Thickness(2, 0, 2, 2); panel.Children.Add(circle);
+        var panel = new StackPanel { Width = 48, Margin = new Thickness(0, 0, 0, 10), Tag = "worker-sidebar:" + worker.Participant.Id }; circle.Margin = new Thickness(0, 0, 0, 2); panel.Children.Add(circle);
         var name = Label(worker.Participant.Name, 9); name.TextAlignment = TextAlignment.Center; name.Margin = new Thickness(0); name.TextWrapping = TextWrapping.NoWrap; name.TextTrimming = TextTrimming.CharacterEllipsis; panel.Children.Add(name);
         var activity = Label(status, 8, ink); activity.TextAlignment = TextAlignment.Center; activity.Margin = new Thickness(0); panel.Children.Add(activity); return panel;
     }

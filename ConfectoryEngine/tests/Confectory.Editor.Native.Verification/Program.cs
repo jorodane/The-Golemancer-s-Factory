@@ -17,6 +17,13 @@ internal static class Program
     private static void Check(bool value, string message)
     { if (!value) throw new Exception(message); checks++; Console.WriteLine("PASS " + message); }
     private static T Field<T>(object target, string name) => (T)target.GetType().GetField(name, Fields)!.GetValue(target)!;
+    private static IEnumerable<Drawing> Drawings(Drawing drawing)
+    {
+        yield return drawing;
+        if (drawing is DrawingGroup group) foreach (var child in group.Children) foreach (var nested in Drawings(child)) yield return nested;
+    }
+    private static IEnumerable<Drawing> PortraitDrawings(DependencyObject root)
+        => Descendants(root).OfType<Image>().Select(i => i.Source).OfType<DrawingImage>().SelectMany(i => Drawings(i.Drawing));
     private static void Call(object target, string method, params object[] args) => target.GetType().GetMethod(method, Fields)!.Invoke(target, args);
     private static IEnumerable<DependencyObject> Descendants(DependencyObject root)
     {
@@ -90,8 +97,8 @@ internal static class Program
                 && !Descendants(home).OfType<Button>().Any(b => b.Content is string text && text is "팩 열기" or "에디터팩 관리"), "project home hides the old menus, console, status and pack-selection toolbar");
             var directory = Field<StackPanel>(window, "aiManagement");
             Check(Descendants(directory).OfType<System.Windows.Controls.Primitives.UniformGrid>().All(g => g.Columns == 2)
-                && Descendants(directory).OfType<TextBlock>().Count(t => t.Text == "+") == 2
-                && Descendants(directory).OfType<System.Windows.Shapes.Ellipse>().Count(e => e.StrokeDashArray?.Count > 0) == 2,
+                && PortraitDrawings(directory).OfType<GlyphRunDrawing>().Count(g => g.GlyphRun.Characters is { } characters && new string(characters.ToArray()) == "+") == 2
+                && PortraitDrawings(directory).OfType<GeometryDrawing>().Count(g => g.Geometry is EllipseGeometry && g.Pen?.DashStyle?.Dashes.Count > 0) == 2,
                 "native Agent and Helper sections share circular dashed empty slots and stay two icons wide");
             window.OpenProject(Environment.GetEnvironmentVariable("CONFECTORY_TEST_PROJECT") ?? throw new InvalidOperationException("Supply CONFECTORY_TEST_PROJECT."));
             Call(window, "CompleteStudioSetup");
@@ -149,7 +156,7 @@ internal static class Program
             PumpUntil(() => !character.IsVisible, "Worker conversation did not hide.");
             Check(session.Collaboration.View("human", second.Id).Display == CharacterDisplay.Full && layer.Children.OfType<Border>().Count(c => c.IsVisible) == 1,
                 "closing one conversation leaves the other worker open");
-            Check(!Descendants(Field<StackPanel>(window, "aiManagement")).OfType<TextBlock>().Any(t => t.Text == "Worker") && session.Collaboration.Unread("human", participant.Id).Count > 0 && Descendants(Field<StackPanel>(window, "aiManagement")).OfType<System.Windows.Shapes.Ellipse>().Any(e => e.Width == 8) && Field<StackPanel>(window, "participantNotifications").Children.Count == 0,
+            Check(!Descendants(Field<StackPanel>(window, "aiManagement")).OfType<TextBlock>().Any(t => t.Text == "Worker") && session.Collaboration.Unread("human", participant.Id).Count > 0 && PortraitDrawings(Field<StackPanel>(window, "aiManagement")).OfType<GeometryDrawing>().Any(g => g.Geometry is EllipseGeometry { RadiusX: 4, RadiusY: 4 } && g.Brush is SolidColorBrush ink && ink.Color == Color.FromRgb(97, 182, 255)) && Field<StackPanel>(window, "participantNotifications").Children.Count == 0,
                 "unread dots stay in the sidebar without opening project overlays or replacing activity status");
 
             NativeInputs(window);

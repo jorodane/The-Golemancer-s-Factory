@@ -238,6 +238,7 @@ internal static class LiveViewVerification
                     workspace.Dispose(); Reject(() => workspace.JoinHelper(workspaceHelper.Id), "disposed workspace actions cannot mutate a previous project on " + platform);
                 }
                 AgentManagementVerification.Run(presentation, new Backend(platform), creationRoot, platform, Check, Reject);
+                PortraitVerification.Run(presentation, new Backend(platform), platform, Check, Reject);
                 WorkerCreationVerification.Run(presentation, new Backend(platform), creationRoot, platform, Check, Reject);
                 WorkerSettingsVerification.Run(presentation, new Backend(platform), creationRoot, platform, Check, Reject);
                 ParticipantLifecycleVerification.Run(presentation, new Backend(platform), creationRoot, platform, Check, Reject);
@@ -435,6 +436,7 @@ internal static class LiveViewVerification
         private readonly EditorInputTextUpdates updates = new();
         public Element? Parent;
         public string Text = "";
+        public readonly Dictionary<string, UiValue> Properties = new(StringComparer.Ordinal);
         public int Caret, TextAssignments, Removals;
         public bool Composing, Disposed;
         public UiLayout Layout = new();
@@ -446,6 +448,7 @@ internal static class LiveViewVerification
         public Action PrepareSet(string property, UiValue value) { if (value.Literal == "reject-native") throw new InvalidDataException("Native fixture decode failure"); return () => Set(property, value); }
         public void Set(string property, UiValue value)
         {
+            Properties[property] = value;
             if (property != "text") return;
             string? next = renderer == "editor.input" ? updates.Receive(value.Literal, Text, Composing) : value.Literal;
             if (next is not null) { Text = next; Caret = Math.Min(Caret, Text.Length); TextAssignments++; }

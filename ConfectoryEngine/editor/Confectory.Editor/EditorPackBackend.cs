@@ -8,7 +8,7 @@ using Confectory.EditorPacks;
 
 namespace Confectory.Editor;
 
-internal sealed class EditorPackBackend(Action<string> point, Func<bool> pointing, string viewId = "") : IUiBackend
+internal sealed partial class EditorPackBackend(Action<string> point, Func<bool> pointing, string viewId = "") : IUiBackend
 {
     private readonly Dictionary<Element, string> elements = new();
     public string Platform => "windows";
@@ -24,6 +24,7 @@ internal sealed class EditorPackBackend(Action<string> point, Func<bool> pointin
             "editor.tile" => new Tile(),
             "editor.inline" => new InlineEditor(),
             "editor.slot" => new Slot(),
+            "editor.portrait" => new Portrait(),
             "editor.image" => new Image { Stretch = Stretch.Uniform },
             "editor.vector" => new Vector(),
             "editor.text" => new TextBlock { TextWrapping = TextWrapping.Wrap, Foreground = Brushes.WhiteSmoke },
@@ -144,12 +145,13 @@ internal sealed class EditorPackBackend(Action<string> point, Func<bool> pointin
         {
             EditorNativeSchema.ValidateValue(property, value);
             if (property == "image")
-            { var image = Slot.DecodeImage(value.Literal, control is Image ? 512 : 128); return () => { if (control is Image picture) picture.Source = image; else ((Slot)control).SetImage(image); }; }
+            { var image = Slot.DecodeImage(value.Literal, control is Image ? 512 : 128); return () => { if (control is Image picture) picture.Source = image; else if (control is Portrait portrait) portrait.SetImage(image); else ((Slot)control).SetImage(image); }; }
             return () => Set(property, value);
         }
         public void Set(string property, UiValue value)
         {
             EditorNativeSchema.ValidateValue(property, value);
+            if (control is Portrait portrait && portrait.SetPart(property, value)) return;
             setting = true;
             try
             {
@@ -176,7 +178,7 @@ internal sealed class EditorPackBackend(Action<string> point, Func<bool> pointin
                     case "borderStyle": ((Tile)control).Outline.StrokeDashArray = value.Literal == "dashed" ? new DoubleCollection { 5, 5 } : null; break;
                     case "placeholder": ((InlineEditor)control).Placeholder = value.Literal; ((InlineEditor)control).Refresh(); break;
                     case "multiline": ((InlineEditor)control).Input.AcceptsReturn = value.AsBoolean(); break;
-                    case "image": if (control is Image picture) picture.Source = Slot.DecodeImage(value.Literal, 512); else ((Slot)control).SetImage(Slot.DecodeImage(value.Literal)); break;
+                    case "image": if (control is Image picture) picture.Source = Slot.DecodeImage(value.Literal, 512); else if (control is Portrait portraitImage) portraitImage.SetImage(Slot.DecodeImage(value.Literal)); else ((Slot)control).SetImage(Slot.DecodeImage(value.Literal)); break;
                     case "glyph": ((Slot)control).Glyph.Text = value.Literal; break;
                     case "count": ((Slot)control).Count.Text = value.AsNumber() == 0 ? "" : value.Literal; break;
                     case "value": ((Slot)control).Value = value.Literal; break;
@@ -258,6 +260,7 @@ internal sealed class EditorPackBackend(Action<string> point, Func<bool> pointin
                 text.LostKeyboardFocus -= InputLostFocus;
             }
             if (control is Image picture) picture.Source = null;
+            if (control is Portrait portrait) portrait.SetImage(null);
             if (control is Panel panel) panel.Children.Clear();
             if (control is Card card) card.Children.Children.Clear(); if (control is Tile tile) tile.Children.Children.Clear();
         }

@@ -28,15 +28,16 @@ public sealed partial class StudioWorkspace : IEditorStudioWorkspace
 
     public StudioWorkspace(EditorStudioPresentation presentation, IUiBackend backend, AiDirectory directory, WorkspaceProject project,
         ProjectStudio roles, CollaborationWorkspace collaboration, Action saveDirectory, Action<Participant, bool> joined,
-        Action<string> selectedAgent, Func<string, bool> running, Func<bool>? idle, Action<IReadOnlyList<Participant>>? removed, Action<string>? workerSettings, Action? manageAgents, Func<string, bool>? supportsProvider)
+        Action<string> selectedAgent, Func<string, bool> running, Func<bool>? idle, Action<IReadOnlyList<Participant>>? removed, Action<string>? workerSettings, Action? manageAgents, Func<string, bool>? supportsProvider, Func<string, string>? portraitImage)
     {
         this.presentation = presentation; this.directory = directory; this.project = project; this.roles = roles;
         this.collaboration = collaboration; this.saveDirectory = saveDirectory; this.joined = joined; this.selectedAgent = selectedAgent;
         this.running = running; this.idle = idle ?? (() => true);
-        this.removed = removed; this.workerSettings = workerSettings; this.manageAgents = manageAgents; this.supportsProvider = supportsProvider ?? (_ => true);
+        this.removed = removed; this.workerSettings = workerSettings; this.manageAgents = manageAgents; this.supportsProvider = supportsProvider ?? (_ => true); this.portraitImage = portraitImage ?? (_ => "");
         var state = State(); View = new(state.Catalog, "editor.studio.workspace.state", state.Context, backend);
     }
     private readonly Func<string, bool> supportsProvider;
+    private readonly Func<string, string> portraitImage;
     private bool ProjectRoles => project.Id != "confectory.editor";
     private void RequireAction(bool mutation = true)
     {
@@ -134,7 +135,7 @@ public sealed partial class StudioWorkspace : IEditorStudioWorkspace
         {
             int index = agents.Count; string command = "studio.workspace.agent." + index;
             Command(command, () => SelectMainAgent(agent.Id));
-            agents.Add(Button("workspace-agent-" + index, (agent.Id == roles.MainAgentId ? "MAIN · " : "") + agent.Name, command, ProjectRoles && agent.Enabled && agent.Connection.Enabled));
+            agents.Add(StudioPortrait.Node("workspace-agent-" + index, index, new(agent.Name, portraitImage(agent.AvatarPath), Selected: agent.Id == roles.MainAgentId), command, ProjectRoles && agent.Enabled && agent.Connection.Enabled));
         }
         foreach (var id in directory.Helpers.Select(h => h.Id).Concat(roles.HelperIds).Distinct().ToArray())
         {
@@ -143,7 +144,7 @@ public sealed partial class StudioWorkspace : IEditorStudioWorkspace
             Command(join, () => JoinHelper(id, false)); Command(main, () => SetMainHelper(id));
             Command(remove, () => RemoveHelper(id));
             helpers.Add(new XElement("Node", new XAttribute("id", "workspace-helper-row-" + index), new XAttribute("order", index), new XAttribute("widget", "editor.stack"), new XElement("Slot", new XAttribute("name", "children"),
-                Button("workspace-helper-" + index, (id == roles.MainHelperId ? "MAIN · " : "") + (helper?.Name ?? "연결되지 않은 Helper") + " · 참여", join, helper is not null),
+                StudioPortrait.Node("workspace-helper-" + index, 0, new(helper?.Name ?? "연결되지 않은 Helper", helper is null ? "" : portraitImage(helper.AvatarPath), Main: id == roles.MainHelperId), join, helper is not null),
                 Button("workspace-main-" + index, "MAIN으로 지정", main, ProjectRoles && roles.HelperIds.Contains(id)),
                 Button("workspace-remove-" + index, "연결 해제", remove, ProjectRoles ? roles.HelperIds.Contains(id) : helper?.Enabled == true))));
         }

@@ -43,10 +43,20 @@ public interface IEditorStudioAgentConnection : IDisposable
     bool Working { get; }
 }
 
+public sealed record EditorStudioPortraitState(string Name, string Image = "", bool Main = false, bool Empty = false, bool Selected = false, int Size = 40, bool Worker = false, string State = "", bool Running = false, string Activity = "", int Unread = 0);
+
+public interface IEditorStudioPortrait : IDisposable
+{
+    EditorLiveView View { get; }
+    string Status { get; }
+    string Ink { get; }
+}
+
 /// <summary>Private trusted-shell ABI. Never supplied to project modules or overlays.</summary>
 public interface IEditorStudioActions
 {
-    IEditorStudioWorkspace Workspace(EditorStudioPresentation presentation, IUiBackend backend, AiDirectory directory, WorkspaceProject project, ProjectStudio roles, CollaborationWorkspace collaboration, Action saveDirectory, Action<Participant, bool> joined, Action<string> selectedAgent, Func<string, bool> running, Func<bool>? idle = null, Action<IReadOnlyList<Participant>>? removed = null, Action<string>? workerSettings = null, Action? manageAgents = null, Func<string, bool>? supportsProvider = null);
+    IEditorStudioPortrait Portrait(EditorStudioPresentation presentation, IUiBackend backend, EditorStudioPortraitState state, Action activate);
+    IEditorStudioWorkspace Workspace(EditorStudioPresentation presentation, IUiBackend backend, AiDirectory directory, WorkspaceProject project, ProjectStudio roles, CollaborationWorkspace collaboration, Action saveDirectory, Action<Participant, bool> joined, Action<string> selectedAgent, Func<string, bool> running, Func<bool>? idle = null, Action<IReadOnlyList<Participant>>? removed = null, Action<string>? workerSettings = null, Action? manageAgents = null, Func<string, bool>? supportsProvider = null, Func<string, string>? portraitImage = null);
     IEditorStudioParticipants Participants(AiDirectory directory, CollaborationWorkspace collaboration, string actor = "human");
     IEditorStudioWorkerSettings WorkerSettings(EditorStudioPresentation presentation, IUiBackend backend, CollaborationWorkspace collaboration, string participantId, Func<bool> running, Action changed, Action closed);
     IEditorStudioAgentManagement AgentManagement(EditorStudioPresentation presentation, IUiBackend backend, AiDirectory directory, CollaborationWorkspace? collaboration, IEditorStudioAgentService service, Action save, Func<string, bool> working, Action<AiAgentProfile> reconnect, Action<AiAgentProfile> profile, Action<AiAgentProfile, IReadOnlyList<Participant>, bool> disconnected, Action closed);

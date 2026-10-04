@@ -9,7 +9,7 @@ using AView = Android.Views.View;
 
 namespace Confectory.Editor.Android;
 
-internal sealed class AndroidPackBackend(Context context, string viewId = "") : IUiBackend
+internal sealed partial class AndroidPackBackend(Context context, string viewId = "") : IUiBackend
 {
     private readonly Dictionary<Element, string> elements = new();
     public string Platform => "android";
@@ -27,6 +27,7 @@ internal sealed class AndroidPackBackend(Context context, string viewId = "") : 
             "editor.tile" => new Card(context),
             "editor.inline" => new InlineEditor(context),
             "editor.slot" => new SlotButton(context),
+            "editor.portrait" => new Portrait(context),
             "editor.image" => new BitmapView(context),
             "editor.vector" => new Vector(context),
             "editor.text" => new TextView(context),
@@ -44,7 +45,7 @@ internal sealed class AndroidPackBackend(Context context, string viewId = "") : 
         };
         wrapper.SetMinimumWidth(Dp(layout.MinSize.X)); wrapper.SetMinimumHeight(Dp(layout.MinSize.Y));
         if (native is Button || native is EditText) native.SetMinimumHeight(Dp(48));
-        wrapper.AddView(native, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, renderer is "editor.vector" or "editor.image" ? ViewGroup.LayoutParams.MatchParent : ViewGroup.LayoutParams.WrapContent));
+        wrapper.AddView(native, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, renderer is "editor.vector" or "editor.image" or "editor.portrait" ? ViewGroup.LayoutParams.MatchParent : ViewGroup.LayoutParams.WrapContent));
         Element element = null!;
         element = new Element(native, wrapper, Dp, () => elements.Remove(element));
         elements.Add(element, nodeId); return element;
@@ -158,7 +159,9 @@ internal sealed class AndroidPackBackend(Context context, string viewId = "") : 
         }
         public void Set(string property, UiValue value)
         {
-            EditorNativeSchema.ValidateValue(property, value); setting = true;
+            EditorNativeSchema.ValidateValue(property, value);
+            if (native is Portrait portrait && portrait.SetPart(property, value)) return;
+            setting = true;
             try
             {
                 if (native is Button && property is "appearance" or "hoverForeground" or "hoverBackground" or "pressedBackground" or "foreground" or "background")
@@ -259,6 +262,8 @@ internal sealed class AndroidPackBackend(Context context, string viewId = "") : 
         }
         public IDisposable Listen(string name, Action<UiValue> callback)
         {
+            if (name == "activate" && native is Portrait)
+            { wrapper.Clickable = wrapper.Focusable = true; EventHandler handler = (_, _) => callback(UiValue.None); wrapper.Click += handler; return new Release(() => wrapper.Click -= handler); }
             if (name == "activate" && native is Button button)
             {
                 EventHandler handler = (_, _) => callback(button is SlotButton slot ? UiValue.Text(slot.Value) : UiValue.None); button.Click += handler;
@@ -283,6 +288,7 @@ internal sealed class AndroidPackBackend(Context context, string viewId = "") : 
             if (InputControl is { } input) input.TextChanged -= InputChanged;
             if (native is SlotButton slot) slot.ReleaseImage();
             if (native is BitmapView picture) picture.ReleaseImage();
+            if (native is Portrait portrait) portrait.ReleaseImage();
             cleanup(); if (native is ViewGroup group) group.RemoveAllViews(); wrapper.RemoveAllViews();
             if (wrapper.Parent is ViewGroup parent) parent.RemoveView(wrapper);
             native.Dispose(); wrapper.Dispose();

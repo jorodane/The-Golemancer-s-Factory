@@ -36,18 +36,33 @@ public sealed partial class MainActivity
         var shape = new GradientDrawable(); shape.SetShape(circle ? ShapeType.Oval : ShapeType.Rectangle); shape.SetColor(dashed ? Color.Transparent : Color.Rgb(25, 35, 47));
         if (!circle) shape.SetCornerRadius(Dp(12)); shape.SetStroke(Dp(main || selected ? 2 : 1), main ? HomeMain : selected ? HomeAccent : Color.Rgb(68, 83, 101), dashed ? Dp(4) : 0, dashed ? Dp(4) : 0); return shape;
     }
-    private View MobileAiCircle(string name, string avatar, Action click, bool main = false, bool empty = false, bool selected = false, int size = 40)
+    private string MobilePortraitImage(string path)
     {
-        var frame = new FrameLayout(this) { ContentDescription = name + (main ? " MAIN" : ""), Clickable = true, Focusable = true };
-        frame.LayoutParameters = new LinearLayout.LayoutParams(Dp(size + 8), Dp(size + 23));
-        var circle = new FrameLayout(this) { Background = HomeShape(true, empty, main, selected), ClipToOutline = true };
-        frame.AddView(circle, new FrameLayout.LayoutParams(Dp(size), Dp(size), GravityFlags.Bottom | GravityFlags.CenterHorizontal));
-        if (!empty && File.Exists(avatar))
-        { var image = new ImageView(this); image.SetImageURI(global::Android.Net.Uri.FromFile(new Java.IO.File(avatar))); image.SetScaleType(ImageView.ScaleType.CenterCrop); circle.AddView(image, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent) { LeftMargin = Dp(2), TopMargin = Dp(2), RightMargin = Dp(2), BottomMargin = Dp(2) }); }
-        else { var label = HomeLabel(empty ? "+" : new System.Globalization.StringInfo(name).SubstringByTextElements(0, Math.Min(1, new System.Globalization.StringInfo(name).LengthInTextElements)), empty ? 24 : 16, empty); label.Gravity = GravityFlags.Center; circle.AddView(label, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent)); }
-        if (main) { var badge = HomeLabel("MAIN", 9); badge.Gravity = GravityFlags.Center; badge.SetTypeface(null, TypefaceStyle.Bold); badge.SetBackgroundColor(HomeMain); frame.AddView(badge, new FrameLayout.LayoutParams(Dp(34), Dp(15), GravityFlags.Top | GravityFlags.CenterHorizontal)); }
-        frame.Click += (_, _) => MobileHomeAction(click); return frame;
+        string image = "";
+        try { if (File.Exists(path) && new FileInfo(path).Length <= mobileStudioPresentation.Actions.ProfileImageMaximumBytes) image = MobileStudioProfilePreview(File.ReadAllBytes(path), Path.GetExtension(path)); }
+        catch (Exception e) when (e is IOException or NotSupportedException or ArgumentException) { }
+        return image;
     }
+    private IEditorStudioPortrait CreateMobilePortrait(EditorStudioPortraitState state, Action click)
+    {
+        string image = state.Empty ? "" : MobilePortraitImage(state.Image);
+        var portrait = mobileStudioPresentation.Actions.Portrait(mobileStudioPresentation, new AndroidPackBackend(this), state with { Image = image }, () => MobileHomeAction(click));
+        var control = ((AndroidPackBackend.Element)portrait.View.Root).Control; control.ContentDescription = state.Name + (state.Main ? " MAIN" : "");
+        control.AddOnAttachStateChangeListener(new PortraitDetach(portrait)); return portrait;
+    }
+    private sealed class PortraitDetach(IEditorStudioPortrait portrait) : Java.Lang.Object, View.IOnAttachStateChangeListener
+    {
+        public void OnViewAttachedToWindow(View? view) { }
+        public void OnViewDetachedFromWindow(View? view)
+        {
+            view?.RemoveOnAttachStateChangeListener(this);
+            // Detach may occur inside RemoveAllViews; release after that native traversal completes.
+            var handler = new global::Android.OS.Handler(global::Android.OS.Looper.MainLooper!);
+            handler.Post(() => { try { portrait.Dispose(); } finally { Dispose(); handler.Dispose(); } });
+        }
+    }
+    private View MobileAiCircle(string name, string avatar, Action click, bool main = false, bool empty = false, bool selected = false, int size = 40)
+        => ((AndroidPackBackend.Element)CreateMobilePortrait(new(name, avatar, main, empty, selected, size), click).View.Root).Control;
     private void CirclePairs(LinearLayout target, IEnumerable<View> circles)
     {
         LinearLayout? row = null; int count = 0;
@@ -92,7 +107,7 @@ public sealed partial class MainActivity
         {
             var worker = mobileWorkers.FirstOrDefault(w => w.Participant.Id == participant.Id) ?? LoadMobileWorker(participant);
             if (open) SelectMobileWorker(worker);
-        }, id => { if (id.Length > 0) SelectMobileAgent(mobileDirectory.Agent(id)); else { editorAi?.Dispose(); editorAi = null; aiConnections.Editor = new(); } SaveMobileDirectory(); }, id => mobileWorkers.Any(w => w.Participant.Id == id && w.Cancellation is not null), () => !aiWorking && !aiConnecting && operation.CurrentCount > 0, removed: RemoveMobileParticipants, workerSettings: id => ShowMobileWorkerSettings(mobileWorkers.Single(w => w.Participant.Id == id)), manageAgents: ShowMobileAgentManagement, supportsProvider: mobileStudioPresentation.Actions.AgentService(AndroidAiOptions).Supports);
+        }, id => { if (id.Length > 0) SelectMobileAgent(mobileDirectory.Agent(id)); else { editorAi?.Dispose(); editorAi = null; aiConnections.Editor = new(); } SaveMobileDirectory(); }, id => mobileWorkers.Any(w => w.Participant.Id == id && w.Cancellation is not null), () => !aiWorking && !aiConnecting && operation.CurrentCount > 0, removed: RemoveMobileParticipants, workerSettings: id => ShowMobileWorkerSettings(mobileWorkers.Single(w => w.Participant.Id == id)), manageAgents: ShowMobileAgentManagement, supportsProvider: mobileStudioPresentation.Actions.AgentService(AndroidAiOptions).Supports, portraitImage: MobilePortraitImage);
     private void RemoveMobileParticipants(IReadOnlyList<Participant> removed)
     {
         var failures = new List<Exception>();

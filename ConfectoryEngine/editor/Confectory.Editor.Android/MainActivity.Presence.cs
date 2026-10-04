@@ -15,19 +15,13 @@ public sealed partial class MainActivity
         bool controlled = hub.CanControl("human", worker.Participant.Id);
         var helper = controlled ? mobileDirectory.Helpers.FirstOrDefault(h => h.Id == worker.Participant.HelperId) : null;
         int unread = hub.Unread("human", worker.Participant.Id).Count;
-        string status = ConversationTimeline.Activity(worker.ResultState, worker.Cancellation is not null);
-        Color ink = worker.Cancellation is not null ? Color.Rgb(240, 184, 102) : worker.ResultState is "failed" or "interrupted" or "cancelled" or "suspended" ? HomeMain : worker.ResultState is "review" or "needs-user" or "handoff" ? HomeAccent : HomeMuted;
         bool main = helper is not null && helper.Id == mobileProjectStudio.MainHelperId;
         FrameLayout? circle = null; long tap = 0;
-        circle = (FrameLayout)MobileAiCircle(worker.Participant.Name, helper?.AvatarPath ?? "", () => { long now = global::Android.OS.SystemClock.UptimeMillis(); if (now - tap < 320) { tap = 0; ShowMobileWorkerAnswers(worker); } else { tap = now; circle!.PostDelayed(() => { if (tap == now) ShowMobileWorkerProfile(circle, worker); }, 320); } }, main: main);
+        var portrait = CreateMobilePortrait(new(worker.Participant.Name, helper?.AvatarPath ?? "", Main: main, Worker: true, State: worker.ResultState, Running: worker.Cancellation is not null, Unread: unread), () => { long now = global::Android.OS.SystemClock.UptimeMillis(); if (now - tap < 320) { tap = 0; ShowMobileWorkerAnswers(worker); } else { tap = now; circle!.PostDelayed(() => { if (tap == now) ShowMobileWorkerProfile(circle, worker); }, 320); } });
+        string status = portrait.Status; Color ink = Color.ParseColor(portrait.Ink);
+        circle = (FrameLayout)((AndroidPackBackend.Element)portrait.View.Root).Control;
         BindMobileYogiDrop(circle, box => ReceiveMobileYogi(worker, box));
         circle.ContentDescription = worker.Participant.Name + " · " + status + (unread > 0 ? " · 새 답변 " + unread : "");
-        if (circle.GetChildAt(0)?.Background is GradientDrawable border) border.SetStroke(Dp(2), ink);
-        if (unread > 0)
-        {
-            var dot = new View(this); var shape = new GradientDrawable(); shape.SetShape(ShapeType.Oval); shape.SetColor(Color.Rgb(97, 182, 255)); dot.Background = shape;
-            circle.AddView(dot, new FrameLayout.LayoutParams(Dp(8), Dp(8), GravityFlags.Right | GravityFlags.CenterVertical));
-        }
         circle.LongClick += (_, _) =>
         {
             var actions = new List<(string Name, Action Run)> { ("대화창 열기", () => ShowMobileWorkerAnswers(worker)) };
@@ -36,7 +30,7 @@ public sealed partial class MainActivity
                 actions.Add(("대화 기록", () => OpenMobileWorkerLog(worker)));
                 if (helper is not null)
                 {
-                    actions.Add(("MAIN으로 지정", () => { mobileProjectStudio.SetMainHelper(helper.Id); mobileProjectStudio.Save(studioSession.Project); RefreshMobileManagement(); }));
+                    actions.Add(("MAIN으로 지정", () => { SelectMobileMainHelper(helper.Id); RefreshMobileManagement(); }));
                     actions.Add(("설정", () => OpenMobileHelper(helper)));
                     actions.Add(("연결 해제", () => { DisconnectMobileHelper(helper); RefreshMobileManagement(); }));
                 }

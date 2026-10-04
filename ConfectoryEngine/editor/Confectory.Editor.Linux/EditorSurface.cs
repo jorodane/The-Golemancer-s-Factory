@@ -293,13 +293,19 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
     }
     private IEditorStudioWorkspace? sharedWorkspaceRoles;
     private ProjectStudio linuxProjectRoles = new();
+    private static string LinuxPortraitImage(string path)
+    {
+        try { if (File.Exists(path) && new FileInfo(path).Length <= 12 * 1024 * 1024) return StudioProfilePreview(File.ReadAllBytes(path), Path.GetExtension(path)); }
+        catch (Exception e) when (e is IOException or NotSupportedException or ArgumentException) { }
+        return "";
+    }
     private IEditorStudioWorkspace CreateLinuxWorkspaceRoles()
     {
         if (session is null) throw new InvalidOperationException("프로젝트를 먼저 열어줘.");
         var presentation = new EditorStudioPresentation(EditorEngineDistribution.Open(engineDirectory));
         return presentation.Actions.Workspace(presentation, backend, studioDirectory, session.Project, linuxProjectRoles, session.Collaboration,
             () => studioDirectory.Save(AiDirectory.DefaultPath), (participant, open) => { status = participant.Name + "가 참여했어. 아직 AI 요청은 하지 않았어."; Invalidate(); },
-            id => { connectedAgent?.Dispose(); connectedAgent = null; if (id.Length > 0) studioDirectory.SelectedAgentId = id; studioDirectory.Save(AiDirectory.DefaultPath); }, _ => false, () => !busy, workerSettings: ShowWorkerSettings, manageAgents: () => ShowAgentManagement(), supportsProvider: CreateLinuxAgentService(presentation).Supports);
+            id => { connectedAgent?.Dispose(); connectedAgent = null; if (id.Length > 0) studioDirectory.SelectedAgentId = id; studioDirectory.Save(AiDirectory.DefaultPath); }, _ => false, () => !busy, workerSettings: ShowWorkerSettings, manageAgents: () => ShowAgentManagement(), supportsProvider: CreateLinuxAgentService(presentation).Supports, portraitImage: LinuxPortraitImage);
     }
     private void Home()
     {

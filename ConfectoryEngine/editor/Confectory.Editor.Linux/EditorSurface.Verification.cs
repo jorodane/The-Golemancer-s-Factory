@@ -1,3 +1,4 @@
+using SkiaSharp;
 using Confectory.Contracts.UI;
 using Confectory.Platform.Sdl;
 using Confectory.Workspace;
@@ -186,6 +187,31 @@ internal sealed partial class EditorSurface
         if (screenshot.Length > 0) native.Screenshot(screenshot + ".management.png");
         Reveal("agent-management-close"); Click("agent-management-close");
         if (screenshot.Length > 0) native.Screenshot(screenshot + ".roles.png");
+        Page("Common circular portrait verification", "verification");
+        var portraitPresentation = new EditorStudioPresentation(EditorEngineDistribution.Open(engineDirectory)); int portraitActivations = 0;
+        using (var circleView = portraitPresentation.Actions.Portrait(portraitPresentation, backend, new("한글 Worker", Main: true, Worker: true, State: "review", Unread: 2), () => portraitActivations++))
+        {
+            Add(root, (Element)circleView.View.Root); native.Paint(); Click("portrait");
+            var circle = (Element)circleView.View.Root;
+            Check(portraitActivations == 1 && circle.Renderer == "editor.portrait" && circle.Text("symbol") == "한" && circle.Text("badge") == "MAIN" && circle.Text("innerRim") == "#E35561" && circle.Text("indicator") == "#61B6FF", "actual SDL renders and activates installed Worker portrait with Unicode, MAIN, status ring and unread dot");
+            if (screenshot.Length > 0) native.Screenshot(screenshot + ".portrait-main.png");
+        }
+        Page("Common add circle verification", "verification");
+        using (var circleView = portraitPresentation.Actions.Portrait(portraitPresentation, backend, new("Add", Empty: true), () => portraitActivations++))
+        {
+            Add(root, (Element)circleView.View.Root); native.Paint(); Click("portrait");
+            Check(portraitActivations == 2 && ((Element)circleView.View.Root).Bool("dashed"), "actual SDL empty circle keeps explicit add activation");
+            if (screenshot.Length > 0) native.Screenshot(screenshot + ".portrait-empty.png");
+        }
+        string portraitBitmap;
+        using (var bitmap = new SKBitmap(8, 4)) { bitmap.Erase(SKColors.LimeGreen); using var encoded = bitmap.Encode(SKEncodedImageFormat.Png, 100); portraitBitmap = "data:image/png;base64," + Convert.ToBase64String(encoded.ToArray()); }
+        Page("Common avatar circle verification", "verification");
+        using (var circleView = portraitPresentation.Actions.Portrait(portraitPresentation, backend, new("Avatar", Image: portraitBitmap, Selected: true, Size: 62), () => portraitActivations++))
+        {
+            Add(root, (Element)circleView.View.Root); native.Paint(); Click("portrait");
+            Check(portraitActivations == 3 && ((Element)circleView.View.Root).Image is not null && ((Element)circleView.View.Root).Text("symbol").Length == 0, "actual SDL clips real injected bitmap into common selected circle without provider or credential work");
+            if (screenshot.Length > 0) native.Screenshot(screenshot + ".portrait-avatar.png");
+        }
         Open(originalProject);
         Page("Native input verification", "verification");
         int activations = 0, changes = 0; var group = Stack("test-group"); Add(root, group);

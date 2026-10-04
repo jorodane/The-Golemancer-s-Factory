@@ -10,7 +10,8 @@ public static class EditorNativeSchema
     public static UiValue DefaultValue(string property) => property switch
     {
         "enabled" or "visible" or "wrapText" => UiValue.Boolean(true),
-        "selected" or "multiline" => UiValue.Boolean(false),
+        "selected" or "multiline" or "dashed" => UiValue.Boolean(false),
+        "diameter" => UiValue.Number(40), "strokeWidth" => UiValue.Number(1), "rim" => UiValue.Text("#94A5B7"), "badgeInk" => UiValue.Text("#E35561"),
         "borderStyle" => UiValue.Text("solid"), "columns" => UiValue.Number(2), "fontSize" => UiValue.Number(13), "margin" or "count" or "clearRevision" => UiValue.Number(0),
         "fontWeight" => UiValue.Text("normal"), "appearance" => UiValue.Text("standard"), "alignment" => UiValue.Text("stretch"), "orientation" => UiValue.Text("vertical"), "tint" => UiValue.Text("#293B4D"),
         _ => UiValue.Text("")
@@ -19,12 +20,17 @@ public static class EditorNativeSchema
     { double number = UiVector2.Finite(value); return number >= min && number <= max ? number : throw new InvalidDataException("Editor layout value is outside its supported range."); }
     public static bool Supports(string renderer, UiWidgetDefinition widget, string platform = "windows")
     {
-        if (renderer is not ("editor.stack" or "editor.text" or "editor.button" or "editor.input" or "editor.inline" or "editor.card" or "editor.wrap" or "editor.slot" or "editor.vector" or "editor.grid" or "editor.tile" or "editor.secret" or "editor.readonly" or "editor.image")) return false;
+        if (renderer is not ("editor.stack" or "editor.text" or "editor.button" or "editor.input" or "editor.inline" or "editor.card" or "editor.wrap" or "editor.slot" or "editor.vector" or "editor.grid" or "editor.tile" or "editor.secret" or "editor.readonly" or "editor.image" or "editor.portrait")) return false;
         var properties = new Dictionary<string, UiValueKind> { ["enabled"] = UiValueKind.Boolean, ["visible"] = UiValueKind.Boolean,
             ["tooltip"] = UiValueKind.Text, ["fontSize"] = UiValueKind.Number, ["margin"] = UiValueKind.Number, ["foreground"] = UiValueKind.Text, ["background"] = UiValueKind.Text, ["alignment"] = UiValueKind.Text };
         if (renderer == "editor.secret") properties.Add("clearRevision", UiValueKind.Number);
         else if (renderer == "editor.grid") properties.Add("columns", UiValueKind.Number);
         else if (renderer is "editor.stack" or "editor.wrap" or "editor.card" or "editor.tile") properties.Add("orientation", UiValueKind.Text);
+        else if (renderer == "editor.portrait")
+        {
+            foreach (string name in new[] { "image", "symbol", "rim", "innerRim", "badge", "badgeInk", "indicator" }) properties.Add(name, UiValueKind.Text);
+            properties.Add("diameter", UiValueKind.Number); properties.Add("strokeWidth", UiValueKind.Number); properties.Add("dashed", UiValueKind.Boolean);
+        }
         else if (renderer == "editor.image") properties.Add("image", UiValueKind.Text);
         else if (renderer == "editor.vector") properties.Add("polygons", UiValueKind.Text);
         else if (renderer == "editor.slot")
@@ -36,7 +42,7 @@ public static class EditorNativeSchema
         if (renderer == "editor.tile") properties.Add("borderStyle", UiValueKind.Text);
         return widget.Properties.All(p => properties.TryGetValue(p.Name, out var type) && type == p.Type)
             && widget.Slots.All(s => renderer is "editor.stack" or "editor.wrap" or "editor.card" or "editor.tile" or "editor.grid" && s.Name == "children")
-            && widget.Events.All(e => renderer is "editor.button" or "editor.card" or "editor.tile" && e.Name == "activate" && e.Payload == UiValueKind.None
+            && widget.Events.All(e => renderer is "editor.button" or "editor.card" or "editor.tile" or "editor.portrait" && e.Name == "activate" && e.Payload == UiValueKind.None
                 || renderer == "editor.slot" && e.Name == "activate" && e.Payload == UiValueKind.Text
                 || renderer is "editor.input" or "editor.inline" or "editor.secret" && e.Name == "changed" && e.Payload == UiValueKind.Text
                 || renderer == "editor.inline" && e.Name == "committed" && e.Payload == UiValueKind.Text);
@@ -62,8 +68,10 @@ public static class EditorNativeSchema
     }
     public static void ValidateValue(string property, UiValue value)
     {
-        if (property is "foreground" or "background" or "hoverForeground" or "hoverBackground" or "pressedBackground" && value.Literal.Length > 0 && value.Literal != "transparent"
+        if (property is "foreground" or "background" or "hoverForeground" or "hoverBackground" or "pressedBackground" or "rim" or "innerRim" or "badgeInk" or "indicator" && value.Literal.Length > 0 && value.Literal != "transparent"
             && (value.Literal.Length != 7 || value.Literal[0] != '#' || value.Literal.Skip(1).Any(c => !Uri.IsHexDigit(c)))) throw new InvalidDataException("Use a #RRGGBB presentation color.");
+        if (property == "diameter" && (value.AsNumber() < 24 || value.AsNumber() > 96) || property == "strokeWidth" && (value.AsNumber() < 1 || value.AsNumber() > 4)) throw new InvalidDataException("Portrait geometry exceeds native bounds.");
+        if (property == "symbol" && value.Literal.Length > 128 || property == "badge" && value.Literal.Length > 16) throw new InvalidDataException("Portrait symbol/badge exceeds native bounds.");
         if (property == "appearance" && value.Literal is not ("standard" or "quiet" or "accent")) throw new InvalidDataException("Unknown native button appearance.");
         if (property == "fontWeight" && value.Literal is not ("normal" or "semibold" or "bold")) throw new InvalidDataException("Unknown native font weight.");
         if (property == "alignment" && value.Literal is not ("stretch" or "center" or "left")) throw new InvalidDataException("Unknown native alignment.");

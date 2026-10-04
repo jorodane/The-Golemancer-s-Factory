@@ -796,3 +796,97 @@ Remaining handoff, in order:
 This is a verified creation checkpoint within an incomplete assigned migration.
 There is no new approval requirement or external-access blocker. Confirm the
 exact published main/CI using the final report and continue without restarting.
+
+
+## Common circular portrait acceptance contract
+
+Circular Agent/Helper/Worker portraits are installed-pack elements, not separate
+native shell drawings. CoreTools owns the Unicode glyph, avatar/glyph choice,
+MAIN badge, selection/status/MAIN rings, unread dot, shared logical size and
+activity/color policy. A generic `editor.portrait` primitive interprets explicit
+image/glyph/rim/inner-rim/badge/indicator/diameter/dash properties in Windows,
+Android and SDL. Renderers know no Agent, Helper, participant or AI state.
+Private image decoding/thumbnail bytes are an OS boundary; the primitive accepts
+only bounded bitmap data URLs, never a local path or remote fetch.
+
+Existing native circles must mount the installed definition and route activation
+through its factory. Keep all current single/double click/tap, right/long click,
+profile settings and Yogi drop hooks; replacing circles with text or losing
+gestures is not parity. Worker ring/activity calculations use the installed
+portrait policy and no native shape overlays. Mount/update/dispose never create
+a provider or read credentials/global Helper memory. Detached views must release
+images and commands. Verify shared definitions/policy, Unicode/fallback/empty/
+MAIN/selection/activity/unread states and actual SDL rendering/input. Circular
+primitive migration alone does not complete surrounding sidebar menus/popovers,
+movable Worker presentation or conversations.
+
+
+## Circular portrait continuation checkpoint
+
+Installed CoreTools now defines `editor.studio.portrait` and owns
+`IEditorStudioActions.Portrait`. The generic `editor.portrait` renderer contract
+is implemented by WPF, Android and SDL with explicit symbol, image, rim/inner
+rim, badge, indicator, dash and diameter properties. Renderers contain no Agent/
+Helper/participant or AI-state policy. Shared pack policy determines status,
+colors, first Unicode symbol, MAIN/selection, unread state and logical geometry.
+Unicode handling preserves combining marks, joined emoji/modifiers/flags and
+decomposed Korean syllables consistently instead of differing StringInfo runtime
+behavior between net48 and modern .NET.
+
+Windows `AiCircle` and Android `MobileAiCircle` now mount the installed definition,
+including existing sidebar, role-picker and profile portrait usages. Worker
+sidebar status/MAIN/unread overlays no longer construct native shapes; they use
+the same pack portrait policy. Native adapter helpers only supply bounded private
+image thumbnails, host attachment and existing click/profile/gesture/drop hooks.
+Windows unload releases commands/images; Android detach queues release until
+a native RemoveAllViews traversal completes. Android's Worker MAIN menu also
+uses the existing installed workspace role action rather than a direct role write.
+
+Common workspace Agent/Helper role controls use that same circle data/definition
+with a two-column 96px Agent group, selected rings, MAIN Helpers and private
+thumbnail callbacks on all three hosts. Linux's actual application role controls
+therefore use the new primitive, in addition to direct factory verification.
+No source setup, provider/account/login, conversation/history, Helper memory,
+startup motion, role, Yogi drop or native profile action was deleted.
+
+Portable checks cover installed ownership/inert mounting, explicit activation/
+disposal, Unicode symbols, avatar fallback, empty/dashed/selection/MAIN states,
+all existing result-state colors/activity, unread rings/dots and bounded image/
+geometry/symbol/color contracts. Actual SDL exercises role selection/Join through
+circles plus three real factory portraits: MAIN/status/unread Unicode, dashed add
+and an injected real bitmap avatar with selection and clipping. Their screenshots
+were inspected outside Git. Windows native assertions inspect the new actual
+DrawingImage glyph/ellipse/dash/unread geometry, retaining the prior visible
+empty-slot and unread behavior checks rather than dropping them.
+
+Local installed packs: 1004 checks (live views/actions 721). Actual SDL and engine
+isolation passed. Studio 225, Authoring 39 and the full explicitly selected
+consumer campaign passed. Windows/native and CoreTools net48 source builds
+passed with zero warnings/errors. Exact-main CI is checked after ordinary push
+and reported with its hash/URL in the final handoff. No authentication, paid
+inference or production credential writes were used. Local Android device/workload execution remains unavailable.
+
+Precise remaining handoff (assigned migration still incomplete):
+
+1. Circular primitives and their native usages are now migrated; do not recreate
+   native circle drawings. Remaining **sidebar composition, captions, menus and
+   profile popovers** in Windows ProjectHome/CollaborationUi and Android
+   ProjectHome/Presence/Timeline still need installed definitions/actions.
+   Preserve paired 112px management, existing gestures, private vs public owner
+   actions and Yogi drop. Common role forms still coexist with native sidebar
+   composition; this is not complete sidebar parity.
+2. Shared Worker characters, promotion-name dialogs and movable conversation
+   presentation remain. Ordinary creation/reattachment, settings, promotion
+   persistence and placement/display policy are already done. Reuse them.
+3. Saved-Agent execution and live account/model presentation still use Windows
+   ConnectSelectedEditorAi/legacy ConnectCodexAsync and Android ConnectEditorAi/
+   AI menu. Preserve login, path preferences, models, options and thread/history
+   discovery while moving execution into installed CoreTools.
+4. Shared conversations, including actual Linux send/stream/cancel/history/
+   frozen context/review, still remain. Keep semantic locality, global private
+   Helper memory, local unconfirmed proposals and existing clash callbacks.
+5. Later collaboration/Yogi full parity, packs/review and final Linux package
+   remain separate; no Supervisor/table/augment/render-authoring expansion.
+
+No new user approval or access blocker was identified. Continue from these
+verified changes and remaining owner paths, not from an older pull-only task.
