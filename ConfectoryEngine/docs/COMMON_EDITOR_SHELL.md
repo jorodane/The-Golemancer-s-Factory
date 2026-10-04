@@ -8,13 +8,13 @@
 
 ## Current resume checkpoint
 
-Verified code head: `74f213610e1acc508269a11d885a2411e76c250e`.
-All five jobs passed in [CI 37214689562](https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37214689562).
+Verified assignment/migration head: `c8a40c727528089cd25c937064ae3fe76f8f7e63`.
+All five jobs passed in [CI 37217424958](https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37217424958).
 Workspace roles/Join/names, participant lifecycle/settings, Agent management,
 portraits/sidebar and saved-source connection actions are installed CoreTools
 checkpoints. This does **not** complete Helper conversation/supervision migration.
-Resume at checkpoint 3 in [HELPER_SUPERVISION.md](HELPER_SUPERVISION.md): explicit
-assignments and recoverable record migration, followed by common Helper-facing
+Assignment and recoverable record migration are verified. Resume at checkpoint 4
+in [HELPER_SUPERVISION.md](HELPER_SUPERVISION.md): common Helper-facing
 requests/characters and workload/object indicators. Do not resume superseded
 Worker promotion work or repeat completed migrations. The end of this document
 records native corrections, exact coverage and remaining limitations.
@@ -1240,3 +1240,47 @@ fencing. Keep Main Helper's ordinary supervisor abilities plus chief authority;
 augments remain chief-only and separately scoped. Preserve the superseded promotion
 stash; do not apply it. No executor recovery/reset was required after the transient
 disconnection notices.
+
+### Internal Helper request routing foundation
+
+Assignment/migration commit `c8a40c727528089cd25c937064ae3fe76f8f7e63`
+passed all five jobs in [CI 37217424958](https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37217424958).
+The next small checkpoint adds installed `StudioHelperRequests`, exposed only
+through the trusted `IEditorStudioActions.HelperRequests` factory. Construction
+is inert. Explicit Begin reuses a suitable idle assigned Worker or recruits an
+internal Worker under that exact Helper/source. It does not adopt unassigned
+legacy Workers, execute a provider or read/rewrite histories. Recruitment saves
+before returning and compensates persist/observer failure. New permission grants
+are bounded by both Helper and current owner grants.
+
+Request leases capture exact source/identity/assignment revision and revalidate
+current access, enabled profiles and Work permissions. Cancellation keeps the
+Worker reserved until asynchronous cleanup; two routers for the same project hub
+share reservations within the installed generation. The owning project runtime
+must retain its router across view reentry and supply the living-Worker predicate
+across pack reloads. This is not distributed command fencing or an edit lock.
+Project disposal cancels every request even if a cancellation observer fails.
+Private context uses only the explicitly supervising Helper's global and current
+project memories. Read-only workload remains available with AI execution disabled.
+
+Structural boundary: this is the routing foundation, **not** the shared
+conversation implementation. No platform conversation route is switched yet.
+The next implementation must own provider orchestration, timeline/history,
+review/cancel/incident integration and Helper message identity inside CoreTools,
+then mount identical common views on Windows/Android/Linux. Preserve the existing
+native review/Yogi/incident subsystems as service boundaries until their own
+migration. Do not implement a common send button that simply invokes native
+`RunWorker`/`RunMobileWorker`, and do not remove old send/promotion routes before
+the tested replacements exist. Source selection must go through installed
+SavedAgent; plain text must not capture global hover/selection; actual Linux
+execution must use the same request path. Durable Task/Callback/chief journal and
+fenced supervisor recovery still belong to checkpoint 5.
+
+Verification for this foundation: **1,535 editor-pack checks**, independent engine
+isolation and the full explicit consumer campaign pass. Actual Linux SDL regression
+passes; the new router is exercised through the installed factory on all three
+portable platform variants, not yet through a new native conversation UI. Native
+Windows source/reference build and exact-head remote CI are checked at publication.
+Logs remain outside Git at `/workspace/scratch/helper-routing-*`. No provider was
+connected and no paid inference, authentication or credential saving was performed
+by the routing tests. Existing saved-Agent native fixtures remain injected.

@@ -5,6 +5,7 @@ namespace Confectory.Editor.CoreTools;
 
 public sealed class StudioActions : IEditorStudioActions
 {
+    public IEditorStudioHelperRequests HelperRequests(AiDirectory directory, CollaborationWorkspace collaboration, Func<bool> allowed, Func<string, bool> running, string actor = "human") => new StudioHelperRequests(directory, collaboration, allowed, running, actor);
     public IEditorStudioSupervision Supervision(AiDirectory directory, CollaborationWorkspace collaboration, Func<string, bool> running, string actor = "human") => new StudioSupervision(directory, collaboration, running, actor);
     public IEditorStudioSavedAgent SavedAgent(AiDirectory directory, IAiCredentialStore credentials, IEditorStudioAgentService service, Func<bool> allowed, Func<bool> idle, Action<AiAgentProfile, EditorStudioConnectedAgent> adopted, Action<bool> working, Action<Action> onUi, Func<AiAgentProfile, bool>? reusable = null) => new StudioSavedAgent(directory, credentials, service, allowed, idle, adopted, working, onUi, reusable);
     public IEditorStudioSidebar Sidebar(EditorStudioPresentation presentation, IUiBackend backend, AiDirectory directory, CollaborationWorkspace? collaboration, ProjectStudio roles, bool project, Func<IEditorStudioWorkspace> workspace, Func<IEditorStudioAgentManagement> management, Func<IReadOnlyList<EditorStudioWorkerFact>> workers, Func<string, string> image, IEditorStudioSidebarHost host) => new StudioSidebar(presentation, backend, directory, collaboration, roles, project, workspace, management, workers, image, host);

@@ -223,3 +223,37 @@ initialization; unrelated project editing remains available. The explicit
 migration action still fails atomically, and malformed identities gain no
 supervision authority. A freshly mounted workspace inspects the same public role
 records without mutating them, so the recovery notice survives view reentry.
+
+## Helper request routing boundary
+
+The installed factory owns a project-scoped request router, independent of mounted
+conversation views. Explicit `Begin(helperParticipantId)` selects only an idle,
+owned Worker already assigned to that exact active Helper and source; otherwise
+it recruits a new internal Worker with an explicit assignment. It never adopts
+an unassigned legacy Worker or another team's Worker implicitly. Recruitment is
+persisted before returning a request lease and compensates failed writes. The
+lease has a fresh request identity independent of chat/thread IDs. Existing
+pending work/checkpoints prevent reuse even if no native runtime is attached.
+
+Lease validation rechecks owner/Helper/Worker Work grants, active record identity,
+private Helper/source enablement, source configuration, assignment revision and
+session access before connection and dispatch. Native adapters cannot substitute
+a selected/default Agent. Cancellation marks the lease cancelled but reserves
+its Worker until the operation releases it; a late provider cannot overlap a new
+request on that Worker. Disposing a conversation view does not release a request;
+disposing the project router cancels all outstanding leases. These are local
+execution reservations, not file/object locks or distributed authority fencing.
+
+Private context resolves the explicitly supervising global Helper, retaining
+significant global memory plus only this project's memory. Workload projections
+come from owned explicit assignments. Routing itself does not read/rewrite old
+histories, publish prompts, connect providers, or create chief directives. The
+conversation integration must validate the lease again at each asynchronous
+adoption/dispatch boundary and release it in `finally`. Durable Task/Callback and
+chief-journal persistence remain checkpoint 5; a local lease is not that journal.
+
+Acceptance includes independent concurrent requests, cancellation with delayed
+cleanup, reuse after release, pending checkpoints, foreign/disabled/stale records,
+source or permissions changing during connection, post-save recruitment failure,
+project disposal, and global/project memory isolation. Keep existing Worker UI
+until shared Helper request/review/history adapters are installed and verified.

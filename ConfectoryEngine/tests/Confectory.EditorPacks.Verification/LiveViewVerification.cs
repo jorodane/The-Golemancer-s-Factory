@@ -238,6 +238,7 @@ internal static class LiveViewVerification
                     workspace.Dispose(); Reject(() => workspace.JoinHelper(workspaceHelper.Id), "disposed workspace actions cannot mutate a previous project on " + platform);
                 }
                 SupervisionVerification.Run(presentation, creationRoot, platform, Check, Reject);
+                HelperRequestVerification.Run(presentation, creationRoot, platform, Check, Reject);
                 SavedAgentVerification.Run(presentation, platform, Check, Reject);
                 AgentManagementVerification.Run(presentation, new Backend(platform), creationRoot, platform, Check, Reject);
                 SidebarVerification.Run(presentation, new Backend(platform), creationRoot, platform, Check, Reject);

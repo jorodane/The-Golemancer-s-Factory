@@ -95,6 +95,7 @@ public interface IEditorStudioSidebarHost
 /// <summary>Private trusted-shell ABI. Never supplied to project modules or overlays.</summary>
 public interface IEditorStudioActions
 {
+    IEditorStudioHelperRequests HelperRequests(AiDirectory directory, CollaborationWorkspace collaboration, Func<bool> allowed, Func<string, bool> running, string actor = "human");
     IEditorStudioSupervision Supervision(AiDirectory directory, CollaborationWorkspace collaboration, Func<string, bool> running, string actor = "human");
     IEditorStudioSavedAgent SavedAgent(AiDirectory directory, IAiCredentialStore credentials, IEditorStudioAgentService service, Func<bool> allowed, Func<bool> idle, Action<AiAgentProfile, EditorStudioConnectedAgent> adopted, Action<bool> working, Action<Action> onUi, Func<AiAgentProfile, bool>? reusable = null);
     IEditorStudioSidebar Sidebar(EditorStudioPresentation presentation, IUiBackend backend, AiDirectory directory, CollaborationWorkspace? collaboration, ProjectStudio roles, bool project, Func<IEditorStudioWorkspace> workspace, Func<IEditorStudioAgentManagement> management, Func<IReadOnlyList<EditorStudioWorkerFact>> workers, Func<string, string> image, IEditorStudioSidebarHost host);
@@ -190,4 +191,22 @@ public interface IEditorStudioAgentManagement : IDisposable
     void Disconnect(string agentId);
     void Reconnect(string agentId);
     void Render();
+}
+
+/// <summary>Project-scoped internal execution reservations; never an object edit lock.</summary>
+public interface IEditorStudioHelperRequests : IDisposable
+{
+    IEditorStudioHelperRequest Begin(string helperParticipantId, CancellationToken cancellation = default);
+    IReadOnlyList<EditorStudioWorkerFact> Workers(string helperParticipantId);
+}
+public interface IEditorStudioHelperRequest : IDisposable
+{
+    string Id { get; }
+    string HelperParticipantId { get; }
+    string WorkerParticipantId { get; }
+    string AgentId { get; }
+    CancellationToken Cancellation { get; }
+    void Validate();
+    string PrivateContext(string projectIdentity);
+    void Cancel();
 }
