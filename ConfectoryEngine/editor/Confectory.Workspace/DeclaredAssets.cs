@@ -10,6 +10,7 @@ public sealed partial class EditorSession
     /// <summary>Declared paths only. Legacy schema asset rules enter this owner's XML lazily.</summary>
     public IReadOnlyList<string> DeclaredAssets(string pack)
     {
+        RefreshPackMetadata(pack);
         var registration = Registry.Packs[pack];
         string schemaPath = Project.Schema;
         string Hash(string path) => File.Exists(Project.Resolve(path)) ? WorkspaceProject.Hash(File.ReadAllBytes(Project.Resolve(path))) : FileProposalBundle.Absent;

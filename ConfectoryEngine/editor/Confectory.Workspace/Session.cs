@@ -114,14 +114,36 @@ public sealed partial class EditorSession
     public PackRegistry Registry { get; private set; }
     public GlobalLocator Locator { get; private set; }
     private readonly Dictionary<string, PackSemanticIndex> semanticIndexes = new(StringComparer.Ordinal);
+    public void RefreshPackMetadata(string pack)
+    {
+        var before = Registry.Packs[pack];
+        if (!Registry.RefreshPack(pack)) return;
+        var after = Registry.Packs[pack];
+        foreach (string path in before.Documents.Keys.Union(after.Documents.Keys))
+        {
+            Locator.Invalidate(path);
+            if (semanticIndexes.TryGetValue(pack, out var index) &&
+                (!before.Documents.TryGetValue(path, out var kind) || !after.Documents.TryGetValue(path, out var next) || kind != next)) index.Invalidate(path);
+        }
+        Locator.RegisterExports(); globalIndex = null;
+    }
     public PackSemanticIndex SemanticIndex(string pack)
     {
         if (!Registry.Packs.ContainsKey(pack)) throw new InvalidDataException("Unknown pack: " + pack);
+        RefreshPackMetadata(pack);
         if (!semanticIndexes.TryGetValue(pack, out var index)) semanticIndexes.Add(pack, index = new(Project, Registry, pack));
         return index;
     }
     public WorkspaceNode? FindNode(string key)
     {
+        if (key.StartsWith("file:", StringComparison.Ordinal))
+        {
+            string path = key.Substring(5);
+            if (!DeclaredDocument(path, out _, out var owner)) return null;
+            return new() { Key = key, Id = path, Kind = "file", File = path, Pack = owner, Title = Path.GetFileName(path) };
+        }
+        if (key.StartsWith("pack:", StringComparison.Ordinal) && Registry.Packs.TryGetValue(key.Substring(5), out var pack))
+            return new() { Key = key, Id = pack.Pack.Id, Kind = "pack", Pack = pack.Pack.Id, File = pack.Pack.Manifest, Title = pack.Pack.Id };
         var location = Locator.Find(key);
         if (location is null) return null;
         return SemanticIndex(location.Pack).Document(location.Document).Nodes.TryGetValue(key, out var node) ? node : null;
@@ -330,7 +352,7 @@ public sealed partial class EditorSession
         if (!State.Requests.Any(r => r.Id == requestId)) throw new InvalidDataException("Unknown context request.");
         if (maximumCharacters < 1 || maximumCharacters > 200000) throw new ArgumentOutOfRangeException(nameof(maximumCharacters));
         path = Project.Relative(Project.Resolve(path));
-        if (!Index.TextFiles.ContainsKey(path)) throw new InvalidDataException("Assistant reads are limited to declared project documents.");
+        if (!DeclaredDocument(path, out _, out _)) throw new InvalidDataException("Assistant reads are limited to declared project documents.");
         var doc = Documents.SingleOrDefault(d => d.Path == path); byte[] disk = ReadBytes(path); string text = doc?.Text ?? Decode(disk);
         var item = new ContextItem { Path = path, Content = text.Substring(0, Math.Min(text.Length, maximumCharacters)), Hash = WorkspaceProject.HashText(text), Why = "제공자가 명시적으로 읽음", Partial = text.Length > maximumCharacters, Draft = doc?.Dirty ?? false, DiskChanged = doc is not null && WorkspaceProject.Hash(disk) != doc.Baseline };
         State.Reads.Add(new() { Request = requestId, Path = path, Hash = item.Hash, TimeUtc = DateTime.UtcNow.ToString("O"), Characters = item.Content.Length, Partial = item.Partial });

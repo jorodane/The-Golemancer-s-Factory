@@ -14,7 +14,7 @@ public sealed partial class ConceptSpace
     {
         var definitions = new List<string>(); while (concept.Length > 0) { definitions.Insert(0, concept); concept = Concept(concept).Base; }
         var categories = new List<string>(); string parent = definitions.Count == 0 ? "" : Concept(definitions[0]).Category;
-        while (parent.Length > 0) { categories.Insert(0, parent); parent = Categories.Single(c => c.Id == parent).Parent; }
+        while (parent.Length > 0) { categories.Insert(0, parent); parent = Category(parent).Parent; }
         return categories.Concat(definitions).ToArray();
     }
     public ConceptPack AddPack(string name, string ns)
@@ -40,8 +40,14 @@ public sealed partial class ConceptSpace
     public string[] RequiredDependencies(string pack)
     {
         var references = new HashSet<string>(StringComparer.Ordinal);
-        var all = Elements().ToDictionary(e => e.Id, StringComparer.Ordinal);
-        void Ref(string id) { if (all.TryGetValue(id, out var e) && e.Pack != pack) references.Add(e.Pack); }
+        var all = snapshots.Values.SelectMany(p => p.Categories.Cast<IConceptElement>().Concat(p.Concepts).Concat(p.Objects).Concat(p.Implementations).Concat(p.Views)).ToDictionary(e => e.Id, StringComparer.Ordinal);
+        void Ref(string id)
+        {
+            if (id.Length == 0 || PrimitiveTypes.Contains(id) || id == "void") return;
+            if (all.TryGetValue(id, out var e)) { if (e.Pack != pack) references.Add(e.Pack); return; }
+            foreach (string kind in new[] { "concept", "concept-category", "concept-object", "function", "concept-view" })
+                if (locator.Find(kind + ":" + id) is { } found) { if (found.Pack != pack) references.Add(found.Pack); return; }
+        }
         void Fields(IEnumerable<ConceptField> fields) { foreach (var f in fields) { Ref(f.Type); Fields(f.Fields); } }
         void Value(ConceptField field, ConceptValue value, bool item = false)
         {
@@ -49,11 +55,11 @@ public sealed partial class ConceptSpace
             else if (field.Kind == "composite") { foreach (var child in field.Fields) if (value.Members.TryGetValue(child.Id, out var member)) Value(child, member); }
             else if (field.Kind == "function" || !PrimitiveTypes.Contains(field.Type)) Ref(value.Text);
         }
-        foreach (var c in Categories.Where(c => c.Pack == pack)) Ref(c.Parent);
-        foreach (var c in Concepts.Where(c => c.Pack == pack)) { Ref(c.Category); Ref(c.Base); Fields(c.Fields); }
-        foreach (var o in Objects.Where(o => o.Pack == pack)) { Ref(o.Concept); foreach (var field in Schema(o.Concept)) if (o.Values.TryGetValue(field.Id, out var value)) Value(field, value); }
-        foreach (var i in Implementations.Where(i => i.Pack == pack)) { Ref(i.Returns); Fields(i.Parameters); }
-        foreach (var v in Views.Where(v => v.Pack == pack)) Ref(v.Concept);
+        foreach (var c in Categories.InPack(pack)) Ref(c.Parent);
+        foreach (var c in Concepts.InPack(pack)) { Ref(c.Category); Ref(c.Base); Fields(c.Fields); }
+        foreach (var o in Objects.InPack(pack)) { Ref(o.Concept); foreach (var field in Schema(o.Concept)) if (o.Values.TryGetValue(field.Id, out var value)) Value(field, value); }
+        foreach (var i in Implementations.InPack(pack)) { Ref(i.Returns); Fields(i.Parameters); }
+        foreach (var v in Views.InPack(pack)) Ref(v.Concept);
         return references.OrderBy(id => id, StringComparer.Ordinal).ToArray();
     }
     private void ValidateDependencies()
@@ -63,7 +69,7 @@ public sealed partial class ConceptSpace
         {
             if (done.Contains(id)) return;
             if (!visiting.Add(id)) throw new InvalidDataException("팩 의존성이 순환해. 연결된 요소들을 함께 이주해줘.");
-            foreach (string dependency in Pack(id).Dependencies.Concat(RequiredDependencies(id)).Distinct()) if (Packs.Any(p => p.Id == dependency)) Visit(dependency);
+            foreach (string dependency in Pack(id).Dependencies.Concat(localScope && savingPacks is not null && !savingPacks.Contains(id) ? registry.Packs.TryGetValue(id, out var entry) ? entry.Pack.Dependencies : [] : RequiredDependencies(id)).Distinct()) if (Packs.Any(p => p.Id == dependency)) Visit(dependency);
             visiting.Remove(id); done.Add(id);
         }
         foreach (var pack in Packs) Visit(pack.Id);
@@ -117,7 +123,7 @@ public sealed partial class ConceptSpace
         });
         if (!valid) throw new InvalidDataException("구현의 public static 함수, 입력 타입과 반환 타입을 기능 계약에 맞춰줘.");
     }
-    public ConceptObject[] Rows(string concept, string pack = "", bool grouped = false) => Objects.Where(o => IsA(o.Concept, concept) && (pack.Length == 0 || o.Pack == pack))
+    public ConceptObject[] Rows(string concept, string pack = "", bool grouped = false) => (pack.Length == 0 ? Objects.AsEnumerable() : Objects.InPack(pack)).Where(o => IsA(o.Concept, concept))
         .OrderBy(o => grouped ? (o.Pack == MainPack ? "" : Pack(o.Pack).Name) : "", StringComparer.Ordinal).ThenBy(DisplayName, StringComparer.Ordinal).ToArray();
     public bool HasNameField(string concept) => NameField(concept) is not null;
     public ConceptField? NameField(string concept) => Schema(concept).FirstOrDefault(f => f.Kind == "normal" && !f.Multiple && f.Type == "text" && (f.Name == "이름" || f.Name.Equals("Name", StringComparison.OrdinalIgnoreCase)));

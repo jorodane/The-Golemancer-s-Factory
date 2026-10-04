@@ -75,13 +75,13 @@ public sealed partial class EditorSession
 {
     public YogiReference YogiReference(string key)
     {
-        if (!Index.Nodes.TryGetValue(key, out var node)) throw new InvalidDataException("삭제되었거나 존재하지 않는 EY 대상이야.");
+        var node = FindNode(key) ?? throw new InvalidDataException("삭제되었거나 존재하지 않는 EY 대상이야.");
         return new() { Project = Project.Id, Key = key, Label = node.Title };
     }
-    public bool YogiExists(YogiReference reference) => reference.Project == Project.Id && Index.Nodes.ContainsKey(reference.Key);
+    public bool YogiExists(YogiReference reference) => reference.Project == Project.Id && FindNode(reference.Key) is not null;
     public void ApplyYogi(ContextRequest request, YogiBox box)
     {
-        box.Validate(true); Refresh(); var frozen = box.Copy(); request.Yogi = frozen;
+        box.Validate(true); var frozen = box.Copy(); request.Yogi = frozen;
         // Resolve EY now, then freeze the actual request. Never consume ambient selection/hover.
         string mode = Pointing.Mode; var saved = Pointing.Targets.ToArray();
         try

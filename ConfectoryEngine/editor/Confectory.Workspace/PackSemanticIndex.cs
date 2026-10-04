@@ -50,6 +50,7 @@ public sealed class GlobalLocator
         foreach (var pack in registry.Packs.Values)
             foreach (string document in pack.Pack.Files)
             {
+                if ((string?)pack.Manifest.Attribute("semanticExports") == "complete" && pack.SemanticDocuments.Values.Contains(document)) continue;
                 if (!legacyDocuments.Add(document)) continue;
                 registry.Counters.LocatorDocumentsRead++;
                 try
@@ -125,6 +126,7 @@ public sealed class PackSemanticIndex
     public WorkspaceIndex Document(string path)
     {
         if (!registry.Packs[PackId].Documents.ContainsKey(path)) throw new InvalidDataException("Document is not owned by this pack: " + path);
+        registry.Counters.DocumentsHashed++; registry.Counters.PacksRead.Add(PackId);
         string full = project.Resolve(path), hash = File.Exists(full) ? WorkspaceProject.Hash(File.ReadAllBytes(full)) : FileProposalBundle.Absent;
         if (layers.TryGetValue(path, out var cached) && cached.Hash == hash) return cached.Index;
         if (layers.ContainsKey(path)) registry.Counters.IndexesInvalidated++;

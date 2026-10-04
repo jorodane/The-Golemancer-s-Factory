@@ -14,7 +14,7 @@ namespace Confectory.Editor.Android;
 public sealed partial class MainActivity
 {
     private ConceptSpace? mobileConceptSpace;
-    private ConceptSpace MobileSpace => mobileConceptSpace ??= ConceptSpace.Open(studioSession.Project);
+    private ConceptSpace MobileSpace => mobileConceptSpace ??= ConceptSpace.Open(studioSession);
     private readonly List<Dialog> mobileConceptWindows = [];
     private LinearLayout? mobileSidebarChat;
     private LinearLayout? mobileSidebarMessages;

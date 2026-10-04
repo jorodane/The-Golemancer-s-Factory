@@ -28,7 +28,7 @@ public sealed partial class EditorPackProjectData
     private EditorProjectAsset[] Assets(string pack)
     {
         var assets = new Dictionary<string, EditorProjectAsset>(StringComparer.Ordinal);
-        foreach (var owner in session.Registry.Packs.Keys.Where(id => pack.Length == 0 || id == pack))
+        foreach (var owner in session.Registry.Packs.Keys.Where(id => pack.Length == 0 || id == pack).ToArray())
             foreach (string path in session.DeclaredAssets(owner))
             {
                 string mime = System.IO.Path.GetExtension(path).ToLowerInvariant() switch { ".png" => "image/png", ".jpg" or ".jpeg" => "image/jpeg", ".gif" => "image/gif", ".bmp" => "image/bmp", ".svg" => "image/svg+xml", _ => "" };

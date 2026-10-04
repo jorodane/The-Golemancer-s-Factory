@@ -50,7 +50,7 @@ public sealed partial class EditorSession
     public void Point(string key, string surface = "selection", bool append = false)
     {
         if (Pointing.Mode == "none") return;
-        if (!Index.Nodes.ContainsKey(key)) throw new InvalidDataException("Unknown target: " + key);
+        if (FindNode(key) is null) throw new InvalidDataException("Unknown target: " + key);
         if (Pointing.Mode == "single" && !append) Pointing.Targets.Clear();
         if (Pointing.Targets.Any(t => t.Key == key)) return;
         if (Pointing.Targets.Count >= 64) throw new InvalidOperationException("Point at no more than 64 objects in one request.");
@@ -82,7 +82,7 @@ public sealed partial class EditorSession
     internal static string[] Lines(string text) => text.Replace("\r\n", "\n").Split('\n');
     internal ContextItem Definition(string key, int maximumCharacters = 6000)
     {
-        if (!Index.Nodes.TryGetValue(key, out var node)) throw new InvalidDataException("Unknown node: " + key);
+        var node = FindNode(key) ?? throw new InvalidDataException("Unknown node: " + key);
         if (node.File.Length == 0) return new() { Path = "node:" + key, Content = Serialize(node), Hash = WorkspaceProject.HashText(Serialize(node)), Why = node.Status };
         var doc = Document(node.File); string content = doc.Text;
         if (node.Locator.Length > 0)
@@ -101,7 +101,6 @@ public sealed partial class EditorSession
     {
         if (string.IsNullOrWhiteSpace(prompt)) throw new ArgumentException("Write a request first.");
         if (budget < 1000 || budget > 200000) throw new ArgumentOutOfRangeException(nameof(budget));
-        Refresh();
         var request = new ContextRequest { Id = Guid.NewGuid().ToString("N"), Project = Project.Id, ProjectDescription = ProjectStudio.Load(Project).Description, Prompt = prompt, CreatedUtc = DateTime.UtcNow.ToString("O"),
             CharacterBudget = budget, OpenFiles = Documents.Select(d => d.Path).ToList(), Input = new() { Mode = Pointing.Mode, CapturedUtc = DateTime.UtcNow.ToString("O") } };
         foreach (var open in Documents)
@@ -111,7 +110,7 @@ public sealed partial class EditorSession
         int remaining = budget;
         foreach (var point in Pointing.Targets)
         {
-            if (!Index.Nodes.TryGetValue(point.Key, out var node)) throw new InvalidDataException("Pointed object no longer exists: " + point.Key);
+            var node = FindNode(point.Key) ?? throw new InvalidDataException("Pointed object no longer exists: " + point.Key);
             var target = new SemanticTarget { Key = node.Key, Pack = node.Pack, File = node.File, Locator = node.Locator, Surface = point.Surface, StartLine = point.StartLine, EndLine = point.EndLine };
             ContextItem item;
             if (point.StartLine > 0)

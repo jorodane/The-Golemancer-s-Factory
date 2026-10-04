@@ -135,6 +135,7 @@ internal static class ConceptSpaceVerification
         check(ConceptSpace.Open(session.Project).Implementations.Single(i => i.Id == noReturn.Id).Returns == "void", "function contracts and generated implementation sources allow an absent return value");
 
         var clean = ConceptSpace.Open(session.Project); var concurrent = ConceptSpace.Open(session.Project);
+        _ = concurrent.Object(value.Id); // Conflict protection pins documents actually observed by this editor.
         clean.Objects.Single(o => o.Id == value.Id).Name = "Concurrent"; clean.Save(session);
         concurrent.Views[0].Name = "Stale View"; reject(() => concurrent.Save(session), "a View-only save rejects changes to an observed object document in another editor");
         check(ConceptSpace.Open(session.Project).Objects.Single(o => o.Id == value.Id).Name == "Concurrent", "conflict rejection preserves the newer object data");

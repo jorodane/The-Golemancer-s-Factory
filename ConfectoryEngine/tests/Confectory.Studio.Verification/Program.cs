@@ -109,6 +109,7 @@ try
     YogiBoxVerification.Run(temp, Check, Reject);
     ProjectHomeVerification.Run(temp, Check, Reject);
     int dotnetArgument = Array.IndexOf(args, "--dotnet");
+    ConceptLocalityVerification.Run(temp, Check);
     await ConceptSpaceVerification.Run(temp, dotnetArgument >= 0 ? args[dotnetArgument + 1] : "dotnet", Check, Reject);
     await MobileStudioVerification.Run(temp, Check);
 

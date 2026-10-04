@@ -103,11 +103,11 @@ public sealed partial class EditorWindow
         if (session is null || reference.Project != session.Project.Id) throw new InvalidOperationException("이 EY의 프로젝트를 먼저 열어줘.");
         if (reference.Key.StartsWith("ui:", StringComparison.Ordinal)) { if (yogiUi.TryGetValue(reference.Key, out var weak) && weak.TryGetTarget(out var ui) && ui.IsLoaded) { ui.BringIntoView(); ui.Focus(); return; } throw new InvalidOperationException("삭제되었거나 현재 열려 있지 않은 UI 요소야."); }
         if (reference.Key.StartsWith(EditorYogiContext.Prefix, StringComparison.Ordinal)) { var parts = EditorYogiContext.Parts(reference.Key); var window = packWindows.Definitions.FirstOrDefault(d => d.View == parts.View) ?? throw new InvalidOperationException("삭제되었거나 연결되지 않은 Editor View야."); packWindows.Open(window.Id); return; }
-        session.Refresh(); conceptSpace = null; if (!session.YogiExists(reference)) throw new InvalidOperationException("삭제된 대상 · " + reference.Label);
+        conceptSpace = null; if (!session.YogiExists(reference)) throw new InvalidOperationException("삭제된 대상 · " + reference.Label);
         string key = reference.Key, id = key.Substring(key.IndexOf(':') + 1);
-        if (key.StartsWith("concept-object:", StringComparison.Ordinal)) OpenConceptObjects(Space.Objects.Single(o => o.Id == id).Concept);
-        else if (key.StartsWith("function:", StringComparison.Ordinal)) OpenConceptFunction(Space.Implementations.Single(f => f.Id == id));
-        else if (key.StartsWith("concept-view:", StringComparison.Ordinal)) { var view = Space.Views.Single(v => v.Id == id); OpenConceptObjects(view.Concept, view.Id); }
+        if (key.StartsWith("concept-object:", StringComparison.Ordinal)) OpenConceptObjects(Space.Object(id).Concept);
+        else if (key.StartsWith("function:", StringComparison.Ordinal)) OpenConceptFunction(Space.Implementation(id));
+        else if (key.StartsWith("concept-view:", StringComparison.Ordinal)) { var view = Space.View(id); OpenConceptObjects(view.Concept, view.Id); }
         else if (key.StartsWith("concept:", StringComparison.Ordinal) || key.StartsWith("concept-category:", StringComparison.Ordinal)) OpenConceptMap();
         else if (key.StartsWith("pack:", StringComparison.Ordinal)) OpenConceptPacks();
         else { var node = session.Index.Nodes[key]; if (node.File.Length > 0) { session.Open(node.File); RebuildDocuments(node.File); OpenNativeTool(2); } }

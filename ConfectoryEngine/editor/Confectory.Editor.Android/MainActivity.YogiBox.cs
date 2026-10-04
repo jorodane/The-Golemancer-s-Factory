@@ -172,11 +172,11 @@ public sealed partial class MainActivity
         if (reference.Project != studioSession.Project.Id) throw new InvalidOperationException("이 EY의 프로젝트를 먼저 열어줘.");
         if (reference.Key.StartsWith("ui:", StringComparison.Ordinal)) { var target = mobileYogiTargets.FirstOrDefault(p => p.Value == reference.Key && p.Key.IsAttachedToWindow).Key; if (target is null) throw new InvalidOperationException("삭제되었거나 닫힌 UI 요소야."); target.RequestFocus(); return; }
         if (reference.Key.StartsWith(EditorYogiContext.Prefix, StringComparison.Ordinal)) { var parts = EditorYogiContext.Parts(reference.Key); var window = windows.Definitions.FirstOrDefault(d => d.View == parts.View) ?? throw new InvalidOperationException("삭제되었거나 연결되지 않은 Editor View야."); windows.Open(window.Id); return; }
-        studioSession.Refresh(); if (!studioSession.YogiExists(reference)) throw new InvalidOperationException("삭제된 대상 · " + reference.Label); mobileConceptSpace = null;
+        if (!studioSession.YogiExists(reference)) throw new InvalidOperationException("삭제된 대상 · " + reference.Label); mobileConceptSpace = null;
         string key = reference.Key, id = key.Substring(key.IndexOf(':') + 1);
-        if (key.StartsWith("concept-object:", StringComparison.Ordinal)) MobileConceptObjects(MobileSpace.Objects.Single(o => o.Id == id).Concept);
-        else if (key.StartsWith("function:", StringComparison.Ordinal)) MobileConceptFunction(MobileSpace.Implementations.Single(f => f.Id == id));
-        else if (key.StartsWith("concept-view:", StringComparison.Ordinal)) { var view = MobileSpace.Views.Single(v => v.Id == id); MobileConceptObjects(view.Concept, view.Id); }
+        if (key.StartsWith("concept-object:", StringComparison.Ordinal)) MobileConceptObjects(MobileSpace.Object(id).Concept);
+        else if (key.StartsWith("function:", StringComparison.Ordinal)) MobileConceptFunction(MobileSpace.Implementation(id));
+        else if (key.StartsWith("concept-view:", StringComparison.Ordinal)) { var view = MobileSpace.View(id); MobileConceptObjects(view.Concept, view.Id); }
         else if (key.StartsWith("concept:", StringComparison.Ordinal) || key.StartsWith("concept-category:", StringComparison.Ordinal)) MobileConceptMap();
         else if (key.StartsWith("pack:", StringComparison.Ordinal)) MobileConceptPacks();
         else OpenMobileElementXml(key);

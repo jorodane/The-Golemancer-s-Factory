@@ -37,7 +37,7 @@ XML; their fingerprint includes the schema and those documents. Bitmap bytes
 are read only by `ReadAsset`, retaining the existing size and invocation budgets.
 
 `LocalityCounters` separates manifest reads, metadata queries, legacy locator
-reads, semantic parsing, packs entered, indexes opened/invalidated, global
+reads, semantic parsing, packs entered, indexes opened/invalidated, document hash reads, global
 rebuilds and document writes. Tests compare small and large synthetic projects.
 Counters describe actual operations; a cache hit does not count as a parse.
 
@@ -45,3 +45,35 @@ The compatibility global index and whole-project validation remain explicit
 operations. Pack movement, dependency graph changes, release validation and
 whole-project browsing may legitimately span packs. Single-owner APIs must not
 construct the global index before filtering it.
+
+## ConceptSpace snapshots
+
+`ConceptSpace.Open(session)` shares that session's registry, locator and counters.
+Opening reads registration metadata only. `Concept(id)`, `Object(id)`, `View(id)`
+and the category/function equivalents use stable identities to enter an owner's
+layer. `Objects.InPack(pack)` and `Rows(concept, pack)` do not enumerate foreign
+collections. Iterating a compatibility collection explicitly composes that layer
+across packs; maps, inverse-reference discovery and unfiltered lists are global
+queries, not prerequisites for opening one object.
+
+Editable snapshots remain pinned until saved or reopened. Saving checks every
+actually observed document hash, including observed foreign contracts, and all
+proposed paths against dirty buffers. Unopened semantic documents are not pinned
+merely by opening a project. A saved move rehomes the same element instances to
+its new owner snapshot; failure restores ownership through the existing rollback.
+
+A pure View update validates its View layer and writes that document only. Other
+local edits validate the changed owner's layers and enter referenced contracts by
+ID. Dependency validation uses unchanged packs' manifest edges. Explicit global
+validation and structural moves still validate the whole requested graph.
+
+Saving a pack adds semantic Data roles and complete stable-ID exports. Existing
+central ConceptSpace registrations continue to load and round-trip; self-registered
+and newly created packs need no central per-document registration. Formatting-only
+metadata differences never produce writes. Changed document shards are invalidated
+individually; registration/source mapping changes reload metadata. Unchanged
+schema/object/view bytes and observed conflict protection are retained.
+
+Hash conflict checks also read already observed contracts. They are counted as
+`DocumentsHashed` and semantic owners in `PacksRead`; they are not semantic parses.
+A user who explicitly opened a global collection pins those observed documents.

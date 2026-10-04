@@ -9,13 +9,14 @@ public sealed class LocalityCounters
     public HashSet<string> PacksRead { get; } = new(StringComparer.Ordinal);
     public int MetadataQueries { get; internal set; }
     public int ManifestsRead { get; internal set; }
+    public int DocumentsHashed { get; internal set; }
     public int DocumentsParsed { get; internal set; }
     public int LocatorDocumentsRead { get; internal set; }
     public int IndexesOpened { get; internal set; }
     public int IndexesInvalidated { get; internal set; }
     public int GlobalRebuilds { get; internal set; }
     public int DocumentsWritten { get; internal set; }
-    public void Reset() { PacksRead.Clear(); MetadataQueries = ManifestsRead = DocumentsParsed = LocatorDocumentsRead = IndexesOpened = IndexesInvalidated = GlobalRebuilds = DocumentsWritten = 0; }
+    public void Reset() { PacksRead.Clear(); MetadataQueries = ManifestsRead = DocumentsHashed = DocumentsParsed = LocatorDocumentsRead = IndexesOpened = IndexesInvalidated = GlobalRebuilds = DocumentsWritten = 0; }
 }
 
 public sealed class PackRegistration
@@ -58,32 +59,47 @@ public sealed class PackRegistry
             if (old is not null && old.ManifestHash == hash) { if (!live.Add(old.Pack.Id)) Diagnostics.Add(relative + ": Duplicate pack: " + old.Pack.Id); continue; }
             try
             {
-                Counters.ManifestsRead++;
-                var xml = PackCompiler.ReadXml(path).Root ?? throw new InvalidDataException("Empty pack.");
-                string id = WorkspaceProject.Required(xml, "id");
-                if (!live.Add(id)) throw new InvalidDataException("Duplicate pack: " + id);
-                var entry = new PackRegistration { Manifest = xml, ManifestHash = hash, Pack = new() { Id = id, Manifest = relative,
-                    Version = (string?)xml.Attribute("version") ?? "1.0.0", Parent = (string?)xml.Attribute("extends") ?? "" } };
-                entry.Pack.Dependencies = xml.Elements("Depends").Select(e => WorkspaceProject.Required(e, "id")).Concat(entry.Pack.Parent.Length == 0 ? [] : new[] { entry.Pack.Parent }).Distinct(StringComparer.Ordinal).ToList();
-                entry.Documents.Add(relative, "manifest");
-                foreach (var item in xml.Elements().Where(e => e.Name == "Data" || e.Name == "Ui"))
-                {
-                    string file = project.Relative(PackCompiler.SafePath(Path.GetDirectoryName(path)!, WorkspaceProject.Required(item, "path")));
-                    entry.Documents.Add(file, item.Name == "Ui" ? "ui" : "data"); entry.Pack.Files.Add(file);
-                    if ((string?)item.Attribute("role") is { } role && role is "concept-schema" or "concept-objects" or "concept-views") entry.SemanticDocuments.Add(role, file);
-                }
-                foreach (var item in xml.Elements().Where(e => e.Name == "Assembly" || e.Name == "FunctionAssembly")) entry.Pack.Assemblies.Add(WorkspaceProject.Required(item, "path"));
-                foreach (var export in xml.Elements("Export"))
-                {
-                    string file = project.Relative(PackCompiler.SafePath(Path.GetDirectoryName(path)!, WorkspaceProject.Required(export, "document")));
-                    if (!entry.Documents.ContainsKey(file)) throw new InvalidDataException("Exports must reference declared documents.");
-                    entry.Exports.Add(WorkspaceProject.Required(export, "key"), file);
-                }
-                Packs[id] = entry;
+                var entry = ReadRegistration(path, hash);
+                if (!live.Add(entry.Pack.Id)) throw new InvalidDataException("Duplicate pack: " + entry.Pack.Id);
+                Packs[entry.Pack.Id] = entry;
             }
             catch (Exception e) when (e is IOException or System.Xml.XmlException or ArgumentException) { Diagnostics.Add(relative + ": " + e.Message); }
         }
         foreach (string id in Packs.Keys.Where(id => !live.Contains(id)).ToArray()) Packs.Remove(id);
+    }
+    private PackRegistration ReadRegistration(string path, string hash)
+    {
+        string relative = project.Relative(path);
+        Counters.ManifestsRead++;
+        var xml = PackCompiler.ReadXml(path).Root ?? throw new InvalidDataException("Empty pack.");
+        string id = WorkspaceProject.Required(xml, "id");
+        var entry = new PackRegistration { Manifest = xml, ManifestHash = hash, Pack = new() { Id = id, Manifest = relative,
+            Version = (string?)xml.Attribute("version") ?? "1.0.0", Parent = (string?)xml.Attribute("extends") ?? "" } };
+        entry.Pack.Dependencies = xml.Elements("Depends").Select(e => WorkspaceProject.Required(e, "id")).Concat(entry.Pack.Parent.Length == 0 ? [] : new[] { entry.Pack.Parent }).Distinct(StringComparer.Ordinal).ToList();
+        entry.Documents.Add(relative, "manifest");
+        foreach (var item in xml.Elements().Where(e => e.Name == "Data" || e.Name == "Ui"))
+        {
+            string file = project.Relative(PackCompiler.SafePath(Path.GetDirectoryName(path)!, WorkspaceProject.Required(item, "path")));
+            entry.Documents.Add(file, item.Name == "Ui" ? "ui" : "data"); entry.Pack.Files.Add(file);
+            if ((string?)item.Attribute("role") is { } role && role is "concept-schema" or "concept-objects" or "concept-views") entry.SemanticDocuments.Add(role, file);
+        }
+        foreach (var item in xml.Elements().Where(e => e.Name == "Assembly" || e.Name == "FunctionAssembly")) entry.Pack.Assemblies.Add(WorkspaceProject.Required(item, "path"));
+        foreach (var export in xml.Elements("Export"))
+        {
+            string file = project.Relative(PackCompiler.SafePath(Path.GetDirectoryName(path)!, WorkspaceProject.Required(export, "document")));
+            if (!entry.Documents.ContainsKey(file)) throw new InvalidDataException("Exports must reference declared documents.");
+            entry.Exports.Add(WorkspaceProject.Required(export, "key"), file);
+        }
+        return entry;
+    }
+    public bool RefreshPack(string id)
+    {
+        var before = Packs[id]; string path = project.Resolve(before.Pack.Manifest);
+        string hash = WorkspaceProject.Hash(File.ReadAllBytes(path));
+        if (hash == before.ManifestHash) return false;
+        var after = ReadRegistration(path, hash);
+        if (after.Pack.Id != id) throw new InvalidDataException("Pack identity changed; refresh the project registry.");
+        Packs[id] = after; return true;
     }
     public string Owner(string path)
     {

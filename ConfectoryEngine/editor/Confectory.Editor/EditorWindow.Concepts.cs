@@ -14,7 +14,7 @@ public sealed partial class EditorWindow
     private readonly List<Window> conceptWindows = [];
     private readonly ContentControl conceptPageHost = new() { Visibility = Visibility.Collapsed, Background = BackgroundInk, Margin = new Thickness(0, 0, 0, 84) };
     private Action? conceptPageClosing;
-    private ConceptSpace Space => conceptSpace ??= ConceptSpace.Open(session!.Project);
+    private ConceptSpace Space => conceptSpace ??= ConceptSpace.Open(session!);
     private void CloseConceptPage() { conceptPageClosing?.Invoke(); conceptPageClosing = null; conceptPageHost.Content = null; conceptPageHost.Visibility = Visibility.Collapsed; }
     private FrameworkElement OpenConceptPage(UIElement content)
     {
