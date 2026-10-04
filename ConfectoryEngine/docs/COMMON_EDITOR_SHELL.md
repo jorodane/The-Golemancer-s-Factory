@@ -358,6 +358,16 @@ without an Android workload/device. Verify the exact pushed commit's CI before
 continuing publication claims. The preceding participant-name commit be9beb0's
 five CI jobs passed in run 37193398164.
 
+Published implementation: 8614a0b64e332e401cfc1689d56201690fbdd63c.
+All five jobs (Windows native, Android build, Linux native/ARM64, portable/full
+consumer campaign and engine compatibility) passed in
+https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37194884189.
+The final interaction review retains Windows' existing `JoinHelper(open: false)`
+workspace navigation for Yogi-drop delivery. The common role-view participation
+button itself registers without opening a conversation on every host. This host
+navigation follow-up has its own ordinary push/CI verification; it changes no
+provider calls, credential handling or collaboration response policy.
+
 Structural remainder: the native directory/status/Yogi sidebar controls coexist
 with the new role view. This does not yet establish workspace/sidebar parity.
 Helper removal/role-picker toggles, worker promotion, character placement/window

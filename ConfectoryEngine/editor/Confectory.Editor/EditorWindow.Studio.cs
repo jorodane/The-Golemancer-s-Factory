@@ -140,6 +140,7 @@ public sealed partial class EditorWindow
     {
         if (session is null) return;
         using var workspace = CreateStudioWorkspace(); workspace.JoinHelper(helper.Id, open);
+        if (!open) { ShowProjectWorkspace(); tabs.SelectedIndex = 0; }
     }
     private void EditHelperMemory(AiHelper helper) => ShowStudioProfile(null, helper);
     private void EditHelperProfile(AiHelper helper) => ShowStudioProfile(null, helper);
