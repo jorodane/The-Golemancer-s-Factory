@@ -194,7 +194,7 @@ internal static class Program
             var password = (PasswordBox)Control(privateInput); int privateEvents = 0;
             using var privateSubscription = privateInput.Listen("changed", _ => privateEvents++);
             password.Password = "synthetic-native-secret";
-            var privateState = (Confectory.Editor.Contracts.EditorWindowState)type.GetMethod("Capture")!.Invoke(backend, null)!;
+            var privateState = (Confectory.EditorPacks.EditorWindowState)type.GetMethod("Capture")!.Invoke(backend, null)!;
             Check(privateEvents == 1 && !privateState.Values.Values.Contains("synthetic-native-secret"), "native secret edits never enter captured window state");
             privateInput.Set("clearRevision", UiValue.Number(1));
             Check(password.Password.Length == 0 && privateEvents == 1, "pack-owned private reset clears the native password without manufacturing edits");
