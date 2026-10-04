@@ -40,6 +40,15 @@ internal sealed partial class EditorSurface
         EditCreation("create-location", Path.GetDirectoryName(session.Project.Root)!);
         native.Paint(); scroll = Math.Max(0, contentHeight - viewportHeight + 150); Click("create-submit");
         Check(mode == "home" && session.Project.Name == "공통 프로젝트" && ProjectStudio.Load(session.Project).Description == "공통 팩 생성 흐름", "real SDL input submits the shared project creation workflow");
+        string recentCard = "project-" + session.Project.Identity + ".";
+        EditCreation(recentCard + "name", "이름 변경 프로젝트");
+        native.PushKey(13, true); native.PushKey(13, false); native.Pump(); Tick(); native.Paint();
+        Check(WorkspaceProject.Open(session.Project.Manifest).Name == "이름 변경 프로젝트", "shared home inline name commits through SDL keyboard input");
+        Click(recentCard + "menu");
+        native.Paint(); scroll = Math.Max(0, contentHeight - viewportHeight + 150); Click(recentCard + "delete");
+        Check(Directory.Exists(session.Project.Root), "home delete prompt preserves the project until confirmation");
+        native.Paint(); scroll = Math.Max(0, contentHeight - viewportHeight + 150); Click(recentCard + "cancel-delete");
+        Check(Directory.Exists(session.Project.Root), "real SDL home delete cancellation keeps project files");
         Open(originalProject);
         Page("Native input verification", "verification");
         int activations = 0, changes = 0; var group = Stack("test-group"); Add(root, group);
@@ -70,6 +79,6 @@ internal sealed partial class EditorSurface
         var snapshot = activeWindow.CaptureViewEdits(); Check(snapshot is not null, "live input snapshot available");
         Dispatch("editor.core.notice", UiValue.None); Complete(); Check(status.Contains("에디터 객체팩"), "real DLL command executed");
         ShowObjects(concept.Id); status = "Native verification passed · SDL input, semantic save, DLL command and dynamic window"; native.Paint();
-        Console.WriteLine("LINUX_EDITOR_SMOKE_PASS SDL_WINDOW STARTUP PROJECT_CREATION TEXT_INPUT POINTER SCHEMA_SAVE PACK_DLL DYNAMIC_VIEW");
+        Console.WriteLine("LINUX_EDITOR_SMOKE_PASS SDL_WINDOW STARTUP PROJECT_CREATION PROJECT_HOME TEXT_INPUT POINTER SCHEMA_SAVE PACK_DLL DYNAMIC_VIEW");
     }
 }

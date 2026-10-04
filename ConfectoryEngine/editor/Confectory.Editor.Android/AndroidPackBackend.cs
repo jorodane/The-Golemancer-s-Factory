@@ -22,7 +22,9 @@ internal sealed class AndroidPackBackend(Context context, string viewId = "") : 
         {
             "editor.stack" => new LinearLayout(context) { Orientation = Orientation.Vertical },
             "editor.wrap" => new Flow(context),
+            "editor.grid" => new Grid(context),
             "editor.card" => new Card(context),
+            "editor.tile" => new Card(context),
             "editor.inline" => new InlineEditor(context),
             "editor.slot" => new SlotButton(context),
             "editor.vector" => new Vector(context),
@@ -100,7 +102,7 @@ internal sealed class AndroidPackBackend(Context context, string viewId = "") : 
             base.OnMeasure(Limit(widthMeasureSpec, maximumWidth), Limit(heightMeasureSpec, maximumHeight));
         }
     }
-    internal sealed class Element : IEditorViewElement
+    internal sealed class Element : IEditorViewElement, IEditorFocusElement
     {
         private readonly AView native;
         private readonly Bounds wrapper;
@@ -172,13 +174,16 @@ internal sealed class AndroidPackBackend(Context context, string viewId = "") : 
                     case "visible": wrapper.Visibility = value.AsBoolean() ? ViewStates.Visible : ViewStates.Gone; break;
                     case "tooltip": native.TooltipText = value.Literal; break;
                     case "fontSize": if (native is InlineEditor sizedInline) sizedInline.SetFont((float)value.AsNumber()); else if (native is TextView sizedText) sizedText.TextSize = (float)value.AsNumber(); break;
+                    case "borderStyle": var outline = new global::Android.Graphics.Drawables.GradientDrawable(); outline.SetColor(global::Android.Graphics.Color.Transparent); outline.SetCornerRadius(dp(12)); if (value.Literal == "dashed") outline.SetStroke(dp(1), global::Android.Graphics.Color.Rgb(148, 165, 183), dp(5), dp(5)); else outline.SetStroke(dp(1), global::Android.Graphics.Color.Rgb(148, 165, 183)); native.Background = outline; break;
                     case "selected": ((Card)native).Select(value.AsBoolean()); break;
                     case "placeholder": ((InlineEditor)native).Placeholder = value.Literal; ((InlineEditor)native).Refresh(); break;
                     case "multiline": ((InlineEditor)native).Input.SetSingleLine(!value.AsBoolean()); break;
                     case "margin":
                         var margins = (ViewGroup.MarginLayoutParams)wrapper.LayoutParameters!;
                         int amount = dp(value.AsNumber()); margins.SetMargins(amount, amount, amount, amount); wrapper.LayoutParameters = margins; break;
+                    case "columns": ((Grid)native).Columns = (int)value.AsNumber(); native.RequestLayout(); break;
                     case "orientation":
+                        if (native is Grid) break;
                         if (native is Flow flow) { flow.Vertical = value.Literal == "vertical"; flow.RequestLayout(); }
                         else
                         {
@@ -230,6 +235,11 @@ internal sealed class AndroidPackBackend(Context context, string viewId = "") : 
                 button.Background = fills; button.SetTextColor(global::Android.Graphics.Color.ParseColor(Color("foreground", "#E6EDF3")));
             }
         }
+        public void Focus(bool selectAll = false)
+        {
+            if (native is InlineEditor inline) inline.Begin(); else native.RequestFocus();
+            if (selectAll && InputControl is { } text) text.SelectAll();
+        }
         public void Add(string slot, IUiElement child)
             => InsertChild(((ViewGroup)native).ChildCount, child);
         public void RemoveChild(IUiElement child) => ((ViewGroup)native).RemoveView(((Element)child).Control);
@@ -249,6 +259,8 @@ internal sealed class AndroidPackBackend(Context context, string viewId = "") : 
             }
             if (name == "activate" && native is Card card)
             { EventHandler handler = (_, _) => callback(UiValue.None); card.Click += handler; return new Release(() => card.Click -= handler); }
+            if (name == "committed" && native is InlineEditor inline)
+            { Action<string> action = value => callback(UiValue.Text(value)); inline.Committed += action; return new Release(() => inline.Committed -= action); }
             if (name == "changed" && InputControl is { } text)
             {
                 EventHandler<TextChangedEventArgs> handler = (_, _) => { if (!setting) callback(UiValue.Text(text.Text ?? "")); };
@@ -290,6 +302,7 @@ internal sealed class AndroidPackBackend(Context context, string viewId = "") : 
     private sealed class InlineEditor : FrameLayout
     {
         public EditText Input { get; }
+        public event Action<string>? Committed;
         private readonly TextView display;
         public string Placeholder = "";
         private string before = "";
@@ -302,17 +315,16 @@ internal sealed class AndroidPackBackend(Context context, string viewId = "") : 
             display.Click += (_, _) => Begin(); Input.TextChanged += (_, _) => Refresh();
             Input.FocusChange += (_, e) => { if (!e.HasFocus) End(); };
             Input.EditorAction += (_, e) => { if (e.ActionId == ImeAction.Done) { End(); e.Handled = true; } };
-            Input.KeyPress += (_, e) => { if (e.KeyCode == Keycode.Escape && e.Event?.Action == KeyEventActions.Down) { Input.Text = before; End(); e.Handled = true; } };
+            Input.KeyPress += (_, e) => { if (e.KeyCode == Keycode.Escape && e.Event?.Action == KeyEventActions.Down) { Input.Text = before; End(false); e.Handled = true; } };
             KeyPress += (_, e) => { if (e.KeyCode == Keycode.F2 && e.Event?.Action == KeyEventActions.Down) { Begin(); e.Handled = true; } };
         }
         public void Begin()
         {
             if (!Enabled || Input.Visibility == ViewStates.Visible) return;
             before = Input.Text ?? ""; display.Visibility = ViewStates.Gone; Input.Visibility = ViewStates.Visible; Input.RequestFocus(); Input.SelectAll();
-            for (var parent = Parent; parent is not null; parent = parent.Parent) if (parent is Card card) { card.PerformClick(); break; }
             (Context?.GetSystemService(Context.InputMethodService) as InputMethodManager)?.ShowSoftInput(Input, ShowFlags.Implicit);
         }
-        private void End() { if (Input.Visibility != ViewStates.Visible) return; Input.Visibility = ViewStates.Gone; display.Visibility = ViewStates.Visible; Refresh(); }
+        private void End(bool commit = true) { if (Input.Visibility != ViewStates.Visible) return; Input.Visibility = ViewStates.Gone; display.Visibility = ViewStates.Visible; Refresh(); if (commit) Committed?.Invoke(Input.Text ?? ""); }
         public void SetFont(float size) { Input.TextSize = size; display.TextSize = size; }
         public void Refresh() { display.Text = string.IsNullOrEmpty(Input.Text) ? Placeholder : Input.Text; display.SetTextColor(string.IsNullOrEmpty(Input.Text) ? global::Android.Graphics.Color.Rgb(163, 180, 199) : global::Android.Graphics.Color.White); }
     }
@@ -358,6 +370,33 @@ internal sealed class AndroidPackBackend(Context context, string viewId = "") : 
             ContentDescription = value.Length > 0 ? value : glyph;
         }
         public void ReleaseImage() { SetCompoundDrawables(null, null, null, null); image?.Bitmap?.Dispose(); image?.Dispose(); image = null; }
+    }
+    private sealed class Grid(Context context) : ViewGroup(context)
+    {
+        public int Columns = 2;
+        private readonly List<(AView Child, int X, int Y)> positions = [];
+        protected override void OnMeasure(int widthMeasureSpec, int heightMeasureSpec)
+        {
+            positions.Clear(); int width = MeasureSpec.GetSize(widthMeasureSpec), cell = Math.Max(1, width / Columns), y = 0;
+            var children = Enumerable.Range(0, ChildCount).Select(i => GetChildAt(i)!).Where(v => v.Visibility != ViewStates.Gone).ToArray();
+            for (int row = 0; row < children.Length; row += Columns)
+            {
+                int rowHeight = 0;
+                for (int col = 0; col < Columns && row + col < children.Length; col++)
+                {
+                    var child = children[row + col]; var margins = child.LayoutParameters as MarginLayoutParams;
+                    int left = margins?.LeftMargin ?? 0, right = margins?.RightMargin ?? 0, top = margins?.TopMargin ?? 0, bottom = margins?.BottomMargin ?? 0;
+                    int fixedHeight = child.LayoutParameters!.Height;
+                    child.Measure(MeasureSpec.MakeMeasureSpec(Math.Max(1, cell - left - right), MeasureSpecMode.Exactly),
+                        MeasureSpec.MakeMeasureSpec(Math.Max(0, fixedHeight), fixedHeight >= 0 ? MeasureSpecMode.Exactly : MeasureSpecMode.Unspecified));
+                    rowHeight = Math.Max(rowHeight, child.MeasuredHeight + top + bottom); positions.Add((child, col * cell + left, y + top));
+                }
+                y += rowHeight;
+            }
+            SetMeasuredDimension(ResolveSize(width, widthMeasureSpec), ResolveSize(y, heightMeasureSpec));
+        }
+        protected override void OnLayout(bool changed, int left, int top, int right, int bottom)
+        { foreach (var item in positions) item.Child.Layout(item.X, item.Y, item.X + item.Child.MeasuredWidth, item.Y + item.Child.MeasuredHeight); }
     }
     // Native flow layout keeps retained child controls; no row containers are recreated.
     private sealed class Flow(Context context) : ViewGroup(context)

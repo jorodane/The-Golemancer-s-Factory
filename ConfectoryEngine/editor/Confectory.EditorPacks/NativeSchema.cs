@@ -11,7 +11,7 @@ public static class EditorNativeSchema
     {
         "enabled" or "visible" or "wrapText" => UiValue.Boolean(true),
         "selected" or "multiline" => UiValue.Boolean(false),
-        "fontSize" => UiValue.Number(13), "margin" or "count" => UiValue.Number(0),
+        "borderStyle" => UiValue.Text("solid"), "columns" => UiValue.Number(2), "fontSize" => UiValue.Number(13), "margin" or "count" => UiValue.Number(0),
         "fontWeight" => UiValue.Text("normal"), "appearance" => UiValue.Text("standard"), "alignment" => UiValue.Text("stretch"), "orientation" => UiValue.Text("vertical"), "tint" => UiValue.Text("#293B4D"),
         _ => UiValue.Text("")
     };
@@ -19,22 +19,25 @@ public static class EditorNativeSchema
     { double number = UiVector2.Finite(value); return number >= min && number <= max ? number : throw new InvalidDataException("Editor layout value is outside its supported range."); }
     public static bool Supports(string renderer, UiWidgetDefinition widget, string platform = "windows")
     {
-        if (renderer is not ("editor.stack" or "editor.text" or "editor.button" or "editor.input" or "editor.inline" or "editor.card" or "editor.wrap" or "editor.slot" or "editor.vector")) return false;
+        if (renderer is not ("editor.stack" or "editor.text" or "editor.button" or "editor.input" or "editor.inline" or "editor.card" or "editor.wrap" or "editor.slot" or "editor.vector" or "editor.grid" or "editor.tile")) return false;
         var properties = new Dictionary<string, UiValueKind> { ["enabled"] = UiValueKind.Boolean, ["visible"] = UiValueKind.Boolean,
             ["tooltip"] = UiValueKind.Text, ["fontSize"] = UiValueKind.Number, ["margin"] = UiValueKind.Number, ["foreground"] = UiValueKind.Text, ["background"] = UiValueKind.Text, ["alignment"] = UiValueKind.Text };
-        if (renderer is "editor.stack" or "editor.wrap" or "editor.card") properties.Add("orientation", UiValueKind.Text);
+        if (renderer == "editor.grid") properties.Add("columns", UiValueKind.Number);
+        else if (renderer is "editor.stack" or "editor.wrap" or "editor.card" or "editor.tile") properties.Add("orientation", UiValueKind.Text);
         else if (renderer == "editor.vector") properties.Add("polygons", UiValueKind.Text);
         else if (renderer == "editor.slot")
         { foreach (string name in new[] { "image", "glyph", "value", "tint" }) properties.Add(name, UiValueKind.Text); properties.Add("count", UiValueKind.Number); }
         else { properties.Add("text", UiValueKind.Text); properties.Add("wrapText", UiValueKind.Boolean); properties.Add("fontWeight", UiValueKind.Text); }
         if (renderer == "editor.inline") { properties.Add("placeholder", UiValueKind.Text); properties.Add("multiline", UiValueKind.Boolean); }
         if (renderer == "editor.button") foreach (string name in new[] { "appearance", "hoverForeground", "hoverBackground", "pressedBackground" }) properties.Add(name, UiValueKind.Text);
-        if (renderer == "editor.card") properties.Add("selected", UiValueKind.Boolean);
+        if (renderer is "editor.card" or "editor.tile") properties.Add("selected", UiValueKind.Boolean);
+        if (renderer == "editor.tile") properties.Add("borderStyle", UiValueKind.Text);
         return widget.Properties.All(p => properties.TryGetValue(p.Name, out var type) && type == p.Type)
-            && widget.Slots.All(s => renderer is "editor.stack" or "editor.wrap" or "editor.card" && s.Name == "children")
-            && widget.Events.All(e => renderer is "editor.button" or "editor.card" && e.Name == "activate" && e.Payload == UiValueKind.None
+            && widget.Slots.All(s => renderer is "editor.stack" or "editor.wrap" or "editor.card" or "editor.tile" or "editor.grid" && s.Name == "children")
+            && widget.Events.All(e => renderer is "editor.button" or "editor.card" or "editor.tile" && e.Name == "activate" && e.Payload == UiValueKind.None
                 || renderer == "editor.slot" && e.Name == "activate" && e.Payload == UiValueKind.Text
-                || renderer is "editor.input" or "editor.inline" && e.Name == "changed" && e.Payload == UiValueKind.Text);
+                || renderer is "editor.input" or "editor.inline" && e.Name == "changed" && e.Payload == UiValueKind.Text
+                || renderer == "editor.inline" && e.Name == "committed" && e.Payload == UiValueKind.Text);
     }
     public static UiContext Context(EditorPackSnapshot snapshot, Action<string, UiValue> execute, string projectName, string selection)
     {
@@ -65,6 +68,8 @@ public static class EditorNativeSchema
         if (property == "polygons") EditorVector.Parse(value.Literal);
         if (property == "fontSize" && (value.AsNumber() < 8 || value.AsNumber() > 48) || property == "margin" && (value.AsNumber() < 0 || value.AsNumber() > 64)) throw new InvalidDataException("Editor property exceeds native range: " + property);
         if (property == "orientation" && value.Literal is not ("horizontal" or "vertical")) throw new InvalidDataException("Unknown editor orientation.");
+        if (property == "borderStyle" && value.Literal is not ("solid" or "dashed")) throw new InvalidDataException("Unknown native border style.");
+        if (property == "columns" && (value.AsNumber() < 1 || value.AsNumber() > 4 || value.AsNumber() != Math.Floor(value.AsNumber()))) throw new InvalidDataException("Grid columns must be integers from 1 to 4.");
         if (property == "count" && (value.AsNumber() < 0 || value.AsNumber() > 1_000_000 || value.AsNumber() != Math.Floor(value.AsNumber()))) throw new InvalidDataException("Slot counts are non-negative integers.");
         if (property == "image" && value.Literal.Length > 0 && (!value.Literal.StartsWith("data:image/", StringComparison.Ordinal) || !value.Literal.Contains(";base64,") || value.Literal.Length > 2_800_000)) throw new InvalidDataException("Use a declared bitmap data URL, not a file or remote URL.");
         if (property == "glyph" && value.Literal.Length > 32) throw new InvalidDataException("Slot glyphs are limited to 32 characters.");

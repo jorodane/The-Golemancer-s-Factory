@@ -14,6 +14,11 @@ public interface IEditorViewElement : IUiElement
     void InsertChild(int index, IUiElement child);
 }
 
+public interface IEditorFocusElement
+{
+    void Focus(bool selectAll = false);
+}
+
 public sealed class EditorViewEditSnapshot
 {
     internal readonly Dictionary<IEditorViewElement, long> Revisions = new();

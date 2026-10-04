@@ -65,6 +65,27 @@ internal static class LiveViewVerification
                 string before = File.ReadAllText(opened!.Manifest); Activate("create-submit");
                 Check(File.ReadAllText(opened.Manifest) == before, "repeated creation cannot overwrite an existing project on " + platform);
                 Activate("create-cancel"); Check(cancellations == 1, "common cancellation reaches only the host lifecycle on " + platform);
+                var settings = new AssistantSettings(); var entry = settings.Register(opened); entry.LastOpenedUtc = DateTime.UtcNow.ToString("O");
+                var other = NewProject.CreateAt(Path.Combine(creationRoot, platform), "Other project", new(), platform, platform == "windows" ? "net48" : "net10.0"); settings.Register(other);
+                int homeSaves = 0, homeCreates = 0; string requestedOpen = "", requestedFolder = "";
+                using var home = new EditorStudioProjectHome(presentation, new Backend(platform), settings, () => homeSaves++, () => homeCreates++, path => requestedOpen = path, path => requestedFolder = path, _ => { }, action => action());
+                void HomeAction(string id) => ((Element)home.View.Element(id)).Activate();
+                string card = "project-" + entry.Identity + ".";
+                HomeAction("new-project-card"); Check(homeCreates == 1, "pack-owned home starts common creation on " + platform);
+                HomeAction(card + "menu"); ((Element)home.View.Element(card + "rename")).Edit("Renamed project", 15);
+                Check(File.ReadAllText(opened.Manifest) == before, "home name edits stay drafts until an explicit save on " + platform);
+                HomeAction(card + "save-name"); Check(entry.Name == "Renamed project" && WorkspaceProject.Open(entry.Manifest).Name == "Renamed project", "common home rename updates project metadata and registered title on " + platform);
+                ((Element)home.View.Element(card + "name")).Edit("Committed project", 17);
+                ((Element)home.View.Element(card + "name")).Emit("committed", UiValue.Text("Committed project"));
+                Check(entry.Name == "Committed project" && WorkspaceProject.Open(entry.Manifest).Name == "Committed project", "inline home completion uses the same rename action on " + platform);
+                HomeAction(card + "folder"); HomeAction(card + "card"); Check(requestedOpen == entry.Manifest && requestedFolder == opened.Root, "home delegates only OS folder presentation and project activation on " + platform);
+                HomeAction(card + "delete"); Check(Directory.Exists(opened.Root), "opening delete confirmation does not move the project on " + platform);
+                HomeAction(card + "cancel-delete"); Check(Directory.Exists(opened.Root) && settings.Projects.Count == 2, "cancelled home deletion preserves files and catalog on " + platform);
+                HomeAction(card + "delete"); HomeAction(card + "confirm-delete");
+                string trash = Path.Combine(Path.GetDirectoryName(opened.Root)!, ".ConfectoryTrash");
+                Check(!Directory.Exists(opened.Root) && Directory.Exists(other.Root) && Directory.GetDirectories(trash).Length == 1 && settings.Projects.Count == 1 && homeSaves == 3,
+                    "confirmed common home deletion is reversible and keeps the other project on " + platform);
+
             }
         }
         finally { if (Directory.Exists(creationRoot)) Directory.Delete(creationRoot, true); }
@@ -181,6 +202,7 @@ internal static class LiveViewVerification
         public UiLayout Layout = new();
         public long InputRevision { get; private set; }
         public int ListenerCount => listeners.Count;
+        public void Emit(string name, UiValue value) { if (listeners.TryGetValue(name, out var action)) action(value); }
         public void Activate() { if (listeners.TryGetValue("activate", out var action)) action(UiValue.None); }
         public void Edit(string value, int caret) { Text = value; Caret = caret; InputRevision++; if (listeners.TryGetValue("changed", out var action)) action(UiValue.Text(value)); }
         public Action PrepareSet(string property, UiValue value) { if (value.Literal == "reject-native") throw new InvalidDataException("Native fixture decode failure"); return () => Set(property, value); }

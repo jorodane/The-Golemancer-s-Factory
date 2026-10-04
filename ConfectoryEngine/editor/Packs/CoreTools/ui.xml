@@ -4,9 +4,11 @@
   <Widget id="editor.text" extends="editor.element"><Property name="text" type="text" default="" /><Property name="wrapText" type="boolean" default="true" /><Property name="fontWeight" type="text" default="normal"><Option value="normal" /><Option value="semibold" /><Option value="bold" /></Property><Renderer platform="*" key="editor.text" /></Widget>
   <Widget id="editor.button" extends="editor.text"><Property name="appearance" type="text" default="standard"><Option value="standard" /><Option value="quiet" /><Option value="accent" /></Property><Property name="hoverForeground" type="text" default="" /><Property name="hoverBackground" type="text" default="" /><Property name="pressedBackground" type="text" default="" /><Event name="activate" payload="none" /><Renderer platform="*" key="editor.button" /></Widget>
   <Widget id="editor.input" extends="editor.text"><Event name="changed" payload="text" /><Renderer platform="*" key="editor.input" /></Widget>
-  <Widget id="editor.inline" extends="editor.input"><Property name="placeholder" type="text" default="" /><Property name="multiline" type="boolean" default="false" /><Renderer platform="*" key="editor.inline" /></Widget>
+  <Widget id="editor.inline" extends="editor.input"><Event name="committed" payload="text" /><Property name="placeholder" type="text" default="" /><Property name="multiline" type="boolean" default="false" /><Renderer platform="*" key="editor.inline" /></Widget>
   <Widget id="editor.card" extends="editor.stack"><Property name="selected" type="boolean" default="false" /><Event name="activate" payload="none" /><Renderer platform="*" key="editor.card" /></Widget>
   <Widget id="editor.wrap" extends="editor.stack"><Renderer platform="*" key="editor.wrap" /></Widget>
+  <Widget id="editor.tile" extends="editor.card"><Property name="borderStyle" type="text" default="solid"><Option value="solid" /><Option value="dashed" /></Property><Renderer platform="*" key="editor.tile" /></Widget>
+  <Widget id="editor.grid" extends="editor.element"><Slot name="children" min="0" /><Property name="columns" type="number" default="2" min="1" max="4" /><Renderer platform="*" key="editor.grid" /></Widget>
   <Widget id="editor.slot" extends="editor.element">
     <Property name="image" type="text" default="" /><Property name="glyph" type="text" default="" />
     <Property name="count" type="number" default="0" min="0" max="1000000" /><Property name="value" type="text" default="" />
@@ -46,6 +48,33 @@
       <Node id="create-cancel" order="0" widget="editor.button"><Set property="text" value="취소" /><On event="activate" command="studio.create.cancel" /></Node>
       <Node id="create-submit" order="10" widget="editor.button"><Set property="text" value="만들기" /><Set property="background" value="#69D1BD" /><Set property="foreground" value="#10251F" /><Bind property="enabled" source="studio.create.valid" /><On event="activate" command="studio.create.submit" /></Node>
     </Slot></Node>
+  </Slot></Node></View>
+  <View id="editor.studio.projects"><Node id="home-projects" widget="editor.stack"><Slot name="children">
+    <Node id="home-heading" order="0" widget="editor.text"><Set property="text" value="프로젝트" /><Set property="fontSize" value="26" /></Node>
+    <Node id="home-grid" order="10" widget="editor.grid"><Set property="columns" value="2" /><Slot name="children" export="true" /></Node>
+    <Node id="home-error" order="20" widget="editor.text"><Set property="foreground" value="#E35561" /><Bind property="text" source="studio.home.error" /></Node>
+  </Slot></Node></View>
+  <View id="editor.studio.project-card"><Node id="card" widget="editor.card"><Set property="margin" value="8" /><On event="activate" command="studio.home.open" /><Slot name="children">
+    <Node id="icon" order="0" widget="editor.slot"><Layout size="48,48" /><Set property="glyph" value="◇" /><On event="activate" command="studio.home.openIcon" /></Node>
+    <Node id="name" order="10" widget="editor.inline"><On event="changed" command="studio.home.renameInput" /><On event="committed" command="studio.home.renameCommit" /><Set property="fontSize" value="14" /><Set property="fontWeight" value="semibold" /></Node>
+    <Node id="opened" order="20" widget="editor.text"><Set property="fontSize" value="10" /><Set property="foreground" value="#94A5B7" /></Node>
+    <Node id="menu" order="30" widget="editor.button"><Set property="text" value="⋮" /><Set property="appearance" value="quiet" /><On event="activate" command="studio.home.menu" /></Node>
+    <Node id="actions" order="40" widget="editor.stack"><Set property="visible" value="false" /><Slot name="children">
+      <Node id="rename" order="0" widget="editor.inline"><On event="changed" command="studio.home.renameInput" /></Node>
+      <Node id="save-name" order="10" widget="editor.button"><Set property="text" value="이름 저장" /><On event="activate" command="studio.home.rename" /></Node>
+      <Node id="change-icon" order="20" widget="editor.button"><Set property="text" value="아이콘 변경" /><On event="activate" command="studio.home.icon" /></Node>
+      <Node id="folder" order="30" widget="editor.button"><Set property="text" value="탐색기에서 열기" /><On event="activate" command="studio.home.folder" /></Node>
+      <Node id="delete" order="40" widget="editor.button"><Set property="text" value="삭제" /><Set property="foreground" value="#E35561" /><On event="activate" command="studio.home.delete" /></Node>
+    </Slot></Node>
+    <Node id="confirmation" order="50" widget="editor.stack"><Set property="visible" value="false" /><Slot name="children">
+      <Node id="warning" order="0" widget="editor.text"><Set property="text" value="프로젝트를 삭제할까? 폴더는 삭제 보관함으로 옮겨져." /></Node>
+      <Node id="confirm-delete" order="10" widget="editor.button"><Set property="text" value="삭제 확인" /><On event="activate" command="studio.home.confirmDelete" /></Node>
+      <Node id="cancel-delete" order="20" widget="editor.button"><Set property="text" value="취소" /><On event="activate" command="studio.home.cancelDelete" /></Node>
+    </Slot></Node>
+  </Slot></Node></View>
+  <View id="editor.studio.project-new"><Node id="new-project-card" widget="editor.tile"><Set property="borderStyle" value="dashed" /><Set property="background" value="transparent" /><Layout size="0,180" /><Set property="margin" value="8" /><On event="activate" command="studio.home.create" /><Slot name="children">
+    <Node id="new-project-plus" order="0" widget="editor.text"><Set property="text" value="+" /><Set property="fontSize" value="32" /><Set property="alignment" value="center" /></Node>
+    <Node id="new-project-label" order="10" widget="editor.text"><Set property="text" value="새 프로젝트 만들기" /><Set property="alignment" value="center" /></Node>
   </Slot></Node></View>
   <View id="editor.core.tools"><Node id="tools" widget="editor.stack"><Slot name="children" export="true">
     <Node id="project" order="0" widget="editor.text"><Bind property="text" source="editor.project" /><Set property="fontSize" value="20" /></Node>

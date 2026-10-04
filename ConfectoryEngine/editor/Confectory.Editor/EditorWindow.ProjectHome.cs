@@ -10,12 +10,14 @@ using System.Windows.Shapes;
 using Path = System.IO.Path;
 using Microsoft.Win32;
 using Confectory.Workspace;
+using Confectory.EditorPacks;
 
 namespace Confectory.Editor;
 
 public sealed partial class EditorWindow
 {
     private ProjectStudio projectStudio = new();
+    private EditorStudioProjectHome? sharedProjectHome;
     private readonly WrapPanel projectAiRoles = new();
     private Popup? aiProfile;
     private readonly StackPanel profileBody = new();
@@ -67,63 +69,22 @@ public sealed partial class EditorWindow
     {
         projectHome.Children.Clear(); projectHome.Margin = new Thickness(40, 8, 24, 32); projectHome.MaxWidth = 900; projectHome.HorizontalAlignment = HorizontalAlignment.Left;
         projectHome.Children.Add(HomeBrand());
-        projectHome.Children.Add(Label("프로젝트", 26));
-        projectHome.Children.Add(new Border { Height = 1, Background = new SolidColorBrush(Color.FromRgb(49, 61, 74)), Margin = new Thickness(4, 16, 4, 22) });
         if (startupProject.Length > 0 && File.Exists(startupProject) && !ProjectCatalog.IsStudio(startupProject)) assistantSettings.Register(WorkspaceProject.Open(startupProject));
-        var cards = new UniformGrid { Columns = 2 }; cards.Children.Add(NewProjectCard());
-        foreach (var entry in ProjectCatalog.Recent(assistantSettings)) cards.Children.Add(ProjectCard(entry));
-        projectHome.Children.Add(cards);
-    }
-    private FrameworkElement NewProjectCard()
-    {
-        var content = new Grid { Height = 148, Margin = new Thickness(8) };
-        content.Children.Add(new Rectangle { Stroke = MutedInk, StrokeThickness = 1, StrokeDashArray = new DoubleCollection { 5, 5 }, RadiusX = 12, RadiusY = 12 });
-        var labels = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-        var plus = Label("+", 32, MutedInk); plus.TextAlignment = TextAlignment.Center; labels.Children.Add(plus);
-        var name = Label("새 프로젝트 만들기", 14, MutedInk); name.TextAlignment = TextAlignment.Center; labels.Children.Add(name); content.Children.Add(labels);
-        return BareButton(content, CreateGameProject);
-    }
-    private FrameworkElement ProjectCard(ProjectAssistantAccess entry)
-    {
-        var card = new Border { Height = 148, Margin = new Thickness(8), Background = PanelInk, BorderBrush = new SolidColorBrush(Color.FromRgb(44, 57, 72)), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(12), Padding = new Thickness(22), Cursor = Cursors.Hand, Focusable = true };
-        var grid = new Grid { VerticalAlignment = VerticalAlignment.Center }; grid.ColumnDefinitions.Add(new() { Width = new GridLength(58) }); grid.ColumnDefinitions.Add(new()); grid.ColumnDefinitions.Add(new() { Width = new GridLength(25) }); card.Child = grid;
-        string icon = ""; try { var project = WorkspaceProject.Open(entry.Manifest); var info = ProjectStudio.Load(project); if (info.Icon.Length > 0) icon = project.Resolve(info.Icon); } catch (Exception e) when (e is IOException or ArgumentException or System.Xml.XmlException) { }
-        var image = ProjectIcon(icon, 42); image.VerticalAlignment = VerticalAlignment.Center; grid.Children.Add(image);
-        var details = new StackPanel { VerticalAlignment = VerticalAlignment.Center }; Grid.SetColumn(details, 1); grid.Children.Add(details);
-        var name = Label(entry.Name, 16); name.TextWrapping = TextWrapping.NoWrap; name.TextTrimming = TextTrimming.CharacterEllipsis; name.FontWeight = FontWeights.SemiBold;
-        var rename = Input(); rename.Visibility = Visibility.Collapsed; rename.MaxLength = 160;
-        details.Children.Add(name); details.Children.Add(rename); details.Children.Add(Label(ProjectCatalog.LastOpened(entry.LastOpenedUtc), 12, MutedInk));
-        void StartRename() { name.Visibility = Visibility.Collapsed; rename.Visibility = Visibility.Visible; rename.Text = entry.Name; rename.Focus(); rename.SelectAll(); }
-        void EndRename(bool save) { if (rename.Visibility != Visibility.Visible) return; if (save && rename.Text.Trim() != entry.Name) { ProjectCatalog.Rename(entry, rename.Text); SaveSettings(); } rename.Visibility = Visibility.Collapsed; name.Visibility = Visibility.Visible; name.Text = entry.Name; }
-        name.MouseLeftButtonUp += (_, e) => { e.Handled = true; StartRename(); };
-        rename.PreviewKeyDown += (_, e) => { if (e.Key is Key.Enter or Key.Escape) { e.Handled = true; HomeAction(() => EndRename(e.Key == Key.Enter)); card.Focus(); } };
-        rename.LostKeyboardFocus += (_, _) => HomeAction(() => EndRename(true));
-        var more = BareButton(new TextBlock { Text = "⋮", FontSize = 24, Foreground = MutedInk }, () => { }); more.VerticalAlignment = VerticalAlignment.Top; Grid.SetColumn(more, 2); grid.Children.Add(more);
-        var menu = new ContextMenu();
-        void Item(string title, Action click) { var item = new MenuItem { Header = title }; item.Click += (_, _) => HomeAction(click); menu.Items.Add(item); }
-        Item("이름 변경", StartRename); Item("아이콘 변경", () => ChangeProjectIcon(entry)); Item("탐색기에서 열기", () => Process.Start(new ProcessStartInfo(Path.GetDirectoryName(entry.Manifest)!) { UseShellExecute = true }));
-        menu.Items.Add(new Separator()); Item("삭제", () => DeleteProject(entry)); ((MenuItem)menu.Items[4]).Foreground = MainInk;
-        more.Click += (_, e) => { e.Handled = true; menu.PlacementTarget = more; menu.IsOpen = true; };
-        card.MouseLeftButtonUp += (_, e) => { if (rename.IsVisible) return; e.Handled = true; OpenProject(entry.Manifest); };
-        card.KeyDown += (_, e) => { if (e.Key == Key.F2) { e.Handled = true; StartRename(); } else if (e.Key == Key.Enter && rename.Visibility != Visibility.Visible) { e.Handled = true; OpenProject(entry.Manifest); } };
-        return card;
+        if (sharedProjectHome is null) Closed += (_, _) => sharedProjectHome?.Dispose();
+        sharedProjectHome?.Dispose();
+        sharedProjectHome = new(new(InstalledEngine), new EditorPackBackend(_ => { }, () => false), assistantSettings,
+            () => assistantSettings.Save(AssistantSettings.DefaultPath), CreateGameProject, OpenProject,
+            path => Process.Start(new ProcessStartInfo(path) { UseShellExecute = true }),
+            apply => { var file = new OpenFileDialog { Filter = "이미지|*.png;*.jpg;*.jpeg;*.bmp" }; if (file.ShowDialog(this) == true) { if (new FileInfo(file.FileName).Length > 10_000_000 || AvatarBrush(file.FileName) is null) throw new InvalidDataException("10 MB 이하 이미지를 선택해줘."); apply(File.ReadAllBytes(file.FileName), Path.GetExtension(file.FileName)); } },
+            action => Dispatcher.Invoke(action), () => !busy && !WorkersRunning && runner?.GameRunning != true);
+        projectHome.Children.Add(((EditorPackBackend.Element)sharedProjectHome.View.Root).Control);
+
     }
     private static FrameworkElement ProjectIcon(string path, int size)
     {
         var content = new Border { Width = size, Height = size, CornerRadius = new CornerRadius(10), Background = (Brush?)AvatarBrush(path) ?? new SolidColorBrush(Color.FromRgb(47, 68, 78)) };
         if (AvatarBrush(path) is null) content.Child = new TextBlock { Text = "◇", FontSize = size * .65, Foreground = AccentInk, TextAlignment = TextAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
         return content;
-    }
-    private void ChangeProjectIcon(ProjectAssistantAccess entry)
-    {
-        var dialog = new OpenFileDialog { Filter = "이미지|*.png;*.jpg;*.jpeg;*.bmp" }; if (dialog.ShowDialog(this) != true) return;
-        if (AvatarBrush(dialog.FileName) is null) throw new InvalidDataException("지원하는 이미지 파일을 선택해줘.");
-        ProjectCatalog.SetIcon(WorkspaceProject.Open(entry.Manifest), File.ReadAllBytes(dialog.FileName), Path.GetExtension(dialog.FileName)); BuildProjectHome();
-    }
-    private void DeleteProject(ProjectAssistantAccess entry)
-    {
-        if (MessageBox.Show(this, entry.Name + " 프로젝트를 삭제할까?\n프로젝트 폴더는 Confectory의 삭제 보관함으로 옮겨져.\n\n" + Path.GetDirectoryName(entry.Manifest), "프로젝트 삭제", MessageBoxButton.OKCancel, MessageBoxImage.Warning) != MessageBoxResult.OK) return;
-        ProjectCatalog.Trash(entry, Path.Combine(Path.GetDirectoryName(Path.GetDirectoryName(entry.Manifest))!, ".ConfectoryTrash")); assistantSettings.Projects.Remove(entry); SaveSettings(); BuildProjectHome();
     }
     private void BuildAiSidebar()
     {

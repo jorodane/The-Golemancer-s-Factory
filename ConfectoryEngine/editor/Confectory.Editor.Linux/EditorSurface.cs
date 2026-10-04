@@ -22,6 +22,8 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
     private Element root = null!;
     private EditorLiveView? studioStartView;
     private EditorStudioProjectCreation? studioCreation;
+    private EditorStudioProjectHome? sharedProjectHome;
+    private readonly AssistantSettings projectSettings = AssistantSettings.Load(AssistantSettings.DefaultPath);
     private ConceptMapState? map;
     private readonly Dictionary<string, Element> mapButtons = new();
     private string projectPath = "", title = "Confectory", status = "Open a project to begin", mode = "home";
@@ -139,7 +141,14 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
     private void Home()
     {
         studioCreation?.Dispose(); studioCreation = null;
-        Page(session is null ? "Open project" : ProjectName, "home");
+        sharedProjectHome?.Dispose(); sharedProjectHome = null;
+        Page(session is null ? "프로젝트" : ProjectName, "home");
+        sharedProjectHome = new(new(EditorEngineDistribution.Open(engineDirectory)), backend, projectSettings,
+            () => projectSettings.Save(AssistantSettings.DefaultPath), () => ShowNewProject(), Open,
+            path => System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("xdg-open") { ArgumentList = { path } }),
+            apply => Ask("이미지 파일 경로", "", path => { var file = new FileInfo(path); if (file.Length > 10_000_000) throw new InvalidDataException("10 MB 이하 이미지를 선택해줘."); var bytes = File.ReadAllBytes(path); using var image = SKBitmap.Decode(bytes) ?? throw new InvalidDataException("이미지 파일을 선택해줘."); apply(bytes, Path.GetExtension(path)); Home(); }, Home),
+            OnUi, () => !busy);
+        Add(root, (Element)sharedProjectHome.View.Root);
         Add(root, Label("A native workspace for project-owned concepts, objects and packs."));
         Add(root, InputBox("project-path", projectPath, value => projectPath = value)); Add(root, Button("open-project", "Open project path", () => Open(projectPath)));
         Add(root, Button("new-project", "새 프로젝트 만들기", () => ShowNewProject()));
@@ -181,7 +190,7 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
         var project = WorkspaceProject.Open(path); runner?.Dispose(); runner = null; objectWindows.Clear(); pendingReview?.Cancel(); pendingReview = null; windows.Dispose(); windows = new(); execution?.Dispose(); runtime = null;
         projectPath = project.Manifest;
         string state = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Confectory", "Linux", project.Identity);
-        session = new(project.Manifest, state); editor = new(session); Home();
+        session = new(project.Manifest, state); editor = new(session); var entry = projectSettings.Register(project); entry.LastOpenedUtc = DateTime.UtcNow.ToString("O"); projectSettings.Save(AssistantSettings.DefaultPath); Home();
     }
     private void Ask(string prompt, string initial, Action<string> apply, Action back, bool multiline = false)
     {
@@ -446,5 +455,5 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
         }, ShowDocuments, true);
         if (!session.CanEdit(path)) Disable(root.Children.First(c => c.Id == "confirm"));
     }
-    public void Dispose() { if (disposed) return; disposed = true; lifetime.Cancel(); pendingReview?.Cancel(); windows.Dispose(); execution?.Dispose(); runner?.Dispose(); studioCreation?.Dispose(); studioStartView?.Dispose(); backend.Dispose(); lifetime.Dispose(); }
+    public void Dispose() { if (disposed) return; disposed = true; lifetime.Cancel(); pendingReview?.Cancel(); windows.Dispose(); execution?.Dispose(); runner?.Dispose(); sharedProjectHome?.Dispose(); studioCreation?.Dispose(); studioStartView?.Dispose(); backend.Dispose(); lifetime.Dispose(); }
 }

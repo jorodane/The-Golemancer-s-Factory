@@ -19,7 +19,9 @@ internal sealed class EditorPackBackend(Action<string> point, Func<bool> pointin
         FrameworkElement control = renderer switch {
             "editor.stack" => new StackPanel(),
             "editor.wrap" => new WrapPanel(),
+            "editor.grid" => new System.Windows.Controls.Primitives.UniformGrid(),
             "editor.card" => new Card(),
+            "editor.tile" => new Tile(),
             "editor.inline" => new InlineEditor(),
             "editor.slot" => new Slot(),
             "editor.vector" => new Vector(),
@@ -85,7 +87,7 @@ internal sealed class EditorPackBackend(Action<string> point, Func<bool> pointin
             drawing.Pop();
         }
     }
-    internal sealed class Element : IEditorViewElement
+    internal sealed class Element : IEditorViewElement, IEditorFocusElement
     {
         private readonly FrameworkElement control;
         private readonly Action cleanup;
@@ -95,7 +97,7 @@ internal sealed class EditorPackBackend(Action<string> point, Func<bool> pointin
         public long InputRevision { get; private set; }
         public FrameworkElement Control => control;
         public TextBox? InputControl => control as TextBox ?? (control as InlineEditor)?.Input;
-        private Panel Children => control is Card card ? card.Children : (Panel)control;
+        private Panel Children => control is Card card ? card.Children : control is Tile tile ? tile.Children : (Panel)control;
         private bool setting;
         private readonly Dictionary<string, string> appearance = new(StringComparer.Ordinal);
         public Element(FrameworkElement control, Action cleanup)
@@ -161,8 +163,10 @@ internal sealed class EditorPackBackend(Action<string> point, Func<bool> pointin
                     case "tooltip": control.ToolTip = value.Literal; break;
                     case "fontSize": if (control is InlineEditor inline) inline.SetFont(value.AsNumber()); else if (control is Control c) c.FontSize = value.AsNumber(); else if (control is TextBlock t) t.FontSize = value.AsNumber(); break;
                     case "margin": control.Margin = new Thickness(value.AsNumber()); break;
-                    case "orientation": var direction = value.Literal == "horizontal" ? Orientation.Horizontal : Orientation.Vertical; if (control is Card card) card.Children.Orientation = direction; else if (control is StackPanel stack) stack.Orientation = direction; else ((WrapPanel)control).Orientation = direction; break;
-                    case "selected": ((Card)control).Select(value.AsBoolean()); break;
+                    case "columns": ((System.Windows.Controls.Primitives.UniformGrid)control).Columns = (int)value.AsNumber(); break;
+                    case "orientation": if (control is System.Windows.Controls.Primitives.UniformGrid) break; var direction = value.Literal == "horizontal" ? Orientation.Horizontal : Orientation.Vertical; if (control is Card card) card.Children.Orientation = direction; else if (control is Tile tile) tile.Children.Orientation = direction; else if (control is StackPanel stack) stack.Orientation = direction; else ((WrapPanel)control).Orientation = direction; break;
+                    case "selected": if (control is Tile selectedTile) selectedTile.Select(value.AsBoolean()); else ((Card)control).Select(value.AsBoolean()); break;
+                    case "borderStyle": ((Tile)control).Outline.StrokeDashArray = value.Literal == "dashed" ? new DoubleCollection { 5, 5 } : null; break;
                     case "placeholder": ((InlineEditor)control).Placeholder = value.Literal; ((InlineEditor)control).Refresh(); break;
                     case "multiline": ((InlineEditor)control).Input.AcceptsReturn = value.AsBoolean(); break;
                     case "image": ((Slot)control).SetImage(Slot.DecodeImage(value.Literal)); break;
@@ -213,6 +217,11 @@ internal sealed class EditorPackBackend(Action<string> point, Func<bool> pointin
             Trigger(System.Windows.Controls.Primitives.ButtonBase.IsPressedProperty, System.Windows.Controls.Control.BackgroundProperty, "pressedBackground");
             button.Template = template;
         }
+        public void Focus(bool selectAll = false)
+        {
+            if (control is InlineEditor inline) inline.Begin(); else control.Focus();
+            if (selectAll && InputControl is { } text) text.SelectAll();
+        }
         public void Add(string slot, IUiElement child) => Children.Children.Add(((Element)child).Control);
         public void RemoveChild(IUiElement child) => Children.Children.Remove(((Element)child).Control);
         public void InsertChild(int index, IUiElement child) => Children.Children.Insert(index, ((Element)child).Control);
@@ -221,7 +230,9 @@ internal sealed class EditorPackBackend(Action<string> point, Func<bool> pointin
             if (eventName == "activate" && control is Button button)
             { RoutedEventHandler h = (_, _) => handler(button is Slot slot ? UiValue.Text(slot.Value) : UiValue.None); button.Click += h; return new Release(() => button.Click -= h); }
             if (eventName == "activate" && control is Card card)
-            { MouseButtonEventHandler h = (_, e) => { if (!e.Handled) handler(UiValue.None); }; card.MouseLeftButtonDown += h; return new Release(() => card.MouseLeftButtonDown -= h); }
+            { MouseButtonEventHandler h = (_, e) => { if (!e.Handled) handler(UiValue.None); }; KeyEventHandler key = (_, e) => { if (e.Key == Key.Enter && ReferenceEquals(e.OriginalSource, card)) { e.Handled = true; handler(UiValue.None); } }; card.MouseLeftButtonDown += h; card.KeyDown += key; return new Release(() => { card.MouseLeftButtonDown -= h; card.KeyDown -= key; }); }
+            if (eventName == "committed" && control is InlineEditor inline)
+            { Action<string> action = value => handler(UiValue.Text(value)); inline.Committed += action; return new Release(() => inline.Committed -= action); }
             if (eventName == "changed" && InputControl is { } text)
             { TextChangedEventHandler h = (_, _) => { if (!setting) handler(UiValue.Text(text.Text)); }; text.TextChanged += h; return new Release(() => text.TextChanged -= h); }
             throw new InvalidDataException("Unsupported editor event.");
@@ -238,9 +249,23 @@ internal sealed class EditorPackBackend(Action<string> point, Func<bool> pointin
                 text.LostKeyboardFocus -= InputLostFocus;
             }
             if (control is Panel panel) panel.Children.Clear();
-            if (control is Card card) card.Children.Children.Clear();
+            if (control is Card card) card.Children.Children.Clear(); if (control is Tile tile) tile.Children.Children.Clear();
         }
         private sealed class Release(Action action) : IDisposable { public void Dispose() => action(); }
+    }
+    private sealed class Tile : Button
+    {
+        public StackPanel Children { get; } = new();
+        public System.Windows.Shapes.Rectangle Outline { get; } = new() { Stroke = Brushes.SlateGray, StrokeThickness = 1, RadiusX = 12, RadiusY = 12 };
+        public Tile()
+        {
+            var content = new Grid(); content.Children.Add(Outline); content.Children.Add(Children); Content = content; BorderThickness = new Thickness(0); Padding = new Thickness(12); Background = null;
+            var presenter = new FrameworkElementFactory(typeof(ContentPresenter));
+            presenter.SetValue(ContentPresenter.HorizontalAlignmentProperty, HorizontalAlignment.Stretch);
+            presenter.SetValue(ContentPresenter.VerticalAlignmentProperty, VerticalAlignment.Stretch);
+            Template = new ControlTemplate(typeof(Button)) { VisualTree = presenter }; Cursor = Cursors.Hand;
+        }
+        public void Select(bool selected) => Outline.Stroke = new SolidColorBrush(selected ? Color.FromRgb(105, 209, 189) : Color.FromRgb(148, 165, 183));
     }
     private sealed class Card : Border
     {
@@ -262,24 +287,25 @@ internal sealed class EditorPackBackend(Action<string> point, Func<bool> pointin
     private sealed class InlineEditor : Grid
     {
         public TextBox Input { get; } = new() { Padding = new Thickness(7), Foreground = Brushes.WhiteSmoke, Background = new SolidColorBrush(Color.FromRgb(17, 23, 31)), CaretBrush = Brushes.WhiteSmoke, TextWrapping = TextWrapping.Wrap, Visibility = Visibility.Collapsed };
+        public event Action<string>? Committed;
         private readonly TextBlock display = new() { Padding = new Thickness(8), TextWrapping = TextWrapping.Wrap, MinWidth = 150 };
         public string Placeholder = "";
         private string before = "";
         public InlineEditor()
         {
             Children.Add(display); Children.Add(Input); Focusable = true; Cursor = Cursors.IBeam; ToolTip = "클릭하거나 F2로 편집 · Enter로 완료";
-            display.MouseLeftButtonDown += (_, _) => Begin();
+            display.MouseLeftButtonDown += (_, e) => { Begin(); e.Handled = true; };
             PreviewKeyDown += (_, e) => { if (e.Key == Key.F2) { Begin(); e.Handled = true; } };
             Input.TextChanged += (_, _) => Refresh();
             Input.LostKeyboardFocus += (_, _) => End();
             Input.PreviewKeyDown += (_, e) =>
             {
-                if (e.Key == Key.Escape) { Input.Text = before; End(true); e.Handled = true; }
+                if (e.Key == Key.Escape) { Input.Text = before; End(true, false); e.Handled = true; }
                 else if (e.Key == Key.Enter && (!Input.AcceptsReturn || Keyboard.Modifiers.HasFlag(ModifierKeys.Control))) { End(true); e.Handled = true; }
             };
         }
         public void Begin() { if (!IsEnabled || Input.Visibility == Visibility.Visible) return; before = Input.Text; display.Visibility = Visibility.Collapsed; Input.Visibility = Visibility.Visible; Input.Focus(); Input.SelectAll(); }
-        private void End(bool focus = false) { if (Input.Visibility != Visibility.Visible) return; Input.Visibility = Visibility.Collapsed; display.Visibility = Visibility.Visible; Refresh(); if (focus) Focus(); }
+        private void End(bool focus = false, bool commit = true) { if (Input.Visibility != Visibility.Visible) return; Input.Visibility = Visibility.Collapsed; display.Visibility = Visibility.Visible; Refresh(); if (commit) Committed?.Invoke(Input.Text); if (focus) Focus(); }
         public void SetFont(double size) { display.FontSize = size; Input.FontSize = size; }
         public void Refresh() { display.Text = Input.Text.Length == 0 ? Placeholder : Input.Text; display.Foreground = Input.Text.Length == 0 ? Brushes.SlateGray : Brushes.WhiteSmoke; }
     }

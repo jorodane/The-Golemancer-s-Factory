@@ -46,12 +46,29 @@ public sealed class LinuxPackBackend(Action invalidate) : IUiBackend, IDisposabl
         width = Math.Max((float)e.Layout.MinSize.X, Math.Min(width, (float)(e.Layout.MaxSize?.X ?? double.MaxValue)));
         if (e.Text("alignment") == "center") x += (availableWidth - width) / 2;
         float height;
-        if (e.Renderer is "editor.stack" or "editor.wrap" or "editor.card")
+        if (e.Renderer == "editor.grid")
+        {
+            var children = e.Children.Where(c => c.Visible).ToArray(); int columns = (int)e.Number("columns"); float cell = width / columns; height = 0;
+            for (int row = 0; row < children.Length; row += columns)
+            {
+                float rowHeight = 0;
+                for (int col = 0; col < columns && row + col < children.Length; col++) rowHeight = Math.Max(rowHeight, Paint(children[row + col], canvas, x + col * cell, y + height, cell));
+                height += rowHeight;
+            }
+        }
+        else
+        if (e.Renderer is "editor.stack" or "editor.wrap" or "editor.card" or "editor.tile")
         {
             bool wrap = e.Renderer == "editor.wrap", horizontal = e.Text("orientation") == "horizontal" && !wrap;
-            var children = e.Children.Where(c => c.Visible).ToArray(); float padding = e.Renderer == "editor.card" ? 12 : 0;
+            var children = e.Children.Where(c => c.Visible).ToArray(); float padding = e.Renderer is "editor.card" or "editor.tile" ? 12 : 0;
             height = 0; float childWidth = horizontal ? (width - padding * 2) / Math.Max(1, children.Length) : width - padding * 2;
             if (e.Renderer == "editor.card") Fill(canvas, new(x, y, x + width, y + Math.Max(70, e.LastHeight)), e.Bool("selected") ? "#31515F" : "#18232E", 10);
+            if (e.Renderer == "editor.tile")
+            {
+                using var pen = new SKPaint { Color = SKColor.Parse("#94A5B7"), StrokeWidth = 1, IsAntialias = true, Style = SKPaintStyle.Stroke };
+                if (e.Text("borderStyle") == "dashed") pen.PathEffect = SKPathEffect.CreateDash(new float[] { 5, 5 }, 0);
+                canvas.DrawRoundRect(new SKRect(x, y, x + width, y + Math.Max(70, e.Layout.Size.Y > 0 ? (float)e.Layout.Size.Y : e.LastHeight)), 12, 12, pen);
+            }
             float rowX = 0, rowHeight = 0;
             for (int i = 0; i < children.Length; i++)
             {
@@ -132,7 +149,7 @@ public sealed class LinuxPackBackend(Action invalidate) : IUiBackend, IDisposabl
         }
         else if (input.Kind == NativeInputKind.PointerDown)
         {
-            pressed = elements.LastOrDefault(e => e.Enabled && e.Visible && e.Bounds.Contains(input.X, input.Y) && (e.IsInput || e.Renderer is "editor.button" or "editor.card" or "editor.slot"));
+            pressed = elements.LastOrDefault(e => e.Enabled && e.Visible && e.Bounds.Contains(input.X, input.Y) && (e.IsInput || e.Renderer is "editor.button" or "editor.card" or "editor.tile" or "editor.slot"));
             Focus(pressed); invalidate();
         }
         else if (input.Kind == NativeInputKind.PointerUp)
@@ -147,7 +164,7 @@ public sealed class LinuxPackBackend(Action invalidate) : IUiBackend, IDisposabl
             if (input.Key is "LeftCtrl" or "RightCtrl") control = input.Down;
             if (input.Key is "LeftShift" or "RightShift") shift = input.Down;
             if (!input.Down) return;
-            if (input.Key == "Tab") { var inputs = elements.Where(e => (e.IsInput || e.Renderer is "editor.button" or "editor.card" or "editor.slot") && e.Visible && e.Enabled && !e.Bounds.IsEmpty).ToArray(); if (inputs.Length > 0) { int i = Array.IndexOf(inputs, focused); Focus(inputs[(i + (shift ? inputs.Length - 1 : 1) + inputs.Length) % inputs.Length]); } return; }
+            if (input.Key == "Tab") { var inputs = elements.Where(e => (e.IsInput || e.Renderer is "editor.button" or "editor.card" or "editor.tile" or "editor.slot") && e.Visible && e.Enabled && !e.Bounds.IsEmpty).ToArray(); if (inputs.Length > 0) { int i = Array.IndexOf(inputs, focused); Focus(inputs[(i + (shift ? inputs.Length - 1 : 1) + inputs.Length) % inputs.Length]); } return; }
             if (focused is not { } e) return;
             if (!e.IsInput) { if (input.Key is "Enter" or "Space") e.Emit("activate", e.Renderer == "editor.slot" ? UiValue.Text(e.Text("value")) : UiValue.None); invalidate(); return; }
             if (control && input.Key == "A") { e.Selection = 0; e.Caret = e.Text("text").Length; }
@@ -158,6 +175,7 @@ public sealed class LinuxPackBackend(Action invalidate) : IUiBackend, IDisposabl
             else if (input.Key == "Delete") { if (e.Selection == e.Caret && e.Caret < e.Text("text").Length) e.Caret++; Edit(e, ""); }
             else if (input.Key is "Left" or "Right" or "Home" or "End") { e.Caret = input.Key == "Home" ? 0 : input.Key == "End" ? e.Text("text").Length : Math.Clamp(e.Caret + (input.Key == "Left" ? -1 : 1), 0, e.Text("text").Length); if (!shift) e.Selection = e.Caret; }
             else if (input.Key == "Enter" && e.Bool("multiline")) Edit(e, "\n");
+            else if (input.Key == "Enter" && e.Renderer == "editor.inline") e.Emit("committed", UiValue.Text(e.Text("text")));
             invalidate();
         }
     }
@@ -171,14 +189,14 @@ public sealed class LinuxPackBackend(Action invalidate) : IUiBackend, IDisposabl
     private void Focus(Element? element)
     {
         if (focused == element) return;
-        if (focused is { } previous) { previous.Composition = ""; previous.CompleteComposition(); }
+        if (focused is { } previous) { previous.Composition = ""; previous.CompleteComposition(); if (previous.Renderer == "editor.inline") previous.Emit("committed", UiValue.Text(previous.Text("text"))); }
         focused = element; if (element is not null) element.Selection = element.Caret = element.Text("text").Length;
         invalidate();
     }
     public void Suspend() { pressed = hovered = null; control = shift = false; Focus(null); }
     public void Dispose() { foreach (var e in elements.ToArray()) e.Dispose(); }
 
-    public sealed class Element : IEditorViewElement
+    public sealed class Element : IEditorViewElement, IEditorFocusElement
     {
         private readonly LinuxPackBackend owner;
         private readonly Dictionary<string, UiValue> values = new(StringComparer.Ordinal);
@@ -223,6 +241,7 @@ public sealed class LinuxPackBackend(Action invalidate) : IUiBackend, IDisposabl
         }
         internal void CompleteComposition() { if (textUpdates.Complete(Text("text")) is { } text) Set("text", UiValue.Text(text)); }
         internal void UserText(string value) { values["text"] = UiValue.Text(value); InputRevision++; Emit("changed", UiValue.Text(value)); }
+        public void Focus(bool selectAll = false) { owner.Focus(this); if (selectAll && IsInput) { Selection = 0; Caret = Text("text").Length; } }
         public void UpdateLayout(UiLayout layout) { EditorNativeSchema.ValidateLayout(layout); Layout = layout; owner.Invalidate(); }
         public void Add(string slot, IUiElement child) { if (slot != "children") throw new InvalidDataException("Unknown native child slot."); var element = (Element)child; element.Parent = this; Children.Add(element); }
         public void RemoveChild(IUiElement child) { var element = (Element)child; Children.Remove(element); element.Parent = null; }

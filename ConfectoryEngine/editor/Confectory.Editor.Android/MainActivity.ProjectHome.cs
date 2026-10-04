@@ -6,6 +6,7 @@ using Android.Text;
 using Android.Views;
 using Android.Widget;
 using Confectory.Workspace;
+using Confectory.EditorPacks;
 using Path = System.IO.Path;
 
 namespace Confectory.Editor.Android;
@@ -54,37 +55,23 @@ public sealed partial class MainActivity
     }
     private void HomeDivider(LinearLayout target, int margin = 15)
     { var line = new View(this); line.SetBackgroundColor(Color.Rgb(49, 61, 74)); target.AddView(line, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(1)) { TopMargin = Dp(margin), BottomMargin = Dp(margin) }); }
+    private EditorStudioProjectHome? sharedMobileProjectHome;
     private void BuildMobileProjectHome()
     {
-        welcome.SetPadding(Dp(18), Dp(8), Dp(18), Dp(20)); welcome.AddView(BuildMobileHomeBrand()); welcome.AddView(HomeLabel("프로젝트", 24)); HomeDivider(welcome, 18);
-        var cards = new List<View> { MobileProjectCard(null) }; cards.AddRange(ProjectCatalog.Recent(mobileProjects).Select(MobileProjectCard));
-        for (int i = 0; i < cards.Count; i += 2) { var row = new LinearLayout(this) { Orientation = Orientation.Horizontal }; welcome.AddView(row); for (int j = i; j < Math.Min(cards.Count, i + 2); j++) row.AddView(cards[j], new LinearLayout.LayoutParams(0, Dp(144), 1) { LeftMargin = Dp(4), RightMargin = Dp(4), BottomMargin = Dp(10) }); if (i + 1 == cards.Count) row.AddView(new View(this), new LinearLayout.LayoutParams(0, Dp(144), 1) { LeftMargin = Dp(4), RightMargin = Dp(4) }); }
-    }
-    private View MobileProjectCard(ProjectAssistantAccess? entry)
-    {
-        var card = new FrameLayout(this) { Background = HomeShape(dashed: entry is null), Clickable = true, Focusable = true }; card.SetPadding(Dp(12), Dp(12), Dp(12), Dp(12));
-        if (entry is null) { var labels = new LinearLayout(this) { Orientation = Orientation.Vertical }; labels.SetGravity(GravityFlags.Center); var plus = HomeLabel("+", 32, true); plus.Gravity = GravityFlags.Center; labels.AddView(plus); var title = HomeLabel("새 프로젝트 만들기", 13, true); title.Gravity = GravityFlags.Center; labels.AddView(title); card.AddView(labels, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent)); card.Click += (_, _) => ShowMobileNewProject(); return card; }
-        var body = new LinearLayout(this) { Orientation = Orientation.Vertical }; body.SetGravity(GravityFlags.CenterVertical); card.AddView(body, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent));
-        string icon = ""; try { var project = WorkspaceProject.Open(entry.Manifest); var info = ProjectStudio.Load(project); if (info.Icon.Length > 0) icon = project.Resolve(info.Icon); } catch (Exception e) when (e is IOException or System.Xml.XmlException or ArgumentException) { }
-        body.AddView(MobileProjectIcon(icon, 32)); var name = HomeLabel(entry.Name, 14); name.SetSingleLine(true); name.Ellipsize = TextUtils.TruncateAt.End; name.SetTypeface(null, TypefaceStyle.Bold); body.AddView(name, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent) { TopMargin = Dp(9) });
-        var rename = new EditText(this) { TextSize = 14, Visibility = ViewStates.Gone }; rename.SetSingleLine(true); body.AddView(rename); body.AddView(HomeLabel(ProjectCatalog.LastOpened(entry.LastOpenedUtc), 10, true));
-        void BeginRename() { name.Visibility = ViewStates.Gone; rename.Text = entry.Name; rename.Visibility = ViewStates.Visible; rename.RequestFocus(); rename.SelectAll(); ((global::Android.Views.InputMethods.InputMethodManager?)GetSystemService(InputMethodService))?.ShowSoftInput(rename, global::Android.Views.InputMethods.ShowFlags.Implicit); }
-        void EndRename(bool save) { if (rename.Visibility != ViewStates.Visible) return; if (save && rename.Text?.Trim() != entry.Name) { ProjectCatalog.Rename(entry, rename.Text ?? ""); mobileProjects.Save(MobileProjectsPath); } rename.Visibility = ViewStates.Gone; name.Visibility = ViewStates.Visible; name.Text = entry.Name; }
-        name.Click += (_, _) => BeginRename(); rename.EditorAction += (_, e) => { MobileHomeAction(() => EndRename(true)); e.Handled = true; }; rename.FocusChange += (_, e) => { if (!e.HasFocus) MobileHomeAction(() => EndRename(true)); };
-        card.KeyPress += (_, e) => { if (e.Event?.Action != KeyEventActions.Up) return; if (e.KeyCode == Keycode.F2) { BeginRename(); e.Handled = true; } else if (e.KeyCode == Keycode.Enter && rename.Visibility != ViewStates.Visible) { OpenMobileProject(entry.Manifest); e.Handled = true; } else if (e.KeyCode == Keycode.Escape) { EndRename(false); e.Handled = true; } };
-        var more = HomeLabel("⋮", 23, true); more.Gravity = GravityFlags.Center; more.ContentDescription = "프로젝트 메뉴"; card.AddView(more, new FrameLayout.LayoutParams(Dp(32), Dp(36), GravityFlags.Top | GravityFlags.Right));
-        more.Click += (_, _) => { var menu = new PopupMenu(this, more); var items = menu.Menu!; items.Add(0, 1, 0, "이름 변경"); items.Add(0, 2, 1, "아이콘 변경"); items.Add(0, 3, 2, "탐색기에서 열기"); var deleteTitle = new SpannableString("삭제"); deleteTitle.SetSpan(new global::Android.Text.Style.ForegroundColorSpan(HomeMain), 0, deleteTitle.Length(), SpanTypes.ExclusiveExclusive); items.Add(1, 4, 4, deleteTitle); if (!OperatingSystem.IsAndroidVersionAtLeast(28)) items.Add(0, 0, 3, "────────")!.SetEnabled(false); if (OperatingSystem.IsAndroidVersionAtLeast(28)) items.SetGroupDividerEnabled(true); menu.MenuItemClick += (_, choice) => MobileHomeAction(() => { switch (choice.Item!.ItemId) { case 1: BeginRename(); break; case 2: PickMobileImage(bytes => { ProjectCatalog.SetIcon(WorkspaceProject.Open(entry.Manifest), bytes, ".png"); RefreshMobileHome(); }); break; case 3: BrowseMobileFolder(Path.GetDirectoryName(entry.Manifest)!, null); break; case 4: ConfirmMobileDelete(entry); break; } }); menu.Show(); };
-        card.Click += (_, _) => { if (rename.Visibility != ViewStates.Visible) OpenMobileProject(entry.Manifest); }; return card;
+        welcome.SetPadding(Dp(18), Dp(8), Dp(18), Dp(20)); welcome.AddView(BuildMobileHomeBrand());
+        sharedMobileProjectHome?.Dispose();
+        sharedMobileProjectHome = new(new(InstalledEngine), new AndroidPackBackend(this), mobileProjects,
+            () => mobileProjects.Save(MobileProjectsPath), ShowMobileNewProject, OpenMobileProject,
+            path => BrowseMobileFolder(path, null), apply => PickMobileImage(bytes => apply(bytes, ".png")),
+            action => RunOnUiThread(action), () => !aiWorking && !aiConnecting && operation.CurrentCount > 0);
+        welcome.AddView(((AndroidPackBackend.Element)sharedMobileProjectHome.View.Root).Control);
+
     }
     private View MobileProjectIcon(string path, int size)
     {
         var frame = new FrameLayout(this) { Background = HomeShape(), ClipToOutline = true }; frame.LayoutParameters = new LinearLayout.LayoutParams(Dp(size), Dp(size));
         if (File.Exists(path)) { var image = new ImageView(this); image.SetImageURI(global::Android.Net.Uri.FromFile(new Java.IO.File(path))); image.SetScaleType(ImageView.ScaleType.CenterCrop); frame.AddView(image, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent)); }
         else { var label = HomeLabel("◇", size * 2 / 3); label.SetTextColor(HomeAccent); label.Gravity = GravityFlags.Center; frame.AddView(label, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent)); } return frame;
-    }
-    private void ConfirmMobileDelete(ProjectAssistantAccess entry)
-    {
-        new AlertDialog.Builder(this).SetTitle("프로젝트 삭제")!.SetMessage(entry.Name + " 프로젝트를 삭제할까?\n프로젝트 폴더는 삭제 보관함으로 옮겨져.")!.SetNegativeButton("취소", (_, _) => { })!.SetPositiveButton("삭제", (_, _) => MobileHomeAction(() => { ProjectCatalog.Trash(entry, Path.Combine(Path.GetDirectoryName(Path.GetDirectoryName(entry.Manifest))!, ".ConfectoryTrash")); mobileProjects.Projects.Remove(entry); mobileProjects.Save(MobileProjectsPath); RefreshMobileHome(); }))!.Show();
     }
     private void BuildMobileAiSidebar()
     {

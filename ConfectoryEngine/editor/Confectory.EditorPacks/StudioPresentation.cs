@@ -10,12 +10,15 @@ public sealed class EditorStudioPresentation
 {
     public UiCatalog Catalog { get; }
     private readonly UiDocument[] documents;
+    private readonly XDocument[] xml;
+    public XElement Template(string view) => new(xml.SelectMany(d => d.Root!.Elements("View")).Single(e => (string?)e.Attribute("id") == view).Element("Node")!);
     public UiCatalog Compose(string xml) => new(documents.Concat(new[] { UiXml.Read(new StringReader(xml)) }));
     public EditorStudioPresentation(EditorEngineDistribution engine)
     {
         engine.Verify();
         var core = engine.Sources.Single(s => s.Id == "editor.core.tools");
-        documents = core.Manifest().Root!.Elements("Ui").Select(e => UiXml.Read(core.PathFor((string)e.Attribute("path")!))).ToArray();
+        xml = core.Manifest().Root!.Elements("Ui").Select(e => Confectory.Runtime.PackCompiler.ReadXml(core.PathFor((string)e.Attribute("path")!))).ToArray();
+        documents = xml.Select(d => UiXml.Read(new StringReader(d.ToString()))).ToArray();
         Catalog = new UiCatalog(documents);
     }
     public EditorLiveView Start(IUiBackend backend, Action connect, Action later)
