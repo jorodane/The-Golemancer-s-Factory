@@ -51,19 +51,24 @@ public sealed partial class WorkspaceIndex
     public UiCatalog? Ui { get; private set; }
     private readonly List<UiDocument> uiDocuments = [];
     private readonly Dictionary<string, string> uiPaths = new(StringComparer.Ordinal);
-    public WorkspaceIndex(WorkspaceProject project)
+    public WorkspaceIndex(WorkspaceProject project, PackRegistry? registry = null, string packId = "", string document = "", bool includeSources = true)
     {
         Project = project;
+        registry ??= new PackRegistry(project);
+        Diagnostics.AddRange(registry.Diagnostics);
+        if (packId.Length == 0) registry.Counters.GlobalRebuilds++;
+        else { registry.Counters.PacksRead.Add(packId); registry.Counters.IndexesOpened++; }
         AddFile(project.Relative(project.Manifest), "project", "");
         foreach (string path in project.Contracts) AddFile(path, "contract", "");
         XElement? schema = project.Schema.Length == 0 ? null : PackCompiler.ReadXml(project.Resolve(project.Schema)).Root;
         if (schema is not null) AddFile(project.Schema, "schema", "");
         // Scan directory entries without following symlinks. Loading a project does not execute any DLL or build command.
-        foreach (string manifest in WalkFiles(project.Resolve(project.Packs)).Where(p => Path.GetFileName(p) == "pack.xml").OrderBy(p => p, StringComparer.Ordinal))
+        foreach (var registration in registry.Packs.Values.Where(p => packId.Length == 0 || p.Pack.Id == packId))
         {
+            string manifest = project.Resolve(registration.Pack.Manifest);
             try
             {
-                var xml = PackCompiler.ReadXml(manifest).Root ?? throw new InvalidDataException("Empty pack.");
+                var xml = registration.Manifest;
                 var pack = new WorkspacePack { Id = WorkspaceProject.Required(xml, "id"), Version = (string?)xml.Attribute("version") ?? "1.0.0",
                     Parent = (string?)xml.Attribute("extends") ?? "", Manifest = project.Relative(manifest) };
                 if (Packs.Any(p => p.Id == pack.Id)) throw new InvalidDataException("Duplicate pack: " + pack.Id);
@@ -78,8 +83,10 @@ public sealed partial class WorkspaceIndex
                     string relative = WorkspaceProject.Required(item, "path");
                     if (item.Name == "Assembly" || item.Name == "FunctionAssembly") { pack.Assemblies.Add(relative); continue; }
                     string path = project.Relative(PackCompiler.SafePath(folder, relative)); pack.Files.Add(path); AddFile(path, item.Name == "Ui" ? "ui" : "data", pack.Id);
+                    if (document.Length > 0 && document != path) continue;
                     try
                     {
+                        registry.Counters.DocumentsParsed++;
                         var data = PackCompiler.ReadXml(project.Resolve(path));
                         if (item.Name == "Ui")
                         {
@@ -91,7 +98,7 @@ public sealed partial class WorkspaceIndex
                     }
                     catch (Exception e) when (e is InvalidDataException || e is System.Xml.XmlException || e is IOException || e is ArgumentException) { Diagnostics.Add(path + ": " + e.Message); }
                 }
-                if (project.Sources.TryGetValue(pack.Id, out var source))
+                if (includeSources && project.Sources.TryGetValue(pack.Id, out var source))
                 {
                     foreach (string path in source.Contracts) AddFile(path, "contract", pack.Id);
                     foreach (string path in source.Projects)

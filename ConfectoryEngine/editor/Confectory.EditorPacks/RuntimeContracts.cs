@@ -49,6 +49,7 @@ public sealed class EditorProjectQuery
         "element-types" when project is IEditorProjectElements elements => elements.ListElementTypes(),
         "element-packs" when project is IEditorProjectElements elements => elements.ListElementPacks(),
         "element" when project is IEditorProjectElements elements => elements.ReadElement(Path),
+        "observed-values" when project is IEditorProjectObservedValues observations => observations.GetObservedValues(Pack, Kind, Path, Query),
         "element-edit" when project is IEditorProjectElements elements => elements.ProposeElement(ElementEdit ?? throw new InvalidDataException("Missing element edit.")),
         "element-create" when project is IEditorProjectElements elements => elements.ProposeNewElement(ElementCreate ?? throw new InvalidDataException("Missing element creation.")),
         _ => throw new InvalidDataException("Unknown editor project data operation.")

@@ -52,7 +52,8 @@ internal static class ElementVerification
             Check(model.Root.Children.Single().Path == "./*[1]" && model.Root.Children.Single().Text == "seed", "element snapshots contain relative hierarchy and leaf strings");
             Check(model.Root.Fields.Single(f => f.Name == "id").ReadOnly && !model.Root.Children.Single().Fields.Single(f => f.Name == "code").ReadOnly, "root identity stays fixed while child fields remain editable");
             Check(model.Root.Fields.Single(f => f.Name == "grade").Options.Select(o => o.Value).SequenceEqual(new[] { "low", "high" }), "declared enums supply choices without inventing values");
-            Check(model.Root.Fields.Single(f => f.Name == "note").Options.Any(o => o.Value == "second" && o.Source == "observed"), "observed strings suggest values from another element");
+            Check(!model.Root.Fields.Single(f => f.Name == "note").Options.Any(o => o.Source == "observed"), "reading one element does not scan observed strings");
+            Check(data.GetObservedValues(model.Object.Pack, model.Object.Kind, model.Root.Name, "note").Any(o => o.Value == "second" && o.Source == "observed"), "explicit local observation suggests values from the selected pack");
             Check(data.ReadElement("action:a1").Root.Fields.Single(f => f.Name == "handler").Options.Any(o => o.Value == "declared.logic" && o.Source == "declared-reference"), "declared DLL keys remain suggestions without claiming runtime resolution");
             Check(data.ListElementTypes().Any(t => t.Kind == "recipe" && t.Creatable) && data.ListElementPacks().Single(p => p.Id == "readonly").Editable == false, "creation types and owning packs respect project editability");
             Check(data.ListObjects("button").Single().Browsable && !data.ListObjects("widget").Single().Browsable, "semantic UI elements hide their duplicate native definitions from normal browsing");

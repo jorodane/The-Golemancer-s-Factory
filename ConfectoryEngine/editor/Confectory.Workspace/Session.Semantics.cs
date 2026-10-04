@@ -73,7 +73,7 @@ public sealed partial class EditorSession
     public (string Path, string Text, string DocumentHash, string DiskHash, bool Draft, bool DiskChanged) ReadDocumentSnapshot(string path)
     {
         path = Project.Relative(Project.Resolve(path));
-        if (!Index.TextFiles.ContainsKey(path)) throw new InvalidDataException("Only declared project documents are accessible: " + path);
+        if (!DeclaredDocument(path, out _, out _)) throw new InvalidDataException("Only declared project documents are accessible: " + path);
         var open = Documents.SingleOrDefault(d => d.Path == path); byte[] bytes = ReadBytes(path);
         string text = open?.Text ?? Decode(bytes);
         string diskHash = WorkspaceProject.Hash(bytes);

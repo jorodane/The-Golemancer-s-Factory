@@ -19,6 +19,7 @@ async Task<JsonElement> Tool(EditorPackAgent agent, object arguments) { using va
 JsonElement Arguments(object value) { using var data = JsonDocument.Parse(EditorSession.Serialize(value)); return data.RootElement.Clone(); }
 try
 {
+    LocalityVerification.Run(temporary, Check);
     string coreRoot = Path.Combine(temporary, "Core"), coreFolder = Path.Combine(coreRoot, "CoreTools"); Directory.CreateDirectory(coreFolder);
     string original = Path.Combine(repository, "editor/Packs/CoreTools");
     foreach (string file in new[] { "pack.xml", "ui.xml", "editor.xml", "Commands.cs", "Elements.cs", "Confectory.Editor.CoreTools.csproj", "Bin/net10.0/Confectory.Editor.CoreTools.dll" })

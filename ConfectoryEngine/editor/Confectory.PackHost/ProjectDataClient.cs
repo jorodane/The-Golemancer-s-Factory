@@ -4,7 +4,7 @@ using Confectory.EditorPacks;
 
 namespace Confectory.PackHost;
 
-internal sealed class ProjectDataClient(TextReader input, TextWriter output, string commandId) : IEditorProjectData, IEditorProjectCatalog, IEditorProjectElements, IDisposable
+internal sealed class ProjectDataClient(TextReader input, TextWriter output, string commandId) : IEditorProjectData, IEditorProjectCatalog, IEditorProjectElements, IEditorProjectObservedValues, IDisposable
 {
     private readonly object gate = new();
     private bool closed;
@@ -16,6 +16,7 @@ internal sealed class ProjectDataClient(TextReader input, TextWriter output, str
     public IReadOnlyList<EditorElementType> ListElementTypes() => Call<List<EditorElementType>>(new() { Operation = "element-types" });
     public IReadOnlyList<EditorElementPack> ListElementPacks() => Call<List<EditorElementPack>>(new() { Operation = "element-packs" });
     public EditorElementDocument ReadElement(string key) => Call<EditorElementDocument>(new() { Operation = "element", Path = key });
+    public IReadOnlyList<EditorElementOption> GetObservedValues(string pack, string kind, string element, string field) => Call<List<EditorElementOption>>(new() { Operation = "observed-values", Pack = pack, Kind = kind, Path = element, Query = field });
     public EditorDocumentChange ProposeElement(EditorElementEdit edit) => Call<EditorDocumentChange>(new() { Operation = "element-edit", ElementEdit = edit });
     public EditorDocumentChange ProposeNewElement(EditorElementCreate create) => Call<EditorDocumentChange>(new() { Operation = "element-create", ElementCreate = create });
     private T Call<T>(EditorProjectQuery query)

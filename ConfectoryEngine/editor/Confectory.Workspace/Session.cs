@@ -108,7 +108,50 @@ public sealed partial class EditorSession
 {
     public static readonly JsonSerializerOptions Json = new() { WriteIndented = true, Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping, Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() } };
     public WorkspaceProject Project { get; private set; }
-    public WorkspaceIndex Index { get; private set; }
+    private WorkspaceIndex? globalIndex;
+    public WorkspaceIndex Index => globalIndex ??= new(Project, Registry);
+    public LocalityCounters Locality { get; } = new();
+    public PackRegistry Registry { get; private set; }
+    public GlobalLocator Locator { get; private set; }
+    private readonly Dictionary<string, PackSemanticIndex> semanticIndexes = new(StringComparer.Ordinal);
+    public PackSemanticIndex SemanticIndex(string pack)
+    {
+        if (!Registry.Packs.ContainsKey(pack)) throw new InvalidDataException("Unknown pack: " + pack);
+        if (!semanticIndexes.TryGetValue(pack, out var index)) semanticIndexes.Add(pack, index = new(Project, Registry, pack));
+        return index;
+    }
+    public WorkspaceNode? FindNode(string key)
+    {
+        var location = Locator.Find(key);
+        if (location is null) return null;
+        return SemanticIndex(location.Pack).Document(location.Document).Nodes.TryGetValue(key, out var node) ? node : null;
+    }
+    public IReadOnlyDictionary<string, string> PackDocuments(string pack)
+    {
+        var files = new Dictionary<string, string>(Registry.Packs[pack].Documents, StringComparer.Ordinal);
+        foreach (var source in Registry.SourceDocuments(pack)) files[source.Key] = source.Value;
+        Locality.MetadataQueries++; return files;
+    }
+    public bool DeclaredDocument(string path, out string kind, out string owner)
+    {
+        path = Project.Relative(Project.Resolve(path));
+        if (Registry.TryDocument(path, out kind, out owner)) { Locality.MetadataQueries++; return true; }
+        if (owner.Length > 0 && Registry.SourceDocuments(owner).TryGetValue(path, out kind!)) return true;
+        // Explicit Compile includes can be outside the source project directory.
+        foreach (string pack in Project.Sources.Keys)
+            if (Registry.SourceDocuments(pack).TryGetValue(path, out kind!)) { owner = pack; return true; }
+        return false;
+    }
+    public void InvalidateDocuments(IEnumerable<string> paths)
+    {
+        foreach (string path in paths)
+        {
+            string owner = Registry.Owner(path);
+            if (semanticIndexes.TryGetValue(owner, out var index)) index.Invalidate(path);
+            Locator.Invalidate(path);
+        }
+        globalIndex = null;
+    }
     public EditorState State { get; }
     public string StateDirectory { get; }
     public CollaborationWorkspace Collaboration { get; }
@@ -116,7 +159,7 @@ public sealed partial class EditorSession
     public static string Serialize(object value) => JsonSerializer.Serialize(value, value.GetType(), Json);
     public EditorSession(string manifest, string? stateDirectory = null)
     {
-        Project = WorkspaceProject.Open(manifest); Index = new(Project);
+        Project = WorkspaceProject.Open(manifest); Registry = new(Project, Locality); Locator = new(Project, Registry);
         StateDirectory = stateDirectory ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Confectory", "Projects", Project.Identity);
         Directory.CreateDirectory(StateDirectory); Directory.CreateDirectory(Path.Combine(StateDirectory, "changes"));
         string path = Path.Combine(StateDirectory, "session.json");
@@ -180,8 +223,8 @@ public sealed partial class EditorSession
         foreach (var draft in Collaboration.Room(path).Drafts.Where(d => d.ParticipantId == "human" && d.RequestId.Length == 0)) { draft.BaseText = draft.Text = doc.Text; draft.State = "clean"; }
         Collaboration.Room(path).CheckpointText = doc.Text;
     }
-    public void Refresh() { Index = new(Project); }
-    public void ReloadProject() { Project = WorkspaceProject.Open(Project.Manifest); Refresh(); }
+    public void Refresh() { Registry.Refresh(); semanticIndexes.Clear(); Locator = new(Project, Registry); globalIndex = null; }
+    public void ReloadProject() { Project = WorkspaceProject.Open(Project.Manifest); Registry = new(Project, Locality); semanticIndexes.Clear(); Locator = new(Project, Registry); globalIndex = null; }
     private byte[] ReadBytes(string path)
     {
         string full = Project.Resolve(path);
@@ -195,8 +238,7 @@ public sealed partial class EditorSession
     }
     private void RequireEditable(string path)
     {
-        if (!Index.TextFiles.TryGetValue(path, out string? kind) || kind is "contract" or "project" or "schema" or "source-project") throw new InvalidOperationException("Open this project configuration or published contract in its owning source workspace.");
-        string owner = Index.Nodes["file:" + path].Pack;
+        if (!DeclaredDocument(path, out string kind, out string owner) || kind is "contract" or "project" or "schema" or "source-project") throw new InvalidOperationException("Open this project configuration or published contract in its owning source workspace.");
         if (Project.Sources.TryGetValue(owner, out var source) && !source.Editable) throw new InvalidOperationException("This supplied pack is read-only here; derive a child pack or edit its owner project.");
     }
     public bool CanEdit(string path) { try { RequireEditable(path); return true; } catch (InvalidOperationException) { return false; } }

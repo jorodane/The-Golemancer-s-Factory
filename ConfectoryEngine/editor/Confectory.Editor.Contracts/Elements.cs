@@ -1,5 +1,10 @@
 namespace Confectory.Editor.Contracts;
 
+public interface IEditorProjectObservedValues
+{
+    IReadOnlyList<EditorElementOption> GetObservedValues(string pack, string kind, string element, string field);
+}
+
 // Optional element authoring capability. Proposals are detached text changes, never direct saves.
 public interface IEditorProjectElements
 {

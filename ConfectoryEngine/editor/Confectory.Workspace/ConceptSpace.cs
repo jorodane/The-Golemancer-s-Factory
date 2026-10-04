@@ -145,8 +145,8 @@ public sealed partial class ConceptSpace
     {
         var space = new ConceptSpace(project); space.manifestText = space.Read(project.Relative(project.Manifest));
         var registration = Xml(space.manifestText).Root!.Element("ConceptSpace");
-        var index = new WorkspaceIndex(project);
-        foreach (var p in index.Packs)
+        var registry = new PackRegistry(project);
+        foreach (var p in registry.Packs.Values.Select(r => r.Pack))
         {
             var xml = Xml(space.Read(p.Manifest)).Root!;
             space.Packs.Add(new() { Id = p.Id, Name = A(xml, "name", p.Id == "foundation" ? "Main Pack" : p.Id), Namespace = A(xml, "namespace", p.Id == "foundation" ? "Project" : p.Id.Replace('-', '_')), Description = A(xml, "description"), Folder = Path.GetDirectoryName(p.Manifest)!.Replace('\\', '/'), Editable = !project.Sources.TryGetValue(p.Id, out var source) || source.Editable, Dependencies = xml.Elements("Depends").Where(e => A(e, "reason") != "concept-space").Select(e => A(e, "id")).Concat(p.Parent.Length == 0 ? [] : new[] { p.Parent }).ToList() });

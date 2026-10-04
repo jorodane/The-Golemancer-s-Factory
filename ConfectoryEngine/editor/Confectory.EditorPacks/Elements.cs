@@ -20,8 +20,9 @@ public sealed partial class EditorPackProjectData
     private WorkspaceNode Element(string key)
     {
         if (reviewed) throw new InvalidOperationException("This invocation is sealed.");
-        session.Refresh();
-        return session.Index.Nodes.TryGetValue(key, out var node) && node.Kind is not ("file" or "pack" or "implementation") && node.Locator.Length > 0 && node.File.Length > 0
+
+        var node = session.FindNode(key);
+        return node is not null && node.Kind is not ("file" or "pack" or "implementation") && node.Locator.Length > 0 && node.File.Length > 0
             ? node : throw new InvalidDataException("Select an indexed XML element.");
     }
     private static XDocument Parse(string text)
@@ -39,15 +40,15 @@ public sealed partial class EditorPackProjectData
     }
     public IReadOnlyList<EditorElementType> ListElementTypes() => OnHost(() =>
     {
-        if (reviewed) throw new InvalidOperationException("This invocation is sealed."); session.Refresh();
+        if (reviewed) throw new InvalidOperationException("This invocation is sealed.");
         return (IReadOnlyList<EditorElementType>)session.Index.Nodes.Values.Where(n => n.Locator.Length > 0 && n.Browsable).Select(n => n.Kind)
             .Concat(Rules().Elements("Symbol").Select(s => WorkspaceProject.Required(s, "kind"))).Distinct(StringComparer.Ordinal).OrderBy(k => k, StringComparer.Ordinal)
             .Select(kind => new EditorElementType { Kind = kind, Category = (string?)Symbol(kind)?.Attribute("category") ?? kind, Creatable = Creation(Symbol(kind), Authoring(kind)) is not null }).ToArray();
     });
     public IReadOnlyList<EditorElementPack> ListElementPacks() => OnHost(() =>
     {
-        if (reviewed) throw new InvalidOperationException("This invocation is sealed."); session.Refresh();
-        return (IReadOnlyList<EditorElementPack>)session.Index.Packs.OrderBy(p => p.Id, StringComparer.Ordinal).Select(p => new EditorElementPack { Id = p.Id,
+        if (reviewed) throw new InvalidOperationException("This invocation is sealed.");
+        return (IReadOnlyList<EditorElementPack>)session.Registry.Packs.Values.Select(p => p.Pack).OrderBy(p => p.Id, StringComparer.Ordinal).Select(p => new EditorElementPack { Id = p.Id,
             Editable = p.Files.Any(session.CanEdit) }).ToArray();
     });
     public EditorElementDocument ReadElement(string key) => OnHost(() =>
@@ -55,7 +56,7 @@ public sealed partial class EditorPackProjectData
         var node = Element(key); var document = ReadDocument(node.File, 2_000_000);
         if (document.Partial) throw new InvalidDataException("Read a complete element document.");
         var element = Parse(document.Text).XPathSelectElement(node.Locator) ?? throw new IOException("The element moved; refresh its index first.");
-        int count = 0; var metadata = Authoring(node.Kind); var observations = Observations();
+        int count = 0; var metadata = Authoring(node.Kind);
         EditorElementNode Visit(XElement e, string path, int depth, bool template = false)
         {
             if (!template && (++count > 1000 || depth > 40)) throw new InvalidDataException("Expand a smaller element (at most 1000 nodes and 40 levels).");
@@ -70,10 +71,7 @@ public sealed partial class EditorPackProjectData
                     Required = (string?)declaration?.Attribute("required") == "true", ReadOnly = path == "." && name == ((string?)Symbol(node.Kind)?.Attribute("id") ?? "id"), ReferenceKind = reference };
                 if (declaration is not null) field.Options.AddRange(declaration.Elements("Option").Select(o => new EditorElementOption { Value = WorkspaceProject.Required(o, "value"), Title = (string?)o.Attribute("title") ?? WorkspaceProject.Required(o, "value"), Source = "enum" }));
                 if (field.Type == "boolean") field.Options.AddRange(new[] { "true", "false" }.Select(v => new EditorElementOption { Value = v, Title = v, Source = "enum" }));
-                if (reference.Length > 0) field.Options.AddRange(session.Index.Nodes.Values.Where(n => n.Kind == reference).Take(100).Select(n => new EditorElementOption { Value = n.Id, Title = n.Title, Source = n.Status == "resolved" ? "reference" : "declared-reference" }));
-                // Observed strings are suggestions, not invented enum constraints or runtime proof.
-                if (field.Type == "text" && reference.Length == 0)
-                    field.Options.AddRange(observations.TryGetValue(e.Name.LocalName + "/" + name, out var values) ? values.OrderBy(v => v, StringComparer.Ordinal).Select(v => new EditorElementOption { Value = v, Title = v, Source = "observed" }) : []);
+                if (reference.Length > 0) field.Options.AddRange(session.Registry.Packs[node.Pack].Pack.Files.SelectMany(p => session.SemanticIndex(node.Pack).Document(p).Nodes.Values).Where(n => n.Kind == reference).GroupBy(n => n.Key).Select(g => g.First()).Take(100).Select(n => new EditorElementOption { Value = n.Id, Title = n.Title, Source = n.Status == "resolved" ? "reference" : "declared-reference" }));
                 result.Fields.Add(field);
             }
             result.ChildNames = (metadata?.Elements("Child").Where(c => ((string?)c.Attribute("parent") ?? element.Name.LocalName) == e.Name.LocalName).Select(c => WorkspaceProject.Required(c, "name")) ?? [])
@@ -88,13 +86,13 @@ public sealed partial class EditorPackProjectData
             .Select(name => Visit(new XElement(name), "./*[1]", 1, true)).ToList();
         return new EditorElementDocument { Object = ObjectInfo(node), DocumentHash = document.DocumentHash, Editable = document.Editable, Draft = document.Draft, DiskChanged = document.DiskChanged, Root = tree, Templates = templates };
     });
-    private Dictionary<string, HashSet<string>>? observations;
-    private Dictionary<string, HashSet<string>> Observations()
+    public IReadOnlyList<EditorElementOption> GetObservedValues(string pack, string kind, string element, string field) => OnHost(() =>
     {
-        if (observations is not null) return observations;
-        observations = new(StringComparer.Ordinal);
+        if (pack.Length == 0 || !session.Registry.Packs.ContainsKey(pack)) throw new InvalidDataException("Choose one declared pack for observed values.");
+        if (reviewed) throw new InvalidOperationException("This invocation is sealed.");
+        var observations = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
         int remaining = 2_000_000;
-        foreach (string path in session.Index.TextFiles.Where(p => p.Value is "data" or "ui").Select(p => p.Key))
+        foreach (string path in session.Registry.Packs[pack].Pack.Files)
         {
             try
             {
@@ -102,10 +100,13 @@ public sealed partial class EditorPackProjectData
                 if (snapshot.Text.Length > remaining) continue;
                 remaining -= snapshot.Text.Length;
                 Record("suggestions", path, "hash=" + snapshot.DocumentHash + "; observed attribute strings only; no user document opened.");
-                foreach (var element in Parse(snapshot.Text).Descendants())
-                    foreach (var attr in element.Attributes().Where(a => !a.IsNamespaceDeclaration && a.Value.Length is > 0 and <= 256))
+                var xml = session.SemanticIndex(pack).ReadSnapshot(path, snapshot.Text);
+                var symbol = Symbol(kind);
+                var roots = symbol is null ? xml.Root is null ? Enumerable.Empty<XElement>() : new[] { xml.Root } : xml.XPathSelectElements(WorkspaceProject.Required(symbol, "select"));
+                foreach (var entry in roots.SelectMany(e => e.DescendantsAndSelf()).Where(e => e.Name.LocalName == element))
+                    foreach (var attr in entry.Attributes().Where(a => !a.IsNamespaceDeclaration && a.Value.Length is > 0 and <= 256))
                     {
-                        string key = element.Name.LocalName + "/" + attr.Name.LocalName;
+                        string key = entry.Name.LocalName + "/" + attr.Name.LocalName;
                         if (!observations.TryGetValue(key, out var values))
                         { if (observations.Count >= 4000) continue; observations.Add(key, values = new(StringComparer.Ordinal)); }
                         if (values.Count < 100) values.Add(attr.Value);
@@ -113,8 +114,9 @@ public sealed partial class EditorPackProjectData
             }
             catch (XmlException) { } catch (IOException) { } catch (InvalidDataException) { }
         }
-        return observations;
-    }
+        return (IReadOnlyList<EditorElementOption>)(observations.TryGetValue(element + "/" + field, out var observedValues)
+            ? observedValues.OrderBy(v => v, StringComparer.Ordinal).Select(v => new EditorElementOption { Value = v, Title = v, Source = "observed" }).ToArray() : []);
+    });
     public EditorDocumentChange ProposeElement(EditorElementEdit edit) => OnHost(() =>
     {
         if (edit.Changes.Count == 0 || edit.Changes.Count > 200) throw new InvalidDataException("Propose 1–200 element edits.");
@@ -165,9 +167,9 @@ public sealed partial class EditorPackProjectData
     public EditorDocumentChange ProposeNewElement(EditorElementCreate create) => OnHost(() =>
     {
         if (string.IsNullOrWhiteSpace(create.Name)) throw new ArgumentException("Give the new element a name.");
-        session.Refresh(); var symbol = Symbol(create.Kind); var authoring = Authoring(create.Kind);
+         var symbol = Symbol(create.Kind); var authoring = Authoring(create.Kind);
         var spec = Creation(symbol, authoring) ?? throw new InvalidDataException("The project has not declared a creation template for this element type.");
-        var targetPack = session.Index.Packs.SingleOrDefault(p => p.Id == create.Pack) ?? throw new InvalidDataException("Select an existing pack.");
+        var targetPack = session.Registry.Packs.Values.Select(p => p.Pack).SingleOrDefault(p => p.Id == create.Pack) ?? throw new InvalidDataException("Select an existing pack.");
         var candidates = new List<(EditorProjectDocument Document, XDocument Xml)>();
         string rootName = spec.Parent.Split('/')[1];
         foreach (string path in targetPack.Files.Where(session.CanEdit).Where(p => (string?)authoring?.Attribute("document") is not { } declared || Path.GetFileName(p) == declared))
@@ -179,7 +181,7 @@ public sealed partial class EditorPackProjectData
         var (before, data) = candidates[0]; if (before.Draft || before.DiskChanged) throw new IOException("Reconcile the collection's working draft before adding an element.");
         string idAttribute = (string?)symbol?.Attribute("id") ?? "id", titleAttribute = (string?)symbol?.Attribute("title") ?? "id";
         string id = create.Id.Length > 0 ? create.Id : titleAttribute == idAttribute ? create.Name : create.Kind + "." + Guid.NewGuid().ToString("N").Substring(0, 12);
-        if (session.Index.Nodes.ContainsKey(create.Kind + ":" + id)) throw new InvalidDataException("Element identity already exists.");
+        if (session.FindNode(create.Kind + ":" + id) is not null) throw new InvalidDataException("Element identity already exists.");
         var parent = data.Root!;
         foreach (string name in spec.Parent.Split('/').Skip(2))
         { var children = parent.Elements(name).ToArray(); if (children.Length > 1) throw new InvalidDataException("Choose an unambiguous element collection."); var next = children.SingleOrDefault(); if (next is null) parent.Add(next = new XElement(name)); parent = next; }

@@ -5,7 +5,7 @@ using Confectory.Workspace;
 namespace Confectory.EditorPacks;
 
 // One service per command invocation, bound to one host session. DLLs receive detached DTOs.
-public sealed partial class EditorPackProjectData : IEditorProjectData, IEditorProjectCatalog, IEditorProjectElements, IDisposable
+public sealed partial class EditorPackProjectData : IEditorProjectData, IEditorProjectCatalog, IEditorProjectElements, IEditorProjectObservedValues, IDisposable
 {
     private readonly EditorSession session;
     private readonly string pack;
@@ -22,14 +22,17 @@ public sealed partial class EditorPackProjectData : IEditorProjectData, IEditorP
         dispatch(() => { if (closed) throw new ObjectDisposedException(nameof(EditorPackProjectData)); value = action(); });
         return value;
     }
-    private EditorProjectDocumentInfo Info(string path) => new() { Path = path, Pack = session.Index.Nodes["file:" + path].Pack,
-        Kind = session.Index.TextFiles[path], Editable = session.CanEdit(path) };
+    private EditorProjectDocumentInfo Info(string path)
+    {
+        if (!session.DeclaredDocument(path, out string kind, out string owner)) throw new InvalidDataException("Undeclared document: " + path);
+        return new() { Path = path, Pack = owner, Kind = kind, Editable = session.CanEdit(path) };
+    }
     private void Record(string operation, string path, string detail) => session.RecordOperation(invocation, "editor.project." + operation, pack + "/" + path, "completed", detail);
     public IReadOnlyList<EditorProjectDocumentInfo> ListDocuments(string pack = "") => OnHost(() =>
     {
         if (reviewed) throw new InvalidOperationException("This command's proposals are already sealed.");
-        session.Refresh();
-        var documents = session.Index.TextFiles.Keys.OrderBy(p => p, StringComparer.Ordinal).Select(Info).Where(d => pack.Length == 0 || d.Pack == pack).ToArray();
+
+        var documents = (pack.Length == 0 ? session.Index.TextFiles.Keys.AsEnumerable() : session.PackDocuments(pack).Keys).OrderBy(p => p, StringComparer.Ordinal).Select(Info).Where(d => pack.Length == 0 || d.Pack == pack).ToArray();
         if (documents.Length > 5000) throw new InvalidDataException("Filter this document list by pack; at most 5000 entries are supported.");
         Record("list", pack, documents.Length + " declared documents; no contents read.");
         return (IReadOnlyList<EditorProjectDocumentInfo>)documents;
@@ -38,7 +41,7 @@ public sealed partial class EditorPackProjectData : IEditorProjectData, IEditorP
     {
         if (reviewed) throw new InvalidOperationException("This command's proposals are already sealed.");
         if (maximumCharacters < 1 || maximumCharacters > 2_000_000) throw new ArgumentOutOfRangeException(nameof(maximumCharacters));
-        session.Refresh(); var snapshot = session.ReadDocumentSnapshot(path); var info = Info(snapshot.Path);
+         var snapshot = session.ReadDocumentSnapshot(path); var info = Info(snapshot.Path);
         int length = Math.Min(snapshot.Text.Length, maximumCharacters);
         if (characters + length > 2_000_000) throw new InvalidDataException("Read at most 2 million characters per editor command.");
         characters += length;
@@ -90,7 +93,7 @@ public sealed partial class EditorPackProjectData : IEditorProjectData, IEditorP
     });
     private void Validate(EditorProjectDocument before)
     {
-        session.Refresh();
+
         var current = session.ReadDocumentSnapshot(before.Path);
         if (!session.CanEdit(before.Path)) throw new InvalidOperationException("This declared document is read-only here: " + before.Path);
         if (current.Draft || current.DiskChanged || current.DocumentHash != before.DocumentHash || current.DiskHash != before.DiskHash)

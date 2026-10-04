@@ -30,12 +30,12 @@ public sealed partial class EditorWindow
     }
     private bool SaveSpace()
     {
-        try { if (peerClient is not null) throw new InvalidOperationException("공동 프로젝트의 확정은 호스트에서 진행해줘."); Space.Save(session!); RefreshProject(); return true; }
+        try { if (peerClient is not null) throw new InvalidOperationException("공동 프로젝트의 확정은 호스트에서 진행해줘."); Space.Save(session!); return true; }
         catch (Exception e) { MessageBox.Show(this, e.Message, "Confectory", MessageBoxButton.OK, MessageBoxImage.Information); return false; }
     }
     private bool MoveSpace(IEnumerable<string> ids, string target)
     {
-        try { if (peerClient is not null) throw new InvalidOperationException("공동 프로젝트의 확정은 호스트에서 진행해줘."); Space.MoveAndSave(session!, ids, target); RefreshProject(); return true; }
+        try { if (peerClient is not null) throw new InvalidOperationException("공동 프로젝트의 확정은 호스트에서 진행해줘."); Space.MoveAndSave(session!, ids, target); return true; }
         catch (Exception e) { MessageBox.Show(this, e.Message, "Confectory", MessageBoxButton.OK, MessageBoxImage.Information); return false; }
     }
     private ContextMenu ConceptElementMenu(IConceptElement element, Action changed)
