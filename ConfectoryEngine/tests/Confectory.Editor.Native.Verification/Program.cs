@@ -60,7 +60,7 @@ internal static class Program
         Call(window, "SelectStoredAgent", profile.Id);
         var service = new SavedService(); var vault = new SavedCredentials();
         Task Connect() => (Task)window.GetType().GetMethod("ConnectSavedEditorAi", Fields)!.Invoke(window, [service, vault])!;
-        bool Connected(Task task) { task.GetAwaiter().GetResult(); var result = task.GetType().GetProperty("Result")!.GetValue(task)!; return (bool)result.GetType().GetProperty("Connected")!.GetValue(result)!; }
+        bool Connected(Task task) { task.GetAwaiter().GetResult(); var result = task.GetType().GetProperty("Result")!.GetValue(task)!; return (bool)result.GetType().GetProperty("Connected", Fields)!.GetValue(result)!; }
         var initial = Connect(); PumpUntil(() => initial.IsCompleted, "Native saved connection");
         Check(Connected(initial) && service.Calls == 1 && vault.Reads == 1 && !Field<bool>(window, "busy"), "native saved-source adapter adopts injected provider through installed actions");
         var retained = Field<SavedAssistant>(window, "provider");

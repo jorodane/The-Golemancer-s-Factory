@@ -1132,3 +1132,15 @@ persistence checkpoint. Chief-only augment implementation remains separately
 scoped. Collaboration/YogiBox, remaining packs/review and final full Linux
 shell/package parity are still later work. This runtime checkpoint does not close
 the larger workspace/participant/conversation migration.
+
+
+### Saved-source native fixture follow-up
+
+Code checkpoint `4796c2d41da464a11dc89cbeffe3432bc4dd93e2` is published.
+[CI 37214203913](https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37214203913)
+built Windows and passed Android, but its new Windows fixture failed when looking
+up internal `CodexConnectionResult.Connected` with public-only reflection. The
+fixture now explicitly uses non-public instance binding; no runtime behavior or
+assertion is weakened. Startup/cold-layout and main-workspace GUI checks had
+already passed before that fixture error. Local authoring verification also passes
+all 39 checks. Check the corrected commit's CI before claiming native completion.
