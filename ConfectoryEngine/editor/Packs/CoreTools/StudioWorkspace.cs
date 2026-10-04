@@ -34,6 +34,8 @@ public sealed partial class StudioWorkspace : IEditorStudioWorkspace
         this.collaboration = collaboration; this.saveDirectory = saveDirectory; this.joined = joined; this.selectedAgent = selectedAgent;
         this.running = running; this.idle = idle ?? (() => true);
         this.removed = removed; this.workerSettings = workerSettings; this.manageAgents = manageAgents; this.supportsProvider = supportsProvider ?? (_ => true); this.portraitImage = portraitImage ?? (_ => "");
+        try { new StudioSupervision(directory, collaboration, running, "human").ValidateOwned(); }
+        catch (InvalidDataException failure) { note.Set(UiValue.Text(failure.Message)); }
         var state = State(); View = new(state.Catalog, "editor.studio.workspace.state", state.Context, backend);
     }
     private readonly Func<string, bool> supportsProvider;
@@ -73,22 +75,36 @@ public sealed partial class StudioWorkspace : IEditorStudioWorkspace
         var helper = directory.Helpers.Single(h => h.Id == helperId); var agent = directory.Agent(helper.AgentId);
         if (!agent.Connection.Enabled) throw new InvalidOperationException("Helper의 Agent 연결 설정을 먼저 활성화해줘.");
         var participant = collaboration.State.Participants.FirstOrDefault(p => p.Kind == ParticipantKind.AI && p.HelperId == helper.Id && collaboration.CanControl("human", p.Id));
+        var archived = participant is null ? collaboration.State.ArchivedParticipants.LastOrDefault(p => p.Kind == ParticipantKind.AI && p.HelperId == helper.Id && p.OwnerId == "human") : null;
+        if (archived is not null && collaboration.State.Participants.Any(p => p.Id == archived.Id)) throw new InvalidDataException("복구할 참여자 정체성이 이미 사용 중이야.");
+        if (archived is not null && (archived.Permissions & collaboration.Require("human", ParticipantPermission.Work).Permissions) != archived.Permissions)
+            throw new UnauthorizedAccessException("보관된 Helper의 권한을 복구하려면 현재 소유자의 해당 권한이 필요해.");
         bool created = participant is null, oldEnabled = helper.Enabled;
+        participant ??= archived;
+        var oldArchived = collaboration.State.ArchivedParticipants.ToArray();
+        var oldRole = participant?.AiRole ?? ParticipantAiRole.Helper;
+        if (participant is not null && (oldRole is not (ParticipantAiRole.Unspecified or ParticipantAiRole.Helper) || participant.SupervisorParticipantId.Length > 0 || participant.SupervisorRevision != 0))
+            throw new InvalidDataException("Helper 참여자의 역할 기록을 먼저 복구해줘.");
         if (created || !helper.Enabled || ProjectRoles && !roles.HelperIds.Contains(helper.Id)) RequireAction();
         var oldHelpers = roles.HelperIds.ToArray(); string oldMain = roles.MainHelperId;
         bool directorySaved = false, rolesSaved = false, hubAttempted = false;
-        participant ??= new Participant { Id = "worker-" + Guid.NewGuid().ToString("N"), Name = helper.Name, AgentId = agent.Id, HelperId = helper.Id, Kind = ParticipantKind.AI,
+        participant ??= new Participant { Id = "worker-" + Guid.NewGuid().ToString("N"), Name = helper.Name, AgentId = agent.Id, HelperId = helper.Id, Kind = ParticipantKind.AI, AiRole = ParticipantAiRole.Helper,
             Permissions = ParticipantPermission.Talk | ParticipantPermission.Work, X = 32 + collaboration.State.Participants.Count(p => p.Kind == ParticipantKind.AI) * 185, Y = 150 };
         try
         {
             // Publish complete participant identity once; Register would save an incomplete Agent/Helper projection.
             if (!helper.Enabled) { helper.Enabled = true; saveDirectory(); directorySaved = true; }
             if (ProjectRoles && !roles.HelperIds.Contains(helper.Id)) { roles.AddHelper(helper.Id); roles.Save(project); rolesSaved = true; }
-            if (created) { collaboration.State.Participants.Add(participant); hubAttempted = true; collaboration.Save(); }
+            if (created) collaboration.State.Participants.Add(participant);
+            if (archived is not null) collaboration.State.ArchivedParticipants.Remove(archived);
+            participant.AiRole = ParticipantAiRole.Helper;
+            if (created || oldRole != ParticipantAiRole.Helper) { hubAttempted = true; collaboration.Save(); }
         }
         catch (Exception failure)
         {
             if (created) collaboration.State.Participants.Remove(participant);
+            participant.AiRole = oldRole;
+            collaboration.State.ArchivedParticipants.Clear(); collaboration.State.ArchivedParticipants.AddRange(oldArchived);
             helper.Enabled = oldEnabled; roles.HelperIds.Clear(); roles.HelperIds.AddRange(oldHelpers); roles.MainHelperId = oldMain;
             var failures = new List<Exception> { failure };
             if (hubAttempted) Compensate(collaboration.Save, failures);
@@ -103,6 +119,8 @@ public sealed partial class StudioWorkspace : IEditorStudioWorkspace
     public void RestoreHelpers()
     {
         RequireAction(false);
+        try { new StudioSupervision(directory, collaboration, running, "human").MigrateOwned(); }
+        catch (InvalidDataException failure) { note.Set(UiValue.Text(failure.Message)); return; }
         if (!ProjectRoles) return;
         foreach (string id in roles.HelperIds.ToArray())
         {

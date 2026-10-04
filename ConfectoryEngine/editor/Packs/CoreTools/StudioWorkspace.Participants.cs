@@ -15,10 +15,14 @@ public sealed partial class StudioWorkspace
         var helper = directory.Helpers.FirstOrDefault(h => h.Id == helperId);
         if (!ProjectRoles && helper is null) throw new InvalidOperationException("이 Helper의 개인 프로필이 없어.");
         var attached = collaboration.State.Participants.Where(p => p.Kind == ParticipantKind.AI && p.HelperId == helperId && collaboration.CanControl("human", p.Id)).ToArray();
+        if (collaboration.State.Participants.Any(p => p.Kind == ParticipantKind.AI && p.OwnerId == "human" && p.SupervisorParticipantId.Length > 0 && attached.Any(h => h.Id == p.SupervisorParticipantId)))
+            throw new InvalidOperationException("배정된 Worker를 안전하게 인계한 뒤 Helper를 연결 해제해줘.");
         if (attached.Any(p => running(p.Id))) throw new InvalidOperationException("이 Helper의 작업을 먼저 끝내거나 취소해줘.");
         var oldHelpers = roles.HelperIds.ToArray(); string oldMain = roles.MainHelperId;
         bool oldEnabled = helper?.Enabled ?? false, rolesSaved = false, directorySaved = false, hubAttempted = false;
         var oldParticipants = collaboration.State.Participants.ToArray();
+        var oldArchived = collaboration.State.ArchivedParticipants.ToArray();
+        if (attached.Any(p => oldArchived.Any(a => a.Id == p.Id))) throw new InvalidDataException("참여자 보관 기록이 중복돼 있어. 먼저 복구해줘.");
         var oldViews = collaboration.State.Views.ToArray(); var oldPresences = collaboration.State.Presence.ToArray();
         var views = collaboration.State.Views.Where(v => attached.Any(p => p.Id == v.ParticipantId)).ToArray();
         var presences = collaboration.State.Presence.Where(v => attached.Any(p => p.Id == v.ParticipantId)).ToArray();
@@ -29,7 +33,11 @@ public sealed partial class StudioWorkspace
             if (!ProjectRoles && helper!.Enabled) { helper.Enabled = false; saveDirectory(); directorySaved = true; }
             if (attached.Length > 0)
             {
-                foreach (var participant in attached) collaboration.State.Participants.Remove(participant);
+                foreach (var participant in attached)
+                {
+                    collaboration.State.ArchivedParticipants.Add(System.Text.Json.JsonSerializer.Deserialize<Participant>(EditorSession.Serialize(participant), EditorSession.Json)!);
+                    collaboration.State.Participants.Remove(participant);
+                }
                 foreach (var view in views) collaboration.State.Views.Remove(view);
                 foreach (var presence in presences) collaboration.State.Presence.Remove(presence);
                 foreach (var room in rooms) foreach (var participant in attached) room.Room.Participants.Remove(participant.Id);
@@ -41,6 +49,7 @@ public sealed partial class StudioWorkspace
             roles.HelperIds.Clear(); roles.HelperIds.AddRange(oldHelpers); roles.MainHelperId = oldMain;
             if (helper is not null) helper.Enabled = oldEnabled;
             collaboration.State.Participants.Clear(); collaboration.State.Participants.AddRange(oldParticipants);
+            collaboration.State.ArchivedParticipants.Clear(); collaboration.State.ArchivedParticipants.AddRange(oldArchived);
             collaboration.State.Views.Clear(); collaboration.State.Views.AddRange(oldViews);
             collaboration.State.Presence.Clear(); collaboration.State.Presence.AddRange(oldPresences);
             foreach (var room in rooms) { room.Room.Participants.Clear(); room.Room.Participants.AddRange(room.Members); }
@@ -65,9 +74,10 @@ public sealed partial class StudioWorkspace
     {
         RequireAction(false); collaboration.RequireControl("human", participantId);
         var participant = collaboration.Require(participantId, ParticipantPermission.None);
-        if (participant.Kind != ParticipantKind.AI || participant.HelperId.Length > 0 || running(participantId))
+        if (participant.Kind != ParticipantKind.AI || participant.HelperId.Length > 0 || participant.SupervisorParticipantId.Length > 0 || participant.SupervisorRevision != 0 || running(participantId))
             throw new InvalidOperationException("작업이 끝난 일반 작업자를 선택해줘.");
         if (!Path.IsPathRooted(privateRoot)) throw new ArgumentException("개인 경험 저장소는 절대 경로여야 해.");
+        var oldRole = participant.AiRole;
         string oldName = participant.Name, oldHelper = participant.HelperId, oldMain = roles.MainHelperId;
         var oldHelpers = roles.HelperIds.ToArray();
         var helper = directory.CreateHelper(participant.AgentId, name, project.Identity, participant.Id);
@@ -79,12 +89,12 @@ public sealed partial class StudioWorkspace
             historyPrepared = true; EditorSession.AtomicWrite(history, experience); historyWritten = true;
             saveDirectory(); directorySaved = true;
             if (ProjectRoles) { roles.AddHelper(helper.Id); roles.Save(project); rolesSaved = true; }
-            participant.HelperId = helper.Id; participant.Name = helper.Name;
+            participant.HelperId = helper.Id; participant.AiRole = ParticipantAiRole.Helper; participant.Name = helper.Name;
             hubAttempted = true; collaboration.Save();
         }
         catch (Exception failure)
         {
-            participant.HelperId = oldHelper; participant.Name = oldName;
+            participant.HelperId = oldHelper; participant.AiRole = oldRole; participant.Name = oldName;
             roles.HelperIds.Clear(); roles.HelperIds.AddRange(oldHelpers); roles.MainHelperId = oldMain;
             directory.Helpers.Remove(helper);
             var failures = new List<Exception> { failure };

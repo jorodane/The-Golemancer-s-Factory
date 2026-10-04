@@ -4,11 +4,15 @@ using System.Text.Json;
 namespace Confectory.Workspace;
 
 public enum ParticipantKind { Human, AI, EditorPack, Automation }
+public enum ParticipantAiRole { Unspecified, Worker, Helper }
 [Flags] public enum ParticipantPermission { None = 0, Talk = 1, Work = 2, Apply = 4 }
 public enum ReferenceRelation { Read, Observe, Depend, ModifyIntent }
 public enum ChangeResponse { PASS, ADAPT, TAKEOVER, YIELD, OBJECT }
 public sealed class Participant
 {
+    public ParticipantAiRole AiRole { get; set; }
+    public string SupervisorParticipantId { get; set; } = "";
+    public long SupervisorRevision { get; set; }
     public string AgentId { get; set; } = "";
     public string HelperId { get; set; } = "";
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
@@ -98,9 +102,10 @@ public sealed class CollaborationState
     public List<ParticipantView> Views { get; set; } = [];
     public List<CollaborationMessage> Messages { get; set; } = [];
     public List<ContextHandoff> Handoffs { get; set; } = [];
-    public int Version { get; set; } = 2;
+    public int Version { get; set; } = 3;
     public long Revision { get; set; }
     public List<Participant> Participants { get; set; } = [];
+    public List<Participant> ArchivedParticipants { get; set; } = [];
     public List<WorkContext> Work { get; set; } = [];
     public List<ChangeSet> Changes { get; set; } = [];
     public List<ConflictSet> Conflicts { get; set; } = [];
@@ -116,8 +121,9 @@ public sealed partial class CollaborationWorkspace
     {
         path = Path.Combine(directory, "collaboration.json");
         State = File.Exists(path) ? JsonSerializer.Deserialize<CollaborationState>(File.ReadAllText(path), EditorSession.Json) ?? new() : new();
-        if (State.Version is not 1 and not 2) throw new InvalidDataException("Unsupported collaboration state.");
-        State.Version = 2;
+        if (State.Version is not 1 and not 2 and not 3) throw new InvalidDataException("Unsupported collaboration state.");
+        // Older readers reject version 3 rather than silently dropping supervision fields.
+        State.Version = 3;
         // Persisted intentions are evidence, not permission to restart paid inference or execute old proposals.
         foreach (var work in State.Work.Where(w => w.State is "working" or "review")) work.State = "interrupted";
         foreach (var presence in State.Presence) presence.Connected = false;

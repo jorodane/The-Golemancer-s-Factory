@@ -149,7 +149,7 @@ internal sealed partial class EditorSurface
         Reveal("workspace-agent-0"); Click("workspace-agent-0");
         Reveal("workspace-helper-0"); Click("workspace-helper-0");
         var roleParticipant = session.Collaboration.State.Participants.Single(p => p.HelperId == globalHelper.Id && p.OwnerId == "human");
-        Check(roleParticipant.AgentId == profileAgent.Id && ProjectStudio.Load(session.Project).HelperIds.Contains(globalHelper.Id), "actual SDL shared role view joins a complete Helper participant without a provider request");
+        Check(roleParticipant.AgentId == profileAgent.Id && roleParticipant.AiRole == ParticipantAiRole.Helper && ProjectStudio.Load(session.Project).HelperIds.Contains(globalHelper.Id), "actual SDL shared role view joins a complete Helper participant without a provider request");
         Reveal("workspace-helper-0"); Click("workspace-helper-0");
         Reveal("workspace-main-0"); Click("workspace-main-0");
         Check(session.Collaboration.State.Participants.Count(p => p.HelperId == globalHelper.Id && p.OwnerId == "human") == 1 && ProjectStudio.Load(session.Project).MainHelperId == globalHelper.Id, "actual SDL repeated Join and MAIN selection persist without duplicate participants");
@@ -171,11 +171,17 @@ internal sealed partial class EditorSurface
         int previousWorkers = session.Collaboration.State.Participants.Count(p => p.Kind == ParticipantKind.AI);
         Reveal("workspace-add-worker"); Click("workspace-add-worker");
         var ordinaryWorker = session.Collaboration.State.Participants.Single(p => p.Kind == ParticipantKind.AI && p.HelperId.Length == 0);
-        Check(session.Collaboration.State.Participants.Count(p => p.Kind == ParticipantKind.AI) == previousWorkers + 1 && ordinaryWorker.AgentId == profileAgent.Id && ordinaryWorker.Model == profileAgent.Connection.Model && ordinaryWorker.OwnerId == "human", "actual SDL add publishes a complete ordinary Worker through installed policy without AI requests");
+        Check(session.Collaboration.State.Participants.Count(p => p.Kind == ParticipantKind.AI) == previousWorkers + 1 && ordinaryWorker.AgentId == profileAgent.Id && ordinaryWorker.Model == profileAgent.Connection.Model && ordinaryWorker.OwnerId == "human" && ordinaryWorker.AiRole == ParticipantAiRole.Worker && ordinaryWorker.SupervisorParticipantId.Length == 0, "actual SDL add publishes a complete ordinary Worker through installed policy without AI requests");
         Reveal("workspace-worker-settings-1"); Click("workspace-worker-settings-1");
         Check(mode == "worker-settings", "actual SDL created ordinary Worker opens the common settings");
         if (screenshot.Length > 0) native.Screenshot(screenshot + ".worker-created.png");
         Reveal("worker-settings-cancel"); Click("worker-settings-cancel");
+        var supervision = new EditorStudioPresentation(EditorEngineDistribution.Open(engineDirectory)).Actions.Supervision(studioDirectory, session.Collaboration, _ => false);
+        supervision.Assign(ordinaryWorker.Id, settingsParticipant.Id, 0);
+        Reveal("workspace-remove-0"); Click("workspace-remove-0");
+        Check(session.Collaboration.State.Participants.Contains(settingsParticipant) && supervision.Workers(settingsParticipant.Id).Single() == ordinaryWorker, "actual SDL Helper removal preserves explicit Worker supervision until safe reassignment");
+        supervision.Assign(ordinaryWorker.Id, "", 1);
+        Check(ordinaryWorker.SupervisorRevision == 2 && ordinaryWorker.SupervisorParticipantId.Length == 0, "actual SDL assignment clears explicitly without changing Worker identity");
         Reveal("workspace-agent-management"); Click("workspace-agent-management");
         Check(mode == "agent-management", "actual SDL workspace opens the installed Agent management view");
         Reveal("agent-management-close"); Click("agent-management-close");

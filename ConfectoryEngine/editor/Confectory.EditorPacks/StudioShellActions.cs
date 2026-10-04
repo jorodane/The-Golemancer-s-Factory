@@ -95,6 +95,7 @@ public interface IEditorStudioSidebarHost
 /// <summary>Private trusted-shell ABI. Never supplied to project modules or overlays.</summary>
 public interface IEditorStudioActions
 {
+    IEditorStudioSupervision Supervision(AiDirectory directory, CollaborationWorkspace collaboration, Func<string, bool> running, string actor = "human");
     IEditorStudioSavedAgent SavedAgent(AiDirectory directory, IAiCredentialStore credentials, IEditorStudioAgentService service, Func<bool> allowed, Func<bool> idle, Action<AiAgentProfile, EditorStudioConnectedAgent> adopted, Action<bool> working, Action<Action> onUi, Func<AiAgentProfile, bool>? reusable = null);
     IEditorStudioSidebar Sidebar(EditorStudioPresentation presentation, IUiBackend backend, AiDirectory directory, CollaborationWorkspace? collaboration, ProjectStudio roles, bool project, Func<IEditorStudioWorkspace> workspace, Func<IEditorStudioAgentManagement> management, Func<IReadOnlyList<EditorStudioWorkerFact>> workers, Func<string, string> image, IEditorStudioSidebarHost host);
 
@@ -133,6 +134,14 @@ public interface IEditorStudioWorkspace : IDisposable
     void SelectMainAgent(string agentId);
     void SetMainHelper(string helperId);
     void Render();
+}
+
+/// <summary>Owner-driven identity migration and assignment, distinct from runtime command authority.</summary>
+public interface IEditorStudioSupervision
+{
+    IReadOnlyList<Participant> MigrateOwned(CancellationToken cancellation = default);
+    IReadOnlyList<Participant> Workers(string helperParticipantId);
+    void Assign(string workerId, string helperParticipantId, long expectedRevision);
 }
 
 /// <summary>Private identity projection; it cannot expose private memory or control another owner's character.</summary>

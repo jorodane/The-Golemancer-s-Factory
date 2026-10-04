@@ -14,7 +14,7 @@ public sealed partial class StudioWorkspace
         var participant = new Participant
         {
             Id = "worker-" + Guid.NewGuid().ToString("N"), Name = "작업자 " + (index + 1),
-            Kind = ParticipantKind.AI, OwnerId = "human", AgentId = agent.Id, Model = agent.Connection.Model,
+            Kind = ParticipantKind.AI, AiRole = ParticipantAiRole.Worker, OwnerId = "human", AgentId = agent.Id, Model = agent.Connection.Model,
             Permissions = ParticipantPermission.Talk | ParticipantPermission.Work, X = 32 + index * 185, Y = 150
         };
         collaboration.State.Participants.Add(participant);

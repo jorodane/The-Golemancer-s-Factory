@@ -1197,3 +1197,46 @@ Linux's saved connection boundary is verified but is not yet wired to that futur
 Helper request UI. Collaboration/YogiBox, remaining packs/review and final full
 Linux shell/package remain subsequent stages. Chief-only augments are separately
 scoped; do not expand into instant-table/render-authoring features.
+
+### Explicit supervision assignment and recoverable identity checkpoint
+
+The continuation after verified `d93cdd6387c1bd3d24d001865b9b1f95153c6cde`
+([all-five-job CI 37215008985](https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37215008985))
+implements checkpoint 3 of `HELPER_SUPERVISION.md`:
+
+- Public participant identity now distinguishes `AiRole`,
+  `SupervisorParticipantId` and conditional `SupervisorRevision`; none grants
+  chief-executor, augment or private-memory authority.
+- Collaboration saves use version 3 and still read versions 1/2. Older readers
+  reject new documents rather than dropping supervision fields on later saves.
+- Installed `CoreTools/StudioSupervision.cs` owns cancellable, repeatable migration
+  of owned active/archived records, exact owner-driven assignment, stale-revision
+  rejection, and pending-work safeguards. Missing supervisors stay recoverable;
+  there is no MAIN/name/position/provider fallback or automatic respawn.
+- Helper disconnect archives the project identity; explicit rejoin restores the
+  same ID and revalidates saved permissions against current owner grants. Foreign
+  archives stay untouched. Histories, origin, global memory, Worker identity and
+  work/request IDs remain intact. Persist/observer failure compensates both lists.
+- Assigned Workers prevent accidental supervisor removal. Native initialization
+  invokes common migration; malformed records produce the pack's recovery notice
+  without preventing unrelated project editing or granting execution authority.
+
+Local verification: **1,433 editor-pack checks**, independent engine isolation,
+**225 Studio checks**, **39 authoring checks**, full explicit consumer campaign,
+and actual SDL role/assignment/removal/reentry interaction pass. Latest Windows
+net48 native source/test build has zero warnings/errors. Remote exact-head CI is
+checked after publication. Logs/screenshots remain outside Git under
+`/workspace/scratch/supervision-*`; verification uses injected AI/credential
+services, with no real authentication, paid inference or credential writes.
+
+Next is checkpoint 4: installed Helper-facing conversation/character actions and
+real internal-Worker request integration across Windows, Android and Linux.
+Replace Worker-direct send/promotion entry points only with those tested routes,
+keep owned legacy history recovery, and add workload dots/counts and semantic
+object Helper indicators. Durable chief directives/journal, recruitment snapshots
+and command-fenced temporary-supervisor recovery remain the following persistence
+checkpoint. Assignment revisions in this checkpoint are not distributed command
+fencing. Keep Main Helper's ordinary supervisor abilities plus chief authority;
+augments remain chief-only and separately scoped. Preserve the superseded promotion
+stash; do not apply it. No executor recovery/reset was required after the transient
+disconnection notices.

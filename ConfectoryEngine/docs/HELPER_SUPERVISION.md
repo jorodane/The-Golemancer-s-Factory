@@ -160,3 +160,66 @@ Each code checkpoint needs small verified ordinary commits/pushes, exact remote
 hash/CI evidence, and updated remaining coverage. No force push, committed
 images/build products/secrets/conversation logs, real paid inference, external
 authentication or production credential writes during verification.
+
+## Assignment schema checkpoint
+
+Add backward-compatible fields to public `Participant` records, retaining all
+existing lists/record identities. New saves use collaboration document version 3;
+versions 1 and 2 remain readable. Older engines reject version 3 instead of
+silently deleting unknown supervision fields on save:
+
+- `AiRole`: `Unspecified` (legacy/default), `Worker`, or `Helper`. Non-AI records
+  remain outside this role model. This role labels identity; it grants no Work,
+  private-memory, chief-executor or augment permission.
+- `SupervisorParticipantId`: a Worker-to-project-Helper participant reference.
+  This is distinct from global `HelperId`, private `OwnerId` and provider `AgentId`.
+  An empty value means explicitly unassigned. Preserve unresolved references on
+  load; a missing supervisor is evidence for recovery, not permission to respawn.
+- `SupervisorRevision`: a monotonic revision of this Worker's assignment, used
+  for conditional owner-driven assignment changes. This local assignment revision
+  does not by itself claim distributed command fencing; durable supervisory
+  commands/authority handoff must enforce their own persisted authority epoch in
+  the later persistence checkpoint.
+
+Installed CoreTools owns an explicit, cancellable migration action. It classifies
+only controlled legacy AI participants: a valid existing global `HelperId` means
+Helper (including promoted Helpers); an empty `HelperId` means Worker. Invalid or
+contradictory identity data fails before changes rather than guessing or deleting.
+Missing local Helper profiles do not demote an existing Helper identity. Migration
+adds role data, preserves other participant fields and lists, is repeatable, and restores
+roles in memory and persisted state if notification/persistence fails. It neither
+opens histories nor rewrites private memory or credentials. Native initialization
+invokes this installed action; factory construction itself stays inert.
+
+Initial assignment changes require current Work permission, control of both
+participants, explicit Worker/Helper roles and an enabled owned Helper profile.
+Changing or clearing assignment must reject stale revisions and running/pending
+work; completed historic work and all message/Task identities remain. No implicit
+MAIN fallback. Removal of a Helper with explicitly assigned Workers must wait for
+an explicit safe reassignment/recovery path rather than leaving those identities
+silently orphaned. External disappearance remains representable and recoverable.
+Tests must cover old/promoted/missing-profile records, unassigned Workers, malformed
+identities, cancellation, post-save failure and rollback, repeated migration,
+foreign ownership, permission revocation, stale revisions and active work.
+
+Version 3 also retains detached Helper participant metadata in
+`ArchivedParticipants`. These records preserve project participant/owner/source
+identity for history recovery; they grant no active participation or execution
+permission. Explicit disconnect archives the controlled participant atomically
+with removing its active presence. Explicit rejoin restores the latest matching
+owned Helper participant ID, leaving other archived identities intact. Identity
+collisions fail rather than merging histories. Rollback restores both active and
+archived lists. Role migration also classifies owned archived legacy records;
+foreign records remain untouched. No private conversation text or credentials are
+copied into the archive. Worker records and Tasks are not recreated by rejoin.
+
+Reactivating an archived Helper revalidates its saved permission mask against the
+current owner's grants before restoring participation. A historical Apply grant
+cannot bypass owner permission revocation. Denial retains the archive for history
+recovery and performs no role, presence or private-directory writes.
+
+Invalid migration data is reported by the common workspace notice during native
+initialization; unrelated project editing remains available. The explicit
+migration action still fails atomically, and malformed identities gain no
+supervision authority. A freshly mounted workspace inspects the same public role
+records without mutating them, so the recovery notice survives view reentry.

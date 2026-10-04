@@ -21,7 +21,7 @@ internal static class WorkerCreationVerification
         using var workspace = presentation.Actions.Workspace(presentation, backend, directory, project, roles, hub,
             () => directoryWrites++, (p, open) =>
             {
-                Check(p.AgentId == agent.Id && p.Model == "source-model" && new CollaborationWorkspace(folder).State.Participants.Any(x => x.Id == p.Id && x.AgentId == agent.Id), "attachment observes complete committed identity");
+                Check(p.AgentId == agent.Id && (p.HelperId == helper.Id ? p.AiRole == ParticipantAiRole.Helper : p.Model == "source-model") && new CollaborationWorkspace(folder).State.Participants.Any(x => x.Id == p.Id && x.AgentId == agent.Id), "attachment observes complete committed identity");
                 if (attachFailure) throw new IOException("fixture adapter failure"); attachments++;
             }, _ => { }, _ => false, () => idle, supportsProvider: _ => supported);
         Check(workspace.GetType().Assembly.GetName().Name == "Confectory.Editor.CoreTools" && attachments == 0 && directoryWrites == 0 && hub.State.Participants.Count == 3, "worker creation mounts inert in installed pack");
@@ -41,7 +41,7 @@ internal static class WorkerCreationVerification
         Check(File.ReadAllText(file) == original && hub.State.Participants.Count == 3 && attachments == 0, "creation compensates persisted identity after observer failure");
         ((LiveViewVerification.Element)workspace.View.Element("workspace-add-worker")).Activate();
         var created = hub.State.Participants.Single(p => p.Kind == ParticipantKind.AI && p.OwnerId == "human");
-        Check(created.Name == "작업자 2" && created.OwnerId == "human" && created.HelperId.Length == 0 && created.X == 217 && created.Y == 150 && created.Permissions == (ParticipantPermission.Work | ParticipantPermission.Talk) && attachments == 1, "shared add control creates identical ordinary Worker identity and placement");
+        Check(created.Name == "작업자 2" && created.OwnerId == "human" && created.HelperId.Length == 0 && created.AiRole == ParticipantAiRole.Worker && created.SupervisorParticipantId.Length == 0 && created.X == 217 && created.Y == 150 && created.Permissions == (ParticipantPermission.Work | ParticipantPermission.Talk) && attachments == 1, "shared add control creates identical ordinary Worker identity and placement");
         Check(directory.SelectedAgentId == otherAgent.Id && directoryWrites == 0 && helper.Memories.Count == 1 && !File.ReadAllText(file).Contains("private global memory") && !File.ReadAllText(file).Contains("private-fixture-reference"), "creation preserves private selection and global memory without exporting credentials");
         attachFailure = true; Reject(() => workspace.CreateWorker(), "native attachment failure is explicit after committed identity"); attachFailure = false;
         var persisted = hub.State.Participants.Last(); int count = hub.State.Participants.Count; string beforeAttach = File.ReadAllText(file);
@@ -50,6 +50,19 @@ internal static class WorkerCreationVerification
         Reject(() => workspace.AttachWorker(remote.Id), "reattachment denies another owner's Worker");
         Reject(() => workspace.AttachWorker("human"), "reattachment denies human characters");
         human.Permissions = ParticipantPermission.Talk; Reject(() => workspace.AttachWorker(created.Id), "reattachment rechecks revoked owner work authority"); human.Permissions |= ParticipantPermission.Work;
+        var supervisor = workspace.JoinHelper(helper.Id, false);
+        Check(supervisor.AiRole == ParticipantAiRole.Helper && supervisor.HelperId == helper.Id, "Helper Join publishes explicit identity independently of Worker supervision");
+        var supervision = presentation.Actions.Supervision(directory, hub, _ => false);
+        supervision.Assign(created.Id, supervisor.Id, 0);
+        Reject(() => workspace.RemoveHelper(helper.Id), "Helper removal retains explicitly assigned Workers until safe reassignment");
+        Reject(() => workspace.Promote(created.Id, "Wrong route", Array.Empty<byte>(), Path.Combine(root, "NeverPromote")), "assigned execution Worker cannot enter legacy promotion");
+        Check(hub.State.Participants.Contains(supervisor) && created.SupervisorParticipantId == supervisor.Id && helper.Memories.Count == 1, "denied Helper removal preserves supervisor, Worker and global memory");
+        supervision.Assign(created.Id, "", 1); workspace.RemoveHelper(helper.Id);
+        Check(hub.State.Participants.Contains(created) && created.SupervisorParticipantId == "" && directory.Helpers.Contains(helper), "explicit safe unassignment permits project disconnect without deleting Worker or Helper memory");
+        var malformed = hub.Register("malformed-preserved", "Recovery needed", ParticipantKind.AI, ParticipantPermission.Work); malformed.HelperId = "invalid-helper"; hub.Save();
+        string beforeRestore = File.ReadAllText(file); workspace.RestoreHelpers();
+        Check(File.ReadAllText(file) == beforeRestore && ((LiveViewVerification.Element)workspace.View.Element("workspace-note")).Text.Length > 0 && hub.State.Participants.Contains(created), "invalid migration keeps project records readable and reports recovery through the shared pack notice");
+        hub.State.Participants.Remove(malformed); hub.Save();
         var standaloneProject = WorkspaceProject.Open(StandaloneEditorWorkspace.Prepare(Path.Combine(root, "StandaloneCreation", platform), platform, "net10.0"));
         var standaloneHub = new CollaborationWorkspace(Path.Combine(root, "StandaloneCreationPresence", platform)); int standaloneAttachments = 0;
         using (var standalone = presentation.Actions.Workspace(presentation, backend, directory, standaloneProject, new ProjectStudio { MainAgentId = agent.Id }, standaloneHub,
