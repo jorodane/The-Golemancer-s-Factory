@@ -693,3 +693,15 @@ and native jobs must be checked against the exact pushed commit. Authentication,
 paid inference and production credential writes remain intentionally untested;
 management provider calls are forbidden in its injected fixtures. This checkpoint
 is ready for ordinary publication and exact-main CI verification.
+
+Published Agent source-management implementation:
+12fac59b42eeed264f81618fd910531a27ae951a, verified against exact remote main.
+All five jobs (Windows native, Android build, Linux native/ARM64, portable/full
+consumer and engine compatibility) passed in
+https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37200782696.
+The preceding worker-settings implementation 68221d172bd3ab327445603c3791ef0bb9ad39a2
+also passed all five jobs in run 37199014887. Only source/spec/test changes were
+published; no generated images, binaries, private data or verification logs entered
+Git. The broader assigned workspace/sidebar/Agent/conversation stage is still
+incomplete. Resume from the precise handoff above; these are verified progress
+checkpoints, not all-shell parity or a request for another user approval.
