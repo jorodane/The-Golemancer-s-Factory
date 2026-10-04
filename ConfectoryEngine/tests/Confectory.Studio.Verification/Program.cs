@@ -7,6 +7,26 @@ void Check(bool value, string message) { if (!value) throw new Exception(message
 void Reject(Action action, string message) { try { action(); } catch (Exception e) when (e is InvalidOperationException or ArgumentException or IOException or InvalidDataException or UnauthorizedAccessException) { Check(true, message); return; } throw new Exception("Not rejected: " + message); }
 try
 {
+    var startup = new AiDirectory();
+    Check(startup.StartupAgent() is null, "first launch keeps Agent connection guidance");
+    var savedCodex = startup.AddAgent("Saved Codex", new() { Provider = "codex" });
+    var savedApi = startup.AddAgent("Saved API", new() { Provider = "openai", Model = "fixture" });
+    startup.SelectedAgentId = savedCodex.Id;
+    Check(startup.StartupAgent() == savedCodex, "startup preserves the selected enabled Agent");
+    Check(startup.StartupAgent(apiOnly: true) == savedApi, "Android startup uses an available API Agent");
+    savedCodex.Enabled = false;
+    Check(startup.StartupAgent() == savedApi, "disconnected selection falls back to another enabled saved Agent");
+    startup.SelectedAgentId = Guid.NewGuid().ToString("N");
+    Check(startup.StartupAgent() == savedApi, "missing selection does not hide an existing saved connection");
+    savedApi.Connection = new();
+    Check(startup.StartupAgent() is null, "unconfigured and disabled Agents do not skip guidance");
+    savedCodex.Enabled = true;
+    Check(startup.StartupAgent(apiOnly: true) is null, "desktop-only providers do not skip Android setup");
+    string startupPath = Path.Combine(temp, "startup-identities.json"); startup.Save(startupPath);
+    var restartedStartup = AiDirectory.Load(startupPath);
+    string startupBefore = EditorSession.Serialize(restartedStartup);
+    Check(restartedStartup.StartupAgent()?.Id == savedCodex.Id, "saved connection restores after restart without contacting a provider");
+    Check(restartedStartup.StartupAgent()?.Id == savedCodex.Id && EditorSession.Serialize(restartedStartup) == startupBefore, "repeated startup selection is read-only");
     var identities = new AiDirectory(); var a = identities.AddAgent("A", new() { Provider = "openai", Model = "fixture-model" }, "credential-a"); var b = identities.AddAgent("B", new() { Provider = "openai", Model = "other-fixture" }, "credential-b");
     var helper = identities.CreateHelper(a.Id, "Mira", "project-a", "worker-a"); var helper2 = identities.CreateHelper(b.Id, "Theo");
     identities.Remember(helper.Id, "shared by this helper", ""); identities.Remember(helper.Id, "project secret", "project-a"); identities.Remember(helper.Id, "personality note", "", "personality");

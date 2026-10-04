@@ -31,6 +31,7 @@ public sealed partial class EditorWindow
         Grid.SetRow(sidebarChat, 1); studioSidebar.Children.Add(sidebarChat); frame.Children.Add(studioSidebar);
         Grid.SetColumn(studioSurface, 2); frame.Children.Add(studioSurface); BuildWorkspaceSurface();
         projectHomeView.Content = projectHome; studioSurface.Children.Add(projectHomeView);
+        projectHomeView.SizeChanged += (_, _) => projectHome.Width = Math.Max(0, Math.Min(900, projectHomeView.ActualWidth - 64));
         Grid.SetRow(frame, 1); root.Children.Add(frame);
         AddInternalYogi(studioSurface);
         projectCommands.Visibility = Visibility.Collapsed;
@@ -60,10 +61,11 @@ public sealed partial class EditorWindow
                 var migrated = aiDirectory.AddAgent(aiConnections.Editor.Name, aiConnections.Editor, aiConnections.Editor.Provider);
                 aiDirectory.SelectedAgentId = migrated.Id; SaveAiDirectory();
             }
-            SelectStoredAgent(aiDirectory.SelectedAgentId);
+            var startupAgent = aiDirectory.StartupAgent();
+            SelectStoredAgent(startupAgent?.Id ?? "");
             var manifest = StandaloneEditorWorkspace.Prepare(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Confectory", "Studio"), "windows", "net48");
-            OpenProject(manifest); studioReady = false; projectWorkspaceVisible = false; RefreshStudioShell();
-            AppendLog("Confectory 준비 완료 · 에이전트를 연결하거나 ‘나중에’를 선택해줘.");
+            OpenProject(manifest); autoEnterHome = startupAgent is not null; studioReady = false; projectWorkspaceVisible = false; RefreshStudioShell();
+            AppendLog(autoEnterHome ? "Confectory 준비 완료 · 프로젝트를 선택해줘." : "Confectory 준비 완료 · 에이전트를 연결하거나 ‘나중에’를 선택해줘.");
         });
     }
     private void SaveAiDirectory() { aiDirectory.Save(AiDirectory.DefaultPath); RefreshAiManagement(); }

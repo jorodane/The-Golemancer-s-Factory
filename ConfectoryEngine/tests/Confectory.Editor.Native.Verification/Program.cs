@@ -62,11 +62,21 @@ internal static class Program
                 "Later leaves the intro through the existing studio setup flow");
             window.UpdateLayout();
             var home = Field<StackPanel>(window, "projectHome");
+            var flight = Field<Canvas>(window, "brandFlight");
+            Check(flight.Children.Count == 3 && !Field<Grid>(window, "studioRoot").IsEnabled,
+                "home transition carries all three brand elements and blocks repeated input");
+            Call(window, "CompleteStudioSetup");
+            Check(flight.Children.Count == 3, "repeated completion does not duplicate the brand animation");
+            window.Width = 1100; window.UpdateLayout();
+            PumpUntil(() => flight.Children.Count == 0, "Brand transition did not finish after resizing.");
+            Check(Field<Grid>(window, "studioRoot").IsEnabled && home.HorizontalAlignment == HorizontalAlignment.Left
+                && Descendants(home).OfType<Image>().Any(i => i.Source is DrawingImage && i.IsVisible && i.Opacity == 1),
+                "resized home restores interaction and shows the left aligned brand without overlay leftovers");
             var slots = Descendants(home).OfType<System.Windows.Controls.Primitives.UniformGrid>().Single();
             Check(slots.Columns == 2 && slots.Children[0] is Button && Descendants(slots.Children[0]).OfType<TextBlock>().Any(t => t.Text == "새 프로젝트 만들기")
                 && Descendants(slots.Children[0]).OfType<System.Windows.Shapes.Rectangle>().Any(r => r.StrokeDashArray?.Count > 0), "native home reserves the first of two columns for a dashed new-project slot");
             Check(!Field<TextBox>(window, "log").IsVisible && !Field<TextBlock>(window, "status").IsVisible
-                && !Descendants(home).OfType<Button>().Any(b => (string?)b.Content is "팩 열기" or "에디터팩 관리"), "project home hides the old menus, console, status and pack-selection toolbar");
+                && !Descendants(home).OfType<Button>().Any(b => b.Content is string text && text is "팩 열기" or "에디터팩 관리"), "project home hides the old menus, console, status and pack-selection toolbar");
             var directory = Field<StackPanel>(window, "aiManagement");
             Check(Descendants(directory).OfType<System.Windows.Controls.Primitives.UniformGrid>().All(g => g.Columns == 2)
                 && Descendants(directory).OfType<TextBlock>().Count(t => t.Text == "+") == 2

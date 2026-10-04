@@ -39,6 +39,11 @@ public sealed partial class MainActivity
         mobileProjects = AssistantSettings.Load(MobileProjectsPath);
         foreach (string manifest in MobileProjects().Where(p => !p.Contains(".ConfectoryTrash"))) { try { mobileProjects.Register(WorkspaceProject.Open(manifest)); } catch (IOException e) { Report(e.Message); } }
         if (mobileDirectory.Agents.Count == 0 && aiConnections.Editor.Enabled) { mobileDirectory.AddAgent(aiConnections.Editor.Name, aiConnections.Editor, aiConnections.Editor.Provider); SaveMobileDirectory(); }
+        // Restoring a supported identity must not start a provider or model request.
+        var startupAgent = mobileDirectory.StartupAgent(apiOnly: true);
+        if (startupAgent is not null) SelectMobileAgent(startupAgent);
+        else aiConnections.Editor = new();
+        mobileAutoEnterHome = startupAgent is not null;
         if (aiConnections.SelectedPack.Length > 0 && !Sources().Any(s => s.Id == aiConnections.SelectedPack))
         { aiConnections.SelectedPack = ""; aiConnections.Save(AiSettingsPath); Report("이전에 연 팩을 찾지 못했어. 팩 열기에서 다시 선택해줘."); }
         studioSession = new(StandaloneEditorWorkspace.Prepare(Path.Combine(root, "Studio"), "android", "net10.0")); studioRunner = new(studioSession, "dotnet");

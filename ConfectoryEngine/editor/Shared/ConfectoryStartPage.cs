@@ -10,6 +10,13 @@ internal static class ConfectoryStartPage
     public const string Background = "#11171F", Text = "#E9EFF6", Muted = "#94A5B7";
     public const string Accent = "#69D1BD", AccentHover = "#88DECF", AccentPressed = "#5CBDAB", ButtonText = "#10251F";
 
+    public const int HomeTransitionDuration = 650, AutoHomeDelay = 820;
+    public static double HomeProgress(double progress)
+    {
+        double remaining = 1 - System.Math.Max(0, System.Math.Min(1, progress));
+        return 1 - remaining * remaining * remaining;
+    }
+
     public static readonly Entrance LogoEntrance = new(140, 480, 10);
     public static readonly Entrance TitleEntrance = new(270, 460, 6);
     public static readonly Entrance SubtitleEntrance = new(430, 360);

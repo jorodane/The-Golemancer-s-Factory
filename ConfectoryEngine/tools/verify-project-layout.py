@@ -45,6 +45,8 @@ for area in ('src', 'editor', 'packs'):
                     resolved = (project.parent / reference).resolve()
                     assert resolved.is_relative_to(engine) and resolved.is_file(), str(resolved)
 print('PASS: engine project references stay inside the independent engine', flush=True)
+run('project-runner-build', [args.dotnet, 'build', 'editor/Confectory.Tool/Confectory.Tool.csproj',
+    '-c', 'Release', '-p:EngineTargetFramework=net10.0', '--nologo', '-v:quiet'])
 with tempfile.TemporaryDirectory(prefix='confectory-external-') as folder:
     consumer = Path(folder) / 'Renamed project with spaces'
     shutil.copytree(manifest.parent, consumer, ignore=shutil.ignore_patterns('bin', 'Bin', 'obj', 'Builds', 'builds', 'Saves', 'SmokeSaves', 'TestResults', 'Artifacts', '.git'))

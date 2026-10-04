@@ -56,7 +56,7 @@ public sealed partial class MainActivity
     { var line = new View(this); line.SetBackgroundColor(Color.Rgb(49, 61, 74)); target.AddView(line, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(1)) { TopMargin = Dp(margin), BottomMargin = Dp(margin) }); }
     private void BuildMobileProjectHome()
     {
-        welcome.SetPadding(Dp(18), Dp(30), Dp(18), Dp(20)); welcome.AddView(HomeLabel("프로젝트", 24)); HomeDivider(welcome, 18);
+        welcome.SetPadding(Dp(18), Dp(8), Dp(18), Dp(20)); welcome.AddView(BuildMobileHomeBrand()); welcome.AddView(HomeLabel("프로젝트", 24)); HomeDivider(welcome, 18);
         var cards = new List<View> { MobileProjectCard(null) }; cards.AddRange(ProjectCatalog.Recent(mobileProjects).Select(MobileProjectCard));
         for (int i = 0; i < cards.Count; i += 2) { var row = new LinearLayout(this) { Orientation = Orientation.Horizontal }; welcome.AddView(row); for (int j = i; j < Math.Min(cards.Count, i + 2); j++) row.AddView(cards[j], new LinearLayout.LayoutParams(0, Dp(144), 1) { LeftMargin = Dp(4), RightMargin = Dp(4), BottomMargin = Dp(10) }); if (i + 1 == cards.Count) row.AddView(new View(this), new LinearLayout.LayoutParams(0, Dp(144), 1) { LeftMargin = Dp(4), RightMargin = Dp(4) }); }
     }

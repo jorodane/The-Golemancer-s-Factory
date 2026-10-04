@@ -26,7 +26,7 @@ public sealed partial class EditorWindow
     private void SaveAiConnections() { aiConnections.DisconnectConversation(); aiConnections.Save(AiConnections.DefaultPath); RefreshAiMenus(); }
     private void RefreshAiMenus() { editorAiMenu.Header = "AI 관리 · " + aiConnections.Editor.Name; RefreshRecipients(); }
     private void ReadyForPackSelection() { if (!studioReady) CompleteStudioSetup(); }
-    private void CompleteStudioSetup() { studioReady = true; aiConnections.SetupCompleted = true; SaveAiConnections(); RefreshStudioShell(); }
+    private void CompleteStudioSetup() => EnterProjectHome(() => { studioReady = true; aiConnections.SetupCompleted = true; SaveAiConnections(); RefreshStudioShell(); });
     private void ShowEditorAiSetup()
     {
         if (busy || WorkersRunning) return;

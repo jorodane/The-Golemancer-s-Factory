@@ -45,6 +45,12 @@ public sealed class AiDirectory
     public List<AiAgentProfile> Agents { get; set; } = [];
     public List<AiHelper> Helpers { get; set; } = [];
     public static string DefaultPath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Confectory", "ai-directory.json");
+    /// <summary>Restore an enabled, configured identity without connecting or checking remote credentials.</summary>
+    public AiAgentProfile? StartupAgent(bool apiOnly = false)
+    {
+        var available = Agents.Where(a => a.Enabled && a.Connection.Enabled && (!apiOnly || a.Connection.IsApi));
+        return available.FirstOrDefault(a => a.Id == SelectedAgentId) ?? available.FirstOrDefault();
+    }
     public static AiDirectory Load(string path)
     {
         var value = File.Exists(path) ? JsonSerializer.Deserialize<AiDirectory>(File.ReadAllText(path), EditorSession.Json) ?? throw new InvalidDataException("AI 관리 기록이 비어 있어.") : new();

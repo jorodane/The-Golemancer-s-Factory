@@ -65,7 +65,8 @@ public sealed partial class EditorWindow
     }
     private void BuildProjectHome()
     {
-        projectHome.Children.Clear(); projectHome.Margin = new Thickness(44, 45, 44, 32); projectHome.MaxWidth = 900;
+        projectHome.Children.Clear(); projectHome.Margin = new Thickness(40, 8, 24, 32); projectHome.MaxWidth = 900; projectHome.HorizontalAlignment = HorizontalAlignment.Left;
+        projectHome.Children.Add(HomeBrand());
         projectHome.Children.Add(Label("프로젝트", 26));
         projectHome.Children.Add(new Border { Height = 1, Background = new SolidColorBrush(Color.FromRgb(49, 61, 74)), Margin = new Thickness(4, 16, 4, 22) });
         if (startupProject.Length > 0 && File.Exists(startupProject) && !ProjectCatalog.IsStudio(startupProject)) assistantSettings.Register(WorkspaceProject.Open(startupProject));

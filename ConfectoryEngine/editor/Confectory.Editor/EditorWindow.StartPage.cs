@@ -13,13 +13,89 @@ public sealed partial class EditorWindow
     private Grid? studioRoot;
     private readonly Grid startPage = new() { Background = BackgroundInk };
     private readonly List<(FrameworkElement Element, ConfectoryStartPage.Entrance Entrance)> startPageElements = [];
-    private bool startPagePlayed;
+    private bool startPagePlayed, autoEnterHome, homeTransitionPlayed;
+    private readonly Canvas brandFlight = new() { IsHitTestVisible = false };
+    private readonly List<FrameworkElement> homeBrandElements = [];
+    private readonly List<(Viewbox View, Rect From)> flyingBrand = [];
+    private readonly System.Diagnostics.Stopwatch homeTransitionClock = new();
+    private System.Windows.Threading.DispatcherTimer? autoHomeTimer;
+
+    private FrameworkElement HomeBrand()
+    {
+        homeBrandElements.Clear();
+        var header = new WrapPanel { Margin = new Thickness(-16, 0, 0, 32) };
+        var logo = new Image { Source = StartPageLogo(), Width = 96, Height = 96 };
+        var title = new TextBlock { Text = ConfectoryStartPage.Title, FontSize = 42, FontWeight = FontWeights.SemiBold,
+            Foreground = TextInk, VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(0, 0, 0, 12) };
+        var subtitle = new TextBlock { Text = ConfectoryStartPage.Subtitle, FontSize = 12, Foreground = Brush(ConfectoryStartPage.Muted),
+            VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(8, 0, 0, 12) };
+        foreach (var item in new FrameworkElement[] { logo, title, subtitle })
+        { homeBrandElements.Add(item); header.Children.Add(item); if (homeTransitionClock.IsRunning) item.Opacity = 0; }
+        return header;
+    }
+    private void EnterProjectHome(Action enter)
+    {
+        // Reconnecting from the home still saves settings, but never replays the entrance.
+        if (studioReady) { enter(); return; }
+        if (homeTransitionClock.IsRunning) return;
+        autoHomeTimer?.Stop();
+        // Capture the actual scaled entrance positions before revealing and laying out the home.
+        flyingBrand.Clear(); brandFlight.Children.Clear();
+        if (IsLoaded && !homeTransitionPlayed)
+        {
+            foreach (var item in startPageElements.Take(3))
+            {
+                var element = item.Element;
+                var from = element.TransformToVisual(brandFlight).TransformBounds(new Rect(element.RenderSize));
+                FrameworkElement copy = element is Image ? new Image { Source = StartPageLogo(), Width = 96, Height = 96 } :
+                    new TextBlock { Text = ((TextBlock)element).Text, FontSize = ((TextBlock)element).FontSize,
+                        FontWeight = ((TextBlock)element).FontWeight, Foreground = ((TextBlock)element).Foreground };
+                var view = new Viewbox { Child = copy, Stretch = Stretch.Fill };
+                brandFlight.Children.Add(view); flyingBrand.Add((view, from));
+            }
+        }
+        try { enter(); }
+        catch { FinishHomeTransition(); throw; }
+        if (flyingBrand.Count != 3 || homeBrandElements.Count != 3) { FinishHomeTransition(); return; }
+        homeTransitionPlayed = true; homeTransitionClock.Restart();
+        studioRoot!.IsEnabled = false;
+        foreach (var element in homeBrandElements) element.Opacity = 0;
+        UpdateLayout(); CompositionTarget.Rendering += RenderHomeTransition;
+        RenderHomeTransition(null, EventArgs.Empty);
+    }
+    private void RenderHomeTransition(object? sender, EventArgs args)
+    {
+        if (!homeTransitionClock.IsRunning || studioRoot is null) return;
+        if (projectWorkspaceVisible || !projectHomeView.IsVisible) { FinishHomeTransition(); return; }
+        double progress = Math.Min(1, homeTransitionClock.Elapsed.TotalMilliseconds / ConfectoryStartPage.HomeTransitionDuration);
+        double eased = ConfectoryStartPage.HomeProgress(progress);
+        studioRoot.Opacity = eased;
+        for (int i = 0; i < flyingBrand.Count; i++)
+        {
+            var target = homeBrandElements[i];
+            // Re-evaluate measured destinations on every frame, including after a resize or home refresh.
+            var to = target.TransformToVisual(brandFlight).TransformBounds(new Rect(target.RenderSize));
+            var (view, from) = flyingBrand[i];
+            Canvas.SetLeft(view, from.X + (to.X - from.X) * eased);
+            Canvas.SetTop(view, from.Y + (to.Y - from.Y) * eased);
+            view.Width = Math.Max(0, from.Width + (to.Width - from.Width) * eased);
+            view.Height = Math.Max(0, from.Height + (to.Height - from.Height) * eased);
+        }
+        if (progress >= 1) FinishHomeTransition();
+    }
+    private void FinishHomeTransition()
+    {
+        CompositionTarget.Rendering -= RenderHomeTransition; homeTransitionClock.Stop();
+        brandFlight.Children.Clear(); flyingBrand.Clear();
+        if (studioRoot is not null) { studioRoot.Opacity = 1; studioRoot.IsEnabled = true; }
+        foreach (var element in homeBrandElements) element.Opacity = 1;
+    }
 
     private void AddStartPage(Grid shell)
     {
         studioRoot = shell; shell.Visibility = Visibility.Collapsed;
         var host = new Grid { Background = BackgroundInk }; Content = host;
-        host.Children.Add(shell); host.Children.Add(startPage);
+        host.Children.Add(shell); host.Children.Add(startPage); host.Children.Add(brandFlight);
         var content = new StackPanel { Width = 430, HorizontalAlignment = HorizontalAlignment.Center };
         startPage.Children.Add(new Viewbox { Child = content, Stretch = Stretch.Uniform, StretchDirection = StretchDirection.DownOnly,
             HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(32) });
@@ -28,9 +104,9 @@ public sealed partial class EditorWindow
         AutomationProperties.SetName(logo, "Confectory 로고");
         Add(logo, ConfectoryStartPage.LogoEntrance);
         Add(new TextBlock { Text = ConfectoryStartPage.Title, FontSize = 42, FontWeight = FontWeights.SemiBold,
-            TextAlignment = TextAlignment.Center, Foreground = TextInk }, ConfectoryStartPage.TitleEntrance);
+            TextAlignment = TextAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center, Foreground = TextInk }, ConfectoryStartPage.TitleEntrance);
         Add(new TextBlock { Text = ConfectoryStartPage.Subtitle, FontSize = 12, Foreground = Brush(ConfectoryStartPage.Muted),
-            TextAlignment = TextAlignment.Center, TextWrapping = TextWrapping.NoWrap, Margin = new Thickness(0, 6, 0, 46) }, ConfectoryStartPage.SubtitleEntrance);
+            TextAlignment = TextAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center, TextWrapping = TextWrapping.NoWrap, Margin = new Thickness(0, 6, 0, 46) }, ConfectoryStartPage.SubtitleEntrance);
 
         var connect = StartPageAction(ConfectoryStartPage.Connect, false);
         connect.Width = 240; connect.Height = 48; connect.FontSize = 15; connect.FontWeight = FontWeights.SemiBold;
@@ -41,8 +117,8 @@ public sealed partial class EditorWindow
         later.Click += (_, _) => Guard(CompleteStudioSetup);
         KeyboardNavigation.SetTabIndex(later, 1); Add(later, ConfectoryStartPage.LaterEntrance);
 
-        ContentRendered += (_, _) => PlayStartPage();
-        Closed += (_, _) => StopStartPage();
+        ContentRendered += (_, _) => { PlayStartPage(); ScheduleAutomaticHome(); };
+        Closed += (_, _) => { autoHomeTimer?.Stop(); StopStartPage(); FinishHomeTransition(); };
         void Add(FrameworkElement element, ConfectoryStartPage.Entrance entrance)
         {
             element.Opacity = 0; element.IsHitTestVisible = false;
@@ -104,6 +180,7 @@ public sealed partial class EditorWindow
         if (startPagePlayed || studioReady) return; startPagePlayed = true;
         foreach (var item in startPageElements)
         {
+            if (autoEnterHome && item.Element is Button) continue;
             var fade = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(item.Entrance.Duration))
             { BeginTime = TimeSpan.FromMilliseconds(item.Entrance.Delay), EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } };
             fade.Completed += (_, _) =>
@@ -118,6 +195,13 @@ public sealed partial class EditorWindow
                     new DoubleAnimation(item.Entrance.Rise, 0, TimeSpan.FromMilliseconds(item.Entrance.Duration))
                     { BeginTime = fade.BeginTime, EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } });
         }
+    }
+    private void ScheduleAutomaticHome()
+    {
+        if (!autoEnterHome || studioReady || autoHomeTimer is not null) return;
+        autoHomeTimer = new() { Interval = TimeSpan.FromMilliseconds(ConfectoryStartPage.AutoHomeDelay) };
+        autoHomeTimer.Tick += (_, _) => { autoHomeTimer.Stop(); Guard(CompleteStudioSetup); };
+        autoHomeTimer.Start();
     }
     private void StopStartPage()
     {
