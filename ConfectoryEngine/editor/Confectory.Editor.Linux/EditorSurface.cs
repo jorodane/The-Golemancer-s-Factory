@@ -231,7 +231,7 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
         privateRoot ??= Path.GetDirectoryName(AiDirectory.DefaultPath)!;
         void Restore() { if (studioProfile is null) return; foreach (var control in controls.ToArray()) control.Dispose(); controls.Clear(); mapButtons.Clear(); mode = "profile"; title = ((Element)studioProfile.View.Element("profile-title")).Text("text"); root = (Element)studioProfile.View.Root; scroll = 0; Invalidate(); }
         studioProfile = presentation.Actions.Profile(presentation, backend, directory, agent?.Id ?? "", helper?.Id ?? "", privateRoot,
-            session?.Project.Identity ?? "", save ?? (() => directory.Save(AiDirectory.DefaultPath)), () => { sharedStudioDirectory?.Render(); Invalidate(); },
+            session?.Project.Identity ?? "", save ?? (() => directory.Save(AiDirectory.DefaultPath)), () => { if (helper is not null && session is not null) presentation.Actions.Participants(directory, session.Collaboration).RefreshHelperName(helper.Id); sharedStudioDirectory?.Render(); Invalidate(); },
             () => ShowAgentSetup(editingId: agent!.Id), null,
             RestoreStudioDirectory,
             picker ?? (apply => Ask("이미지 파일 경로", "", path => { var info = new FileInfo(path); if (info.Length > presentation.Actions.ProfileImageMaximumBytes) throw new InvalidDataException("12 MiB 이하 이미지를 선택해줘."); apply(File.ReadAllBytes(path), Path.GetExtension(path)); Restore(); }, Restore, preserveProfile: true, preserveDirectory: true)),

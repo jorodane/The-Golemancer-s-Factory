@@ -133,7 +133,7 @@ public sealed partial class MainActivity
         var presentation = new EditorStudioPresentation(InstalledEngine); var dialog = new Dialog(this); studioProfileDialogs.Add(dialog);
         var profile = presentation.Actions.Profile(presentation, new AndroidPackBackend(this), mobileDirectory, agent?.Id ?? "", helper?.Id ?? "", root,
             studioSession.Project.Identity, SaveMobileDirectory,
-            () => { if (helper is not null) { foreach (var worker in mobileWorkers.Where(w => w.Participant.HelperId == helper.Id)) worker.Participant.Name = helper.Name; studioSession.Collaboration.Save(); } RefreshMobileManagement(); RefreshMobileHome(); RefreshMobileStudioDirectories(); },
+            () => { if (helper is not null) presentation.Actions.Participants(mobileDirectory, studioSession.Collaboration).RefreshHelperName(helper.Id); RefreshMobileManagement(); RefreshMobileHome(); RefreshMobileStudioDirectories(); },
             () => { dialog.Dismiss(); SelectMobileAgent(agent!); mobileEditingAgent = agent!.Id; ShowEditorAiSetup(); },
             () => { dialog.Dismiss(); var worker = CreateMobileWorker(helper!); if (worker is not null) OpenMobileWorker(worker); }, () => dialog.Dismiss(),
             apply => PickMobileImage(bytes => apply(bytes, ".png"), presentation.Actions.ProfileImageMaximumBytes), MobileStudioProfilePreview, OnAiUi, () => !aiWorking && !aiConnecting && operation.CurrentCount > 0);

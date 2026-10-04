@@ -46,6 +46,7 @@ public interface IEditorStudioAgentConnection : IDisposable
 /// <summary>Private trusted-shell ABI. Never supplied to project modules or overlays.</summary>
 public interface IEditorStudioActions
 {
+    IEditorStudioParticipants Participants(AiDirectory directory, CollaborationWorkspace collaboration, string actor = "human");
     int ProfileImageMaximumBytes { get; }
     IEditorStudioDirectory Directory(EditorStudioPresentation presentation, IUiBackend backend, AiDirectory directory, Action save, Action changed, Action addAgent, Action<AiAgentProfile?, AiHelper?> profile, Action closed, Func<byte[], string, string> preview);
     IEditorStudioProfile Profile(EditorStudioPresentation presentation, IUiBackend backend, AiDirectory directory, string agentId, string helperId, string privateRoot, string project, Action save, Action changed, Action connect, Action? join, Action closed, Action<Action<byte[], string>> imagePicker, Func<byte[], string, string> preview, Action<Action> onUi, Func<bool>? idle = null);
@@ -61,6 +62,12 @@ public interface IEditorStudioActions
         IAiCredentialStore credentials, IEditorStudioAgentService service, string editingId, Action save,
         Action<AiAgentProfile, EditorStudioConnectedAgent> completed, Action closed, Action<Action<string>> dllPicker, Action<Action> onUi, Func<bool>? idle = null);
     IEditorStudioAgentService AgentService(Func<AssistantConnection> options, bool externalDll = false, Func<CancellationToken, Task<EditorStudioCodexEndpoint>>? prepareCodex = null, Func<bool>? needsInstallation = null);
+}
+
+/// <summary>Private identity projection; it cannot expose private memory or control another owner's character.</summary>
+public interface IEditorStudioParticipants
+{
+    IReadOnlyList<Participant> RefreshHelperName(string helperId);
 }
 
 public interface IEditorStudioStartupState

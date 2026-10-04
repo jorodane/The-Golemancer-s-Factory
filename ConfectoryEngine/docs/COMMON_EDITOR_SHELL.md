@@ -22,11 +22,13 @@ adapters, regression checks and remote CI, actual Linux screen/input flows,
 final exact remote main SHA, and an executable package delivered through Library.
 Report source/reference compilation separately from desktop/device execution.
 
-Current turn scope: finish and publish only the Agent/Helper profile and global
-Helper directory checkpoint on top of d0104dd1aab8c7de55f64f69ad69954a049be04f.
-Do not start workspace or conversation migration in this turn. The broader
-acceptance matrix remains incomplete; the next worker resumes it from this
-checkpoint after reading the handoff below. Ordinary main pushes are authorized.
+Current authorized stage: shared workspace/sidebar, participant roles/Join/name
+updates and remaining Agent management, followed by shared conversation flows,
+on top of verified main 1d918b7c11be61c4de16d7c931ae6311108b2b58. The initial
+participant-name checkpoint below is partial progress. Continue this stage before
+reporting it complete. Collaboration/YogiBox, packs/review and final Linux package
+remain subsequent stages unless naturally required by these flows. Ordinary main
+pushes are authorized.
 
 All three editor hosts must mount the same installed engine pack elements and
 invoke the same shared actions. Native adapters own drawing, input, measurement,
@@ -253,6 +255,63 @@ only the next explicitly selected acceptance-matrix phase. No additional workspa
 conversation work was begun during this checkpoint. All superseded profile/name/
 memory/image constructors covered by the new flows have been replaced; the native
 workspace callbacks and menus listed above intentionally remain outstanding.
+
+## Workspace-stage acceptance and participant-name checkpoint
+
+The stage is complete only when the installed CoreTools factory owns the same
+workspace and conversation elements/actions in Windows, Android and Linux.
+Shared source outside the installed pack does not establish action ownership.
+
+Required acceptance cases for the remaining stage:
+- Workspace/sidebar: mount/reopen/project switch without provider requests;
+  independent sessions; persisted panel/character placement; same role actions.
+- Join/roles: new and repeated Join; enabled and disabled identities; missing
+  Agent/Helper; MAIN selection; cancellation and reentry; persistence failures;
+  owner/control boundaries and active-work guards; no private data in presence.
+- Agent management: restore, select, enabled/disconnect/reconnect, model/account,
+  cancellation/failure and resource disposal, using injected credentials/providers.
+- Conversation: explicit send/stream/cancel, failure and retry, history/reopen,
+  selected context and pointing; separate owner-private Helper/Worker exchanges;
+  existing review/conflict callbacks and no automatic requests on opening a project.
+- Execution: portable contracts on all hosts, Windows native CI, Android build
+  distinct from device execution, and actual Linux SDL pointer/text/keyboard flows.
+  Verify engine isolation, authoring and the explicitly selected consumer campaign.
+
+The first implementation adds `IEditorStudioParticipants` to the trusted private
+ABI. `StudioParticipants` is supplied by the verified installed CoreTools factory.
+Windows/Android profile callbacks no longer implement participant-name policy;
+Linux uses the same action for controlled participants already in session state.
+Only AI participants controlled by the acting user receive the Helper's public
+name. Another owner's matching Helper ID is not permission to update its character.
+Mount is inert, repeated projection avoids redundant writes, and work authority is
+checked on each action rather than cached. An IO persistence failure restores
+in-memory participant names and propagates the error for explicit retry. This is
+not a transaction across the independently saved private profile and presence.
+
+Portable coverage tests installed-DLL ownership, another owner's matching ID,
+unrelated workers, private-memory exclusion, idempotence, persisted reopen,
+IO failure/retry and revoked authority on all three platform contracts. The actual
+SDL profile fixture verifies Unicode name saving updates its controlled character
+and preserves another owner's name. Runtime verification state and screenshots
+are isolated under `/workspace/scratch`, outside Git. No paid inference,
+authentication or real credential-store writes are part of verification.
+
+Local checkpoint validation: engine isolation passed; common editor packs 494
+checks (live views 211), Studio 225, authoring 39 and the full explicitly selected
+external consumer clean build/verification campaign passed. Windows editor,
+CoreTools net48 and native Windows test compilation passed with zero errors.
+Actual Linux SDL input passed `PARTICIPANT_NAME` with the preceding profile,
+private-memory, Agent setup, startup, project-home and creation checks. The profile
+screenshot was visually inspected outside Git. Android device execution and a
+local Android adapter build are unavailable in this environment (no Android
+workload); portable Android contracts do not substitute for those checks. Remote
+CI status must be independently confirmed after publishing this checkpoint.
+
+Remaining scope is unchanged: pack workspace/sidebar definitions, Join and role
+selection, Agent management and shared conversations are not implemented by this
+initial checkpoint. Linux Join remains disabled until its real worker/conversation
+support exists. No fallback shell or deleted feature establishes parity. Resume
+from this checkpoint without duplicating the preceding profile/global Helper work.
 
 ## User-approved follow-on sequence (do not mix into current migration)
 

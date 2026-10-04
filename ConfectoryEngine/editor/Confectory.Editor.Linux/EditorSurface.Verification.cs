@@ -84,12 +84,17 @@ internal sealed partial class EditorSurface
         ShowStudioDirectory(profileDirectory, () => profileSaves++, profileRoot);
         Reveal("directory-name"); EditCreation("directory-name", "전역 도우미"); Reveal("directory-create-helper"); Click("directory-create-helper");
         var globalHelper = profileDirectory.Helpers.Single(); Check(profileSaves == 1 && globalHelper.AgentId == profileAgent.Id, "real SDL creates a global Helper through the installed pack action");
+        var profileParticipant = session.Collaboration.Register("profile-local", "Old local name", ParticipantKind.AI, ParticipantPermission.Talk | ParticipantPermission.Work);
+        profileParticipant.HelperId = globalHelper.Id;
+        var remoteProfileParticipant = session.Collaboration.Register("profile-remote", "Remote name", ParticipantKind.AI, ParticipantPermission.Talk | ParticipantPermission.Work);
+        remoteProfileParticipant.HelperId = globalHelper.Id; remoteProfileParticipant.OwnerId = "other-owner"; session.Collaboration.Save();
         string historyFolder = Path.Combine(profileRoot, "Helpers", globalHelper.Id); Directory.CreateDirectory(historyFolder);
         string privateHistory = string.Join("\n", Enumerable.Range(0, 50).Select(i => "개인 경험 " + i));
         File.WriteAllText(Path.Combine(historyFolder, "first-experience.json"), privateHistory);
         Reveal("directory-helper-0"); Click("directory-helper-0"); Check(mode == "profile", "shared directory opens the common Helper profile");
         Reveal("profile-name"); EditCreation("profile-name", "이름 변경 도우미"); Reveal("profile-save-name"); Click("profile-save-name");
         Check(globalHelper.Name == "이름 변경 도우미", "real SDL profile saves the explicit Unicode name");
+        Check(profileParticipant.Name == globalHelper.Name && remoteProfileParticipant.Name == "Remote name", "actual SDL name save invokes trusted participant projection without changing another owner's character");
         Reveal("profile-memory"); EditCreation("profile-memory", "짧은 전역 맥락"); Reveal("profile-scope"); Click("profile-scope"); Reveal("profile-remember"); Click("profile-remember");
         Check(globalHelper.Memories.Single().Project.Length == 0 && profileDirectory.PrivateContext(globalHelper.Id, "different-project").Contains("짧은 전역 맥락"), "real SDL global memory follows the Helper across projects without inference");
         string portrait = Path.Combine(profileRoot, "selected.png"); Directory.CreateDirectory(profileRoot);
@@ -174,7 +179,7 @@ internal sealed partial class EditorSurface
         while ((mode == "startup" || homeFlightClock.IsRunning) && automaticClock.ElapsedMilliseconds < 2500) { native.Pump(); Tick(); native.Paint(); Thread.Sleep(5); }
         Check(mode == "home" && studioStartup!.SavedAgent == savedProfile && !homeFlightClock.IsRunning, "saved Agent automatically reaches home with the common motion state and no provider request");
         ShowObjects(concept.Id); status = "Native verification passed · SDL input, semantic save, DLL command and dynamic window"; native.Paint();
-        Console.WriteLine("LINUX_EDITOR_SMOKE_PASS SDL_WINDOW STARTUP AGENT_CONNECTION PRIVATE_INPUT PROFILE GLOBAL_MEMORY IMAGE_REVIEW READONLY_EXPERIENCE PROJECT_CREATION PROJECT_HOME TEXT_INPUT POINTER SCHEMA_SAVE PACK_DLL DYNAMIC_VIEW");
+        Console.WriteLine("LINUX_EDITOR_SMOKE_PASS SDL_WINDOW STARTUP AGENT_CONNECTION PRIVATE_INPUT PROFILE PARTICIPANT_NAME GLOBAL_MEMORY IMAGE_REVIEW READONLY_EXPERIENCE PROJECT_CREATION PROJECT_HOME TEXT_INPUT POINTER SCHEMA_SAVE PACK_DLL DYNAMIC_VIEW");
     }
     private sealed class VerificationCredentials : IAiCredentialStore
     {
