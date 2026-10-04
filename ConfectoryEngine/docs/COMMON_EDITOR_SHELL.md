@@ -1698,3 +1698,14 @@ the production dialog through its owner's `OwnedWindows` collection. No review
 behavior or test assertion was removed; exact-commit Windows rerun is required.
 The next global-sidebar entry work is preserved in a named recovery stash while
 this correction is verified and published.
+
+The b56b4e6 Windows rerun remained inside native interaction beyond its normal
+duration; active-job logs were unavailable from GitHub. Source review identified
+another harness mismatch: it called the asynchronous native dialog directly from
+Main, outside a dispatcher frame. The fixture now enters through the same
+`Dispatcher.InvokeAsync` boundary as the production Helper host and pumps until
+the owned dialog mounts. Reviewed application also keeps the dispatcher pumping.
+All original selection, cancellation, reentry and no-premature-write assertions
+remain. Compilation passes; the exact-commit native rerun must confirm the result.
+Engine source is unchanged from the passing isolation and full external consumer
+campaign recorded above. Global-sidebar WIP remains preserved separately.
