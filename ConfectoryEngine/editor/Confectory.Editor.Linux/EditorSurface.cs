@@ -175,7 +175,7 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
     private void StartStudio(AiDirectory? directory = null)
     {
         startupBrandOrigins.Clear(); mode = "startup"; studioPresentation = new(EditorEngineDistribution.Open(engineDirectory));
-        studioDirectory = directory ?? AiDirectory.Load(AiDirectory.DefaultPath); studioStartup = new(studioPresentation.Motion, studioDirectory);
+        studioDirectory = directory ?? AiDirectory.Load(AiDirectory.DefaultPath); studioStartup = new(studioPresentation, studioDirectory);
         studioStartView?.Dispose(); studioStartView = studioPresentation.Start(backend,
             () => ShowAgentSetup(), EnterStudioHome);
         root = (Element)studioStartView.Root; studioClock.Restart(); Tick(); Invalidate();
@@ -187,7 +187,7 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
         var presentation = new EditorStudioPresentation(EditorEngineDistribution.Open(engineDirectory));
         FinishStudioHomeFlight(); studioAgent?.Dispose(); Page(presentation.Text("editor.studio.agent-connection", "agent-heading"), "agent-setup", returnToStartup);
         directory ??= studioDirectory; credentials ??= aiCredentials;
-        service ??= new EditorStudioAgentService(() => new() { ProjectIdentity = session?.Project.Identity ?? "confectory.editor", StateDirectory = session?.StateDirectory ?? Path.Combine(Path.GetDirectoryName(AiDirectory.DefaultPath)!, "Studio"), AccessEnabled = true, HistoryEnabled = true },
+        service ??= new EditorStudioAgentService(presentation, () => new() { ProjectIdentity = session?.Project.Identity ?? "confectory.editor", StateDirectory = session?.StateDirectory ?? Path.Combine(Path.GetDirectoryName(AiDirectory.DefaultPath)!, "Studio"), AccessEnabled = true, HistoryEnabled = true },
             externalDll: true, prepareCodex: async token => new(await LinuxCodexPreparation.Prepare(token), Path.Combine(AppContext.BaseDirectory, "Confectory.Assistant.Codex.dll")), needsInstallation: LinuxCodexPreparation.Required);
         studioAgent = new(presentation, backend, directory, credentials, service, "", saveDirectory ?? (() => directory.Save(AiDirectory.DefaultPath)),
             (_, connected) => { connectedAgent?.Dispose(); connectedAgent = connected.Assistant; if (returnToStartup) EnterStudioHome(); else Home(); },

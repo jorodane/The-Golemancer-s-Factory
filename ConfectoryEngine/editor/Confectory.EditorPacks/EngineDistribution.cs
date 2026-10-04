@@ -85,7 +85,7 @@ public sealed class EditorEngineDistribution
         return result;
     }
     internal static bool ProtectedAssembly(string path) => new[]
-    { "Confectory.Contracts", "Confectory.Runtime", "Confectory.Editor.Contracts", "Confectory.EditorPacks", "Confectory.Workspace", "Confectory.PackHost", "Confectory.Editor", "Confectory.Assistant.Api" }
+    { "Confectory.Contracts", "Confectory.Runtime", "Confectory.Editor.Contracts", "Confectory.EditorPacks", "Confectory.Workspace", "Confectory.PackHost", "Confectory.Editor", "Confectory.Assistant.Api", "Confectory.Editor.CoreTools" }
         .Any(name => string.Equals(Path.GetFileNameWithoutExtension(path), name, StringComparison.OrdinalIgnoreCase));
 
     public void WriteArchive(Stream output)

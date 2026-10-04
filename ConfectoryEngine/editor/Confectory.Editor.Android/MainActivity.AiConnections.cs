@@ -41,7 +41,7 @@ public sealed partial class MainActivity
         foreach (string manifest in MobileProjects().Where(p => !p.Contains(".ConfectoryTrash"))) { try { mobileProjects.Register(WorkspaceProject.Open(manifest)); } catch (IOException e) { Report(e.Message); } }
         if (mobileDirectory.Agents.Count == 0 && aiConnections.Editor.Enabled) { mobileDirectory.AddAgent(aiConnections.Editor.Name, aiConnections.Editor, aiConnections.Editor.Provider); SaveMobileDirectory(); }
         // Restoring a supported identity must not start a provider or model request.
-        mobileStudioStartup = new(mobileStudioPresentation.Motion, mobileDirectory, apiOnly: true);
+        mobileStudioStartup = new(mobileStudioPresentation, mobileDirectory, apiOnly: true);
         var startupAgent = mobileStudioStartup.SavedAgent;
         if (startupAgent is not null) SelectMobileAgent(startupAgent);
         else aiConnections.Editor = new();
@@ -71,8 +71,8 @@ public sealed partial class MainActivity
     {
         if (aiWorking || aiConnecting || operation.CurrentCount == 0) return;
         agentConnectionDialog?.Dismiss();
-        var service = new EditorStudioAgentService(AndroidAiOptions);
         var presentation = new EditorStudioPresentation(InstalledEngine);
+        var service = new EditorStudioAgentService(presentation, AndroidAiOptions);
         var dialog = new Dialog(this); agentConnectionDialog = dialog; dialog.SetTitle(presentation.Text("editor.studio.agent-connection", "agent-heading"));
         var model = new EditorStudioAgentConnection(presentation, new AndroidPackBackend(this), mobileDirectory, aiCredentials, service, mobileEditingAgent, SaveMobileDirectory,
             (profile, connected) =>

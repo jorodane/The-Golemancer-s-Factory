@@ -38,11 +38,14 @@ internal static class LiveViewVerification
         try
         {
             var presentation = new EditorStudioPresentation(EditorEngineDistribution.Bundle(Path.Combine(repository, "editor/engine.xml"), Path.Combine(creationRoot, "Engine")));
+            Check(presentation.Actions.GetType().Assembly.GetName().Name == "Confectory.Editor.CoreTools", "private shell action factory executes from the verified installed engine pack rather than the native host");
+            var packProviderPolicy = presentation.Actions.AgentService(() => new(), externalDll: true);
+            Check(packProviderPolicy.GetType().Assembly.GetName().Name == "Confectory.Editor.CoreTools" && packProviderPolicy.Supports("openai") && !packProviderPolicy.Supports("codex"), "provider policy belongs to the same engine pack and OS capabilities do not start a provider");
             foreach (string platform in new[] { "windows", "android", "linux" })
             {
                 var directory = new AiDirectory();
                 var agent = directory.AddAgent("Fixture Agent", new() { Provider = "openai", Model = "private-fixture-model" }, "private-credential-reference");
-                var startupState = new EditorStudioStartupState(presentation.Motion, directory, apiOnly: platform == "android");
+                var startupState = new EditorStudioStartupState(presentation, directory, apiOnly: platform == "android");
                 Check(startupState.SavedAgent == agent && !startupState.AutomaticHomeDue(presentation.Motion.AutoHomeDelay - 1) && startupState.AutomaticHomeDue(presentation.Motion.AutoHomeDelay), "saved Agent restores without a provider request and follows pack timing on " + platform);
                 var logoMotion = presentation.Motion.Entrances[0];
                 var initialMotion = presentation.Motion.Sample(logoMotion, 0, false);
@@ -152,6 +155,9 @@ internal static class LiveViewVerification
                     "confirmed common home deletion is reversible and keeps the other project on " + platform);
 
             }
+            var pinnedCore = Path.Combine(creationRoot, "Engine", "Packs", "editor.core.tools", "ui.xml");
+            File.AppendAllText(pinnedCore, " ");
+            Reject(() => { _ = presentation.Actions; }, "cached private shell actions cannot bypass changed installed engine bytes");
         }
         finally { if (Directory.Exists(creationRoot)) Directory.Delete(creationRoot, true); }
         XElement Node(string id, string widget, string? text = null, string? command = null) => new("Node", new XAttribute("id", id), new XAttribute("widget", widget),

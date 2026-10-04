@@ -35,14 +35,15 @@ public sealed class EditorStudioMotion
     }
 }
 
-/// <summary>No request or provider execution occurs while restoring a saved identity.</summary>
-public sealed class EditorStudioStartupState
+/// <summary>Host facade for the installed pack's saved-identity/home-entry policy.</summary>
+public sealed class EditorStudioStartupState : IEditorStudioStartupState
 {
-    public EditorStudioMotion Motion { get; }
-    public AiAgentProfile? SavedAgent { get; }
-    public bool EnteredHome { get; private set; }
-    public EditorStudioStartupState(EditorStudioMotion motion, AiDirectory directory, bool apiOnly = false)
-    { Motion = motion; SavedAgent = directory.StartupAgent(apiOnly); }
-    public bool AutomaticHomeDue(double milliseconds) => !EnteredHome && SavedAgent is not null && milliseconds >= Motion.AutoHomeDelay;
-    public bool BeginHome() { if (EnteredHome) return false; EnteredHome = true; return true; }
+    private readonly IEditorStudioStartupState action;
+    public EditorStudioMotion Motion => action.Motion;
+    public AiAgentProfile? SavedAgent => action.SavedAgent;
+    public bool EnteredHome => action.EnteredHome;
+    public EditorStudioStartupState(EditorStudioPresentation presentation, AiDirectory directory, bool apiOnly = false)
+    { action = presentation.Actions.Startup(presentation.Motion, directory, apiOnly); }
+    public bool AutomaticHomeDue(double milliseconds) => action.AutomaticHomeDue(milliseconds);
+    public bool BeginHome() => action.BeginHome();
 }

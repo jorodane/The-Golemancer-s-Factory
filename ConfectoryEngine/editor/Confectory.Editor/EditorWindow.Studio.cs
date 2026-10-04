@@ -61,7 +61,7 @@ public sealed partial class EditorWindow
                 var migrated = aiDirectory.AddAgent(aiConnections.Editor.Name, aiConnections.Editor, aiConnections.Editor.Provider);
                 aiDirectory.SelectedAgentId = migrated.Id; SaveAiDirectory();
             }
-            studioStartup = new(studioPresentation.Motion, aiDirectory);
+            studioStartup = new(studioPresentation, aiDirectory);
             var startupAgent = studioStartup.SavedAgent;
             SelectStoredAgent(startupAgent?.Id ?? "");
             var manifest = StandaloneEditorWorkspace.Prepare(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Confectory", "Studio"), "windows", "net48");

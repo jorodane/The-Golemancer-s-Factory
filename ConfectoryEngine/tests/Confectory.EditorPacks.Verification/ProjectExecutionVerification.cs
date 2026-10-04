@@ -62,6 +62,10 @@ internal static class ProjectExecutionVerification
         string protectedFile = Path.Combine(lab.Folder, "Bin/net10.0/Confectory.Runtime.dll");
         File.Copy(typeof(Confectory.Runtime.PackCompiler).Assembly.Location, protectedFile);
         await Reject(() => a.Prepare(new[] { lab }, default), "project dependencies cannot replace the host runtime assembly"); File.Delete(protectedFile);
+        string renamedShell = Path.Combine(lab.Folder, "Bin/net10.0/renamed-shell.dll");
+        File.Copy(core.PathFor("Bin/net10.0/Confectory.Editor.CoreTools.dll"), renamedShell);
+        await Reject(() => a.Prepare(new[] { lab }, default), "a renamed project DLL cannot impersonate the trusted CoreTools shell assembly"); File.Delete(renamedShell);
+        Check(host.Starts == started, "host and shell impersonation are rejected before any new project DLL starts");
         string manifest = lab.Read("pack.xml"); File.WriteAllText(lab.PathFor("pack.xml"), manifest.Replace("extends=\"editor.core.tools\"", "extends=\"missing.engine.pack\""));
         await Reject(() => a.Prepare(new[] { lab }, default), "a missing project parent fails declaration validation"); File.WriteAllText(lab.PathFor("pack.xml"), manifest);
         Check(ReferenceEquals(a.Runtime, second) && await Echo(second) == "DLL 응답 4: session", "failed project preparation preserves the active session");

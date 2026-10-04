@@ -5,9 +5,11 @@ using System.Globalization;
 
 namespace Confectory.EditorPacks;
 
-/// <summary>Read-only shell presentation from the installed engine. No modules or project sources are executed.</summary>
+/// <summary>Trusted installed engine presentation. Project sources never supply shell elements or private actions.</summary>
 public sealed class EditorStudioPresentation
 {
+    private readonly EditorEngineDistribution engine;
+    public IEditorStudioActions Actions => TrustedStudioActions.Load(engine);
     public UiCatalog Catalog { get; }
     public EditorStudioMotion Motion { get; }
     private readonly UiDocument[] documents;
@@ -17,7 +19,7 @@ public sealed class EditorStudioPresentation
     public UiCatalog Compose(string xml) => new(documents.Concat(new[] { UiXml.Read(new StringReader(xml)) }));
     public EditorStudioPresentation(EditorEngineDistribution engine)
     {
-        engine.Verify();
+        this.engine = engine; engine.Verify();
         var core = engine.Sources.Single(s => s.Id == "editor.core.tools");
         xml = core.Manifest().Root!.Elements("Ui").Select(e => Confectory.Runtime.PackCompiler.ReadXml(core.PathFor((string)e.Attribute("path")!))).ToArray();
         documents = xml.Select(d => UiXml.Read(new StringReader(d.ToString()))).ToArray();

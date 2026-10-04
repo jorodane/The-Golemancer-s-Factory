@@ -37,7 +37,7 @@ public sealed partial class EditorWindow
         {
             try { _ = CodexInstallation.ResolveExecutable(codexPath.Text.Trim()); return false; } catch (FileNotFoundException) { return true; }
         }
-        var service = new EditorStudioAgentService(() =>
+        var service = new EditorStudioAgentService(presentation, () =>
         {
             var options = SelectedAiOptions();
             if (conversation is not null) { options.ConversationDirectory = conversation.ConversationsPath; options.ConversationProject = conversation.Id; }
