@@ -93,7 +93,7 @@ internal static partial class Program
         public string? Read(string helper, string project) => Contents;
         public void Write(string helper, string project, string? expected, string contents) { if (Contents != expected) throw new IOException("Fixture history changed"); Contents = contents; }
     }
-    private sealed class NativeHelperAssistant(bool global = false) : IEditorAssistant
+    private sealed class NativeHelperAssistant(bool global = false, Func<ContextRequest, IAgentWorkspace, string>? reply = null) : IEditorAssistant
     {
         public bool Disposed;
         public string Name => "Injected native provider";
@@ -101,18 +101,19 @@ internal static partial class Program
         {
             if (request.ParticipantId == "helper-fixture" || !request.PrivateIdentity.Contains("global native fixture") || workspace is not IAgentWorkspace) throw new Exception("Shared execution boundary missing");
             if (global && (request.Project.Length > 0 || ((IAgentWorkspace)workspace).ToolDefinitions.Count != 1)) throw new Exception("Global fixture received project capabilities");
-            return Task.FromResult("Injected native Helper answer");
+            return Task.FromResult(reply?.Invoke(request, (IAgentWorkspace)workspace) ?? "Injected native Helper answer");
         }
         public void Dispose() { Disposed = true; }
     }
     private sealed class NativeHelperService : IEditorStudioAgentService
     {
         public int Calls; public bool Global; public TaskCompletionSource<EditorStudioConnectedAgent>? Pending;
+        public Func<ContextRequest, IAgentWorkspace, string>? Reply;
         public bool Supports(string provider) => provider == "openai";
         public bool InstallationRequired(string provider) => false;
         public Task<IReadOnlyList<AssistantModel>> Models(EditorAiConnection connection, string secret, CancellationToken cancellation) => throw new NotSupportedException();
         public Task<EditorStudioConnectedAgent> Connect(EditorAiConnection connection, string secret, CancellationToken cancellation)
-        { Calls++; return Pending?.Task ?? Task.FromResult(new EditorStudioConnectedAgent(new NativeHelperAssistant(Global), null)); }
+        { Calls++; return Pending?.Task ?? Task.FromResult(new EditorStudioConnectedAgent(new NativeHelperAssistant(Global, Reply), null)); }
     }
     private sealed class NativeHelperHost(Action<Action> dispatch) : IEditorStudioHelperExecutionHost, IEditorStudioGlobalHelperHost
     {
@@ -128,5 +129,72 @@ internal static partial class Program
         public Task<string> Review(ChangeReviewBatch review, string answer, CancellationToken cancellation) => throw new Exception("Fixture did not authorize writes");
         public string Interruption(string worker) => "";
         public void SaveDirectory() { }
+    }
+    private static void VerifyProductionHelperAdapter(EditorWindow window)
+    {
+        var selected = Field<EditorSession>(window, "session"); var directory = Field<AiDirectory>(window, "aiDirectory");
+        var settings = Field<AssistantSettings>(window, "assistantSettings"); settings.ConnectionEnabled = true;
+        settings.Projects.Single(p => p.Identity == selected.Project.Identity).Enabled = true;
+        var source = directory.AddAgent("Native adapter fixture", new() { Provider = "openai", Model = "fixture" }, "fixture-only");
+        var helper = directory.CreateHelper(source.Id, "Adapter Helper"); directory.Remember(helper.Id, "global native fixture", "");
+        var service = new NativeHelperService { Global = true }; var credentials = new NativeHelperCredentials();
+        typeof(EditorWindow).GetField("session", Fields)!.SetValue(window, null);
+        try
+        {
+            Call(window, "EnsureHelperConversations", service, credentials, new NativeHelperHistory());
+            Call(window, "OpenHelperConversation", helper.Id, null!); window.UpdateLayout();
+            var execution = Field<IEditorStudioGlobalHelperExecution>(window, "globalHelperExecution");
+            var timelines = Field<IEditorStudioHelperTimelines>(window, "globalHelperTimelines"); var timeline = timelines.Open(helper.Id);
+            IEditorStudioHelperConversation View()
+            {
+                var characters = Field<System.Collections.IDictionary>(window, "helperCharacters");
+                var entry = characters["helper:" + helper.Id]!;
+                return (IEditorStudioHelperConversation)entry.GetType().GetProperty("Conversation")!.GetValue(entry)!;
+            }
+            Check(Field<EditorSession?>(window, "session") is null && service.Calls == 0 && Field<Canvas>(window, "helperConversationCanvas").Children.Count == 1,
+                "production Windows Helper mount remains project-free and uses the real floating canvas");
+            timeline.Draft = "adapter global request"; View().Render();
+            ((Button)NativeControl(View().View.Element("helper-send"))).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            PumpUntil(() => execution.Operations.Count == 1 && !execution.Operations[0].Running, "Production global Helper adapter");
+            Check(execution.Operations[0].Exchange.State == "completed" && execution.Operations[0].ProjectIdentity.Length == 0 && credentials.Writes == 0,
+                "production Windows adapter executes a global request through injected transport without opening a project");
+            service.Pending = new(TaskCreationOptions.RunContinuationsAsynchronously); timeline.Draft = "adapter delayed request"; View().Render();
+            ((Button)NativeControl(View().View.Element("helper-send"))).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            PumpUntil(() => service.Calls == 2, "Production adapter delayed connection");
+            ((Button)NativeControl(View().View.Element("helper-close"))).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            timeline.Draft = "unsent after reentry"; Call(window, "OpenHelperConversation", helper.Id, null!);
+            Check(timeline.Draft == "unsent after reentry" && execution.Operations.Last().Running && Field<Canvas>(window, "helperConversationCanvas").Children.Count == 1,
+                "production Helper close and reentry preserve the request and next draft without duplicate native views");
+            ((Button)NativeControl(View().View.Element("helper-cancel"))).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            var late = new NativeHelperAssistant(); service.Pending.SetResult(new(late, null));
+            PumpUntil(() => !execution.Operations.Last().Running, "Production adapter cancellation"); service.Pending = null;
+            Check(late.Disposed && execution.Operations.Last().Exchange.State == "cancelled", "production adapter cancellation disposes a late provider");
+            typeof(EditorWindow).GetField("session", Fields)!.SetValue(window, selected); Call(window, "BindHelperProject"); service.Global = false;
+            service.Reply = (request, _) => window.Dispatcher.Invoke(() =>
+            {
+                Check(Field<Dictionary<string, ChangeReviewBatch>>(window, "activeReviews").ContainsKey(request.Id), "production Helper review joins existing clash callbacks before provider tools run");
+                Call(window, "WorkerResolutionLink", request.ParticipantId, "fixture-existing-clash"); return "adapter project answer";
+            });
+            timeline.Draft = "adapter project request"; View().Render();
+            ((Button)NativeControl(View().View.Element("helper-send"))).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            PumpUntil(() => execution.Operations.Count == 3 && !execution.Operations.Last().Running, "Production project Helper adapter");
+            Check(execution.Operations.Last().Exchange.State == "completed" && execution.Operations.Last().ProjectIdentity == selected.Project.Identity
+                && execution.Operations.Last().Exchange.Resolutions.Contains("fixture-existing-clash") && !Field<Dictionary<string, ChangeReviewBatch>>(window, "activeReviews").ContainsKey(execution.Operations.Last().RequestId),
+                "production project binding preserves conflict links and cleans review registration after shared execution");
+            var privateLayer = Field<Canvas>(window, "helperConversationCanvas"); window.UpdateLayout();
+            var capture = typeof(EditorWindow).GetMethod("CaptureProjectYogi", Fields)!;
+            var visibleCapture = (SharedEditorImage)capture.Invoke(window, null)!;
+            Check(privateLayer.Visibility == Visibility.Visible && NativeControl(View().View.Root).IsVisible, "project capture restores the visible private Helper overlay");
+            privateLayer.Visibility = Visibility.Hidden; var hiddenCapture = (SharedEditorImage)capture.Invoke(window, null)!; privateLayer.Visibility = Visibility.Visible;
+            Check(visibleCapture.Sha256 == hiddenCapture.Sha256, "automatic project Yogi capture excludes private Helper questions and answers");
+            var internalWorker = selected.Collaboration.Require(execution.Operations.Last().WorkerParticipantId, ParticipantPermission.None);
+            Field<EditorStudioPresentation>(window, "studioPresentation").Actions.Supervision(directory, selected.Collaboration, _ => false).Assign(internalWorker.Id, "", internalWorker.SupervisorRevision);
+            Field<IEditorStudioWorkspace>(window, "helperProjectRoles").RemoveHelper(helper.Id); Call(window, "SyncHelperWorkers");
+            timeline.Draft = "adapter rejoin after removal"; View().Render();
+            ((Button)NativeControl(View().View.Element("helper-send"))).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            PumpUntil(() => execution.Operations.Count == 4 && !execution.Operations.Last().Running, "Production adapter explicit rejoin");
+            Check(execution.Operations.Last().Exchange.State == "completed", "completed native Worker records do not prevent a Helper from leaving and explicitly rejoining on its next request");
+        }
+        finally { typeof(EditorWindow).GetField("session", Fields)!.SetValue(window, selected); Call(window, "DisposeHelperConversations"); }
     }
 }

@@ -186,6 +186,7 @@
     <Node id="directory-selected-source" order="70" widget="editor.text"><Bind property="text" source="studio.directory.agent" /></Node>
     <Node id="directory-source-choices" order="80" widget="editor.grid"><Set property="columns" value="2" /><Slot name="children" export="true" /></Node>
     <Node id="directory-create-helper" order="90" widget="editor.button"><Set property="text" value="이 Agent의 Helper 만들기" /><On event="activate" command="studio.directory.createHelper" /></Node>
+    <Node id="directory-history" order="95" widget="editor.button"><Bind property="text" source="studio.directory.history" /><On event="activate" command="studio.directory.history" /></Node>
     <Node id="directory-note" order="100" widget="editor.text"><Bind property="text" source="studio.directory.note" /></Node>
     <Node id="directory-close" order="110" widget="editor.button"><Set property="text" value="닫기" /><On event="activate" command="studio.directory.close" /></Node>
   </Slot></Node></View>

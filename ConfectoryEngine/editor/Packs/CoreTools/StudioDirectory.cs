@@ -53,6 +53,13 @@ public sealed class StudioDirectory : IEditorStudioDirectory
         void Command(string id, Action action) => context.AddCommand("studio.directory." + id, UiValueKind.None, _ => Guard(action));
         context.AddCommand("studio.directory.name", UiValueKind.Text, value => { if (!disposed) name.Set(value); });
         Command("addAgent", addAgent); Command("close", closed);
+        context.AddValue("studio.directory.history", new UiSignal(UiValue.Text("전역 Helper 대화 기록 · " + (directory.HelperHistoryEnabled ? "켬" : "끔"))));
+        Command("history", () =>
+        {
+            bool previous = directory.HelperHistoryEnabled; directory.HelperHistoryEnabled = !previous;
+            try { save(); } catch { directory.HelperHistoryEnabled = previous; throw; }
+            note.Set(UiValue.Text("대화 기록 설정을 바꿨어. 명시적으로 남긴 장기기억은 Helper 프로필에서 따로 관리해.")); changed(); Render();
+        });
         Command("createHelper", () =>
         {
             if (agentId.Length == 0) throw new InvalidOperationException("먼저 Agent를 연결해줘.");

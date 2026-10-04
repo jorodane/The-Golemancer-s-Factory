@@ -190,6 +190,13 @@ internal static class LiveViewVerification
                     ((Element)identities.View.Element("directory-add-agent")).Activate(); ((Element)identities.View.Element("directory-helper-0")).Activate();
                     ((Element)identities.View.Element("directory-name")).Emit("changed", UiValue.Text("Another Global Helper")); ((Element)identities.View.Element("directory-source-0")).Activate(); ((Element)identities.View.Element("directory-create-helper")).Activate();
                     Check(addedAgents == 1 && chosenProfiles == 1 && directorySaves == 1 && profiles.Helpers.Count == 2 && profiles.Helpers.Last().AgentId == profileAgent.Id, "same pack directory routes explicit setup/profile actions and creates global Helpers on " + platform);
+                    ((Element)identities.View.Element("directory-history")).Activate();
+                    Check(!profiles.HelperHistoryEnabled && directorySaves == 2, "installed directory saves explicit global Helper history consent on " + platform);
+                }
+                using (var identities = presentation.Actions.Directory(presentation, new Backend(platform), profiles, () => throw new IOException("fixture consent save failure"), () => { }, () => { }, (_, _) => { }, () => { }, (_, _) => ""))
+                {
+                    ((Element)identities.View.Element("directory-history")).Activate();
+                    Check(!profiles.HelperHistoryEnabled && ((Element)identities.View.Element("directory-note")).Text.Contains("fixture consent save failure"), "failed global history consent save restores prior setting on " + platform);
                 }
                 var workspaceProject = NewProject.Create(Path.Combine(creationRoot, "Workspace", platform, "Workspace.packproject"));
                 var workspaceRoles = ProjectStudio.Load(workspaceProject);

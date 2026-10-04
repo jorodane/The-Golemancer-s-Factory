@@ -18,7 +18,7 @@ public interface IEditorStudioHelperExecutionHost
     void SaveDirectory();
 }
 
-public sealed record EditorStudioHelperAgentContext(IEditorStudioAgentService Service, Func<bool> Current);
+public sealed record EditorStudioHelperAgentContext(IEditorStudioAgentService Service, Func<bool> Current, Func<bool>? HistoryAllowed = null);
 
 public sealed class EditorStudioHelperOperation
 {
@@ -30,6 +30,7 @@ public sealed class EditorStudioHelperOperation
     public ConversationExchange Exchange { get; set; } = new();
     public string Activity { get; set; } = "";
     public bool Running { get; set; } = true;
+    public bool RetainHistory { get; set; }
 }
 
 public interface IEditorStudioHelperExecution : IDisposable

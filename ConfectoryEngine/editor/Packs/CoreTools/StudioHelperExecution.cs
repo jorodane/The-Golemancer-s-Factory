@@ -36,6 +36,7 @@ public sealed partial class StudioHelperExecution : IEditorStudioHelperExecution
         IEditorStudioHelperRequest? lease = null; EditorStudioHelperOperation? operation = null;
         IEditorAssistant? assistant = null; IResidentAssistant? resident = null; AgentWorkspace? tools = null;
         ChangeReviewBatch? review = null; Participant? helper = null; Action<AssistantEvent>? progress = null;
+        EditorStudioHelperAgentContext? connectionContext = null;
         var streams = new Dictionary<string, string>(); string privateHistory = "";
         try
         {
@@ -61,14 +62,13 @@ public sealed partial class StudioHelperExecution : IEditorStudioHelperExecution
                 else { current.Exchange.Events.Add(update.Kind + " · " + update.Text); current.Activity = ConversationTimeline.Preview(update.Subject); }
                 Changed?.Invoke();
             });
-            EditorStudioHelperAgentContext connectionContext = null!;
-            host.Dispatch(() => { requestLease.Validate(); connectionContext = host.AgentContext(requestLease.WorkerParticipantId); });
+            host.Dispatch(() => { requestLease.Validate(); connectionContext = host.AgentContext(requestLease.WorkerParticipantId); current.RetainHistory = connectionContext.HistoryAllowed?.Invoke() != false; Changed?.Invoke(); });
             void Validate()
             {
                 requestLease.Validate();
-                if (!connectionContext.Current()) throw new InvalidOperationException("요청 중 AI 기록/접근 설정이 바뀌었어. 현재 설정으로 다시 요청해줘.");
+                if (!connectionContext!.Current()) throw new InvalidOperationException("요청 중 AI 기록/접근 설정이 바뀌었어. 현재 설정으로 다시 요청해줘.");
             }
-            using (var connection = new StudioSavedAgent(directory, credentials, connectionContext.Service,
+            using (var connection = new StudioSavedAgent(directory, credentials, connectionContext!.Service,
                 () => { Validate(); return true; }, () => true,
                 (_, candidate) =>
                 {
@@ -90,13 +90,16 @@ public sealed partial class StudioHelperExecution : IEditorStudioHelperExecution
                     resident.Progress += progress;
                 }
                 string previousMode = session.Pointing.Mode; var previousTargets = session.Pointing.Targets.ToArray();
-                try { session.Pointing.Mode = "none"; session.Pointing.Targets.Clear(); request = session.PrepareContext(prompt); }
+                try
+                {
+                    session.Pointing.Mode = "none"; session.Pointing.Targets.Clear(); request = session.PrepareContext(prompt);
+                    request.ParticipantId = requestLease.WorkerParticipantId; request.ReviewChanges = true; current.RequestId = request.Id;
+                    if (current.Exchange.Yogi is not null) session.ApplyYogi(request, current.Exchange.Yogi);
+                    host.CaptureScope(request, current.Exchange.Yogi);
+                }
                 finally { session.Pointing.Mode = previousMode; session.Pointing.Targets.Clear(); session.Pointing.Targets.AddRange(previousTargets); }
-                request.ParticipantId = requestLease.WorkerParticipantId; request.ReviewChanges = true; current.RequestId = request.Id;
-                if (current.Exchange.Yogi is not null) session.ApplyYogi(request, current.Exchange.Yogi);
-                host.CaptureScope(request, current.Exchange.Yogi);
                 request.ParticipantId = requestLease.WorkerParticipantId; request.ReviewChanges = true;
-                request.PrivateIdentity = requestLease.PrivateContext(session.Project.Identity) + "\n최근 비공개 경험:\n" + privateHistory;
+                request.PrivateIdentity = requestLease.PrivateContext(session.Project.Identity) + "\n최근 비공개 경험:\n" + (current.RetainHistory ? privateHistory : "[]");
                 Validate();
                 var worker = session.Collaboration.Require(requestLease.WorkerParticipantId, ParticipantPermission.Work);
                 review = new(session, request, host.Dispatch, worker.PublicTask.Length > 0 ? worker.PublicTask : helper!.Name + " · 요청 처리", Validate);
@@ -149,6 +152,7 @@ public sealed partial class StudioHelperExecution : IEditorStudioHelperExecution
         {
             void Cleanup(Action action)
             { try { action(); } catch (Exception failure) { operation?.Exchange.Events.Add("정리/전달 확인 필요 · " + failure.Message); } }
+            Cleanup(() => host.Dispatch(() => { if (operation is not null && connectionContext?.HistoryAllowed?.Invoke() == false) operation.RetainHistory = false; }));
             Cleanup(() => { if (resident is not null) { if (operation is not null) operation.Exchange.ThreadId = resident.ThreadId; resident.Progress -= progress; } });
             Cleanup(() => tools?.Dispose()); Cleanup(() => assistant?.Dispose());
             Cleanup(() => host.Dispatch(() =>

@@ -42,6 +42,8 @@ public sealed class AiDirectory
     public bool PersonalityInference { get; set; } = true;
     public bool CharacterExpression { get; set; } = true;
     public bool RelationshipExpression { get; set; } = true;
+    public bool HelperHistoryEnabled { get; set; } = true;
+    public List<string> BlockedHelperThreads { get; set; } = [];
     public List<AiAgentProfile> Agents { get; set; } = [];
     public List<AiHelper> Helpers { get; set; } = [];
     public static string DefaultPath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Confectory", "ai-directory.json");

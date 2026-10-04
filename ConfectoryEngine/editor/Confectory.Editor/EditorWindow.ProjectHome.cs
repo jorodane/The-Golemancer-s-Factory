@@ -114,7 +114,7 @@ public sealed partial class EditorWindow
         {
             try { worker.Assistant?.Dispose(); } catch (Exception failure) { failures.Add(failure); }
             try { worker.Log?.Close(); } catch (Exception failure) { failures.Add(failure); }
-            participantsCanvas.Children.Remove(worker.Character); workers.Remove(worker);
+            if (worker.Character is not null) participantsCanvas.Children.Remove(worker.Character); workers.Remove(worker);
         }
         if (removed.Any(p => p.Id == selectedWorker)) { selectedWorker = ""; participantSelection.Text = "작업자를 선택해줘."; }
         RefreshRecipients();

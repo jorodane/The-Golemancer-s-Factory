@@ -114,7 +114,11 @@ public sealed partial class EditorWindow
         var path = StandaloneEditorWorkspace.Prepare(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Confectory", "Studio"), "windows", "net48");
         projectWorkspaceVisible = false; OpenProject(path); RefreshStudioShell();
     });
-    private void RefreshAiManagement() { if (aiProfile?.IsOpen != true) BuildAiSidebar(); RefreshProjectAiRoles(); }
+    private void RefreshAiManagement()
+    {
+        if (aiProfile?.IsOpen != true) BuildAiSidebar(); RefreshProjectAiRoles();
+        globalHelperTimelines?.Refresh(); projectHelperTimelines?.Refresh();
+    }
     private void AddHelper() => ShowStudioDirectory();
     private void AskName(string title, string initial, Action<string> save)
     {

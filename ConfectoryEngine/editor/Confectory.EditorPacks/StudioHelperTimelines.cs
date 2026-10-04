@@ -19,6 +19,7 @@ public sealed class EditorStudioHelperTurn
     public string RequestId { get; set; } = "";
     public string ProjectIdentity { get; set; } = "";
     public bool Read { get; set; }
+    public bool RetainHistory { get; set; } = true;
     public ConversationExchange Exchange { get; set; } = new();
 }
 
@@ -39,6 +40,9 @@ public interface IEditorStudioHelperTimeline
     bool PublicChatAvailable { get; }
     bool Unread(string turnId);
     void Display(bool visible);
+    EditorStudioPlacement Layout(double width, double height, double characterWidth, double characterHeight);
+    EditorStudioPlacement Move(double x, double y, double width, double height, double characterWidth, double characterHeight);
+    void CommitPlacement();
     bool Owned { get; }
     IReadOnlyList<EditorStudioHelperTurn> Turns { get; }
     int Index { get; }

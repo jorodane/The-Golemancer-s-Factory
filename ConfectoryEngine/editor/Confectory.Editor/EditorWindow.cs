@@ -190,7 +190,7 @@ public sealed partial class EditorWindow : Window
         session?.Persist(); StopPeers();
         var next = new EditorSession(path); var nextConversation = Confectory.Installation.ProjectConversation.Load(next.Project.Manifest);
         nextConversation.SaveLocal();
-        runner?.Dispose(); provider?.Dispose(); provider = null; providerLabel.Text = "AI 제공자 미연결"; session = next; conversation = nextConversation;
+        DetachHelperProject(); runner?.Dispose(); provider?.Dispose(); provider = null; providerLabel.Text = "AI 제공자 미연결"; session = next; conversation = nextConversation;
         runner = new(session, Environment.GetEnvironmentVariable("CONFECTORY_DOTNET") ?? "dotnet"); runner.Output += AppendLog;
         if (!Standalone && !Directory.Exists(ProjectPackRoot)) Confectory.EditorPacks.EditorPackTemplates.CreateWorkspace(ProjectPackRoot, empty: true);
         activeDocument = null; pending = null; lastRequest = null; CloseConceptWindows();
@@ -199,7 +199,7 @@ public sealed partial class EditorWindow : Window
         transcript.Children.Clear(); Message("프로젝트", session.Project.Name + "을 열었어. 팩과 문서를 골라서 작업을 시작해.");
         pointingMode.SelectedIndex = 0; models.ItemsSource = null; submit.Content = "보내기"; RefreshProject(); RebuildDocuments(); SetBusy(false); RefreshPointing();
         projectStudio = ProjectStudio.Load(session.Project); projectStudio.RestoreLegacyHelpers(session.Collaboration.State.Participants); if (!Standalone) SelectStoredAgent(projectStudio.MainAgentId);
-        RegisterProject(); ApplyConversationMode(); EditorPackProjectChanged(); ResetWorkers(); SyncProjectHelpers(); RefreshStudioShell();
+        RegisterProject(); ApplyConversationMode(); EditorPackProjectChanged(); ResetWorkers(); SyncProjectHelpers(); BindHelperProject(); RefreshStudioShell();
     });
     private void RefreshProject()
     {

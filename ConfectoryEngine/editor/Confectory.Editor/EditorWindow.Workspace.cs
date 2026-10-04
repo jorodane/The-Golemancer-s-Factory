@@ -79,7 +79,7 @@ public sealed partial class EditorWindow
     }
     private void PlaceWorker(EditorWorker worker)
     {
-        if (participantsCanvas.ActualWidth <= 0 || participantsCanvas.ActualHeight <= 0) return;
+        if (worker.Character is null || participantsCanvas.ActualWidth <= 0 || participantsCanvas.ActualHeight <= 0) return;
         worker.Character.LayoutTransform = System.Windows.Media.Transform.Identity;
         worker.Character.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
         var layout = StudioParticipantActions().Layout(worker.Participant.Id, participantsCanvas.ActualWidth, participantsCanvas.ActualHeight,

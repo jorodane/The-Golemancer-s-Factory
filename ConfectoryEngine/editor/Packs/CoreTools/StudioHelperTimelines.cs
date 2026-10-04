@@ -30,7 +30,7 @@ public sealed class StudioHelperTimelines : IEditorStudioHelperTimelines
         {
             AiDirectory.CheckId(helperParticipantId); var helper = directory.Helpers.Single(h => h.Id == helperParticipantId);
             // A private view identity only: never registered in a fabricated project or collaboration workspace.
-            participant = new() { Id = helper.Id, HelperId = helper.Id, Name = helper.Name, OwnerId = "human", Kind = ParticipantKind.AI, AiRole = ParticipantAiRole.Helper };
+            participant = new() { Id = helper.Id, HelperId = helper.Id, Name = helper.Name, OwnerId = "human", Kind = ParticipantKind.AI, AiRole = ParticipantAiRole.Helper, X = 32 + timelines.Count * 185, Y = 24 };
         }
         else participant = hub.Require(helperParticipantId, ParticipantPermission.None);
         if (participant.Kind != ParticipantKind.AI || participant.AiRole != ParticipantAiRole.Helper || participant.HelperId.Length == 0)
@@ -52,6 +52,8 @@ public sealed class StudioHelperTimelines : IEditorStudioHelperTimelines
         public string Owner { get; set; } = "";
         public string Helper { get; set; } = "";
         public string Participant { get; set; } = "";
+        public double? X { get; set; }
+        public double? Y { get; set; }
         public List<EditorStudioHelperTurn> Turns { get; set; } = new();
     }
     private sealed class Timeline(StudioHelperTimelines owner, Participant participant) : IEditorStudioHelperTimeline
@@ -59,6 +61,8 @@ public sealed class StudioHelperTimelines : IEditorStudioHelperTimelines
         private readonly string helperIdentity = participant.HelperId, ownerIdentity = participant.OwnerId;
         private readonly AiHelper? globalHelper = owner.hub is null ? owner.directory.Helpers.Single(h => h.Id == participant.HelperId) : null;
         private bool visible = true;
+        private double x = participant.X, y = participant.Y;
+        private bool placementDirty;
         private readonly List<EditorStudioHelperTurn> turns = new();
         private readonly HashSet<string> local = new(StringComparer.Ordinal), blockedMessages = new(StringComparer.Ordinal), ignoredOperations = new(StringComparer.Ordinal);
         private string? observed;
@@ -81,6 +85,21 @@ public sealed class StudioHelperTimelines : IEditorStudioHelperTimelines
             if (owner.hub is null) visible = show;
             else new StudioParticipants(owner.directory, owner.hub, "human").Display(ParticipantId, show ? CharacterDisplay.Full : CharacterDisplay.Hidden);
             Changed?.Invoke();
+        }
+        public EditorStudioPlacement Layout(double width, double height, double characterWidth, double characterHeight)
+        {
+            if (owner.hub is not null) return new StudioParticipants(owner.directory, owner.hub, "human").Layout(ParticipantId, width, height, characterWidth, characterHeight);
+            RequireOwned(); var result = StudioParticipants.Fit(x, y, width, height, characterWidth, characterHeight); x = result.X; y = result.Y; return result;
+        }
+        public EditorStudioPlacement Move(double nextX, double nextY, double width, double height, double characterWidth, double characterHeight)
+        {
+            if (owner.hub is not null) return new StudioParticipants(owner.directory, owner.hub, "human").Move(ParticipantId, nextX, nextY, width, height, characterWidth, characterHeight);
+            RequireOwned(); var result = StudioParticipants.Fit(nextX, nextY, width, height, characterWidth, characterHeight); x = result.X; y = result.Y; placementDirty = true; return result;
+        }
+        public void CommitPlacement()
+        {
+            if (owner.hub is not null) new StudioParticipants(owner.directory, owner.hub, "human").CommitPlacement(ParticipantId);
+            else { RequireOwned(); Save(); Changed?.Invoke(); }
         }
         public bool Owned => !owner.disposed && (owner.hub is null ? ReferenceEquals(owner.directory.Helpers.FirstOrDefault(h => h.Id == helperIdentity), globalHelper)
             : ReferenceEquals(owner.hub.State.Participants.FirstOrDefault(p => p.Id == participant.Id), participant) && owner.hub.CanControl("human", participant.Id))
@@ -126,7 +145,7 @@ public sealed class StudioHelperTimelines : IEditorStudioHelperTimelines
             {
                 RequireOwned(); string text = Draft.Trim(); if (text.Length == 0) throw new ArgumentException("요청을 입력해줘.");
                 var attachment = Attachment?.Copy(); var previous = owner.execution.Operations.Select(o => o.Id).ToArray();
-                var context = owner.history.Enabled ? Turns.Where(t => t.ProjectIdentity.Length == 0 || t.ProjectIdentity == owner.execution.ProjectIdentity)
+                var context = owner.history.Enabled ? Turns.Where(t => t.RetainHistory && (t.ProjectIdentity.Length == 0 || t.ProjectIdentity == owner.execution.ProjectIdentity))
                     .Select(t => t.Exchange).Where(t => t.State != "working" && t.State != "review").ToArray() : Array.Empty<ConversationExchange>();
                 var task = owner.execution.Send(ParticipantId, text, context, attachment, cancellation);
                 if (owner.execution.Operations.Any(o => o.HelperParticipantId == ParticipantId && !previous.Contains(o.Id)))
@@ -173,6 +192,11 @@ public sealed class StudioHelperTimelines : IEditorStudioHelperTimelines
                 throw new InvalidDataException("대화 항목이 잘못됐어. 원본을 보존했어.");
             foreach (var turn in saved.Turns.Where(t => t.Exchange.State is "working" or "review"))
             { turn.Exchange.State = "interrupted"; turn.Exchange.Events.Add("이전 실행 상태를 확인해줘. 기록을 열면서 작업을 다시 시작하지 않았어."); }
+            if (owner.hub is null && !placementDirty)
+            {
+                if (saved.X is { } savedX && !double.IsNaN(savedX) && !double.IsInfinity(savedX)) x = savedX;
+                if (saved.Y is { } savedY && !double.IsNaN(savedY) && !double.IsInfinity(savedY)) y = savedY;
+            }
             return saved.Turns;
         }
         private void Filter()
@@ -186,10 +210,10 @@ public sealed class StudioHelperTimelines : IEditorStudioHelperTimelines
             if (readFailed) { Notice = "기록 원본을 복구하고 다시 불러온 뒤 저장해줘. 새 결과는 현재 프로젝트에 보존하고 있어."; return; }
             try
             {
-                Filter(); var saved = new HistoryEnvelope { Project = owner.project, Owner = participant.OwnerId, Helper = participant.HelperId, Participant = ParticipantId, Turns = turns.ToList() };
+                Filter(); var saved = new HistoryEnvelope { Project = owner.project, Owner = participant.OwnerId, Helper = participant.HelperId, Participant = ParticipantId, Turns = turns.Where(t => t.RetainHistory).ToList(), X = owner.hub is null ? x : null, Y = owner.hub is null ? y : null };
                 string contents = EditorSession.Serialize(saved);
                 if (contents.Length > 16 * 1024 * 1024 || turns.Count > 10000) throw new InvalidDataException("대화 기록 크기를 확인해줘. 원본은 덮어쓰지 않았어.");
-                owner.history.Write(participant.HelperId, owner.project, observed, contents); observed = contents; local.Clear(); Notice = "";
+                owner.history.Write(participant.HelperId, owner.project, observed, contents); observed = contents; local.Clear(); placementDirty = false; Notice = "";
             }
             catch (Exception failure) { Notice = "기록 저장 실패 · " + failure.Message; }
         }
@@ -219,7 +243,7 @@ public sealed class StudioHelperTimelines : IEditorStudioHelperTimelines
                         if (turn is null) { turn = new() { Id = operation.Id }; turns.Add(turn); }
                         if (operation.Exchange.MessageId.Length > 0) turns.RemoveAll(t => t.Id != operation.Id && t.Exchange.MessageId == operation.Exchange.MessageId);
                         turn.Exchange = operation.Exchange; turn.WorkerParticipantId = operation.WorkerParticipantId; turn.RequestId = operation.RequestId;
-                        turn.ProjectIdentity = operation.ProjectIdentity; local.Add(turn.Id);
+                        turn.ProjectIdentity = operation.ProjectIdentity; turn.RetainHistory = operation.RetainHistory; local.Add(turn.Id);
                     }
                 }
                 Filter();
@@ -231,7 +255,7 @@ public sealed class StudioHelperTimelines : IEditorStudioHelperTimelines
                     turns.Add(turn); local.Add(turn.Id);
                 }
                 Index = ConversationTimeline.AfterAppend(Index, count, turns.Count);
-                string shape = string.Join("|", turns.Select(t => t.Id + ":" + t.Exchange.State + ":" + t.Exchange.MessageId + ":" + Running(t.Id)));
+                string shape = string.Join("|", turns.Select(t => t.Id + ":" + t.Exchange.State + ":" + t.Exchange.MessageId + ":" + Running(t.Id) + ":" + t.RetainHistory));
                 if (shape != persistedShape) { persistedShape = shape; Save(); }
                 Changed?.Invoke();
             }

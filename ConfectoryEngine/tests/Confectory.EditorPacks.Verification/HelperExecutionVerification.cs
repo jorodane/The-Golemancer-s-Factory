@@ -18,6 +18,7 @@ internal static class HelperExecutionVerification
         using var execution = presentation.Actions.HelperExecution(session, runner, directory, credentials, host);
         Check(execution.GetType().Assembly.GetName().Name == "Confectory.Editor.CoreTools" && credentials.Reads == 0 && host.Service.Connects == 0, "installed Helper execution construction is inert");
         var point = new SemanticTarget { Key = "unrelated-global-hover" }; session.Pointing.Mode = "hover"; session.Pointing.Targets.Add(point);
+        host.Capture = () => Check(session.Pointing.Mode == "none" && session.Pointing.Targets.Count == 0, "native scope capture cannot observe ambient pointing during ordinary Helper preparation");
         int replies = 0;
         host.Service.Reply = async (request, workspace, token) =>
         {
@@ -33,6 +34,7 @@ internal static class HelperExecutionVerification
             return "fixture provider answer";
         };
         var completed = execution.Send(helper.Id, "private fixture question", new[] { new ConversationExchange { User = "retained history", Answer = "prior answer" } }).GetAwaiter().GetResult();
+        host.Capture = null;
         Check(completed.Exchange.State == "completed" && completed.Exchange.Answer == "fixture provider answer" && replies == 1 && !completed.Running && host.Service.Last!.Disposed, "real shared bridge completes and disposes injected provider before releasing Worker");
         Check(session.Pointing.Mode == "hover" && ReferenceEquals(session.Pointing.Targets.Single(), point), "plain-text preparation restores global pointing without consuming it");
         Check(session.Collaboration.State.Messages.Single().Author == helper.Id && session.Collaboration.State.Messages.Single().Recipient == "human", "result belongs to Helper rather than internal Worker");
@@ -136,7 +138,8 @@ internal static class HelperExecutionVerification
         public bool Running(string workerParticipantId) => false;
         public void Dispatch(Action action) { lock (gate) action(); }
         public EditorStudioHelperAgentContext AgentContext(string workerParticipantId) { int revision = ConsentRevision; return new(Service, () => ConsentRevision == revision); }
-        public void CaptureScope(ContextRequest request, YogiBox? attachment) { }
+        public Action? Capture;
+        public void CaptureScope(ContextRequest request, YogiBox? attachment) => Capture?.Invoke();
         public IEditorPackAccess? EditorPacks(ContextRequest request, ChangeReviewBatch review) { LastReview = review; return null; }
         public IEditorImageAccess? Images(ChangeReviewBatch review) => null;
         public SharedEditorImage CaptureYogi() => throw new NotSupportedException();

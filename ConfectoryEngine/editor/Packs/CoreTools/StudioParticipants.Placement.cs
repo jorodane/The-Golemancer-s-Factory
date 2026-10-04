@@ -10,6 +10,13 @@ public sealed partial class StudioParticipants
     {
         if (values.Any(value => !Finite(value) || value < 0)) throw new ArgumentException("화면과 캐릭터 크기는 유한한 양수 또는 0이어야 해.");
     }
+    internal static EditorStudioPlacement Fit(double x, double y, double width, double height, double characterWidth, double characterHeight)
+    {
+        Dimensions(width, height, characterWidth, characterHeight);
+        if (!Finite(x) || !Finite(y)) throw new ArgumentException("이동 위치는 유한한 값이어야 해.");
+        double scale = Math.Min(1, Math.Max(.5, Math.Min((height - 18) / Math.Max(1, characterHeight), (width - 18) / Math.Max(1, characterWidth))));
+        return new(Math.Max(0, Math.Min(x, width - characterWidth * scale)), Math.Max(0, Math.Min(y, height - characterHeight * scale)), scale);
+    }
     public EditorStudioPlacement Layout(string participantId, double width, double height, double characterWidth, double characterHeight)
     {
         Dimensions(width, height, characterWidth, characterHeight);
@@ -17,11 +24,9 @@ public sealed partial class StudioParticipants
         var participant = collaboration.Require(participantId, ParticipantPermission.None);
         var placement = collaboration.View(actor, participantId);
         double Coordinate(double? value, double fallback) => value is { } number && Finite(number) ? number : Finite(fallback) ? fallback : 0;
-        double scale = Math.Min(1, Math.Max(.5, Math.Min((height - 18) / Math.Max(1, characterHeight), (width - 18) / Math.Max(1, characterWidth))));
-        double x = Math.Max(0, Math.Min(Coordinate(placement.X, participant.X), width - characterWidth * scale));
-        double y = Math.Max(0, Math.Min(Coordinate(placement.Y, participant.Y), height - characterHeight * scale));
-        placement.X = x; placement.Y = y;
-        return new(x, y, scale);
+        var fitted = Fit(Coordinate(placement.X, participant.X), Coordinate(placement.Y, participant.Y), width, height, characterWidth, characterHeight);
+        placement.X = fitted.X; placement.Y = fitted.Y;
+        return fitted;
     }
     public EditorStudioPlacement Move(string participantId, double x, double y, double width, double height, double characterWidth, double characterHeight, bool persist = false)
     {

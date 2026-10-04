@@ -221,6 +221,7 @@ internal static partial class Program
 
             VerifySidebarBounds(window);
             NativeInputs(window);
+            VerifyProductionHelperAdapter(window);
             Console.WriteLine("NATIVE_WORKSPACE_CHECKS=" + checks); return 0;
         }
         catch (Exception error)

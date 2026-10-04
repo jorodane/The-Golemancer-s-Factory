@@ -12,6 +12,13 @@ internal static class HelperTimelineVerification
         var session = new EditorSession(project.Manifest, Path.Combine(root, "State")); var hub = session.Collaboration;
         var directory = new AiDirectory(); var agent = directory.AddAgent("Fixture source", new() { Provider = "openai", Model = "fixture" });
         var profile = directory.CreateHelper(agent.Id, "Fixture Helper"); var helper = hub.Register("helper-timeline", profile.Name, ParticipantKind.AI, ParticipantPermission.Work | ParticipantPermission.Talk);
+        bool fileEnabled = true; var fileStore = new EditorStudioFileHelperHistoryStore(Path.Combine(root, "Private"), () => fileEnabled, id => id == "blocked");
+        fileStore.Write(profile.Id, "", null, "global fixture"); fileStore.Write(profile.Id, project.Identity, null, "project fixture");
+        Check(fileStore.Read(profile.Id, "") == "global fixture" && fileStore.Read(profile.Id, project.Identity) == "project fixture", "private file boundary keeps global and selected project histories separate");
+        reject(() => fileStore.Write(profile.Id, "", null, "stale replacement"), "private file boundary rejects stale history replacement on " + platform);
+        reject(() => fileStore.Read("../outside", ""), "private file boundary rejects invalid Helper identity on " + platform);
+        fileEnabled = false;
+        Check(!fileStore.Enabled && fileStore.Blocked("blocked") && fileStore.Read(profile.Id, "") == "global fixture", "private storage supplies current consent without deleting retained bytes");
         helper.AiRole = ParticipantAiRole.Helper; helper.HelperId = profile.Id; helper.AgentId = agent.Id;
         var store = new Store(); var execution = new Execution();
         using var timelines = presentation.Actions.HelperTimelines(directory, hub, project.Identity, execution, store, action => action());
@@ -103,7 +110,7 @@ internal static class HelperTimelineVerification
         public event Action? Changed;
         public Task<EditorStudioHelperOperation> Send(string helper, string prompt, IReadOnlyList<ConversationExchange> history, YogiBox? attachment = null, CancellationToken cancellation = default)
         {
-            Calls++; LastHistory = history.ToArray(); var operation = new EditorStudioHelperOperation { Id = Guid.NewGuid().ToString("N"), HelperParticipantId = helper, WorkerParticipantId = "internal-worker", RequestId = Guid.NewGuid().ToString("N") };
+            Calls++; LastHistory = history.ToArray(); var operation = new EditorStudioHelperOperation { Id = Guid.NewGuid().ToString("N"), HelperParticipantId = helper, WorkerParticipantId = "internal-worker", RequestId = Guid.NewGuid().ToString("N"), RetainHistory = true };
             operation.Exchange.User = prompt; operation.Exchange.State = "working"; operations.Add(operation);
             var source = new TaskCompletionSource<EditorStudioHelperOperation>(TaskCreationOptions.RunContinuationsAsynchronously); pending.Add(operation.Id, source); Changed?.Invoke();
             if (!Delay) Complete(operation, "answer"); return source.Task;

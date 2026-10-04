@@ -1574,3 +1574,46 @@ actual WPF execution and Android compilation will be checked in exact-head CI.
 These are fixture mounts. Production Windows/Android/Linux entry points, private
 storage/consent services, review/incident adapters and legacy-history recovery are
 still the next stage; current native conversation routes remain active.
+
+Published project-optional runtime `196f675c02b09c921cb728942b51c6a15cb2fdfa`
+matches the verified checkpoint. All five jobs passed in
+[CI 37228676034](https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37228676034),
+including **60 actual Windows native checks**, portable, Linux, Android APK and
+engine compatibility verification.
+
+The next host-services increment passes **1,904 portable editor-pack checks**.
+The installed directory owns explicit global history consent and save rollback.
+Per-request consent prevents both context forwarding and later archival of a
+history-disabled request, including project requests displayed in a global view.
+Private file storage separates Helper/global/project identities and rejects stale
+replacement; placement is pack-owned and persists only under history consent.
+Native scope capture runs with ambient pointing cleared; the pack restores the
+original pointing afterward. Provider transport lives outside profile experience
+folders, so readonly experience browsing does not enumerate transport state.
+
+Windows now mounts the common floating Helper view through existing Helper answer
+and selection entry points. The native adapter supplies input, storage, transport,
+review and existing incident cancellation boundaries. Reviews register before
+tools run, resolution links update the shared exchange, and completion/unbinding
+cleans registrations and cancellation proxies. New native verification exercises
+the production adapter with injected services: null-session mount/send, close and
+reentry, late connection cancellation, explicit project binding and clash linkage,
+explicit rejoin after completed Workers are unassigned and the Helper removed,
+and exclusion of private Helper overlays from automatic project Yogi captures.
+Compilation is separate from actual Windows execution; exact-head CI must verify
+the latter. The home sidebar still needs the shared project-optional entry update.
+
+Local final-source checks: engine isolation passes; Windows net48 source/reference
+and native verification compile with zero warnings/errors; actual SDL smoke passes
+including project and global Helper requests, close/reentry and cancellation. Its
+global conversation screenshot was inspected. This is still a Linux fixture mount,
+not Linux production adoption. The full explicitly selected external Golemancer
+campaign passes. Actual Windows execution and Android APK
+verification remain exact-head CI checks; no physical Android device was tested.
+
+Remaining adoption: Android document-only execution/review boundaries; Linux
+production overlay/input/review services; common sidebar/global entry actions;
+readonly legacy history before Worker-direct/promotion removal; Project Chat and
+finalized layout/navigation, temporary Yogi lifecycle and explicit selected-project
+Run survival. The accepted FINAL_UI_CONTEXT scope remains active. No paid inference,
+external authentication or real credential writes are authorized for verification.

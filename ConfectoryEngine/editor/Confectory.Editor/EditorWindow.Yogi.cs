@@ -97,7 +97,7 @@ public sealed partial class EditorWindow
     }
     private SharedEditorImage CaptureProjectYogi()
     {
-        var elements = new FrameworkElement[] { participantsCanvas, yogiTray, yogiOverlay, participantNotifications };
+        var elements = new FrameworkElement[] { participantsCanvas, helperConversationCanvas, yogiTray, yogiOverlay, participantNotifications };
         var states = elements.Select(e => e.Visibility).ToArray();
         try { foreach (var element in elements) element.Visibility = Visibility.Hidden; return CaptureYogiImage(new Rect(sharingSurface!.RenderSize)); }
         finally { for (int i = 0; i < elements.Length; i++) elements[i].Visibility = states[i]; }

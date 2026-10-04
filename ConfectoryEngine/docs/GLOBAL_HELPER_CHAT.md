@@ -44,6 +44,12 @@ an internal Worker capability; it does not establish this lifecycle by itself.
 - History consent and blocked-thread rules apply before reads, writes and model
   context construction. Native services provide private storage with
   compare-before-write; CoreTools owns envelope validation, filtering and recovery.
+  Each request captures retention consent. A history-disabled request can display
+  its local answer, but cannot forward earlier prompts or become archived later
+  merely because the user exits the project or enables history. Explicit Helper
+  memory remains a separate opt-in action. Global character placement uses the
+  same pack geometry rules as project participants and private history storage;
+  disabling history also disables these placement writes.
   Old project/Worker histories remain available through explicit readonly recovery.
 - Native adapters supply rendering/input, dispatch, credentials, provider transport,
   current consent/settings and storage. They do not choose fallback Agents, execute
@@ -72,5 +78,10 @@ Current implementation: CoreTools supplies `GlobalHelperExecution`, and the same
 timeline/view support a null project/collaboration context. Project work delegates
 to the existing installed project runtime after an explicit binding. Portable
 verification covers the lifecycle and boundaries above; native fixtures are being
-verified. Production entry-point adoption, legacy recovery and native service
-integration remain pending. Do not describe the shell lifecycle as complete yet.
+verified. The Windows adapter now mounts the common floating view for existing
+Helper entry points, binds explicitly selected projects, registers pending reviews
+before provider tools run, and mirrors cancellation into existing incident hooks.
+The global adapter also supports a genuine null-session mount; home sidebar access
+still requires the forthcoming common entry-point update. Android/Linux production
+adoption, legacy recovery and Worker-direct/promotion removal remain pending.
+Do not describe the shell lifecycle as complete yet.

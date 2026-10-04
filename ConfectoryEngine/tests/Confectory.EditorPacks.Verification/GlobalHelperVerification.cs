@@ -44,6 +44,13 @@ internal static class GlobalHelperVerification
         timeline.ReadDisplayed(); Check(!timeline.Unread(timeline.Turns[0].Id), "global read acknowledgement does not require a project message");
         using (var restored = presentation.Actions.HelperTimelines(directory, null, "", execution, store, action => action()))
             Check(!restored.Open(helper.Id).Unread(timeline.Turns[0].Id), "global selected-turn receipt survives private history reload");
+        var moved = timeline.Move(10000, -100, 640, 720, 320, 650); timeline.CommitPlacement();
+        using (var restored = presentation.Actions.HelperTimelines(directory, null, "", execution, store, action => action()))
+        {
+            var placement = restored.Open(helper.Id).Layout(640, 720, 320, 650);
+            Check(moved.X == 320 && moved.Y == 0 && placement == moved, "global character placement uses shared bounds and private persistence without project presence");
+        }
+        reject(() => timeline.Move(double.NaN, 0, 640, 720, 320, 650), "nonfinite global character movement rejected on " + platform);
         int beforeInvalid = host.Service.Calls; timeline.Draft = "retain invalid attachment input"; timeline.Attachment = new YogiBox { Sealed = true };
         view.Send().GetAwaiter().GetResult();
         Check(host.Service.Calls == beforeInvalid && timeline.Draft == "retain invalid attachment input" && timeline.Notice.Length > 0, "invalid global attachment rejects without crashing or losing local input");
@@ -70,6 +77,14 @@ internal static class GlobalHelperVerification
         host.Service.Reply = (_, tools) => { host.FailSave = true; Call(tools, "confectory_memory", """{"operation":"remember","text":"failed memory save"}"""); return "unreachable"; };
         timeline.Draft = "memory failure"; timeline.Submit().GetAwaiter().GetResult();
         Check(timeline.Turns.Last().Exchange.State == "failed" && helper.Memories.All(m => m.Text != "failed memory save") && helper.Memories.Any(m => m.Text == "concise shared preference"), "global memory save failure compensates without losing prior facts");
+        host.RetainHistory = false; host.Service.Reply = (request, _) =>
+        {
+            Check(!request.PrivateIdentity.Contains("global first question") && request.PrivateIdentity.Contains("concise shared preference"), "global request history refusal excludes earlier prompts but preserves explicit global memory");
+            return "local only result";
+        };
+        timeline.Draft = "unretained private prompt"; timeline.Submit().GetAwaiter().GetResult(); host.RetainHistory = true;
+        Check(timeline.Turns.Last().Exchange.Answer == "local only result" && !timeline.Turns.Last().RetainHistory && !store.Contents!.Contains("unretained private prompt"),
+            "request-scoped history refusal retains a local answer without archiving it after context changes");
 
         // Only this explicit part of the fixture creates projects. The global path above has none.
         string root = Path.Combine(parent, "GlobalHelper", platform);
@@ -91,13 +106,20 @@ internal static class GlobalHelperVerification
         Check(host.Service.Calls == calls && !sessionA.Collaboration.State.Participants.Any(p => p.Kind == ParticipantKind.AI), "binding an explicitly opened project does not join or call a provider");
         host.Service.Reply = (request, _) =>
         {
-            Check(request.PrivateIdentity.Contains("only project A memory") && !request.PrivateIdentity.Contains("only project B memory") && request.PrivateIdentity.Contains("global first question"),
+            Check(request.PrivateIdentity.Contains("only project A memory") && !request.PrivateIdentity.Contains("only project B memory") && request.PrivateIdentity.Contains("global first question") && !request.PrivateIdentity.Contains("unretained private prompt"),
                 "captured project request combines only global and matching local context"); return "answer A";
         };
         timeline.Draft = "private request only A"; timeline.Submit().GetAwaiter().GetResult();
         Check(timeline.Turns.Last().ProjectIdentity == a.Identity && timeline.Turns.Last().WorkerParticipantId.Length > 0 && workerA.Operations.Single().Exchange.State == "completed", "global conversation delegates explicit project work through installed internal Worker execution");
         timeline.ReadDisplayed();
         Check(sessionA.Collaboration.Unread("human", workerA.Operations.Single().HelperParticipantId).Count == 0, "global view acknowledges only its displayed delivery in the currently bound project");
+        host.RetainHistory = false; host.Service.Reply = (request, _) =>
+        {
+            Check(!request.PrivateIdentity.Contains("global first question") && !request.PrivateIdentity.Contains("private request only A") && request.PrivateIdentity.Contains("only project A memory"),
+                "project-specific history refusal excludes global timeline history at the installed execution boundary"); return "local project result";
+        };
+        timeline.Draft = "unretained project request"; timeline.Submit().GetAwaiter().GetResult(); host.RetainHistory = true;
+        Check(!timeline.Turns.Last().RetainHistory && !store.Contents!.Contains("unretained project request"), "project retention refusal survives global timeline delegation");
         host.Service.AsyncReply = async (_, _, token) => { await Task.Delay(Timeout.Infinite, token); return "unreachable"; };
         timeline.Draft = "urgent interruption preserves checkpoint"; pending = timeline.Submit();
         var interrupted = workerA.Operations.Last();
@@ -138,6 +160,7 @@ internal static class GlobalHelperVerification
     private sealed class History : IEditorStudioHelperHistoryStore
     {
         private string? contents;
+        public string? Contents => contents;
         public bool Enabled => true;
         public bool Blocked(string thread) => false;
         public string? Read(string helper, string project) { if (project.Length != 0) throw new Exception("Expected global envelope"); return contents; }
@@ -163,11 +186,11 @@ internal static class GlobalHelperVerification
     }
     private sealed class Host : IEditorStudioGlobalHelperHost, IEditorStudioHelperExecutionHost
     {
-        public Service Service = new(); public bool FailSave; public int Revision; public string InterruptionId = "";
+        public Service Service = new(); public bool FailSave; public int Revision; public string InterruptionId = ""; public bool RetainHistory = true;
         public bool Allowed => true;
         public void Dispatch(Action action) => action();
         public bool Running(string worker) => false;
-        public EditorStudioHelperAgentContext AgentContext(string identity) { int revision = Revision; return new(Service, () => Revision == revision); }
+        public EditorStudioHelperAgentContext AgentContext(string identity) { int revision = Revision; bool retention = RetainHistory; return new(Service, () => Revision == revision, () => retention && RetainHistory); }
         public void SaveDirectory() { if (FailSave) { FailSave = false; throw new IOException("Injected memory save failure"); } }
         public void CaptureScope(ContextRequest request, YogiBox? attachment) { }
         public IEditorPackAccess? EditorPacks(ContextRequest request, ChangeReviewBatch review) => null;

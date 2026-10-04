@@ -21,6 +21,7 @@ public sealed partial class EditorWindow
         public List<WorkerTurn> Turns = [];
         public int Turn;
         public WorkerTurn? ActiveTurn;
+        public Confectory.EditorPacks.EditorStudioHelperOperation? SharedOperation;
         public TextBlock Question = null!;
         public StackPanel Dots = null!, Package = null!;
         public Button Previous = null!, Next = null!;
@@ -87,7 +88,8 @@ public sealed partial class EditorWindow
         if (session is null) return;
         using var workspace = CreateStudioWorkspace(); workspace.CreateWorker();
     }
-    private void CreateWorker(Participant participant)
+    private void CreateWorker(Participant participant) => CreateWorkerRecord(participant, true);
+    private void CreateWorkerRecord(Participant participant, bool character)
     {
         if (participant.AgentId.Length == 0) participant.AgentId = aiDirectory.SelectedAgentId;
         var worker = new EditorWorker { Participant = participant, Directory = Path.Combine(session!.StateDirectory, "participants", participant.Id), Model = participant.Model.Length > 0 ? participant.Model : aiConnections.Editor.Model };
@@ -100,7 +102,7 @@ public sealed partial class EditorWindow
             foreach (var turn in worker.Turns.Where(t => t.State is "working" or "review")) turn.State = "interrupted";
         }
         worker.Turn = Math.Max(0, worker.Turns.Count - 1); workers.Add(worker);
-        BuildWorkerConversation(worker);
+        if (character) BuildWorkerConversation(worker);
     }
     private void RefreshRecipients()
     {
@@ -111,9 +113,11 @@ public sealed partial class EditorWindow
     private void SelectWorker(EditorWorker worker)
     {
         session!.Collaboration.RequireControl("human", worker.Participant.Id);
+        if (worker.Participant.AiRole == ParticipantAiRole.Helper && worker.Participant.HelperId.Length > 0)
+        { OpenHelperConversation(worker.Participant.HelperId); return; }
         if (session.Collaboration.View("human", worker.Participant.Id).Display != CharacterDisplay.Full) StudioParticipantActions().Display(worker.Participant.Id, CharacterDisplay.Full);
         selectedWorker = worker.Participant.Id; participantSelection.Text = "선택: " + worker.Participant.Name;
-        foreach (var item in workers) { Panel.SetZIndex(item.Character, item == worker ? 1 : 0); RenderWorker(item); }
+        foreach (var item in workers) { if (item.Character is not null) Panel.SetZIndex(item.Character, item == worker ? 1 : 0); RenderWorker(item); }
         yogiRecipient.SelectedValue = selectedWorker;
         PlaceWorker(worker); ReadWorkerBubble(worker); RefreshAiManagement();
     }
@@ -312,7 +316,13 @@ public sealed partial class EditorWindow
     }).Task.Unwrap();
     private void WorkerResolutionLink(string participant, string conflict)
     {
-        var worker = workers.FirstOrDefault(w => w.Participant.Id == participant); var turn = worker?.ActiveTurn ?? worker?.Turns.LastOrDefault();
+        var worker = workers.FirstOrDefault(w => w.Participant.Id == participant);
+        if (worker?.SharedOperation is { Running: true } operation)
+        {
+            if (!operation.Exchange.Resolutions.Contains(conflict)) operation.Exchange.Resolutions.Add(conflict);
+            globalHelperTimelines?.Refresh(); projectHelperTimelines?.Refresh(); return;
+        }
+        var turn = worker?.ActiveTurn ?? worker?.Turns.LastOrDefault();
         if (worker is null || turn is null) return; if (!turn.Resolutions.Contains(conflict)) turn.Resolutions.Add(conflict); SaveWorker(worker);
     }
     private void ShowDecisionHistory()

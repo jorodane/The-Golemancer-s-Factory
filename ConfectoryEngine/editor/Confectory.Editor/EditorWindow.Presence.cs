@@ -81,6 +81,13 @@ public sealed partial class EditorWindow
     private void ShowParticipantAnswers(string id)
     {
         if (session is null) return;
+        var participant = session.Collaboration.State.Participants.FirstOrDefault(p => p.Id == id);
+        if (participant?.AiRole == ParticipantAiRole.Helper)
+        {
+            if (session.Collaboration.CanControl("human", id) && participant.HelperId.Length > 0) OpenHelperConversation(participant.HelperId);
+            else OpenPublicHelperConversation(id);
+            return;
+        }
         var worker = workers.FirstOrDefault(w => w.Participant.Id == id);
         if (worker is null) { OpenParticipantInbox(id); return; }
         bool alreadyOpen = session.Collaboration.View("human", id).Display == CharacterDisplay.Full;

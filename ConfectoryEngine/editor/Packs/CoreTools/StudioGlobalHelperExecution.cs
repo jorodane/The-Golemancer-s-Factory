@@ -91,7 +91,7 @@ public sealed class StudioGlobalHelperExecution(AiDirectory directory, IAiCreden
                     child ??= captured.Execution.Operations.FirstOrDefault(o => o.HelperParticipantId == participant.Id && !before.Contains(o.Id));
                     if (child is null) return;
                     operation.WorkerParticipantId = child.WorkerParticipantId; operation.RequestId = child.RequestId;
-                    operation.Exchange = child.Exchange; operation.Activity = child.Activity; Changed?.Invoke();
+                    operation.Exchange = child.Exchange; operation.Activity = child.Activity; operation.RetainHistory = child.RetainHistory; Changed?.Invoke();
                 }
                 captured.Execution.Changed += Sync;
                 try { await captured.Execution.Send(participant.Id, prompt, history, operation.Exchange.Yogi, request.Cancellation.Token).ConfigureAwait(false); host.Dispatch(Sync); }
@@ -112,7 +112,7 @@ public sealed class StudioGlobalHelperExecution(AiDirectory directory, IAiCreden
         {
             IEditorAssistant? assistant = null; IResidentAssistant? resident = null; Action<AssistantEvent>? progress = null;
             EditorStudioHelperAgentContext context = null!;
-            host.Dispatch(() => { Validate(); context = host.AgentContext(helperId); });
+            host.Dispatch(() => { Validate(); context = host.AgentContext(helperId); operation.RetainHistory = context.HistoryAllowed?.Invoke() != false; Changed?.Invoke(); });
             void Current() { Validate(); if (!context.Current()) throw new InvalidOperationException("요청 중 대화 접근/기록 설정이 바뀌었어. 다시 요청해줘."); }
             try
             {
@@ -143,7 +143,7 @@ public sealed class StudioGlobalHelperExecution(AiDirectory directory, IAiCreden
                     string Bound(string value, int length) => value.Substring(0, Math.Min(value.Length, length));
                     snapshot = new() { Id = operation.Id, ParticipantId = helperId, Prompt = prompt, CreatedUtc = DateTime.UtcNow.ToString("O"), Yogi = operation.Exchange.Yogi?.Copy(),
                         PrivateIdentity = directory.PrivateContext(helperId, "") + "\n현재 참조 프로젝트 없음. 전역 대화이며 프로젝트를 열거나 추정하지 마. 제공된 전역 기억 도구만 사용할 수 있어.\n최근 비공개 경험:\n"
-                            + EditorSession.Serialize(history.Reverse().Take(6).Reverse().Select(t => new { User = Bound(t.User, 1200), Answer = Bound(t.Answer, 2000), t.State })) };
+                            + EditorSession.Serialize((operation.RetainHistory ? history : Array.Empty<ConversationExchange>()).Reverse().Take(6).Reverse().Select(t => new { User = Bound(t.User, 1200), Answer = Bound(t.Answer, 2000), t.State })) };
                     if (snapshot.Yogi is { } box)
                     {
                         snapshot.Images.AddRange(box.Looks.Select(v => v.Image));
@@ -157,7 +157,7 @@ public sealed class StudioGlobalHelperExecution(AiDirectory directory, IAiCreden
             }
             finally
             {
-                try { if (resident is not null) { operation.Exchange.ThreadId = resident.ThreadId; resident.Progress -= progress; } }
+                try { host.Dispatch(() => { if (context.HistoryAllowed?.Invoke() == false) operation.RetainHistory = false; }); if (resident is not null) { operation.Exchange.ThreadId = resident.ThreadId; resident.Progress -= progress; } }
                 finally { assistant?.Dispose(); }
             }
         }
