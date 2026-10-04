@@ -705,3 +705,94 @@ published; no generated images, binaries, private data or verification logs ente
 Git. The broader assigned workspace/sidebar/Agent/conversation stage is still
 incomplete. Resume from the precise handoff above; these are verified progress
 checkpoints, not all-shell parity or a request for another user approval.
+
+
+## Ordinary Worker creation acceptance contract
+
+The installed workspace factory owns ordinary Worker identity creation. An explicit
+add action rechecks human work authority, idle state, the selected project Main
+Agent (or the private selected source in the standalone editor), enabled source
+and connection, and the host's provider capabilities. It publishes one complete
+AI participant with owner, Agent, model and logical placement before attachment.
+Mounting and creation never construct/connect a provider, query models, read/save
+credentials or copy private Helper memory. Ordinary Workers have no Helper id.
+Names and initial logical placement are identical pack policy on every platform;
+viewport sizing/clamping and native conversation attachment are adapter duties.
+
+Persistence failure removes the unpublished participant and compensates a
+post-write failure. Attachment failure leaves the committed identity intact;
+explicit reattachment must use that same id without registering another Worker.
+Reattachment rechecks owner/work authority and does not rewrite identity or
+restart providers. Existing worker conversations/history/review remain intact.
+All native add entry points must call the installed action, and actual SDL must
+exercise the shared add control and its settings without AI requests. This does
+not claim completion of shared characters/sidebar or conversation execution.
+
+
+## Ordinary Worker creation continuation checkpoint
+
+`IEditorStudioWorkspace.CreateWorker` and `AttachWorker` execute from installed
+CoreTools. Windows `AddWorker`, Android `CreateMobileWorker`'s ordinary path,
+and the common workspace add control now use that policy. All three hosts supply
+capabilities from their real installed AgentService; capability inspection neither
+prepares a CLI nor constructs/connects a provider. Complete participant identity
+is saved once before native attachment, including source model and owner. Windows
+refreshes recipients before selecting the attached Worker. Android keeps its
+existing conversation/character attachment and Helper branch. Linux can create
+and inspect the public Worker settings; it still cannot execute conversations.
+Existing Workers, providers, transcripts and private global Helpers are preserved.
+
+The same explicit name and logical placement policy replaces Windows/Android's
+different ordinary-creation defaults. Project creation uses Main Agent regardless
+of another private selected source; standalone editor creation uses that private
+selection and writes no project roles. Missing/disabled/unsupported source, idle
+or work-authority denial happens before any publication. Persistence and observer
+failures remove the new identity and compensate saved bytes. Failed native
+attachment keeps the complete persisted identity; `AttachWorker` rechecks
+owner/work authority and reattaches it without registration or provider restart.
+
+Acceptance includes all three installed-pack contracts, shared add-control
+activation, source-selection boundaries, standalone/empty-selection behavior,
+private memory/credential-reference isolation, active/authority/capability guards,
+pre-write and post-write failure/compensation, native attachment failure/retry and
+disposal. Actual SDL creates an ordinary Worker from the shared add control,
+checks its complete Agent/model/owner identity, opens common settings and closes
+them. The created-Worker settings screenshot was inspected outside Git.
+
+Checks: installed packs 932 (live views/actions 649), Studio 225, Authoring 39,
+engine isolation and full explicitly selected consumer campaign passed. Actual
+self-contained SDL passed creation plus prior startup/home/Agent/profile/Helper/
+settings/management/role and semantic-editor regressions. Windows/native and
+CoreTools net48 source builds passed with zero warnings/errors. Exact-main CI
+is checked after ordinary push and its URL/hash reported in the final handoff.
+No real authentication, paid inference or production credential writes were used.
+Local Android workload/device execution remains unavailable, rather than failed.
+
+Remaining handoff, in order:
+
+1. Circular sidebar: add proper generic portrait/circle and gesture adapter
+   contracts and common installed-pack sidebar/status/menu/profile definitions.
+   Preserve the 112px paired circles, MAIN/selection rings, unread/activity,
+   single/double click/tap, right/long click and existing Yogi drop. Native
+   `AiCircle`/`MobileAiCircle`, `WorkerSidebarItem`/`MobileWorkerSidebarItem`,
+   public/private profile popup definitions remain; no textual Linux replacement
+   or gesture deletion is an acceptable completion.
+2. Ordinary creation policy is now done. Promotion persistence, name/model/task/
+   auto-confirm settings and layout/display policy were already done. Remaining
+   promotion-name and shared character/movable-conversation definitions must use
+   the existing installed actions, including `AttachWorker` for an existing id.
+3. Saved-Agent execution/live account/model presentation remains in Windows
+   `ConnectSelectedEditorAi`/legacy `ConnectCodexAsync` and Android
+   `ConnectEditorAi`/AI menu. Reuse installed AgentService and shared setup;
+   preserve legacy login, options, path preference, model and thread discovery.
+   Source management/reconnect routing is done, not execution parity.
+4. Shared conversations across all three hosts, including actual Linux worker
+   send/stream/cancel/history/context/review. Preserve frozen locality, private
+   global Helper memory, local proposals and existing conflict/clash callbacks.
+   Continue using injected runtimes; no paid/auth/production credential checks.
+5. Later collaboration/Yogi full parity, packs/review and final Linux package
+   remain separate. No Supervisor/table/augment/render authoring expansion.
+
+This is a verified creation checkpoint within an incomplete assigned migration.
+There is no new approval requirement or external-access blocker. Confirm the
+exact published main/CI using the final report and continue without restarting.

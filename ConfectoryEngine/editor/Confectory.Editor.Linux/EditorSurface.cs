@@ -299,7 +299,7 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
         var presentation = new EditorStudioPresentation(EditorEngineDistribution.Open(engineDirectory));
         return presentation.Actions.Workspace(presentation, backend, studioDirectory, session.Project, linuxProjectRoles, session.Collaboration,
             () => studioDirectory.Save(AiDirectory.DefaultPath), (participant, open) => { status = participant.Name + "가 참여했어. 아직 AI 요청은 하지 않았어."; Invalidate(); },
-            id => { connectedAgent?.Dispose(); connectedAgent = null; if (id.Length > 0) studioDirectory.SelectedAgentId = id; studioDirectory.Save(AiDirectory.DefaultPath); }, _ => false, () => !busy, workerSettings: ShowWorkerSettings, manageAgents: () => ShowAgentManagement());
+            id => { connectedAgent?.Dispose(); connectedAgent = null; if (id.Length > 0) studioDirectory.SelectedAgentId = id; studioDirectory.Save(AiDirectory.DefaultPath); }, _ => false, () => !busy, workerSettings: ShowWorkerSettings, manageAgents: () => ShowAgentManagement(), supportsProvider: CreateLinuxAgentService(presentation).Supports);
     }
     private void Home()
     {

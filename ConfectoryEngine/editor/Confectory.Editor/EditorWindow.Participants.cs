@@ -85,11 +85,7 @@ public sealed partial class EditorWindow
     private void AddWorker()
     {
         if (session is null) return;
-        var agent = aiDirectory.Agent(Standalone ? aiDirectory.SelectedAgentId : projectStudio.WorkerAgent(aiDirectory));
-        var participant = session.Collaboration.Register("worker-" + Guid.NewGuid().ToString("N"), "AI " + (workers.Count + 1), ParticipantKind.AI, ParticipantPermission.Talk | ParticipantPermission.Work);
-        participant.AgentId = agent.Id; participant.Model = agent.Connection.Model;
-        participant.X = Math.Max(24, participantsCanvas.ActualWidth - 310 - workers.Count % 3 * 190); participant.Y = Math.Max(28, participantsCanvas.ActualHeight - 300 - workers.Count / 3 * 150);
-        CreateWorker(participant); session.Collaboration.Save(); RefreshRecipients(); SelectWorker(workers.Last());
+        using var workspace = CreateStudioWorkspace(); workspace.CreateWorker();
     }
     private void CreateWorker(Participant participant)
     {

@@ -238,6 +238,7 @@ internal static class LiveViewVerification
                     workspace.Dispose(); Reject(() => workspace.JoinHelper(workspaceHelper.Id), "disposed workspace actions cannot mutate a previous project on " + platform);
                 }
                 AgentManagementVerification.Run(presentation, new Backend(platform), creationRoot, platform, Check, Reject);
+                WorkerCreationVerification.Run(presentation, new Backend(platform), creationRoot, platform, Check, Reject);
                 WorkerSettingsVerification.Run(presentation, new Backend(platform), creationRoot, platform, Check, Reject);
                 ParticipantLifecycleVerification.Run(presentation, new Backend(platform), creationRoot, platform, Check, Reject);
                 var helper = directory.CreateHelper(agent.Id, "First Helper");

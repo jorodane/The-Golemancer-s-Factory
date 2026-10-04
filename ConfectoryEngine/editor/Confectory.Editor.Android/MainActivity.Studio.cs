@@ -88,11 +88,9 @@ public sealed partial class MainActivity
                 using var workspace = CreateMobileWorkspaceRoles(); var participant = workspace.JoinHelper(helper.Id, false);
                 return mobileWorkers.Single(w => w.Participant.Id == participant.Id);
             }
-            string agentId = helper?.AgentId ?? (MobileProject ? mobileProjectStudio.WorkerAgent(mobileDirectory) : mobileDirectory.SelectedAgentId); var agent = mobileDirectory.Agent(agentId);
-            if (!agent.Connection.IsApi) throw new InvalidOperationException("Android에서는 API 에이전트를 선택해줘.");
-            var old = helper is null ? null : mobileWorkers.FirstOrDefault(w => w.Participant.HelperId == helper.Id && studioSession.Collaboration.CanControl("human", w.Participant.Id)); if (old is not null) return old;
-            var p = studioSession.Collaboration.Register("worker-" + Guid.NewGuid().ToString("N"), helper?.Name ?? "작업자 " + (mobileWorkers.Count + 1), ParticipantKind.AI, ParticipantPermission.Talk | ParticipantPermission.Work);
-            p.AgentId = agentId; p.HelperId = helper?.Id ?? ""; p.X = 24 + mobileWorkers.Count % 2 * 165; p.Y = Math.Max(70, mobileWorkerLayer.Height / (Resources?.DisplayMetrics?.Density ?? 1) - 290 - mobileWorkers.Count / 2 * 140); var worker = LoadMobileWorker(p); studioSession.Collaboration.Save(); if (helper is not null && MobileProject) { mobileProjectStudio.AddHelper(helper.Id); mobileProjectStudio.Save(studioSession.Project); } RefreshMobileManagement(); return worker;
+            using var ordinaryWorkspace = CreateMobileWorkspaceRoles();
+            var created = ordinaryWorkspace.CreateWorker(); RefreshMobileManagement();
+            return mobileWorkers.Single(w => w.Participant.Id == created.Id);
         }
         catch (Exception e) { Report(e.Message); Toast.MakeText(this, e.Message, ToastLength.Long)?.Show(); return null; }
     }

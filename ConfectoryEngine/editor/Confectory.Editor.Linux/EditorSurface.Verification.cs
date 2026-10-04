@@ -166,6 +166,14 @@ internal sealed partial class EditorSurface
         Reveal("worker-settings-cancel"); Click("worker-settings-cancel"); Reveal("workspace-worker-settings-0"); Click("workspace-worker-settings-0");
         EditCreation("worker-settings-name", "Cancelled SDL draft"); Reveal("worker-settings-cancel"); Click("worker-settings-cancel");
         Check(settingsParticipant.Name == "SDL saved worker" && mode == "home", "actual SDL settings reentry and cancellation preserve saved state");
+        int previousWorkers = session.Collaboration.State.Participants.Count(p => p.Kind == ParticipantKind.AI);
+        Reveal("workspace-add-worker"); Click("workspace-add-worker");
+        var ordinaryWorker = session.Collaboration.State.Participants.Single(p => p.Kind == ParticipantKind.AI && p.HelperId.Length == 0);
+        Check(session.Collaboration.State.Participants.Count(p => p.Kind == ParticipantKind.AI) == previousWorkers + 1 && ordinaryWorker.AgentId == profileAgent.Id && ordinaryWorker.Model == profileAgent.Connection.Model && ordinaryWorker.OwnerId == "human", "actual SDL add publishes a complete ordinary Worker through installed policy without AI requests");
+        Reveal("workspace-worker-settings-1"); Click("workspace-worker-settings-1");
+        Check(mode == "worker-settings", "actual SDL created ordinary Worker opens the common settings");
+        if (screenshot.Length > 0) native.Screenshot(screenshot + ".worker-created.png");
+        Reveal("worker-settings-cancel"); Click("worker-settings-cancel");
         Reveal("workspace-agent-management"); Click("workspace-agent-management");
         Check(mode == "agent-management", "actual SDL workspace opens the installed Agent management view");
         Reveal("agent-management-close"); Click("agent-management-close");

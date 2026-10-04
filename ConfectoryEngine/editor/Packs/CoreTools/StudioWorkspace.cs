@@ -28,14 +28,15 @@ public sealed partial class StudioWorkspace : IEditorStudioWorkspace
 
     public StudioWorkspace(EditorStudioPresentation presentation, IUiBackend backend, AiDirectory directory, WorkspaceProject project,
         ProjectStudio roles, CollaborationWorkspace collaboration, Action saveDirectory, Action<Participant, bool> joined,
-        Action<string> selectedAgent, Func<string, bool> running, Func<bool>? idle, Action<IReadOnlyList<Participant>>? removed, Action<string>? workerSettings, Action? manageAgents)
+        Action<string> selectedAgent, Func<string, bool> running, Func<bool>? idle, Action<IReadOnlyList<Participant>>? removed, Action<string>? workerSettings, Action? manageAgents, Func<string, bool>? supportsProvider)
     {
         this.presentation = presentation; this.directory = directory; this.project = project; this.roles = roles;
         this.collaboration = collaboration; this.saveDirectory = saveDirectory; this.joined = joined; this.selectedAgent = selectedAgent;
         this.running = running; this.idle = idle ?? (() => true);
-        this.removed = removed; this.workerSettings = workerSettings; this.manageAgents = manageAgents;
+        this.removed = removed; this.workerSettings = workerSettings; this.manageAgents = manageAgents; this.supportsProvider = supportsProvider ?? (_ => true);
         var state = State(); View = new(state.Catalog, "editor.studio.workspace.state", state.Context, backend);
     }
+    private readonly Func<string, bool> supportsProvider;
     private bool ProjectRoles => project.Id != "confectory.editor";
     private void RequireAction(bool mutation = true)
     {
@@ -126,6 +127,7 @@ public sealed partial class StudioWorkspace : IEditorStudioWorkspace
             new XElement("Set", new XAttribute("property", "enabled"), new XAttribute("value", enabled ? "true" : "false")),
             new XElement("On", new XAttribute("event", "activate"), new XAttribute("command", command)));
         void Command(string id, Action action) => context.AddCommand(id, UiValueKind.None, _ => Guard(action));
+        Command("studio.workspace.addWorker", () => CreateWorker());
         Command("studio.workspace.manageAgents", () => manageAgents?.Invoke());
         Command("studio.workspace.clearAgent", () => SelectMainAgent(""));
         foreach (var agent in directory.Agents.ToArray())

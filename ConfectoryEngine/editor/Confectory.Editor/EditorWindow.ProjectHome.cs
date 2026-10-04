@@ -106,9 +106,10 @@ public sealed partial class EditorWindow
         {
             var worker = workers.FirstOrDefault(w => w.Participant.Id == participant.Id);
             if (worker is null) { CreateWorker(participant); worker = workers.Single(w => w.Participant.Id == participant.Id); }
+            RefreshRecipients();
             if (open) { SelectWorker(worker); ShowProjectWorkspace(); tabs.SelectedIndex = 0; }
             SetStatus(participant.Name + "가 참여했어. 개인 기억은 이 도우미에게만 전달돼.");
-        }, id => { SelectStoredAgent(id); SaveAiDirectory(); }, id => workers.Any(w => w.Participant.Id == id && w.Running), () => !busy && !PendingReviews, removed: RemoveStudioParticipants, workerSettings: id => ShowWorkerSettings(workers.Single(w => w.Participant.Id == id)), manageAgents: ShowStudioAgentManagement);
+        }, id => { SelectStoredAgent(id); SaveAiDirectory(); }, id => workers.Any(w => w.Participant.Id == id && w.Running), () => !busy && !PendingReviews, removed: RemoveStudioParticipants, workerSettings: id => ShowWorkerSettings(workers.Single(w => w.Participant.Id == id)), manageAgents: ShowStudioAgentManagement, supportsProvider: CreateStudioAgentService(studioPresentation).Supports);
     private void RemoveStudioParticipants(IReadOnlyList<Participant> removed)
     {
         var failures = new List<Exception>();
