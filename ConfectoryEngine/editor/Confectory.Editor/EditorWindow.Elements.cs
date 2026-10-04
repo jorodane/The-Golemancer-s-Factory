@@ -93,7 +93,8 @@ public sealed partial class EditorWindow
     {
         if (session is null || packGeneration is not { } generation) throw new InvalidOperationException("먼저 프로젝트와 에디터팩을 열어줘.");
         using var data = new EditorPackProjectData(session, "editor-host");
-        var value = data.ListObjects().SingleOrDefault(o => o.Key == request.Key) ?? throw new InvalidOperationException("선택한 요소가 없어.");
+        var owner = session.FindNode(request.Key) ?? throw new InvalidOperationException("선택한 요소가 없어.");
+        var value = data.ListObjects(owner.Kind, owner.Pack).SingleOrDefault(o => o.Key == request.Key) ?? throw new InvalidOperationException("선택한 요소가 없어.");
         session.Select(value.Key);
         var editors = EditorNavigation.Editors(generation.Snapshot, value);
         var editor = request.EditorId.Length == 0 ? editors.FirstOrDefault() : editors.SingleOrDefault(e => e.Id == request.EditorId);

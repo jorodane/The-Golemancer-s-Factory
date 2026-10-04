@@ -16,6 +16,10 @@ internal static class ConceptControllerVerification
         check(derived.Name == "Variant" && derived.Fields.Count == 0, "shared schema command rolls back the detached edit on failure");
         var destination = editor.CreatePack("Data", "Data"); var item = editor.CreateObject(concept.Id, destination.Id);
         check(item.Pack == destination.Id && item.Values[field.Id].Text == "0", "all hosts create objects with shared owner and schema defaults");
+        item.Icon = "icons/item.png";
+        var slot = editor.Slot(new() { Icon = "reference", Quantity = "amount" }, new() { Members = new() { ["reference"] = new() { Text = item.Id }, ["amount"] = new() { Text = "7" } } });
+        check(slot.Icon == item.Icon && slot.Quantity == "7" && slot.Title == space.DisplayName(item), "slot reference, image and quantity presentation is shared across hosts");
+        item.Icon = "";
         var function = editor.CreateFunction("Use"); var callable = new ConceptField { Id = "call", Name = "Use", Type = "boolean", Kind = "function" };
         check(editor.Choices(callable).Any(c => c.Id == function.Id) && editor.Caption(callable, new() { Text = function.Id }) == "Use", "function choices and captions use the shared contract matcher");
         var mode = new ConceptField { Kind = "function", Type = "void", Fields = [field.Copy()] }; ConceptEditorController.SetFieldKind(mode, "normal");

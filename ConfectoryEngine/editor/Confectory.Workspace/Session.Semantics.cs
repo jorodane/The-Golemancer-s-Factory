@@ -150,7 +150,7 @@ public sealed partial class EditorSession
     {
         var work = Collaboration.State.Work.FirstOrDefault(w => w.RequestId == request);
         string reference = path.Split('#')[0];
-        if (work is not null && (Index.TextFiles.ContainsKey(reference) || reference.StartsWith("editor:", StringComparison.Ordinal)))
+        if (work is not null && (reference.StartsWith("editor:", StringComparison.Ordinal) || reference.IndexOf(':') < 0 && DeclaredDocument(reference, out _, out _)))
         {
             var prior = work.ReferenceSet.FirstOrDefault(r => r.Path == reference);
             Collaboration.Reference(request, reference, prior?.Relation ?? ReferenceRelation.Read, prior?.Target ?? "");

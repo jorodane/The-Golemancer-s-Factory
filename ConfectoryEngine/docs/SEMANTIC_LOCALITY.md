@@ -89,3 +89,24 @@ they do not independently construct semantic creation or migration transactions.
 Public schema/function contract changes still trigger dependency validation;
 ordinary label/value/View edits use the owner path. Function source bodies are
 validated only for the changed owners.
+
+Native ObjectEditor selection now locates the owner before requesting its list;
+WPF, Android and Linux do not enumerate all packs to open one known object.
+Session selection, declared document opening and AI semantic inspection avoid
+building the compatibility global index. Local AI inspection explicitly labels
+its incoming-edge scope as the owner document. Full UI inheritance inspection,
+pack graph inspection and project-wide impact analysis retain the explicit global
+index. Slot reference/icon/quantity decisions also live in the common controller.
+
+Remaining whole-project work is intentional for global collections/maps,
+cross-pack contract/dependency changes, migration verification, release checks,
+UI catalog composition and the legacy raw-document review/impact workflow.
+Legacy packs without complete identity exports require an identity-only locator
+bootstrap; its reads are counted separately. Manifest discovery scales with pack
+count, but the tests demonstrate constant semantic document work for owner-local
+queries and saves at 2 and 80 packs. This does not claim zero filesystem work or
+that every legacy editor operation has been localized.
+
+Legacy element reference drawers retain cross-pack selection: opening a drawer
+explicitly queries the reference kind through the catalog. Merely reading the
+current element still does not enumerate foreign values or observed strings.

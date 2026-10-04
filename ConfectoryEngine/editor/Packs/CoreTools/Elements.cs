@@ -219,6 +219,10 @@ internal sealed class ElementTools
         }
         return RenderWorkspace(state, invocation, elements, catalog);
     }
+    // Cross-pack choices are an explicit drawer action, not part of reading one element.
+    private static IEnumerable<EditorElementOption> ReferenceOptions(EditorElementField field, IEditorProjectCatalog catalog) => field.Options.Concat(
+        field.ReferenceKind.Length == 0 ? Enumerable.Empty<EditorElementOption>() : catalog.ListObjects(field.ReferenceKind).Select(value => new EditorElementOption
+        { Value = value.Id, Title = value.Title, Source = value.Pack.Length == 0 ? "declared-reference" : "reference · " + value.Pack }));
     private EditorCommandResult RenderWorkspace(State state, EditorInvocation invocation, IEditorProjectElements elements, IEditorProjectCatalog catalog, bool open = false)
     {
         state.Targets.Clear(); int order = 0;
@@ -285,10 +289,10 @@ internal sealed class ElementTools
                     {
                         string id = prefix + "/@" + field.Name;
                         content.Add(Stack(id + "/row", new[] { Text(id + "/label", field.Name + (field.Required ? " *" : "")), Control(id, Value(draft, node.Path, field.Name, field.Value), TargetFor("attribute", node.Path, field.Name), true, draft.Document.Editable && !field.ReadOnly, placeholder: "값 입력") }, true));
-                        if (field.Options.Count > 0 && !field.ReadOnly)
+                        if ((field.Options.Count > 0 || field.ReferenceKind.Length > 0) && !field.ReadOnly)
                         {
                             content.Add(Control(id + "/options", "값 선택", TargetFor("options", value: id)));
-                            if (state.Drawer == id) content.Add(Stack(id + "/choices", field.Options.GroupBy(o => o.Value).Select(g => g.First()).Select(o => Control(id + "/option/" + o.Value, o.Title, TargetFor("choose", node.Path, field.Name, o.Value))), true, true));
+                            if (state.Drawer == id) content.Add(Stack(id + "/choices", ReferenceOptions(field, catalog).GroupBy(o => o.Value).Select(g => g.First()).Select(o => Control(id + "/option/" + o.Value, o.Title, TargetFor("choose", node.Path, field.Name, o.Value))), true, true));
                         }
                     }
                     if (node.Children.Count == 0 && (depth > 0 || node.Text.Length > 0)) content.Add(Control(prefix + "/text", Value(draft, node.Path, "", node.Text, "text"), TargetFor("text", node.Path), true, draft.Document.Editable, true, "내용 입력"));
@@ -395,10 +399,10 @@ internal sealed class ElementTools
                 {
                     string key = prefix + "/@" + field.Name; body.Add(Text(key + "/label", field.Name + (field.Present ? "" : " (미지정)") + (field.Required ? " *" : "") + (field.ReferenceKind.Length > 0 ? " → " + field.ReferenceKind : "")));
                     body.Add(Control(key, Value(draft, node.Path, field.Name, field.Value), new("attribute", node.Path, field.Name), input: true, enabled: model.Editable && !field.ReadOnly));
-                    if (field.Options.Count > 0 && !field.ReadOnly)
+                    if ((field.Options.Count > 0 || field.ReferenceKind.Length > 0) && !field.ReadOnly)
                     {
                         body.Add(Control(key + "/options", "사용된 값 / 명세에서 선택", new("options", Value: key)));
-                        if (state.Drawer == key) body.Add(Stack(key + "/choices", field.Options.GroupBy(o => o.Value).Select(g => g.First()).Select(o => Control(key + "/option/" + o.Value, o.Title + " · " + o.Source, new("choose", node.Path, field.Name, o.Value))), "horizontal", true));
+                        if (state.Drawer == key) body.Add(Stack(key + "/choices", ReferenceOptions(field, catalog).GroupBy(o => o.Value).Select(g => g.First()).Select(o => Control(key + "/option/" + o.Value, o.Title + " · " + o.Source, new("choose", node.Path, field.Name, o.Value))), "horizontal", true));
                     }
                 }
                 if (node.Children.Count == 0)

@@ -80,7 +80,8 @@ public sealed partial class MainActivity
     {
         if (runtime is not { } generation) throw new InvalidOperationException("먼저 에디터팩을 적용해줘.");
         using var project = new EditorPackProjectData(studioSession, "editor-host");
-        var value = project.ListObjects().SingleOrDefault(o => o.Key == request.Key) ?? throw new InvalidOperationException("선택한 요소가 없어.");
+        var owner = studioSession.FindNode(request.Key) ?? throw new InvalidOperationException("선택한 요소가 없어.");
+        var value = project.ListObjects(owner.Kind, owner.Pack).SingleOrDefault(o => o.Key == request.Key) ?? throw new InvalidOperationException("선택한 요소가 없어.");
         var editors = EditorNavigation.Editors(generation.Snapshot, value);
         void Open(ExtensionDefinition editor)
         {

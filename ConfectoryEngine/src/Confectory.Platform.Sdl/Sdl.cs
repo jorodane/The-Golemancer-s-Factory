@@ -1,11 +1,11 @@
 using System.Runtime.InteropServices;
-namespace Golemancer.Linux;
+namespace Confectory.Platform.Sdl;
 
 internal static class Sdl
 {
     private const string Library = "libSDL2-2.0.so.0";
     [StructLayout(LayoutKind.Explicit, Size = 56)]
-    internal struct Event
+    internal unsafe struct Event
     {
         [FieldOffset(0)] public uint Type;
         [FieldOffset(8)] public int Device;
@@ -16,9 +16,16 @@ internal static class Sdl
         [FieldOffset(20)] public int X;
         [FieldOffset(24)] public int Y;
         [FieldOffset(20)] public int Key;
+        [FieldOffset(12)] public fixed byte Text[32];
+        public string TextValue { get { fixed (byte* bytes = Text) return Marshal.PtrToStringUTF8((IntPtr)bytes) ?? ""; } }
     }
     [DllImport(Library)] internal static extern int SDL_Init(uint flags);
     [DllImport(Library)] internal static extern void SDL_Quit();
+    [DllImport(Library)] internal static extern void SDL_StartTextInput();
+    [DllImport(Library)] internal static extern void SDL_StopTextInput();
+    [DllImport(Library)] internal static extern IntPtr SDL_GetClipboardText();
+    [DllImport(Library)] internal static extern int SDL_SetClipboardText([MarshalAs(UnmanagedType.LPUTF8Str)] string text);
+    [DllImport(Library)] internal static extern void SDL_free(IntPtr pointer);
     [DllImport(Library)] private static extern IntPtr SDL_GetError();
     internal static string Error => Marshal.PtrToStringUTF8(SDL_GetError()) ?? "SDL error";
     [DllImport(Library)] internal static extern IntPtr SDL_CreateWindow([MarshalAs(UnmanagedType.LPUTF8Str)] string title, int x, int y, int w, int h, uint flags);

@@ -44,6 +44,13 @@ def main():
                 (output / ("button-" + framework + ".log")).write_text(result.stdout, encoding="utf-8")
                 if result.returncode:
                     raise RuntimeError(result.stdout)
+            result = subprocess.run([args.dotnet, "build", "src/Confectory.Platform.Sdl/Confectory.Platform.Sdl.csproj", "-c", "Release",
+                "-p:EngineTargetFramework=net10.0", "-p:UseSharedCompilation=false", "-m:1", "--disable-build-servers", "--nologo"], cwd=isolated,
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, encoding="utf-8", errors="replace")
+            (output / "sdl-build.log").write_text(result.stdout, encoding="utf-8")
+            if result.returncode:
+                raise RuntimeError(result.stdout)
+            report["nativeSdlBuild"] = True
             result = subprocess.run([args.dotnet, "build", "tests/Confectory.Verification/Confectory.Verification.csproj", "-c", "Release",
                 "-p:EngineTargetFramework=net10.0", "-p:UseSharedCompilation=false", "-m:1", "--disable-build-servers", "--nologo"], cwd=isolated,
                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT, encoding="utf-8", errors="replace")

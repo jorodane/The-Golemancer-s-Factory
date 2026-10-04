@@ -36,6 +36,17 @@ public sealed class EngineSdk
                     else if (extension == ".dll") throw new FileNotFoundException("Engine build did not produce its SDK.", source);
                 }
             var declaration = PackCompiler.ReadXml(Path.Combine(Root, "ConfectoryEngine.xml")).Root!;
+            foreach (string id in project.EngineLibraries.Distinct(StringComparer.Ordinal))
+            {
+                var library = declaration.Elements("Library").SingleOrDefault(e => (string?)e.Attribute("id") == id)
+                    ?? throw new InvalidDataException("The selected engine does not supply library: " + id);
+                if ((string?)library.Attribute("framework") != framework) continue;
+                string path = PackCompiler.SafePath(Root, WorkspaceProject.Required(library, "project"));
+                await Build(path, framework, dotnet, output, cancellation).ConfigureAwait(false);
+                string assembly = WorkspaceProject.Required(library, "assembly");
+                if (assembly.IndexOfAny(new[] { '/', '\\' }) >= 0) throw new InvalidDataException("Invalid SDK assembly name.");
+                Copy(Path.Combine(Path.GetDirectoryName(path)!, "bin", "Release", framework, assembly + ".dll"), Path.Combine(sdk, assembly + ".dll"));
+            }
             foreach (var dependency in project.EnginePacks)
             {
                 var pack = declaration.Elements("Pack").SingleOrDefault(e => (string?)e.Attribute("id") == dependency.Key)

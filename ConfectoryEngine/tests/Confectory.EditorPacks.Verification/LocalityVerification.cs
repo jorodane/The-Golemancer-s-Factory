@@ -32,6 +32,11 @@ internal static class LocalityVerification
             session.Locality.Reset();
             _ = data.ReadElement("concept-object:o0");
             check(session.Locality.GlobalRebuilds == 0 && session.Locality.LocatorDocumentsRead == 0, "element reads do not trigger global observations or a workspace rebuild");
+            session.Locality.Reset(); session.Select("concept-object:o0");
+            session.State.Requests.Add(new() { Id = "local-inspection" });
+            _ = session.InspectForAssistant("local-inspection", "concept-object:o0");
+            session.Open("Packs/p0/objects.xml");
+            check(session.Locality.GlobalRebuilds == 0 && session.Locality.PacksRead.SetEquals(new[] { "p0" }), "native ObjectEditor selection, AI inspection and document open retain owner locality");
             string view = "Packs/p0/views.xml"; var schemaIndex = session.SemanticIndex("p0").Document("Packs/p0/objects.xml");
             _ = session.SemanticIndex("p0").Document(view); session.Locality.Reset();
             File.AppendAllText(Path.Combine(root, view), "\n"); session.InvalidateDocuments(new[] { view });

@@ -4,6 +4,7 @@
     <UseGameRuntime>true</UseGameRuntime><PublishTrimmed>false</PublishTrimmed><PublishAot>false</PublishAot>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="Confectory.Platform.Sdl"><HintPath>$(ConfectorySdkDirectory)/Confectory.Platform.Sdl.dll</HintPath><Private>true</Private></Reference>
     <ProjectReference Include="../Golemancer.Presentation/Golemancer.Presentation.csproj" />
     <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="3.119.4" />
   </ItemGroup>

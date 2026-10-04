@@ -1,3 +1,4 @@
 <ConfectoryEngine version="1" name="Confectory">
   <Pack id="engine.ui.button" project="packs/Ui.Button/Confectory.Ui.Button.csproj" />
+  <Library id="platform.sdl" project="src/Confectory.Platform.Sdl/Confectory.Platform.Sdl.csproj" assembly="Confectory.Platform.Sdl" framework="net10.0" />
 </ConfectoryEngine>

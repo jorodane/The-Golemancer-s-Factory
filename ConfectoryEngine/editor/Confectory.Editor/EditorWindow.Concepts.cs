@@ -248,9 +248,8 @@ public sealed partial class EditorWindow
                 }
                 foreach (var item in values)
                 {
-                    string reference = binding.Icon.Length == 0 ? item.Text : item.Members.TryGetValue(binding.Icon, out var icon) ? icon.Text : "";
-                    var target = Space.Objects.FirstOrDefault(o => o.Id == reference); string path = target?.Icon is { Length: > 0 } source ? session!.Project.Resolve(source) : "";
-                    var content = new StackPanel(); content.Children.Add(ProjectIcon(path, 52)); content.Children.Add(Label(target is null ? "객체 선택" : Space.DisplayName(target), 10)); if (binding.Quantity.Length > 0 && item.Members.TryGetValue(binding.Quantity, out var quantity)) content.Children.Add(Label(quantity.Text, 12));
+                    var slot = ConceptEditor.Slot(binding, item); string path = slot.Icon.Length > 0 ? session!.Project.Resolve(slot.Icon) : "";
+                    var content = new StackPanel(); content.Children.Add(ProjectIcon(path, 52)); content.Children.Add(Label(slot.Title, 10)); if (slot.Quantity.Length > 0) content.Children.Add(Label(slot.Quantity, 12));
                     var button = BareButton(content, () => Edit(item)); button.Margin = new Thickness(6); panel.Children.Add(button);
                 }
                 if (resolved.Field.Multiple) panel.Children.Add(BareButton(Label("+", 26), () => { var item = ConceptSpace.Default(resolved.Field, true); container.Items.Add(item); if (SaveSpace()) { Render(); Edit(item); } }));

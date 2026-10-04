@@ -188,7 +188,7 @@ public sealed partial class EditorSession
         State = File.Exists(path) ? JsonSerializer.Deserialize<EditorState>(File.ReadAllText(path), Json) ?? new() : new();
         if (State.Version != 1) throw new InvalidDataException("Unsupported editor state version.");
         Collaboration = new(StateDirectory);
-        foreach (string file in State.OpenFiles.ToArray()) if (Index.TextFiles.ContainsKey(file) && File.Exists(Project.Resolve(file)))
+        foreach (string file in State.OpenFiles.ToArray()) if (DeclaredDocument(file, out _, out _) && File.Exists(Project.Resolve(file)))
         {
             var doc = Open(file, false); var draft = State.Drafts.SingleOrDefault(d => d.Path == file);
             if (draft is not null) { doc.Text = draft.Text; doc.Original = draft.Original; doc.Baseline = draft.Baseline; }
@@ -213,7 +213,7 @@ public sealed partial class EditorSession
     }
     public void Select(string key)
     {
-        if (!Index.Nodes.ContainsKey(key)) throw new InvalidDataException("Unknown selection: " + key);
+        if (FindNode(key) is null) throw new InvalidDataException("Unknown selection: " + key);
         State.Selection = key;
         if (State.Trail.LastOrDefault() != key) State.Trail.Add(key);
         if (State.Trail.Count > 100) State.Trail.RemoveAt(0); Persist();
@@ -221,7 +221,7 @@ public sealed partial class EditorSession
     public OpenDocument Open(string path, bool persist = true)
     {
         path = Project.Relative(Project.Resolve(path));
-        if (!Index.TextFiles.ContainsKey(path)) throw new InvalidDataException("File is not declared in this project: " + path);
+        if (!DeclaredDocument(path, out _, out _)) throw new InvalidDataException("File is not declared in this project: " + path);
         var existing = Documents.SingleOrDefault(d => d.Path == path); if (existing is not null) return existing;
         byte[] bytes = ReadBytes(path);
         string text = Decode(bytes);
@@ -361,7 +361,10 @@ public sealed partial class EditorSession
     public string InspectForAssistant(string requestId, string key)
     {
         if (!State.Requests.Any(r => r.Id == requestId)) throw new InvalidDataException("Unknown context request.");
-        Refresh(); string content = Serialize(Index.Inspect(key));
+        var node = FindNode(key) ?? throw new InvalidDataException("Unknown node: " + key);
+        string content = Serialize(node.Kind is "widget" or "view" or "pack" ? Index.Inspect(key)
+            : node.Kind == "file" ? new { Scope = "declared-document", Node = node }
+            : new { Scope = "owner-document", Inspection = SemanticIndex(node.Pack).Document(node.File).Inspect(key), IncomingScope = "owner-document; use explicit workspace index for project-wide impact" });
         State.Reads.Add(new() { Request = requestId, Path = "contract:" + key, Hash = WorkspaceProject.HashText(content), TimeUtc = DateTime.UtcNow.ToString("O"), Characters = content.Length });
         if (State.Reads.Count > 200) State.Reads.RemoveAt(0); Persist(); return content;
     }

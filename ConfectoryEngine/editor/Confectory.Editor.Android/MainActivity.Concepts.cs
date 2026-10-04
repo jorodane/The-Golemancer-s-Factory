@@ -261,9 +261,9 @@ public sealed partial class MainActivity
                 }
                 foreach (var item in resolved.Field.Multiple ? container.Items : new List<ConceptValue> { container })
                 {
-                    string reference = binding.Icon.Length == 0 ? item.Text : item.Members.TryGetValue(binding.Icon, out var icon) ? icon.Text : ""; var obj = MobileSpace.Objects.FirstOrDefault(o => o.Id == reference);
-                    var slot = new LinearLayout(this) { Orientation = Orientation.Vertical }; slot.SetPadding(Dp(6), Dp(6), Dp(6), Dp(6)); slot.AddView(MobileProjectIcon(obj?.Icon is { Length: > 0 } path ? studioSession.Project.Resolve(path) : "", 52)); slot.AddView(HomeLabel(obj is null ? "객체 선택" : MobileSpace.DisplayName(obj), 10));
-                    if (binding.Quantity.Length > 0 && item.Members.TryGetValue(binding.Quantity, out var quantity)) slot.AddView(HomeLabel(quantity.Text, 12)); slot.Click += (_, _) => Edit(item); body.AddView(slot);
+                    var presentation = ConceptEditor.Slot(binding, item);
+                    var slot = new LinearLayout(this) { Orientation = Orientation.Vertical }; slot.SetPadding(Dp(6), Dp(6), Dp(6), Dp(6)); slot.AddView(MobileProjectIcon(presentation.Icon.Length > 0 ? studioSession.Project.Resolve(presentation.Icon) : "", 52)); slot.AddView(HomeLabel(presentation.Title, 10));
+                    if (presentation.Quantity.Length > 0) slot.AddView(HomeLabel(presentation.Quantity, 12)); slot.Click += (_, _) => Edit(item); body.AddView(slot);
                 }
                 if (resolved.Field.Multiple) body.AddView(AiAction("+", () => { var item = ConceptSpace.Default(resolved.Field, true); container.Items.Add(item); if (SaveMobileSpace()) { Render(); Edit(item); } }));
             }

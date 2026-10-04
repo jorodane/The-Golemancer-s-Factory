@@ -41,6 +41,14 @@ public sealed class ConceptEditorController
     public (string Id, string Title)[] Choices(ConceptField field) => new[] { ("", "비워 두기") }.Concat(field.Kind == "function"
         ? Space.Matching(field).Select(i => (i.Id, i.Name + " · " + Space.Address(i)))
         : Space.Choices(field.Type).Select(o => (o.Id, Mark(o.Concept) + " " + Space.DisplayName(o) + " · " + Space.Pack(o.Pack).Name))).ToArray();
+    public (string Title, string Icon, string Quantity) Slot(ConceptViewField binding, ConceptValue value)
+    {
+        string reference = binding.Icon.Length == 0 ? value.Text : value.Members.TryGetValue(binding.Icon, out var icon) ? icon.Text : "";
+        ConceptObject? target = null;
+        if (reference.Length > 0 && session.Locator.Find("concept-object:" + reference) is not null) target = Space.Object(reference);
+        return (target is null ? "객체 선택" : Space.DisplayName(target), target?.Icon ?? "",
+            binding.Quantity.Length > 0 && value.Members.TryGetValue(binding.Quantity, out var quantity) ? quantity.Text : "");
+    }
     public string Caption(ConceptField field, ConceptValue value)
     {
         if (value.Text.Length > 0)

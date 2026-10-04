@@ -43,6 +43,7 @@ public sealed class WorkspaceProject
     public string Schema { get; private set; } = "";
     public string DefaultTarget { get; private set; } = "";
     public List<string> Contracts { get; } = [];
+    public List<string> EngineLibraries { get; } = [];
     public List<ProjectTarget> Targets { get; } = [];
     public Dictionary<string, PackSource> Sources { get; } = new(StringComparer.Ordinal);
     public string Identity => Hash(Encoding.UTF8.GetBytes(Manifest));
@@ -77,6 +78,7 @@ public sealed class WorkspaceProject
             Packs = Required(xml, "packs"), Schema = (string?)xml.Attribute("schema") ?? "", DefaultTarget = Required(xml, "defaultTarget") };
         if (!Directory.Exists(project.Resolve(project.Packs))) throw new DirectoryNotFoundException("Project pack directory is missing.");
         if (project.Schema.Length > 0) project.Resolve(project.Schema);
+        project.EngineLibraries.AddRange(xml.Elements("EngineLibrary").Select(e => Required(e, "id")));
         foreach (var e in xml.Elements("EnginePack"))
         {
             string directory = Required(e, "directory"); project.Resolve(directory);

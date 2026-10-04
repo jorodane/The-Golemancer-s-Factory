@@ -25,12 +25,14 @@ internal static class ConceptLocalityVerification
             session.Locality.Reset(); view.Layout = "table"; space.Save(session);
             check(session.Locality.DocumentsWritten == 1 && session.Locality.DocumentsParsed == 0 && session.Locality.GlobalRebuilds == 0,
                 "a View edit saves one document without schema/object or foreign parsing at size " + size);
+            Console.WriteLine($"VIEW_LOCALITY_SIZE={size} PACKS={session.Locality.PacksRead.Count} PARSED={session.Locality.DocumentsParsed} HASHED={session.Locality.DocumentsHashed} WRITTEN={session.Locality.DocumentsWritten} GLOBAL={session.Locality.GlobalRebuilds}");
             check(schema == File.ReadAllText(Path.Combine(root, "Packs/p0/schema.xml")) && objects == File.ReadAllText(Path.Combine(root, "Packs/p0/objects.xml")), "View edits preserve untouched layer bytes");
             session.Locality.Reset(); var concept = space.Concept("c0"); concept.Name = "Renamed"; space.Save(session);
             check(session.Locality.PacksRead.All(p => p == "p0") && session.Locality.GlobalRebuilds == 0, "a Concept edit resolves and validates only its owner at size " + size);
             Console.WriteLine($"CONCEPT_LOCALITY_SIZE={size} LOCALITY_PACKS_READ={session.Locality.PacksRead.Count} LOCALITY_DOCUMENTS_PARSED={session.Locality.DocumentsParsed} LOCALITY_DOCUMENTS_WRITTEN={session.Locality.DocumentsWritten} LOCALITY_GLOBAL_REBUILDS={session.Locality.GlobalRebuilds}");
             session.Locality.Reset(); concept.Name = "Renamed again"; Console.WriteLine("CONCEPT_CHANGED_PATHS=" + string.Join(",", space.ProposeSave().Select(p => p.Path))); space.Save(session);
             check(session.Locality.DocumentsWritten == 1 && session.Locality.GlobalRebuilds == 0, "after registration normalization a Concept edit writes only its schema layer");
+            Console.WriteLine($"NORMALIZED_CONCEPT_LOCALITY_SIZE={size} PACKS={session.Locality.PacksRead.Count} PARSED={session.Locality.DocumentsParsed} HASHED={session.Locality.DocumentsHashed} WRITTEN={session.Locality.DocumentsWritten} GLOBAL={session.Locality.GlobalRebuilds}");
             check(ConceptSpace.Open(session).Concept("c0").Name == "Renamed again", "self-registered semantic layers round-trip without central-only ownership");
         }
     }

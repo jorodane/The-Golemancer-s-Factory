@@ -37,7 +37,7 @@ assert 'Golemancer' not in result.stdout + result.stderr
 print('PASS: no project argument only displays usage', flush=True)
 for area in ('src', 'editor', 'packs'):
     for project in (engine / area).rglob('*.csproj'):
-        if {'obj', 'bin'} & set(project.parts):
+        if {'obj', 'bin', 'builds', 'testresults'} & {part.lower() for part in project.relative_to(engine).parts}:
             continue
         for item in ET.parse(project).iter('ProjectReference'):
             for reference in item.get('Include', '').split(';'):

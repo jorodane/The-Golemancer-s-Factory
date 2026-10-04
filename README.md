@@ -31,3 +31,8 @@ The selected engine builds its SDK into its own `Builds/SDK/<framework>` and sup
 `PackEngine.*` has been renamed to `Confectory.*` throughout source, assemblies, providers and tool names. Rebuild the editor and project packs together; old generated DLLs are not source inputs.
 
 See [layout and build contract](ConfectoryEngine/docs/PROJECT_LAYOUT.md) and [game controls](ConfectoryProjects/Golemancer/README.md).
+
+The native Linux editor is built with `ConfectoryEngine/BuildEditorLinux.sh`
+(`linux-x64` or `linux-arm64`) and launched with
+`ConfectoryEngine/StartEditorLinux.sh --project /path/to/Project.packproject`.
+See [Linux editor build and native verification](ConfectoryEngine/docs/LINUX_EDITOR.md).

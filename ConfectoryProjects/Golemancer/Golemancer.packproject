@@ -2,6 +2,7 @@
 <EngineProject version="1" id="golemancer" name="The Golemancer’s Factory" packs="Content/Packs" schema="editor-schema.xml" defaultTarget="windows" engineSdk="true">
   <Contract path="docs/CONTRACTS.md" />
   <Contract path="docs/UI_CONTRACTS.md" />
+  <EngineLibrary id="platform.sdl" />
   <EnginePack id="engine.ui.button" directory="Content/Packs/01.EngineButton" />
   <Pack id="foundation">
     <Source project="modules/Golemancer.Conditions/Golemancer.Conditions.csproj" />
