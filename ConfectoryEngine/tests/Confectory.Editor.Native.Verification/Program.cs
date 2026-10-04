@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using Confectory.Contracts.UI;
 using Confectory.Editor;
@@ -35,6 +36,15 @@ internal static class Program
     {
         var source = PresentationSource.FromVisual(target) ?? throw new Exception("Control is not attached to a native window.");
         target.RaiseEvent(new KeyEventArgs(Keyboard.PrimaryDevice, source, Environment.TickCount, key) { RoutedEvent = Keyboard.PreviewKeyDownEvent });
+    }
+    private static void CaptureHome(Window window, string engineRoot)
+    {
+        window.UpdateLayout();
+        var bitmap = new RenderTargetBitmap((int)Math.Ceiling(window.ActualWidth), (int)Math.Ceiling(window.ActualHeight), 96, 96, PixelFormats.Pbgra32);
+        bitmap.Render(window);
+        var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(bitmap));
+        string directory = System.IO.Path.Combine(engineRoot, "TestResults", "native"); System.IO.Directory.CreateDirectory(directory);
+        using var output = System.IO.File.Create(System.IO.Path.Combine(directory, "project-home.png")); encoder.Save(output);
     }
     [STAThread]
     private static int Main(string[] args)
@@ -72,6 +82,7 @@ internal static class Program
             Check(Field<Grid>(window, "studioRoot").IsEnabled && home.HorizontalAlignment == HorizontalAlignment.Left
                 && Descendants(home).OfType<Image>().Any(i => i.Source is DrawingImage && i.IsVisible && i.Opacity == 1),
                 "resized home restores interaction and shows the left aligned brand without overlay leftovers");
+            if (args.Length > 0) CaptureHome(window, args[0]);
             var slots = Descendants(home).OfType<System.Windows.Controls.Primitives.UniformGrid>().Single();
             Check(slots.Columns == 2 && slots.Children[0] is Button && Descendants(slots.Children[0]).OfType<TextBlock>().Any(t => t.Text == "새 프로젝트 만들기")
                 && Descendants(slots.Children[0]).OfType<System.Windows.Shapes.Rectangle>().Any(r => r.StrokeDashArray?.Count > 0), "native home reserves the first of two columns for a dashed new-project slot");
