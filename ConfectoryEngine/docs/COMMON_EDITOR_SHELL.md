@@ -6,10 +6,17 @@
 > are historical evidence, not authorization to continue the superseded UI.
 
 
+> Latest accepted UI/context specification: [FINAL_UI_CONTEXT.md](FINAL_UI_CONTEXT.md),
+> read in full from the user's finalized 798-line document. Apply only remaining
+> deltas. It supersedes the historical review-only layout/YogiBox cautions below.
+> Helper chat must work without a project and must never auto-open one. Esc and
+> whole-box × discard only the current YogiBox draft; delivered history remains.
+
+
 ## Current resume checkpoint
 
-Verified regression checkpoint: `07843fae155df59a0b34104348cc1e006063bccc`.
-All five jobs passed in [CI 37221878091](https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37221878091).
+Verified shared execution foundation: `5d44a90793687b2e52edab5a3d498ef38fe3df37`.
+All five jobs passed in [CI 37222489660](https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37222489660).
 Workspace roles/Join/names, participant lifecycle/settings, Agent management,
 portraits/sidebar and saved-source connection actions are installed CoreTools
 checkpoints. This does **not** complete Helper conversation/supervision migration.
@@ -1401,3 +1408,132 @@ selected file application and before each subsequent command/retry. Revocation
 while a human review is pending must fail before writing, not merely report a
 failure after applying. An injected revocation test verifies that the previous
 applied-count stays unchanged and the useful answer is retained.
+
+Shared execution commit `5d44a90793687b2e52edab5a3d498ef38fe3df37` matches remote
+main and passes all five jobs in [CI 37222489660](https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37222489660).
+The next local work adds installed `HelperTimelines`, with a private versioned
+Helper/project/owner envelope and storage compare-before-write boundary. The
+execution object and timeline controller belong to the project, while views will
+subscribe/unsubscribe independently. Timeline tests are in progress; native
+conversation adapters and common view definitions are still pending. Keep both
+recovery stashes until this replacement is fully verified. No paid AI/auth or
+production credential write has been performed.
+
+Historical steering before the finalized specification below: the consent/provider-switch lock remains
+unreproduced, even though injected native recovery checks pass. Other-Chat layout
+sketches are review-only. A possible removal of the standalone stored YogiBox
+vault/menu has **not** been authorized here. Reconcile that direction with the
+parent before migrating the storage/menu UI; preserve historical boxes/messages
+and temporary context transport. Continue independent conversation adapters.
+The later finalized specification explicitly authorizes the layout and temporary
+YogiBox changes; this earlier restriction no longer controls remaining work.
+
+Local timeline/controller checks passed **1,751**, then **1,763** with the first
+common conversation view mounted through all three portable backend variants.
+Current edits preserve the existing question/answer navigation composition in a
+shared definition. An editor-only bubble radius is interpreted by the three
+native backends; existing readonly widgets keep their old defaults. SDL horizontal
+stacks now honor explicit child widths instead of dividing fixed-width bubble
+and arrow elements into equal cells. These latest layout adapter edits are being
+reverified. They are not adoption of the external layout sketches.
+
+The timeline owns drafts, current exchange, request routing/cancellation, receipt
+selection, private-history policy/identity/serialization and recovery. Views can
+be disposed and remounted without cancelling execution. Unknown versions stay
+untouched; failed writes retain new in-memory results; compare-before-write rejects
+unseen storage replacement. Foreign ownership immediately removes private drafts,
+questions and image lookup. Old native histories remain untouched; their readonly
+recovery UI still needs integration. The view includes temporary attachment
+inspection/removal only, without changing any stored YogiBox service/menu.
+
+Remaining before this checkpoint can replace native conversations: connect project
+lifetime execution/history services and common character views on Windows/Android/
+Linux; preserve native review/incident/Yogi queues and legacy-history recovery;
+update internal Worker visibility/workload and semantic Helper indicators; test
+actual native input, cancellation/reentry/failure and review paths. The current
+native conversation routes remain active while this replacement is incomplete.
+
+Actual SDL integration fixture now mounts the common view against the installed
+Helper execution runtime, real bridge/workspace and an injected provider/storage
+boundary. Native send reaches Helper-authored delivery; close/reentry keeps the
+same pending request; explicit cancel disposes a late provider without globally
+blocking editor input. The fresh-state run passed in 86 seconds, including all
+prior shell/semantic/DLL checks. Generated screenshot was inspected: rounded
+question/answer bubbles and arrow widths are correct. It exposed a too-small text
+box hiding workload dots and left-aligned history dots; current edits give the
+dots sufficient text bounds and center the navigation group. Native bounds checks
+now cover those details. This is a fixture mount, not production adapter completion.
+
+Earlier runs hit the old 90-second timeout while still progressing through prior
+profile/workspace checks. The reused local verification state had accumulated 56
+project entries, including abandoned timeout fixtures. The smoke tool now assigns
+an independent temporary XDG state/cache per invocation, retains stdout/stderr on
+timeout, and allows 180 seconds for the expanded full suite (fresh run measured
+86 seconds). No assertion was removed and no user state is deleted. A WPF fixture
+also now mounts this same common view/runtime and checks readonly bubble scrolling/
+copy, send, close/reentry and late-provider cancellation; compilation/CI pending.
+
+### Finalized UI/context direction accepted during the timeline checkpoint
+
+The full user source is preserved in `FINAL_UI_CONTEXT.md` (all 798 source lines,
+Library `libfile_7eaa25f2febc8191bcc0bc2aa46a14df`). The user finalized the document
+and resolved Esc as whole-draft discard, identical to overall ×. These instructions
+supersede earlier unapproved-sketch and unresolved-YogiBox notes; retain those
+notes only as checkpoint history.
+
+Finish verification/publication of the current project execution/timeline/view
+foundation safely. It is **not** the complete final Helper lifecycle: the new
+project-scoped runtime is for internal Worker execution. Next, separate global
+Helper chat from optional captured project context. No synthetic/hidden project,
+automatic open, provider request on mount, or fallback to an unrelated project is
+acceptable. A Helper can chat with global memory with zero open projects; Workers
+remain explicitly bound to owning Helper, Project and Task. Context captured at
+request time must not drift to another project after exit/switch. Project Chat
+belongs to the active project: Main Helper and humans continuously receive it;
+other Helpers receive it when tagged. Preserve semantic locality and credentials.
+
+Sequence remaining accepted deltas without redoing verified fixes:
+
+1. Global/project-optional Helper lifecycle, global private history/context and
+   native adapters; retain owned legacy-history recovery and existing review/
+   incident execution. Remove Worker-direct/promotion routes with those tested
+   replacements, add Helper workload dots and semantic ownership indicators.
+2. Shared layout/actions: first project-add slot contains new/open side by side;
+   retain verified existing-open validation. Add explicit connection status/retry,
+   creation description visibility/focus and missing-name focus to the existing
+   required-name feedback. Wider collapsible Agent/Helper/Player rail with roughly
+   two rows and count overflow is now authorized. Keep hover/pressed text legible.
+   Project hamburger/exit, lower-right rounded internal grid navigation/mailbox/
+   Run, submenu edge handling, unresolved-count/highest-severity badge, and bottom
+   Project Chat/Logs tabs plus latest meaningful log follow the same pack ownership.
+3. Temporary Yogi compose/seal/drag lifecycle: source previews/navigation, per-item
+   × versus whole-draft ×/Esc, double-click unseal, new-item automatic unseal, empty/
+   invalid-send rejection, and draft clear on project exit. Remove the standalone
+   vault/menu route without purging historical boxes or delivered attachments.
+4. Actual launch → explicitly selected Golemancer open → enter → Run survival
+   coverage, then final native/platform review. No bundled-project inference is
+   allowed in runtime code; the test supplies the consumer path explicitly.
+
+The fresh native diagnostic exposed .NET's fallback to the working directory when
+an XDG directory does not exist. The verification tool now creates both temporary
+XDG directories before launching. The accidentally generated smoke-only `Confectory/`
+state was moved intact outside Git to `/workspace/scratch/helper-smoke-fallback-state-20261004`;
+no user data or historical records were deleted. Python bytecode from syntax
+validation was removed from the repository; no .gitignore changes were made.
+
+Current foundation verification: **1,769 editor-pack checks** pass. The new
+identity-substitution regression pins an open timeline to its original Helper and
+owner, preventing a rebound participant from transferring private questions or
+saving them under another Helper. History-consent changes preserve unsent local
+input while disabling stored-history read/write/context forwarding. Independent
+engine isolation and the full explicitly selected external Golemancer consumer
+campaign pass. Actual SDL verification passes all existing flows plus shared
+conversation send, close/reentry, pending-source cancellation and late-provider
+disposal. Screenshot inspection also caught and corrected clipped history-dot
+glyphs; a second SDL run and inspected screenshot confirm centered visible dots.
+Screenshots and logs remain outside Git under `/workspace/scratch/`. Windows
+net48 source/reference and native-fixture compilation pass with zero warnings or
+errors. Actual WPF execution and Android compilation remain exact-head CI checks;
+no physical Android device, paid model, external authentication or production
+credential storage was exercised. Production conversation adoption and the global
+Helper lifecycle remain the next implementation stage, not completed parity.

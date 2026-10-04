@@ -5,6 +5,23 @@ Worker-direct-chat and Worker-to-Helper promotion direction in earlier shell
 handoffs. It defines acceptance and sequencing; it does not claim that the
 existing runtime already implements the replacement.
 
+## Finalized lifecycle clarification
+
+[FINAL_UI_CONTEXT.md](FINAL_UI_CONTEXT.md) is the latest accepted user specification.
+A Helper is independent of project lifetime: it can chat using global memory with
+no open project. Chat may capture the current project as optional context, but
+opening a chat must never open or switch projects. The project-scoped execution
+and timeline foundations below are internal Worker/project capabilities, not a
+requirement that every Helper chat create a Worker or a project. Global chat must
+use a genuinely project-free context/tool boundary; do not manufacture a hidden
+project to satisfy an API. Preserve semantic locality when a project is present.
+
+Project Chat remains active-project public communication. Main Helper and human
+users continuously receive it; ordinary Helpers receive it when tagged. Worker
+communication remains internal and explicitly Helper/Project/Task bound. Apply
+remaining finalized layout/YogiBox deltas in the staged shell handoff; Esc and
+whole-box × discard the current draft, preserving delivered attachments/history.
+
 ## Identities and authority
 
 - An Agent is a device-owned provider connection. It is not a character, a team,

@@ -4,6 +4,7 @@ import argparse
 import os
 from pathlib import Path
 import subprocess
+import tempfile
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--dotnet', default='dotnet')
@@ -23,7 +24,20 @@ if args.screenshot:
     screenshot = Path(args.screenshot).resolve()
     screenshot.parent.mkdir(parents=True, exist_ok=True)
     command += ['--screenshot', str(screenshot)]
-result = subprocess.run(command, env=env, text=True, capture_output=True, timeout=90)
+# Smoke verification must neither consume nor accumulate the user's native settings.
+with tempfile.TemporaryDirectory(prefix='confectory-linux-smoke-state-') as state:
+    env['XDG_DATA_HOME'] = str(Path(state) / 'data')
+    env['XDG_CACHE_HOME'] = str(Path(state) / 'cache')
+    Path(env['XDG_DATA_HOME']).mkdir()
+    Path(env['XDG_CACHE_HOME']).mkdir()
+    try:
+        result = subprocess.run(command, env=env, text=True, capture_output=True, timeout=180)
+    except subprocess.TimeoutExpired as failure:
+        # Preserve native checkpoint output on timeout instead of losing the failing flow.
+        for captured in (failure.stdout, failure.stderr):
+            if captured:
+                print(captured.decode('utf-8', errors='replace') if isinstance(captured, bytes) else captured, end='', flush=True)
+        raise
 print(result.stdout, end='')
 print(result.stderr, end='')
 if result.returncode or 'LINUX_EDITOR_SMOKE_PASS' not in result.stdout:

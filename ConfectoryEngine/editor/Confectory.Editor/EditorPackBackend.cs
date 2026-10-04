@@ -178,6 +178,7 @@ internal sealed partial class EditorPackBackend(Action<string> point, Func<bool>
                     case "selected": if (control is Tile selectedTile) selectedTile.Select(value.AsBoolean()); else ((Card)control).Select(value.AsBoolean()); break;
                     case "borderStyle": ((Tile)control).Outline.StrokeDashArray = value.Literal == "dashed" ? new DoubleCollection { 5, 5 } : null; break;
                     case "placeholder": ((InlineEditor)control).Placeholder = value.Literal; ((InlineEditor)control).Refresh(); break;
+                    case "cornerRadius": ((ReadOnlyText)control).Round(value.AsNumber()); break;
                     case "multiline": ((InlineEditor)control).Input.AcceptsReturn = value.AsBoolean(); break;
                     case "image": if (control is Image picture) picture.Source = Slot.DecodeImage(value.Literal, 512); else if (control is Portrait portraitImage) portraitImage.SetImage(Slot.DecodeImage(value.Literal)); else ((Slot)control).SetImage(Slot.DecodeImage(value.Literal)); break;
                     case "glyph": ((Slot)control).Glyph.Text = value.Literal; break;
@@ -301,6 +302,16 @@ internal sealed partial class EditorPackBackend(Action<string> point, Func<bool>
     private sealed class ReadOnlyText : TextBox
     {
         public ReadOnlyText() { IsReadOnly = true; AcceptsReturn = true; TextWrapping = TextWrapping.Wrap; Padding = new Thickness(8); Foreground = Brushes.WhiteSmoke; Background = new SolidColorBrush(Color.FromRgb(17, 23, 31)); }
+        public void Round(double radius)
+        {
+            if (radius == 0) { ClearValue(TemplateProperty); return; }
+            var border = new FrameworkElementFactory(typeof(Border)); border.SetValue(Border.CornerRadiusProperty, new CornerRadius(radius));
+            border.SetBinding(Border.BackgroundProperty, new System.Windows.Data.Binding("Background") { RelativeSource = new(System.Windows.Data.RelativeSourceMode.TemplatedParent) });
+            border.SetBinding(Border.PaddingProperty, new System.Windows.Data.Binding("Padding") { RelativeSource = new(System.Windows.Data.RelativeSourceMode.TemplatedParent) });
+            var scroll = new FrameworkElementFactory(typeof(ScrollViewer), "PART_ContentHost"); scroll.SetValue(ScrollViewer.VerticalScrollBarVisibilityProperty, ScrollBarVisibility.Auto); border.AppendChild(scroll);
+            Template = new ControlTemplate(typeof(TextBox)) { VisualTree = border };
+        }
+
     }
     private sealed class InlineEditor : Grid
     {

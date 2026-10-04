@@ -239,6 +239,7 @@ internal static class LiveViewVerification
                 }
                 SupervisionVerification.Run(presentation, creationRoot, platform, Check, Reject);
                 HelperExecutionVerification.Run(presentation, creationRoot, platform, Check, Reject);
+                HelperTimelineVerification.Run(presentation, new Backend(platform), creationRoot, platform, Check, Reject);
                 HelperRequestVerification.Run(presentation, creationRoot, platform, Check, Reject);
                 AgentRecoveryVerification.Run(presentation, new Backend(platform), platform, Check);
                 SavedAgentVerification.Run(presentation, platform, Check, Reject);

@@ -6,6 +6,7 @@
   <Widget id="editor.input" extends="editor.text"><Event name="changed" payload="text" /><Renderer platform="*" key="editor.input" /></Widget>
   <Widget id="editor.inline" extends="editor.input"><Event name="committed" payload="text" /><Property name="placeholder" type="text" default="" /><Property name="multiline" type="boolean" default="false" /><Renderer platform="*" key="editor.inline" /></Widget>
   <Widget id="editor.readonly" extends="editor.text"><Renderer platform="*" key="editor.readonly" /></Widget>
+  <Widget id="editor.bubble" extends="editor.readonly"><Property name="cornerRadius" type="number" default="16" min="0" max="64" /><Renderer platform="*" key="editor.readonly" /></Widget>
   <Widget id="editor.secret" extends="editor.element"><Property name="clearRevision" type="number" default="0" min="0" max="1000000" /><Event name="changed" payload="text" /><Renderer platform="*" key="editor.secret" /></Widget>
   <Widget id="editor.card" extends="editor.stack"><Property name="selected" type="boolean" default="false" /><Event name="activate" payload="none" /><Renderer platform="*" key="editor.card" /></Widget>
   <Widget id="editor.wrap" extends="editor.stack"><Renderer platform="*" key="editor.wrap" /></Widget>
@@ -231,5 +232,42 @@
     <Node id="agent-management-agents" order="20" widget="editor.stack"><Slot name="children" export="true" /></Node>
     <Node id="agent-management-note" order="30" widget="editor.text"><Bind property="text" source="studio.management.note" /></Node>
     <Node id="agent-management-close" order="40" widget="editor.button"><Set property="text" value="닫기" /><On event="activate" command="studio.management.close" /></Node>
+  </Slot></Node></View>
+  <View id="editor.studio.helper-conversation"><Node id="helper-conversation" widget="editor.stack"><Layout size="320,0" /><Set property="margin" value="0" /><Bind property="visible" source="studio.helper.visible" /><Slot name="children">
+    <Node id="helper-close-row" order="0" widget="editor.stack"><Set property="orientation" value="horizontal" /><Set property="margin" value="0" /><Slot name="children">
+      <Node id="helper-close-space" widget="editor.text"><Layout size="294,30" /><Set property="margin" value="0" /></Node>
+      <Node id="helper-close" order="10" widget="editor.button"><Layout size="26,30" /><Set property="margin" value="0" /><Set property="text" value="×" /><Set property="appearance" value="quiet" /><On event="activate" command="studio.helper.close" /></Node>
+    </Slot></Node>
+    <Node id="helper-question-row" order="10" widget="editor.stack"><Set property="orientation" value="horizontal" /><Set property="margin" value="0" /><Slot name="children">
+      <Node id="helper-question-space" widget="editor.text"><Layout size="28,70" /><Set property="margin" value="0" /></Node>
+    <Node id="helper-question" order="10" widget="editor.bubble"><Layout size="284,70" /><Set property="margin" value="0" /><Set property="cornerRadius" value="16" /><Set property="background" value="#D6D9DE" /><Set property="foreground" value="#202733" /><Bind property="text" source="studio.helper.question" /></Node>
+    </Slot></Node>
+    <Node id="helper-question-gap" order="15" widget="editor.text"><Layout size="0,8" /><Set property="margin" value="0" /></Node>
+    <Node id="helper-answer-row" order="20" widget="editor.stack"><Set property="orientation" value="horizontal" /><Set property="margin" value="0" /><Slot name="children">
+      <Node id="helper-previous" order="0" widget="editor.button"><Layout size="26,154" /><Set property="margin" value="0" /><Set property="appearance" value="quiet" /><Set property="text" value="◀" /><Bind property="enabled" source="studio.helper.previous" /><On event="activate" command="studio.helper.previous" /></Node>
+      <Node id="helper-answer" order="10" widget="editor.bubble"><Layout size="268,154" /><Set property="margin" value="0" /><Set property="cornerRadius" value="18" /><Set property="background" value="#F8DA79" /><Set property="foreground" value="#302914" /><Bind property="text" source="studio.helper.answer" /></Node>
+      <Node id="helper-next" order="20" widget="editor.button"><Layout size="26,154" /><Set property="margin" value="0" /><Set property="appearance" value="quiet" /><Bind property="text" source="studio.helper.nextLabel" /><Bind property="enabled" source="studio.helper.next" /><On event="activate" command="studio.helper.next" /></Node>
+    </Slot></Node>
+    <Node id="helper-dots" order="30" widget="editor.wrap"><Layout size="0,30" /><Set property="alignment" value="center" /><Slot name="children" export="true" /></Node>
+    <Node id="helper-yogi" order="40" widget="editor.button"><Bind property="text" source="studio.helper.yogi" /><Bind property="visible" source="studio.helper.hasYogi" /><On event="activate" command="studio.helper.yogi" /></Node>
+    <Node id="helper-character" order="50" widget="editor.stack"><Layout size="100,100" /><Set property="alignment" value="center" /><Slot name="children">
+      <Node id="helper-character-image" widget="editor.image"><Layout size="100,100" /><Set property="margin" value="0" /><Bind property="image" source="studio.helper.image" /><Bind property="visible" source="studio.helper.hasImage" /></Node>
+      <Node id="helper-character-glyph" order="10" widget="editor.text"><Layout size="100,100" /><Set property="margin" value="0" /><Set property="text" value="◇" /><Set property="fontSize" value="48" /><Set property="alignment" value="center" /><Bind property="visible" source="studio.helper.noImage" /></Node>
+    </Slot></Node>
+    <Node id="helper-caption" order="60" widget="editor.text"><Bind property="text" source="studio.helper.caption" /><Set property="alignment" value="center" /></Node>
+    <Node id="helper-count" order="70" widget="editor.text"><Bind property="text" source="studio.helper.count" /><Bind property="visible" source="studio.helper.owned" /><Set property="alignment" value="center" /></Node>
+    <Node id="helper-workload" order="80" widget="editor.wrap"><Set property="alignment" value="center" /><Bind property="visible" source="studio.helper.owned" /><Slot name="children" export="true" /></Node>
+    <Node id="helper-composer" order="90" widget="editor.stack"><Bind property="visible" source="studio.helper.owned" /><Slot name="children">
+      <Node id="helper-input" order="0" widget="editor.inline"><Layout size="0,54" /><Set property="multiline" value="true" /><Set property="placeholder" value="Helper에게 요청하기" /><Set property="background" value="#11171F" /><Bind property="text" source="studio.helper.draft" /><On event="changed" command="studio.helper.draft" /></Node>
+      <Node id="helper-pending-yogi" order="10" widget="editor.button"><Bind property="text" source="studio.helper.pendingYogi" /><Bind property="visible" source="studio.helper.hasPendingYogi" /><On event="activate" command="studio.helper.clearYogi" /></Node>
+      <Node id="helper-send" order="20" widget="editor.button"><Set property="text" value="보내기" /><On event="activate" command="studio.helper.send" /></Node>
+      <Node id="helper-cancel" order="30" widget="editor.button"><Set property="text" value="선택한 요청 중단" /><Bind property="enabled" source="studio.helper.running" /><On event="activate" command="studio.helper.cancel" /></Node>
+    </Slot></Node>
+    <Node id="helper-public" order="100" widget="editor.button"><Set property="text" value="프로젝트에서 대화" /><Bind property="visible" source="studio.helper.foreign" /><On event="activate" command="studio.helper.public" /></Node>
+    <Node id="helper-history" order="110" widget="editor.button"><Set property="text" value="기록" /><On event="activate" command="studio.helper.history" /></Node>
+    <Node id="helper-transcript" order="120" widget="editor.readonly"><Layout size="0,240" /><Bind property="visible" source="studio.helper.historyVisible" /><Bind property="text" source="studio.helper.history" /></Node>
+    <Node id="helper-notice" order="130" widget="editor.text"><Set property="foreground" value="#E35561" /><Bind property="text" source="studio.helper.notice" /></Node>
+    <Node id="helper-retry-save" order="140" widget="editor.button"><Set property="text" value="기록 저장 다시 시도" /><Bind property="visible" source="studio.helper.recovery" /><On event="activate" command="studio.helper.retry" /></Node>
+    <Node id="helper-reload-history" order="150" widget="editor.button"><Set property="text" value="복구한 기록 다시 불러오기" /><Bind property="visible" source="studio.helper.recovery" /><On event="activate" command="studio.helper.reload" /></Node>
   </Slot></Node></View>
 </Ui>

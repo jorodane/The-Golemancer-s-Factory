@@ -178,7 +178,7 @@ internal sealed partial class AndroidPackBackend(Context context, string viewId 
                         if (native is TextView alignedText) alignedText.Gravity = value.Literal == "center" ? GravityFlags.Center : GravityFlags.Start | GravityFlags.CenterVertical;
                         if (wrapper.LayoutParameters is LinearLayout.LayoutParams aligned) { aligned.Gravity = value.Literal == "center" ? GravityFlags.CenterHorizontal : GravityFlags.Start; wrapper.LayoutParameters = aligned; } break;
                     case "foreground": if (native is Button && appearance.TryGetValue("appearance", out var fgStyle) && fgStyle != "standard") break; if (value.Literal.Length > 0 && native is TextView coloredText) coloredText.SetTextColor(global::Android.Graphics.Color.ParseColor(value.Literal)); break;
-                    case "background": if (native is Button && appearance.TryGetValue("appearance", out var bgStyle) && bgStyle != "standard") break; if (value.Literal.Length > 0) native.SetBackgroundColor(value.Literal == "transparent" ? global::Android.Graphics.Color.Transparent : global::Android.Graphics.Color.ParseColor(value.Literal)); break;
+                    case "background": if (native is ReadOnlyText readOnly && value.Literal.Length > 0) { readOnly.Fill(value.Literal); break; } if (native is Button && appearance.TryGetValue("appearance", out var bgStyle) && bgStyle != "standard") break; if (value.Literal.Length > 0) native.SetBackgroundColor(value.Literal == "transparent" ? global::Android.Graphics.Color.Transparent : global::Android.Graphics.Color.ParseColor(value.Literal)); break;
                     case "enabled": native.Enabled = value.AsBoolean(); wrapper.Enabled = native.Enabled; if (native is InlineEditor enabledInline) enabledInline.Input.Enabled = native.Enabled; break;
                     case "visible": wrapper.Visibility = value.AsBoolean() ? ViewStates.Visible : ViewStates.Gone; break;
                     case "tooltip": native.TooltipText = value.Literal; break;
@@ -186,6 +186,7 @@ internal sealed partial class AndroidPackBackend(Context context, string viewId 
                     case "borderStyle": var outline = new global::Android.Graphics.Drawables.GradientDrawable(); outline.SetColor(global::Android.Graphics.Color.Transparent); outline.SetCornerRadius(dp(12)); if (value.Literal == "dashed") outline.SetStroke(dp(1), global::Android.Graphics.Color.Rgb(148, 165, 183), dp(5), dp(5)); else outline.SetStroke(dp(1), global::Android.Graphics.Color.Rgb(148, 165, 183)); native.Background = outline; break;
                     case "selected": ((Card)native).Select(value.AsBoolean()); break;
                     case "placeholder": ((InlineEditor)native).Placeholder = value.Literal; ((InlineEditor)native).Refresh(); break;
+                    case "cornerRadius": ((ReadOnlyText)native).Round((float)value.AsNumber()); break;
                     case "multiline": ((InlineEditor)native).Input.SetSingleLine(!value.AsBoolean()); break;
                     case "margin":
                         var margins = (ViewGroup.MarginLayoutParams)wrapper.LayoutParameters!;
@@ -323,6 +324,11 @@ internal sealed partial class AndroidPackBackend(Context context, string viewId 
     private sealed class ReadOnlyText : EditText
     {
         public ReadOnlyText(Context context) : base(context) { InputType = InputTypes.ClassText | InputTypes.TextFlagMultiLine; KeyListener = null; SetTextIsSelectable(true); ShowSoftInputOnFocus = false; SaveEnabled = false; }
+        private float radius; private global::Android.Graphics.Color fill = global::Android.Graphics.Color.Rgb(17, 23, 31);
+        public void Fill(string value) { fill = value == "transparent" ? global::Android.Graphics.Color.Transparent : global::Android.Graphics.Color.ParseColor(value); ApplyBubble(); }
+        public void Round(float value) { radius = value; ApplyBubble(); }
+        private void ApplyBubble() { var shape = new global::Android.Graphics.Drawables.GradientDrawable(); shape.SetColor(fill); shape.SetCornerRadius(radius * (Resources?.DisplayMetrics?.Density ?? 1)); Background = shape; }
+
     }
     private sealed class InlineEditor : FrameLayout
     {

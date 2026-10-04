@@ -75,7 +75,9 @@ internal sealed partial class EditorSurface
         Check(!homeFlightClock.IsRunning && brandFlight.Count == 0, "Agent startup flight restores home input");
         void Reveal(string id)
         {
+            Console.WriteLine("SDL reveal " + id);
             scroll = 0; native.Paint(); float maximum = Math.Max(0, contentHeight - viewportHeight + 150);
+            Console.WriteLine("SDL scroll extent " + maximum);
             for (float position = 0; position <= maximum + 120; position += 120)
             {
                 scroll = Math.Min(maximum, position); native.Paint(); if (!backend.Bounds(id).IsEmpty && backend.Bounds(id).Height > 15) return;
@@ -285,8 +287,9 @@ internal sealed partial class EditorSurface
         var automaticClock = System.Diagnostics.Stopwatch.StartNew();
         while ((mode == "startup" || homeFlightClock.IsRunning) && automaticClock.ElapsedMilliseconds < 2500) { native.Pump(); Tick(); native.Paint(); Thread.Sleep(5); }
         Check(mode == "home" && studioStartup!.SavedAgent == savedProfile && !homeFlightClock.IsRunning, "saved Agent automatically reaches home with the common motion state and no provider request");
+        VerifyHelperConversation(native, screenshot);
         ShowObjects(concept.Id); status = "Native verification passed · SDL input, semantic save, DLL command and dynamic window"; native.Paint();
-        Console.WriteLine("LINUX_EDITOR_SMOKE_PASS SDL_WINDOW STARTUP AGENT_CONNECTION PRIVATE_INPUT PROFILE PARTICIPANT_NAME SHARED_SIDEBAR WORKSPACE_ROLES JOIN GLOBAL_MEMORY IMAGE_REVIEW READONLY_EXPERIENCE PROJECT_CREATION PROJECT_HOME TEXT_INPUT POINTER SCHEMA_SAVE PACK_DLL DYNAMIC_VIEW");
+        Console.WriteLine("LINUX_EDITOR_SMOKE_PASS SDL_WINDOW STARTUP AGENT_CONNECTION PRIVATE_INPUT PROFILE PARTICIPANT_NAME SHARED_SIDEBAR SHARED_HELPER_CONVERSATION WORKSPACE_ROLES JOIN GLOBAL_MEMORY IMAGE_REVIEW READONLY_EXPERIENCE PROJECT_CREATION PROJECT_HOME TEXT_INPUT POINTER SCHEMA_SAVE PACK_DLL DYNAMIC_VIEW");
     }
     private sealed class VerificationCredentials : IAiCredentialStore
     {

@@ -177,6 +177,7 @@ internal static partial class Program
 
             VerifyAgentRecovery(window);
             VerifySavedAgent(window);
+            VerifyHelperConversation(window);
             var participant = session.Collaboration.Register("worker-native-smoke", "Native worker", ParticipantKind.AI, ParticipantPermission.Talk | ParticipantPermission.Work);
             participant.X = 100; participant.Y = 120; Call(window, "CreateWorker", participant);
             var layer = Field<Canvas>(window, "participantsCanvas"); window.UpdateLayout();

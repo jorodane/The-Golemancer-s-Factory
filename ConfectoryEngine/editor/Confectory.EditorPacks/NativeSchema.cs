@@ -12,7 +12,7 @@ public static class EditorNativeSchema
         "enabled" or "visible" or "wrapText" => UiValue.Boolean(true),
         "selected" or "multiline" or "dashed" => UiValue.Boolean(false),
         "diameter" => UiValue.Number(40), "strokeWidth" => UiValue.Number(1), "rim" => UiValue.Text("#94A5B7"), "badgeInk" => UiValue.Text("#E35561"),
-        "borderStyle" => UiValue.Text("solid"), "columns" => UiValue.Number(2), "fontSize" => UiValue.Number(13), "margin" or "count" or "clearRevision" => UiValue.Number(0),
+        "borderStyle" => UiValue.Text("solid"), "columns" => UiValue.Number(2), "fontSize" => UiValue.Number(13), "margin" or "count" or "clearRevision" or "cornerRadius" => UiValue.Number(0),
         "overflow" => UiValue.Text("clip"), "fontWeight" => UiValue.Text("normal"), "appearance" => UiValue.Text("standard"), "alignment" => UiValue.Text("stretch"), "orientation" => UiValue.Text("vertical"), "tint" => UiValue.Text("#293B4D"),
         _ => UiValue.Text("")
     };
@@ -36,6 +36,7 @@ public static class EditorNativeSchema
         else if (renderer == "editor.slot")
         { foreach (string name in new[] { "image", "glyph", "value", "tint" }) properties.Add(name, UiValueKind.Text); properties.Add("count", UiValueKind.Number); }
         else { properties.Add("text", UiValueKind.Text); properties.Add("wrapText", UiValueKind.Boolean); properties.Add("overflow", UiValueKind.Text); properties.Add("fontWeight", UiValueKind.Text); }
+        if (renderer == "editor.readonly") properties.Add("cornerRadius", UiValueKind.Number);
         if (renderer == "editor.inline") { properties.Add("placeholder", UiValueKind.Text); properties.Add("multiline", UiValueKind.Boolean); }
         if (renderer == "editor.button") foreach (string name in new[] { "appearance", "hoverForeground", "hoverBackground", "pressedBackground" }) properties.Add(name, UiValueKind.Text);
         if (renderer is "editor.card" or "editor.tile") properties.Add("selected", UiValueKind.Boolean);
@@ -70,6 +71,7 @@ public static class EditorNativeSchema
     {
         if (property is "foreground" or "background" or "hoverForeground" or "hoverBackground" or "pressedBackground" or "rim" or "innerRim" or "badgeInk" or "indicator" && value.Literal.Length > 0 && value.Literal != "transparent"
             && (value.Literal.Length != 7 || value.Literal[0] != '#' || value.Literal.Skip(1).Any(c => !Uri.IsHexDigit(c)))) throw new InvalidDataException("Use a #RRGGBB presentation color.");
+        if (property == "cornerRadius" && (value.AsNumber() < 0 || value.AsNumber() > 64)) throw new InvalidDataException("Bubble radius exceeds native bounds.");
         if (property == "diameter" && (value.AsNumber() < 24 || value.AsNumber() > 96) || property == "strokeWidth" && (value.AsNumber() < 1 || value.AsNumber() > 4)) throw new InvalidDataException("Portrait geometry exceeds native bounds.");
         if (property == "symbol" && value.Literal.Length > 128 || property == "badge" && value.Literal.Length > 16) throw new InvalidDataException("Portrait symbol/badge exceeds native bounds.");
         if (property == "appearance" && value.Literal is not ("standard" or "quiet" or "accent")) throw new InvalidDataException("Unknown native button appearance.");

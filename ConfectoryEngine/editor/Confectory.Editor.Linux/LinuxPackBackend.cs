@@ -79,6 +79,8 @@ public sealed partial class LinuxPackBackend(Action invalidate) : IUiBackend, ID
                 canvas.DrawRoundRect(new SKRect(x, y, x + width, y + Math.Max(70, e.Layout.Size.Y > 0 ? (float)e.Layout.Size.Y : e.LastHeight)), 12, 12, pen);
             }
             float rowX = 0, rowHeight = 0;
+            var fixedWidths = children.Select(child => child.Layout.Size.X > 0 ? (float)child.Layout.Size.X + 2 * (float)child.Number("margin") : 0).ToArray();
+            float flexibleWidth = Math.Max(0, width - padding * 2 - fixedWidths.Sum()) / Math.Max(1, fixedWidths.Count(value => value == 0));
             for (int i = 0; i < children.Length; i++)
             {
                 if (wrap)
@@ -90,7 +92,9 @@ public sealed partial class LinuxPackBackend(Action invalidate) : IUiBackend, ID
                 }
                 else
                 {
-                    float h = Paint(children[i], canvas, x + padding + (horizontal ? i * childWidth : 0), y + padding + (horizontal ? 0 : height), childWidth);
+                    float allocation = horizontal ? fixedWidths[i] > 0 ? fixedWidths[i] : flexibleWidth : childWidth;
+                    float h = Paint(children[i], canvas, x + padding + (horizontal ? rowX : 0), y + padding + (horizontal ? 0 : height), allocation);
+                    if (horizontal) rowX += allocation;
                     height = horizontal ? Math.Max(height, h) : height + h;
                 }
             }
@@ -121,7 +125,7 @@ public sealed partial class LinuxPackBackend(Action invalidate) : IUiBackend, ID
             height = e.Renderer == "editor.slot" ? 76 : Math.Max(38, size + 20);
             if (e.Bool("multiline") || e.Renderer is "editor.text" or "editor.readonly" && e.Bool("wrapText")) height = Math.Max(height, TextLines(text, Math.Max(8, (int)(width / (size * .62)))).Length * (size + 5) + 16);
             if (e.Layout.Size.Y > 0) height = (float)e.Layout.Size.Y;
-            if (e.Renderer != "editor.text" && e.Text("background") != "transparent" && e.Text("appearance") != "quiet") Fill(canvas, new(x, y, x + width, y + height), e == pressed && e.Text("pressedBackground").Length > 0 ? e.Text("pressedBackground") : highlighted && e.Text("hoverBackground").Length > 0 ? e.Text("hoverBackground") : e.Text("background").Length > 0 ? e.Text("background") : input ? focused == e ? "#243E4B" : "#101922" : e.Renderer == "editor.slot" ? e.Text("tint") : e.Enabled ? "#293B4D" : "#18232E", e.Text("appearance") == "accent" ? 8 : 7);
+            if (e.Renderer != "editor.text" && e.Text("background") != "transparent" && e.Text("appearance") != "quiet") Fill(canvas, new(x, y, x + width, y + height), e == pressed && e.Text("pressedBackground").Length > 0 ? e.Text("pressedBackground") : highlighted && e.Text("hoverBackground").Length > 0 ? e.Text("hoverBackground") : e.Text("background").Length > 0 ? e.Text("background") : input ? focused == e ? "#243E4B" : "#101922" : e.Renderer == "editor.slot" ? e.Text("tint") : e.Enabled ? "#293B4D" : "#18232E", e.Renderer == "editor.readonly" && e.Has("cornerRadius") ? (float)e.Number("cornerRadius") : e.Text("appearance") == "accent" ? 8 : 7);
             if (e.Renderer == "editor.image")
             {
                 if (e.Image is { } image)
@@ -267,6 +271,7 @@ public sealed partial class LinuxPackBackend(Action invalidate) : IUiBackend, ID
         internal bool Disposed;
         public long InputRevision { get; private set; }
         internal int FirstLine, LineCount, VisibleLines = 1;
+        public bool Has(string property) => values.ContainsKey(property);
         public bool IsInput => Renderer is "editor.input" or "editor.inline" or "editor.secret" or "editor.readonly";
         internal Element? Parent;
         public bool Visible => Bool("visible") && (Parent?.Visible ?? true);
