@@ -139,10 +139,19 @@ internal sealed partial class EditorSurface
         native.PushKey(13, true); native.PushKey(13, false); native.Pump(); Tick(); native.Paint();
         Check(WorkspaceProject.Open(session.Project.Manifest).Name == "이름 변경 프로젝트", "shared home inline name commits through SDL keyboard input");
         Click(recentCard + "menu");
-        native.Paint(); scroll = Math.Max(0, contentHeight - viewportHeight + 150); Click(recentCard + "delete");
+        Reveal(recentCard + "delete"); Click(recentCard + "delete");
         Check(Directory.Exists(session.Project.Root), "home delete prompt preserves the project until confirmation");
-        native.Paint(); scroll = Math.Max(0, contentHeight - viewportHeight + 150); Click(recentCard + "cancel-delete");
+        Reveal(recentCard + "cancel-delete"); Click(recentCard + "cancel-delete");
         Check(Directory.Exists(session.Project.Root), "real SDL home delete cancellation keeps project files");
+        studioDirectory = profileDirectory; Home(); native.Paint();
+        Reveal("workspace-agent-0"); Click("workspace-agent-0");
+        Reveal("workspace-helper-0"); Click("workspace-helper-0");
+        var roleParticipant = session.Collaboration.State.Participants.Single(p => p.HelperId == globalHelper.Id && p.OwnerId == "human");
+        Check(roleParticipant.AgentId == profileAgent.Id && ProjectStudio.Load(session.Project).HelperIds.Contains(globalHelper.Id), "actual SDL shared role view joins a complete Helper participant without a provider request");
+        Reveal("workspace-helper-0"); Click("workspace-helper-0");
+        Reveal("workspace-main-0"); Click("workspace-main-0");
+        Check(session.Collaboration.State.Participants.Count(p => p.HelperId == globalHelper.Id && p.OwnerId == "human") == 1 && ProjectStudio.Load(session.Project).MainHelperId == globalHelper.Id, "actual SDL repeated Join and MAIN selection persist without duplicate participants");
+        if (screenshot.Length > 0) native.Screenshot(screenshot + ".roles.png");
         Open(originalProject);
         Page("Native input verification", "verification");
         int activations = 0, changes = 0; var group = Stack("test-group"); Add(root, group);
@@ -179,7 +188,7 @@ internal sealed partial class EditorSurface
         while ((mode == "startup" || homeFlightClock.IsRunning) && automaticClock.ElapsedMilliseconds < 2500) { native.Pump(); Tick(); native.Paint(); Thread.Sleep(5); }
         Check(mode == "home" && studioStartup!.SavedAgent == savedProfile && !homeFlightClock.IsRunning, "saved Agent automatically reaches home with the common motion state and no provider request");
         ShowObjects(concept.Id); status = "Native verification passed · SDL input, semantic save, DLL command and dynamic window"; native.Paint();
-        Console.WriteLine("LINUX_EDITOR_SMOKE_PASS SDL_WINDOW STARTUP AGENT_CONNECTION PRIVATE_INPUT PROFILE PARTICIPANT_NAME GLOBAL_MEMORY IMAGE_REVIEW READONLY_EXPERIENCE PROJECT_CREATION PROJECT_HOME TEXT_INPUT POINTER SCHEMA_SAVE PACK_DLL DYNAMIC_VIEW");
+        Console.WriteLine("LINUX_EDITOR_SMOKE_PASS SDL_WINDOW STARTUP AGENT_CONNECTION PRIVATE_INPUT PROFILE PARTICIPANT_NAME WORKSPACE_ROLES JOIN GLOBAL_MEMORY IMAGE_REVIEW READONLY_EXPERIENCE PROJECT_CREATION PROJECT_HOME TEXT_INPUT POINTER SCHEMA_SAVE PACK_DLL DYNAMIC_VIEW");
     }
     private sealed class VerificationCredentials : IAiCredentialStore
     {

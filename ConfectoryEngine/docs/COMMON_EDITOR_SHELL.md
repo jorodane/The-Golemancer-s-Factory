@@ -309,9 +309,95 @@ CI status must be independently confirmed after publishing this checkpoint.
 
 Remaining scope is unchanged: pack workspace/sidebar definitions, Join and role
 selection, Agent management and shared conversations are not implemented by this
-initial checkpoint. Linux Join remains disabled until its real worker/conversation
-support exists. No fallback shell or deleted feature establishes parity. Resume
+initial checkpoint. At this initial name checkpoint Linux Join remained disabled; the continuation
+below enables participant registration while conversation execution remains pending. No fallback shell or deleted feature establishes parity. Resume
 from this checkpoint without duplicating the preceding profile/global Helper work.
+
+## Workspace roles / Join continuation checkpoint
+
+The installed CoreTools factory now supplies `IEditorStudioWorkspace` implemented
+by `StudioWorkspace.cs` and the common `editor.studio.workspace` view in `ui.xml`.
+Every host mounts that same role view. Windows and Android mount it in their
+sidebars; Linux mounts it in its existing project page. Native menu MAIN actions,
+Windows/Android profile Join and all hosts' saved-Helper restoration also call this trusted action factory.
+The native callback attaches/renders a character or opens its existing conversation
+surface after the pack commits participation. Mount does not start a provider.
+
+The pack owns new/repeated Join, actor-local participant reuse, complete public
+Agent/Helper identity publication, explicit MAIN Agent/Helper selection, empty
+Main Agent selection, disposed-action guards and saved-role restoration. Missing
+or disabled Agent connections cannot be silently reconnected by Join. Existing
+joined characters can be opened during ongoing work; changing roles is guarded.
+No private memories, credentials or model settings are exported to project roles
+or presence. Manifest clashes retain the existing optimistic conflict detection.
+Role persistence failure restores in-memory roles; failed presence publication
+compensates already saved role/directory changes. Compensation failure is surfaced
+explicitly. Native attachment failure is recoverable by rejoining the same saved
+participant, without duplication. This is not a new collaboration lock system.
+
+Portable cases cover all three platform contracts: inert installed-pack mounting,
+directory-write failure, owner-specific Join versus another owner's matching ID,
+complete identity and persistence, repeated Join during work, guarded mutations,
+MAIN/clear controls, reopen, failed presence publication and compensation,
+attachment failure/retry, manifest conflict, disabled Agent, private-state exclusion,
+saved-role reentry and disposal. Actual SDL pointer input exercises role selection,
+new/repeated Join and MAIN persistence. The existing home rename/delete-cancel
+fixture scrolls to its actual target rather than assuming that target is last;
+all original preservation assertions remain. Home drawing/hit bounds clip to the
+content viewport so a scrolled role page cannot cover the fixed title/status areas.
+
+Local verification: editor packs 551 checks (live views 268), engine isolation,
+Studio 225, authoring 39 and the selected external consumer clean build/full
+verification campaign passed. Actual Linux SDL passed `WORKSPACE_ROLES JOIN`
+alongside previous startup, private Agent setup, profile/global memory, project
+home/creation and semantic editing regressions. The final role screenshot was
+visually inspected for clean fixed-title/content-viewport boundaries outside Git.
+Windows editor/native-test net48 source compilation is recorded separately from
+remote native execution; local Android build/device execution remains unavailable
+without an Android workload/device. Verify the exact pushed commit's CI before
+continuing publication claims. The preceding participant-name commit be9beb0's
+five CI jobs passed in run 37193398164.
+
+Structural remainder: the native directory/status/Yogi sidebar controls coexist
+with the new role view. This does not yet establish workspace/sidebar parity.
+Helper removal/role-picker toggles, worker promotion, character placement/window
+persistence and the remaining sidebar definitions still need shared pack actions.
+Windows/Android native conversation implementations remain active. Linux can join
+and persist participants through the role controls, but its profile conversation
+action remains disabled until real conversation/worker execution is implemented.
+The role controls register participation without opening a conversation on any
+host. Existing Windows/Android profile and icon conversation actions remain. Agent management and shared conversation flows remain the
+same authorized stage. Continue them; do not treat this checkpoint as stage
+completion or as final Linux shell/package delivery.
+
+Next implementation handoff within this same authorized stage:
+1. Consolidate the remaining native sidebar cards/status/actions into the shared
+   pack view; preserve avatars/character images, unread/activity indication,
+   explicit history/promote/open/hide actions, and Yogi drop targets. Migrate
+   `DisconnectHelper`, `SyncProjectHelpers` removal and the `PickHelpers` toggles
+   in Windows, plus Android equivalents. Keep actor-local filtering and active
+   worker guards. Do not replace Yogi/collaboration policy with a new lock scheme.
+2. Finish workspace character and movable-panel definitions/placement actions;
+   native adapters retain primitive drawing, hit-testing, frame/input and OS
+   services. Linux currently mounts role controls in the project page; its manual
+   toolbar/project surface still needs the actual common workspace arrangement.
+3. Finish Agent management from Windows `EditorWindow.AiConnections.cs`
+   (`ConnectSelectedEditorAi`) and Android `MainActivity.AiConnections.cs`
+   (`EditorAiMenu`, `ConnectEditorAi`), including the host sidebar disconnect
+   paths. Reuse the installed pack's existing `StudioAgentService` provider
+   ownership; do not start authentication, install CLIs or read credentials on
+   mount/identity restoration. Verify cancel/dispose/failure with injected services.
+4. Move conversation actions and UI from Windows `EditorWindow.Conversation.cs`,
+   worker partials and `EditorWindow.Studio.cs`, plus Android worker/conversation
+   partials. Retain `ConversationTimeline`, exchanges/history, explicit scoped
+   context/pointing, streaming/cancel, reviewed local changes and clash callbacks.
+   Implement actual Linux conversation/worker support from the same pack rather
+   than exposing an inert conversation button. Profile conversation stays disabled
+   there until this exists. Global significant Helper memory remains private to
+   that Helper across projects; opening a project never starts paid inference.
+5. Repeat meaningful platform/flow checks and exact-commit CI for the next code
+   checkpoint. Full collaboration/Yogi, authoring/packs/review parity and final
+   complete Linux executable delivery remain later parts of the overall migration.
 
 ## User-approved follow-on sequence (do not mix into current migration)
 

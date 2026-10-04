@@ -191,6 +191,52 @@ internal static class LiveViewVerification
                     ((Element)identities.View.Element("directory-name")).Emit("changed", UiValue.Text("Another Global Helper")); ((Element)identities.View.Element("directory-source-0")).Activate(); ((Element)identities.View.Element("directory-create-helper")).Activate();
                     Check(addedAgents == 1 && chosenProfiles == 1 && directorySaves == 1 && profiles.Helpers.Count == 2 && profiles.Helpers.Last().AgentId == profileAgent.Id, "same pack directory routes explicit setup/profile actions and creates global Helpers on " + platform);
                 }
+                var workspaceProject = NewProject.Create(Path.Combine(creationRoot, "Workspace", platform, "Workspace.packproject"));
+                var workspaceRoles = ProjectStudio.Load(workspaceProject);
+                var workspaceHub = new CollaborationWorkspace(Path.Combine(creationRoot, "WorkspacePresence", platform));
+                var workspaceHelper = directory.CreateHelper(agent.Id, "Workspace Helper"); workspaceHelper.Enabled = false;
+                int joinedViews = 0, directoryWrites = 0, mainSelections = 0; bool rejectDirectoryWrite = false, rejectAttachment = false, roleIdle = true;
+                var remoteWorkspaceHelper = workspaceHub.Register("remote-helper", "Other owner's Helper", ParticipantKind.AI, ParticipantPermission.Talk | ParticipantPermission.Work);
+                remoteWorkspaceHelper.HelperId = workspaceHelper.Id; remoteWorkspaceHelper.OwnerId = "other-owner";
+                using (var workspace = presentation.Actions.Workspace(presentation, new Backend(platform), directory, workspaceProject, workspaceRoles, workspaceHub,
+                    () => { if (rejectDirectoryWrite) throw new IOException("fixture directory failure"); directoryWrites++; },
+                    (_, _) => { if (rejectAttachment) throw new IOException("fixture attachment failure"); joinedViews++; }, _ => mainSelections++, _ => false, () => roleIdle))
+                {
+                    Check(workspace.GetType().Assembly.GetName().Name == "Confectory.Editor.CoreTools" && joinedViews == 0 && mainSelections == 0 && workspaceHub.State.Participants.Count(p => p.Kind == ParticipantKind.AI) == 1, "common workspace mounts inert from the installed pack on " + platform);
+                    rejectDirectoryWrite = true; Reject(() => workspace.JoinHelper(workspaceHelper.Id), "Join reports private directory persistence failure on " + platform);
+                    Check(!workspaceHelper.Enabled && workspaceRoles.HelperIds.Count == 0 && workspaceHub.State.Participants.Count(p => p.Kind == ParticipantKind.AI) == 1, "failed Join leaves no enabled Helper, project role or phantom participant on " + platform);
+                    rejectDirectoryWrite = false; var joinedHelper = workspace.JoinHelper(workspaceHelper.Id);
+                    Check(joinedHelper.OwnerId == "human" && joinedHelper != remoteWorkspaceHelper && joinedHelper.AgentId == agent.Id && joinedHelper.HelperId == workspaceHelper.Id && workspaceHelper.Enabled && directoryWrites == 1 && workspaceRoles.MainHelperId == workspaceHelper.Id && joinedViews == 1, "Join persists a complete owner-local Helper role before native attachment on " + platform);
+                    roleIdle = false;
+                    Check(workspace.JoinHelper(workspaceHelper.Id).Id == joinedHelper.Id && joinedViews == 2 && directoryWrites == 1, "repeat Join opens the same participant during work without duplicating identities or writes on " + platform);
+                    Reject(() => workspace.SelectMainAgent(agent.Id), "role mutation respects active operation guards on " + platform); roleIdle = true;
+                    workspace.SelectMainAgent(agent.Id); workspace.SetMainHelper(workspaceHelper.Id);
+                    Check(ProjectStudio.Load(workspaceProject).MainAgentId == agent.Id && ProjectStudio.Load(workspaceProject).MainHelperId == workspaceHelper.Id && mainSelections == 1, "common MAIN selection survives workspace reopen on " + platform);
+                    ((Element)workspace.View.Element("workspace-clear-agent")).Activate();
+                    Check(ProjectStudio.Load(workspaceProject).MainAgentId.Length == 0, "pack role controls retain the explicit empty Main Agent choice on " + platform);
+                    ((Element)workspace.View.Element("workspace-agent-0")).Activate();
+                    Check(ProjectStudio.Load(workspaceProject).MainAgentId == agent.Id, "the same mounted pack control restores the selected Main Agent on " + platform);
+                    var rejectedHelper = directory.CreateHelper(agent.Id, "Persistence Helper");
+                    string hubFile = Path.Combine(creationRoot, "WorkspacePresence", platform, "collaboration.json");
+                    File.Move(hubFile, hubFile + ".backup"); Directory.CreateDirectory(hubFile);
+                    Reject(() => workspace.JoinHelper(rejectedHelper.Id), "Join reports participant persistence failure on " + platform);
+                    Check(!workspaceRoles.HelperIds.Contains(rejectedHelper.Id) && !ProjectStudio.Load(workspaceProject).HelperIds.Contains(rejectedHelper.Id) && workspaceHub.State.Participants.All(p => p.HelperId != rejectedHelper.Id), "failed presence publication compensates the saved project role and removes the staged participant on " + platform);
+                    Directory.Delete(hubFile); File.Move(hubFile + ".backup", hubFile);
+                    rejectAttachment = true; Reject(() => workspace.JoinHelper(rejectedHelper.Id), "native attachment failure remains explicit on " + platform);
+                    rejectAttachment = false; var recovered = workspace.JoinHelper(rejectedHelper.Id);
+                    Check(workspaceHub.State.Participants.Count(p => p.HelperId == rejectedHelper.Id) == 1 && recovered.AgentId == agent.Id, "attachment retry reuses the already persisted participant on " + platform);
+                    string manifestText = File.ReadAllText(workspaceProject.Manifest); File.AppendAllText(workspaceProject.Manifest, "\n");
+                    var conflictHelper = directory.CreateHelper(agent.Id, "Manifest conflict Helper");
+                    Reject(() => workspace.JoinHelper(conflictHelper.Id), "Join respects existing manifest conflict detection on " + platform);
+                    Check(!workspaceRoles.HelperIds.Contains(conflictHelper.Id) && workspaceHub.State.Participants.All(p => p.HelperId != conflictHelper.Id), "manifest clash leaves new roles and participants local rather than bypassing conflict checks on " + platform);
+                    File.WriteAllText(workspaceProject.Manifest, manifestText);
+                    agent.Enabled = false; Reject(() => workspace.JoinHelper(workspaceHelper.Id), "disabled Agent cannot be implicitly reconnected by Join on " + platform); agent.Enabled = true;
+                    workspace.Render(); Check(!File.ReadAllText(hubFile).Contains("private-fixture-model"), "role presence excludes Agent model settings and private credentials on " + platform);
+                    int priorParticipants = workspaceHub.State.Participants.Count; int priorDirectoryWrites = directoryWrites;
+                    workspace.RestoreHelpers(); workspace.RestoreHelpers();
+                    Check(workspaceHub.State.Participants.Count == priorParticipants && directoryWrites == priorDirectoryWrites, "saved Helper restoration stays owner-local and idempotent without provider or credential actions on " + platform);
+                    workspace.Dispose(); Reject(() => workspace.JoinHelper(workspaceHelper.Id), "disposed workspace actions cannot mutate a previous project on " + platform);
+                }
                 var helper = directory.CreateHelper(agent.Id, "First Helper");
                 int saves = 0, cancellations = 0;
                 WorkspaceProject? opened = null;

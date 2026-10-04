@@ -138,12 +138,8 @@ public sealed partial class EditorWindow
     private static string HelperDirectory(string id) { AiDirectory.CheckId(id); return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Confectory", "Helpers", id); }
     private void JoinHelper(AiHelper helper, bool open = true)
     {
-        if (session is null) return; _ = aiDirectory.Agent(helper.AgentId); helper.Enabled = true; SaveAiDirectory();
-        var p = session.Collaboration.State.Participants.FirstOrDefault(p => p.HelperId == helper.Id && p.OwnerId == "human");
-        if (p is null) { p = session.Collaboration.Register("worker-" + Guid.NewGuid().ToString("N"), helper.Name, ParticipantKind.AI, ParticipantPermission.Talk | ParticipantPermission.Work); p.AgentId = helper.AgentId; p.HelperId = helper.Id; CreateWorker(p); session.Collaboration.Save(); }
-        if (!Standalone) { projectStudio.AddHelper(helper.Id); projectStudio.Save(session.Project); RefreshProjectAiRoles(); }
-        var worker = workers.Single(w => w.Participant.Id == p.Id); if (open) SelectWorker(worker); ShowProjectWorkspace(); tabs.SelectedIndex = 0;
-        SetStatus(helper.Name + "가 참여했어. 개인 기억은 이 도우미에게만 전달돼.");
+        if (session is null) return;
+        using var workspace = CreateStudioWorkspace(); workspace.JoinHelper(helper.Id, open);
     }
     private void EditHelperMemory(AiHelper helper) => ShowStudioProfile(null, helper);
     private void EditHelperProfile(AiHelper helper) => ShowStudioProfile(null, helper);

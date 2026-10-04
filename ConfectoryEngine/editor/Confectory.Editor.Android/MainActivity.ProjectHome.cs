@@ -73,14 +73,26 @@ public sealed partial class MainActivity
         if (File.Exists(path)) { var image = new ImageView(this); image.SetImageURI(global::Android.Net.Uri.FromFile(new Java.IO.File(path))); image.SetScaleType(ImageView.ScaleType.CenterCrop); frame.AddView(image, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent)); }
         else { var label = HomeLabel("◇", size * 2 / 3); label.SetTextColor(HomeAccent); label.Gravity = GravityFlags.Center; frame.AddView(label, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent)); } return frame;
     }
+    private IEditorStudioWorkspace? sharedMobileWorkspaceRoles;
+    private IEditorStudioWorkspace CreateMobileWorkspaceRoles() => new EditorStudioPresentation(InstalledEngine).Actions.Workspace(
+        new EditorStudioPresentation(InstalledEngine), new AndroidPackBackend(this), mobileDirectory, studioSession.Project, mobileProjectStudio, studioSession.Collaboration,
+        () => mobileDirectory.Save(Path.Combine(root, "ai-directory.json")), (participant, open) =>
+        {
+            var worker = mobileWorkers.FirstOrDefault(w => w.Participant.Id == participant.Id) ?? LoadMobileWorker(participant);
+            if (open) SelectMobileWorker(worker);
+        }, id => { if (id.Length > 0) SelectMobileAgent(mobileDirectory.Agent(id)); else { editorAi?.Dispose(); editorAi = null; aiConnections.Editor = new(); } SaveMobileDirectory(); }, id => mobileWorkers.Any(w => w.Participant.Id == id && w.Cancellation is not null), () => !aiWorking && !aiConnecting && operation.CurrentCount > 0);
+    private void SelectMobileMainAgent(string id) { using var workspace = CreateMobileWorkspaceRoles(); workspace.SelectMainAgent(id); }
+    private void SelectMobileMainHelper(string id) { using var workspace = CreateMobileWorkspaceRoles(); workspace.SetMainHelper(id); }
     private void BuildMobileAiSidebar()
     {
-        mobileManagement.RemoveAllViews(); mobileProfileIcons.Clear(); mobileManagement.SetPadding(Dp(6), Dp(25), Dp(6), Dp(12)); mobileManagement.AddView(HomeLabel("AI 관리", 12)); HomeDivider(mobileManagement);
+        mobileManagement.RemoveAllViews(); mobileProfileIcons.Clear(); mobileManagement.SetPadding(Dp(6), Dp(25), Dp(6), Dp(12)); sharedMobileWorkspaceRoles?.Dispose(); sharedMobileWorkspaceRoles = null;
+        if (MobileProject) { sharedMobileWorkspaceRoles = CreateMobileWorkspaceRoles(); mobileManagement.AddView(((AndroidPackBackend.Element)sharedMobileWorkspaceRoles.View.Root).Control); }
+        mobileManagement.AddView(HomeLabel("AI 관리", 12)); HomeDivider(mobileManagement);
         mobileManagement.AddView(HomeLabel("Agent", 11, true)); var agents = new List<View>();
         foreach (var agent in mobileDirectory.Agents.Where(a => a.Enabled))
         {
             View? circle = null; circle = MobileAiCircle(agent.Name, agent.AvatarPath, () => ShowMobileProfile(circle!, agent, null), selected: MobileProject && agent.Id == mobileProjectStudio.MainAgentId);
-            if (MobileProject) circle.LongClick += (_, _) => MobileHomeAction(() => { mobileProjectStudio.MainAgentId = agent.Id; mobileProjectStudio.Save(studioSession.Project); SelectMobileAgent(agent); SaveMobileDirectory(); RefreshMobileManagement(); });
+            if (MobileProject) circle.LongClick += (_, _) => MobileHomeAction(() => { SelectMobileMainAgent(agent.Id); RefreshMobileManagement(); });
             agents.Add(circle); mobileProfileIcons.Add(circle);
         }
         agents.Add(MobileAiCircle("Agent 추가", "", () => { mobileEditingAgent = ""; ShowEditorAiSetup(); }, empty: true)); CirclePairs(mobileManagement, agents); HomeDivider(mobileManagement);
@@ -232,18 +244,14 @@ public sealed partial class MainActivity
             if (worker.Cancellation is not null) throw new InvalidOperationException("도우미의 작업을 먼저 끝내줘.");
             worker.Assistant?.Dispose(); worker.Log?.Dismiss(); mobileWorkerLayer.RemoveView(worker.Character); mobileWorkers.Remove(worker); studioSession.Collaboration.Leave(worker.Participant.Id); studioSession.Collaboration.State.Participants.Remove(worker.Participant); studioSession.Collaboration.State.Views.RemoveAll(v => v.ParticipantId == worker.Participant.Id);
         }
-        foreach (string id in mobileProjectStudio.HelperIds)
-        {
-            var helper = mobileDirectory.Helpers.FirstOrDefault(h => h.Id == id); if (helper is null || !helper.Enabled || mobileWorkers.Any(w => w.Participant.HelperId == id)) continue;
-            var p = studioSession.Collaboration.Register("worker-" + Guid.NewGuid().ToString("N"), helper.Name, ParticipantKind.AI, ParticipantPermission.Talk | ParticipantPermission.Work); p.AgentId = helper.AgentId; p.HelperId = id; p.X = 24 + mobileWorkers.Count * 165; p.Y = 150; LoadMobileWorker(p);
-        }
+        using (var workspace = CreateMobileWorkspaceRoles()) workspace.RestoreHelpers();
         studioSession.Collaboration.Save();
     }
     private View MobileProjectRoleBar()
     {
         var row = new LinearLayout(this) { Orientation = Orientation.Horizontal }; var scroll = new HorizontalScrollView(this); scroll.AddView(row);
         var agent = mobileDirectory.Agents.FirstOrDefault(a => a.Id == mobileProjectStudio.MainAgentId);
-        row.AddView(MobileAiCircle(agent?.Name ?? "메인 에이전트", agent?.AvatarPath ?? "", () => PickMobileAgent(mobileProjectStudio.MainAgentId, id => { mobileProjectStudio.MainAgentId = id; mobileProjectStudio.Save(studioSession.Project); RefreshMobileHome(); }), empty: agent is null));
+        row.AddView(MobileAiCircle(agent?.Name ?? "메인 에이전트", agent?.AvatarPath ?? "", () => PickMobileAgent(mobileProjectStudio.MainAgentId, id => { SelectMobileMainAgent(id); RefreshMobileHome(); }), empty: agent is null));
         foreach (string id in mobileProjectStudio.HelperIds)
         {
             var helper = mobileDirectory.Helpers.FirstOrDefault(h => h.Id == id);
@@ -253,7 +261,7 @@ public sealed partial class MainActivity
                 missing.LongClick += (_, _) => MobileHomeAction(() => { mobileProjectStudio.RemoveHelper(id); mobileProjectStudio.Save(studioSession.Project); RefreshMobileHome(); }); row.AddView(missing); continue;
             }
             var circle = MobileAiCircle(helper.Name, helper.AvatarPath, () => { var worker = CreateMobileWorker(helper); if (worker is not null) SelectMobileWorker(worker); }, main: id == mobileProjectStudio.MainHelperId);
-            circle.LongClick += (_, _) => new AlertDialog.Builder(this).SetTitle(helper.Name)!.SetItems(new[] { "메인 도우미로 설정", "설정", "연결 해제" }, (_, e) => MobileHomeAction(() => { if (e.Which == 0) { mobileProjectStudio.SetMainHelper(id); mobileProjectStudio.Save(studioSession.Project); RefreshMobileHome(); } else if (e.Which == 1) OpenMobileHelper(helper); else DisconnectMobileHelper(helper); }))!.Show(); row.AddView(circle);
+            circle.LongClick += (_, _) => new AlertDialog.Builder(this).SetTitle(helper.Name)!.SetItems(new[] { "메인 도우미로 설정", "설정", "연결 해제" }, (_, e) => MobileHomeAction(() => { if (e.Which == 0) { SelectMobileMainHelper(id); RefreshMobileHome(); } else if (e.Which == 1) OpenMobileHelper(helper); else DisconnectMobileHelper(helper); }))!.Show(); row.AddView(circle);
         }
         row.AddView(MobileAiCircle("Helper 추가", "", () => PickMobileHelpers(mobileProjectStudio, () => { mobileProjectStudio.Save(studioSession.Project); SyncMobileProjectHelpers(); RefreshMobileHome(); }), empty: true)); return scroll;
     }

@@ -83,7 +83,11 @@ public sealed partial class MainActivity
         try
         {
             if (aiConnections.SelectedPack.Length == 0) throw new InvalidOperationException("먼저 프로젝트를 열어줘.");
-            if (helper is not null) { helper.Enabled = true; SaveMobileDirectory(); }
+            if (helper is not null)
+            {
+                using var workspace = CreateMobileWorkspaceRoles(); var participant = workspace.JoinHelper(helper.Id, false);
+                return mobileWorkers.Single(w => w.Participant.Id == participant.Id);
+            }
             string agentId = helper?.AgentId ?? (MobileProject ? mobileProjectStudio.WorkerAgent(mobileDirectory) : mobileDirectory.SelectedAgentId); var agent = mobileDirectory.Agent(agentId);
             if (!agent.Connection.IsApi) throw new InvalidOperationException("Android에서는 API 에이전트를 선택해줘.");
             var old = helper is null ? null : mobileWorkers.FirstOrDefault(w => w.Participant.HelperId == helper.Id && studioSession.Collaboration.CanControl("human", w.Participant.Id)); if (old is not null) return old;

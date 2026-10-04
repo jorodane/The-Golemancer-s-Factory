@@ -46,6 +46,7 @@ public interface IEditorStudioAgentConnection : IDisposable
 /// <summary>Private trusted-shell ABI. Never supplied to project modules or overlays.</summary>
 public interface IEditorStudioActions
 {
+    IEditorStudioWorkspace Workspace(EditorStudioPresentation presentation, IUiBackend backend, AiDirectory directory, WorkspaceProject project, ProjectStudio roles, CollaborationWorkspace collaboration, Action saveDirectory, Action<Participant, bool> joined, Action<string> selectedAgent, Func<string, bool> running, Func<bool>? idle = null);
     IEditorStudioParticipants Participants(AiDirectory directory, CollaborationWorkspace collaboration, string actor = "human");
     int ProfileImageMaximumBytes { get; }
     IEditorStudioDirectory Directory(EditorStudioPresentation presentation, IUiBackend backend, AiDirectory directory, Action save, Action changed, Action addAgent, Action<AiAgentProfile?, AiHelper?> profile, Action closed, Func<byte[], string, string> preview);
@@ -62,6 +63,16 @@ public interface IEditorStudioActions
         IAiCredentialStore credentials, IEditorStudioAgentService service, string editingId, Action save,
         Action<AiAgentProfile, EditorStudioConnectedAgent> completed, Action closed, Action<Action<string>> dllPicker, Action<Action> onUi, Func<bool>? idle = null);
     IEditorStudioAgentService AgentService(Func<AssistantConnection> options, bool externalDll = false, Func<CancellationToken, Task<EditorStudioCodexEndpoint>>? prepareCodex = null, Func<bool>? needsInstallation = null);
+}
+
+public interface IEditorStudioWorkspace : IDisposable
+{
+    EditorLiveView View { get; }
+    Participant JoinHelper(string helperId, bool open = true);
+    void RestoreHelpers();
+    void SelectMainAgent(string agentId);
+    void SetMainHelper(string helperId);
+    void Render();
 }
 
 /// <summary>Private identity projection; it cannot expose private memory or control another owner's character.</summary>

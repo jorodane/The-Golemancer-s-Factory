@@ -135,7 +135,7 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
             return;
         }
         canvas.Save();
-        if (mode is "profile" or "directory") canvas.ClipRect(new SKRect(20, 56, width - 20, height - 40));
+        if (mode is "profile" or "directory" or "home") canvas.ClipRect(new SKRect(20, 56, width - 20, height - 40));
         contentHeight = activeWindow is not null && focusLayout ? 0 : backend.Draw(root, canvas, new(20, 56 - scroll, width - 20, height - 40));
         canvas.Restore();
         if (activeWindow is not null)
@@ -265,6 +265,16 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
         homeFlightClock.Stop(); foreach (var item in brandFlight) item.Copy.Dispose(); brandFlight.Clear();
         if (studioHomeBrandView is not null) foreach (string id in new[] { "home-logo", "home-brand-title", "home-brand-subtitle" }) ((Element)studioHomeBrandView.Element(id)).MotionOpacity = 1; Invalidate();
     }
+    private IEditorStudioWorkspace? sharedWorkspaceRoles;
+    private ProjectStudio linuxProjectRoles = new();
+    private IEditorStudioWorkspace CreateLinuxWorkspaceRoles()
+    {
+        if (session is null) throw new InvalidOperationException("프로젝트를 먼저 열어줘.");
+        var presentation = new EditorStudioPresentation(EditorEngineDistribution.Open(engineDirectory));
+        return presentation.Actions.Workspace(presentation, backend, studioDirectory, session.Project, linuxProjectRoles, session.Collaboration,
+            () => studioDirectory.Save(AiDirectory.DefaultPath), (participant, open) => { status = participant.Name + "가 참여했어. 아직 AI 요청은 하지 않았어."; Invalidate(); },
+            id => { connectedAgent?.Dispose(); connectedAgent = null; if (id.Length > 0) studioDirectory.SelectedAgentId = id; studioDirectory.Save(AiDirectory.DefaultPath); }, _ => false, () => !busy);
+    }
     private void Home()
     {
         studioProfile?.Dispose(); studioProfile = null;
@@ -284,6 +294,7 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
         Add(root, Label("A native workspace for project-owned concepts, objects and packs."));
         Add(root, InputBox("project-path", projectPath, value => projectPath = value)); Add(root, Button("open-project", "Open project path", () => Open(projectPath)));
         if (session is null) return;
+        sharedWorkspaceRoles?.Dispose(); linuxProjectRoles = ProjectStudio.Load(session.Project); sharedWorkspaceRoles = CreateLinuxWorkspaceRoles(); Add(root, (Element)sharedWorkspaceRoles.View.Root);
         Add(root, Label(ProjectName, "project-title")); Add(root, Label($"{Space.Packs.Count} packs ready to edit"));
         var actions = Stack("project-actions", true); Add(root, actions);
         Add(actions, Button("objects", "Objects", () => Choose("Concept", Space.Concepts.Select(c => (c.Id, c.Name)), id => ShowObjects(id), Home)));
@@ -321,7 +332,7 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
         var project = WorkspaceProject.Open(path); runner?.Dispose(); runner = null; objectWindows.Clear(); pendingReview?.Cancel(); pendingReview = null; windows.Dispose(); windows = new(); execution?.Dispose(); runtime = null;
         projectPath = project.Manifest;
         string state = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Confectory", "Linux", project.Identity);
-        session = new(project.Manifest, state); editor = new(session); var entry = projectSettings.Register(project); entry.LastOpenedUtc = DateTime.UtcNow.ToString("O"); projectSettings.Save(AssistantSettings.DefaultPath); Home();
+        session = new(project.Manifest, state); linuxProjectRoles = ProjectStudio.Load(project); using (var workspace = CreateLinuxWorkspaceRoles()) workspace.RestoreHelpers(); editor = new(session); var entry = projectSettings.Register(project); entry.LastOpenedUtc = DateTime.UtcNow.ToString("O"); projectSettings.Save(AssistantSettings.DefaultPath); Home();
     }
     private void Ask(string prompt, string initial, Action<string> apply, Action back, bool multiline = false, bool preserveStartup = false, bool preserveProfile = false, bool preserveDirectory = false)
     {
@@ -586,5 +597,5 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
         }, ShowDocuments, true);
         if (!session.CanEdit(path)) Disable(root.Children.First(c => c.Id == "confirm"));
     }
-    public void Dispose() { if (disposed) return; disposed = true; lifetime.Cancel(); pendingReview?.Cancel(); windows.Dispose(); execution?.Dispose(); runner?.Dispose(); FinishStudioHomeFlight(); sharedStudioDirectory?.Dispose(); studioProfile?.Dispose(); connectedAgent?.Dispose(); studioAgent?.Dispose(); sharedProjectHome?.Dispose(); studioCreation?.Dispose(); studioStartView?.Dispose(); studioHomeBrandView?.Dispose(); backend.Dispose(); lifetime.Dispose(); }
+    public void Dispose() { if (disposed) return; disposed = true; lifetime.Cancel(); pendingReview?.Cancel(); sharedWorkspaceRoles?.Dispose(); windows.Dispose(); execution?.Dispose(); runner?.Dispose(); FinishStudioHomeFlight(); sharedStudioDirectory?.Dispose(); studioProfile?.Dispose(); connectedAgent?.Dispose(); studioAgent?.Dispose(); sharedProjectHome?.Dispose(); studioCreation?.Dispose(); studioStartView?.Dispose(); studioHomeBrandView?.Dispose(); backend.Dispose(); lifetime.Dispose(); }
 }

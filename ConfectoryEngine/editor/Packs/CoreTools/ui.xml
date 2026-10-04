@@ -179,4 +179,13 @@
     <Node id="directory-note" order="100" widget="editor.text"><Bind property="text" source="studio.directory.note" /></Node>
     <Node id="directory-close" order="110" widget="editor.button"><Set property="text" value="닫기" /><On event="activate" command="studio.directory.close" /></Node>
   </Slot></Node></View>
+  <View id="editor.studio.workspace"><Node id="workspace-roles" widget="editor.stack"><Slot name="children">
+    <Node id="workspace-title" order="0" widget="editor.text"><Bind property="text" source="studio.workspace.title" /></Node>
+    <Node id="workspace-agent-heading" order="10" widget="editor.text"><Set property="text" value="Main Agent" /></Node>
+    <Node id="workspace-clear-agent" order="15" widget="editor.button"><Set property="text" value="Main Agent를 비워 두기" /><On event="activate" command="studio.workspace.clearAgent" /></Node>
+    <Node id="workspace-agents" order="20" widget="editor.stack"><Slot name="children" export="true" /></Node>
+    <Node id="workspace-helper-heading" order="30" widget="editor.text"><Set property="text" value="Helper · 개인 기억은 이 Helper에게만 전달돼." /></Node>
+    <Node id="workspace-helpers" order="40" widget="editor.stack"><Slot name="children" export="true" /></Node>
+    <Node id="workspace-note" order="50" widget="editor.text"><Bind property="text" source="studio.workspace.note" /></Node>
+  </Slot></Node></View>
 </Ui>
