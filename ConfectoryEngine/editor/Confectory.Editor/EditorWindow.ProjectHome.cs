@@ -76,7 +76,7 @@ public sealed partial class EditorWindow
             () => assistantSettings.Save(AssistantSettings.DefaultPath), CreateGameProject, OpenProject,
             path => Process.Start(new ProcessStartInfo(path) { UseShellExecute = true }),
             apply => { var file = new OpenFileDialog { Filter = "이미지|*.png;*.jpg;*.jpeg;*.bmp" }; if (file.ShowDialog(this) == true) { if (new FileInfo(file.FileName).Length > 10_000_000 || AvatarBrush(file.FileName) is null) throw new InvalidDataException("10 MB 이하 이미지를 선택해줘."); apply(File.ReadAllBytes(file.FileName), Path.GetExtension(file.FileName)); } },
-            action => Dispatcher.Invoke(action), () => !busy && !WorkersRunning && runner?.GameRunning != true);
+            action => Dispatcher.Invoke(action), () => !busy && !WorkersRunning && runner?.GameRunning != true, manage: ShowStudioDirectory);
         projectHome.Children.Add(((EditorPackBackend.Element)sharedProjectHome.View.Root).Control);
 
     }
@@ -166,13 +166,41 @@ public sealed partial class EditorWindow
         profileBody.Children.Add(Action("연결 해제", () => HomeAction(() => { if (helper is not null) DisconnectHelper(helper); else DisconnectAgent(agent!); aiProfile.IsOpen = false; SaveAiDirectory(); })));
         aiProfile.IsOpen = true;
     }
-    private void EditAgentProfile(AiAgentProfile agent)
+    private readonly List<IEditorStudioDirectory> studioDirectoryViews = new();
+    private void RefreshStudioDirectories() { foreach (var directory in studioDirectoryViews.ToArray()) directory.Render(); }
+    private void ShowStudioDirectory()
     {
-        var window = new Window { Owner = this, Title = agent.Name + " · Agent", Width = 390, SizeToContent = SizeToContent.Height, WindowStartupLocation = WindowStartupLocation.CenterOwner, Background = PanelInk, Foreground = TextInk };
-        var body = new StackPanel { Margin = new Thickness(20) }; var name = Input(); name.Text = agent.Name; body.Children.Add(name);
-        body.Children.Add(Action("이름 저장", () => HomeAction(() => { if (string.IsNullOrWhiteSpace(name.Text) || name.Text.Trim().Length > 80) throw new ArgumentException("이름은 1–80자로 입력해줘."); agent.Name = name.Text.Trim(); SaveAiDirectory(); })));
-        body.Children.Add(Action("아이콘 변경", () => HomeAction(() => { var file = new OpenFileDialog { Filter = "이미지|*.png;*.jpg;*.jpeg;*.bmp" }; if (file.ShowDialog(window) != true) return; if (new FileInfo(file.FileName).Length > 10_000_000 || AvatarBrush(file.FileName) is null) throw new InvalidDataException("10 MB 이하 이미지를 선택해줘."); string folder = Path.Combine(Path.GetDirectoryName(AiDirectory.DefaultPath)!, "Agents", agent.Id); Directory.CreateDirectory(folder); string target = Path.Combine(folder, "avatar" + Path.GetExtension(file.FileName)); if (!string.Equals(target, file.FileName, StringComparison.OrdinalIgnoreCase)) File.Copy(file.FileName, target, true); agent.AvatarPath = target; SaveAiDirectory(); })));
-        body.Children.Add(Action("연결 설정", () => { window.Close(); editingAgentId = agent.Id; SelectStoredAgent(agent.Id); ShowEditorAiSetup(); })); window.Content = body; window.Show();
+        var presentation = new EditorStudioPresentation(InstalledEngine); var window = new Window { Owner = this, Width = 680, Height = 720, Background = PanelInk, Foreground = TextInk };
+        var directory = presentation.Actions.Directory(presentation, new EditorPackBackend(_ => { }, () => false), aiDirectory,
+            () => aiDirectory.Save(AiDirectory.DefaultPath), () => { RefreshAiManagement(); RefreshStudioShell(); },
+            () => { editingAgentId = ""; ShowEditorAiSetup(); }, (agent, helper) => ShowStudioProfile(agent, helper), window.Close, StudioProfilePreview);
+        window.Title = ((TextBlock)((EditorPackBackend.Element)directory.View.Element("directory-title")).Control).Text;
+        window.Content = new ScrollViewer { Content = ((EditorPackBackend.Element)directory.View.Root).Control, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Margin = new Thickness(18) };
+        studioDirectoryViews.Add(directory); window.Closed += (_, _) => { directory.Dispose(); studioDirectoryViews.Remove(directory); }; window.Show();
+    }
+    private void EditAgentProfile(AiAgentProfile agent) => ShowStudioProfile(agent, null);
+    private void ShowStudioProfile(AiAgentProfile? agent, AiHelper? helper)
+    {
+        var presentation = new EditorStudioPresentation(InstalledEngine);
+        var window = new Window { Owner = this, Width = 650, Height = 720, WindowStartupLocation = WindowStartupLocation.CenterOwner, Background = PanelInk, Foreground = TextInk };
+        var profile = presentation.Actions.Profile(presentation, new EditorPackBackend(_ => { }, () => false), aiDirectory, agent?.Id ?? "", helper?.Id ?? "",
+            Path.GetDirectoryName(AiDirectory.DefaultPath)!, session?.Project.Identity ?? "", () => aiDirectory.Save(AiDirectory.DefaultPath),
+            () => { if (helper is not null) { foreach (var worker in workers.Where(w => w.Participant.HelperId == helper.Id)) { worker.Participant.Name = helper.Name; RenderWorker(worker); } session?.Collaboration.Save(); } RefreshAiManagement(); RefreshStudioShell(); RefreshStudioDirectories(); },
+            () => { window.Close(); editingAgentId = agent!.Id; SelectStoredAgent(agent.Id); ShowEditorAiSetup(); },
+            () => { window.Close(); JoinHelper(helper!); }, window.Close,
+            apply => { var picker = new OpenFileDialog { Filter = "이미지|*.png;*.jpg;*.jpeg;*.bmp" }; if (picker.ShowDialog(window) != true) return; if (new FileInfo(picker.FileName).Length > presentation.Actions.ProfileImageMaximumBytes || AvatarBrush(picker.FileName) is null) throw new InvalidDataException("12 MiB 이하 이미지를 선택해줘."); apply(File.ReadAllBytes(picker.FileName), Path.GetExtension(picker.FileName)); },
+            StudioProfilePreview, action => Dispatcher.Invoke(action), () => !busy && !WorkersRunning);
+        window.Title = ((TextBlock)((EditorPackBackend.Element)profile.View.Element("profile-title")).Control).Text;
+        window.Content = new ScrollViewer { Content = ((EditorPackBackend.Element)profile.View.Root).Control, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Margin = new Thickness(18) };
+        window.Closed += (_, _) => profile.Dispose(); window.Show();
+    }
+    private static string StudioProfilePreview(byte[] bytes, string extension)
+    {
+        using var input = new MemoryStream(bytes); var frame = BitmapDecoder.Create(input, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad).Frames[0];
+        double scale = Math.Min(1, 512.0 / Math.Max(frame.PixelWidth, frame.PixelHeight));
+        var image = new TransformedBitmap(frame, new ScaleTransform(scale, scale)); image.Freeze();
+        var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(image)); using var output = new MemoryStream(); encoder.Save(output);
+        return "data:image/png;base64," + Convert.ToBase64String(output.ToArray());
     }
     private void DisconnectAgent(AiAgentProfile agent)
     {

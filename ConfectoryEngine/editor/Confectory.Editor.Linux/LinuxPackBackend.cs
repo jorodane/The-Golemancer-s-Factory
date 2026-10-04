@@ -29,8 +29,8 @@ public sealed class LinuxPackBackend(Action invalidate) : IUiBackend, IDisposabl
     }
     public void BeginFrame() { foreach (var e in elements) e.Bounds = SKRect.Empty; }
     public SKRect Bounds(string id) => elements.Single(e => e.Id == id).Bounds;
-    public EditorWindowState Capture() => new() { Values = elements.Where(e => e.IsInput && e.Renderer != "editor.secret").ToDictionary(e => e.Id, e => e.Text("text"), StringComparer.Ordinal) };
-    public void Restore(EditorWindowState state) { foreach (var e in elements.Where(e => e.IsInput && e.Renderer != "editor.secret")) if (state.Values.TryGetValue(e.Id, out var text)) e.Set("text", UiValue.Text(text)); }
+    public EditorWindowState Capture() => new() { Values = elements.Where(e => e.IsInput && e.Renderer is not ("editor.secret" or "editor.readonly")).ToDictionary(e => e.Id, e => e.Text("text"), StringComparer.Ordinal) };
+    public void Restore(EditorWindowState state) { foreach (var e in elements.Where(e => e.IsInput && e.Renderer is not ("editor.secret" or "editor.readonly"))) if (state.Values.TryGetValue(e.Id, out var text)) e.Set("text", UiValue.Text(text)); }
     public float Draw(Element root, SKCanvas canvas, SKRect bounds)
     {
         canvas.Save(); canvas.ClipRect(bounds); clip = canvas.LocalClipBounds; float height = Paint(root, canvas, bounds.Left, bounds.Top, bounds.Width); canvas.Restore(); return height;
@@ -112,10 +112,19 @@ public sealed class LinuxPackBackend(Action invalidate) : IUiBackend, IDisposabl
             bool input = e.IsInput; string text = input && focused == e ? e.Text("text") + e.Composition : e.Text("text");
             if (e.Renderer == "editor.secret") text = new string('•', text.Length);
             height = e.Renderer == "editor.slot" ? 76 : Math.Max(38, size + 20);
-            if (e.Bool("multiline") || e.Renderer == "editor.text" && e.Bool("wrapText")) height = Math.Max(height, TextLines(text, Math.Max(8, (int)(width / (size * .62)))).Length * (size + 5) + 16);
+            if (e.Bool("multiline") || e.Renderer is "editor.text" or "editor.readonly" && e.Bool("wrapText")) height = Math.Max(height, TextLines(text, Math.Max(8, (int)(width / (size * .62)))).Length * (size + 5) + 16);
             if (e.Layout.Size.Y > 0) height = (float)e.Layout.Size.Y;
             if (e.Renderer != "editor.text" && e.Text("background") != "transparent" && e.Text("appearance") != "quiet") Fill(canvas, new(x, y, x + width, y + height), e == pressed && e.Text("pressedBackground").Length > 0 ? e.Text("pressedBackground") : highlighted && e.Text("hoverBackground").Length > 0 ? e.Text("hoverBackground") : e.Text("background").Length > 0 ? e.Text("background") : input ? focused == e ? "#243E4B" : "#101922" : e.Renderer == "editor.slot" ? e.Text("tint") : e.Enabled ? "#293B4D" : "#18232E", e.Text("appearance") == "accent" ? 8 : 7);
-            if (e.Renderer == "editor.slot")
+            if (e.Renderer == "editor.image")
+            {
+                if (e.Image is { } image)
+                {
+                    float scale = Math.Min(width / image.Width, height / image.Height);
+                    float left = x + (width - image.Width * scale) / 2, top = y + (height - image.Height * scale) / 2;
+                    canvas.DrawBitmap(image, new SKRect(left, top, left + image.Width * scale, top + image.Height * scale));
+                }
+            }
+            else if (e.Renderer == "editor.slot")
             {
                 if (e.Image is not null) canvas.DrawBitmap(e.Image, new SKRect(x + 8, y + 6, x + 60, y + 58));
                 else Text(canvas, e.Text("glyph"), x + 12, y + 34, 24, "#71D7C6");
@@ -125,14 +134,16 @@ public sealed class LinuxPackBackend(Action invalidate) : IUiBackend, IDisposabl
             {
                 if (input && text.Length == 0) text = e.Text("placeholder");
                 var lines = e.Renderer == "editor.text" && !e.Bool("wrapText") ? new[] { text } : TextLines(text, Math.Max(8, (int)((width - 20) / (size * .62))));
-                int limit = e.Bool("multiline") || e.Renderer == "editor.text" ? Math.Max(1, (int)((height - 10) / (size + 5))) : 1;
+                int limit = e.Bool("multiline") || e.Renderer is "editor.text" or "editor.readonly" ? Math.Max(1, (int)((height - 10) / (size + 5))) : 1;
+                e.LineCount = lines.Length; e.VisibleLines = limit; e.FirstLine = Math.Clamp(e.FirstLine, 0, Math.Max(0, lines.Length - limit));
+                if (e.Renderer == "editor.readonly") lines = lines.Skip(e.FirstLine).ToArray();
                 for (int i = 0; i < Math.Min(lines.Length, limit); i++)
                 {
                     float textX = x + 10;
                     if (e.Text("alignment") == "center") { using var typeface = SKTypeface.FromFamilyName("Noto Sans CJK KR"); using var font = new SKFont(typeface, size); textX = x + (width - font.MeasureText(lines[i])) / 2; }
                     Text(canvas, lines[i], textX, y + 9 + size + i * (size + 5), size, highlighted && e.Text("hoverForeground").Length > 0 ? e.Text("hoverForeground") : e.Text("foreground").Length > 0 ? e.Text("foreground") : e.Enabled ? "#E6EDF3" : "#71808F", e.Text("fontWeight"));
                 }
-                if (input && focused == e) { using var pen = new SKPaint { Color = SKColor.Parse("#71D7C6"), StrokeWidth = 2 }; float caret = Math.Min(width - 10, 10 + e.Caret * size * .57f); canvas.DrawLine(x + caret, y + 7, x + caret, y + Math.Min(height - 6, size + 12), pen); }
+                if (input && focused == e && e.Renderer != "editor.readonly") { using var pen = new SKPaint { Color = SKColor.Parse("#71D7C6"), StrokeWidth = 2 }; float caret = Math.Min(width - 10, 10 + e.Caret * size * .57f); canvas.DrawLine(x + caret, y + 7, x + caret, y + Math.Min(height - 6, size + 12), pen); }
             }
         }
         height = Math.Max((float)e.Layout.MinSize.Y, Math.Min(height, (float)(e.Layout.MaxSize?.Y ?? double.MaxValue)));
@@ -147,6 +158,12 @@ public sealed class LinuxPackBackend(Action invalidate) : IUiBackend, IDisposabl
         canvas.DrawText(text, x, y, font, paint);
     }
     private static string[] TextLines(string value, int columns) => value.Replace("\r", "").Split('\n').SelectMany(line => line.Length == 0 ? new[] { "" } : Enumerable.Range(0, (line.Length + columns - 1) / columns).Select(i => line.Substring(i * columns, Math.Min(columns, line.Length - i * columns)))).ToArray();
+    public bool ScrollReadOnly(float delta)
+    {
+        if (focused is not { Renderer: "editor.readonly", Visible: true, Enabled: true } text || text.Bounds.IsEmpty) return false;
+        int next = Math.Clamp(text.FirstLine - (int)(delta * 3), 0, Math.Max(0, text.LineCount - text.VisibleLines));
+        if (next == text.FirstLine) return false; text.FirstLine = next; invalidate(); return true;
+    }
     public void Input(NativeInput input)
     {
         if (focused is { } current && (!current.Enabled || !current.Visible)) Focus(null);
@@ -165,8 +182,8 @@ public sealed class LinuxPackBackend(Action invalidate) : IUiBackend, IDisposabl
             var target = pressed; pressed = null;
             if (target is not null && !target.Disposed && target.Enabled && target.Bounds.Contains(input.X, input.Y) && !target.IsInput) target.Emit("activate", target.Renderer == "editor.slot" ? UiValue.Text(target.Text("value")) : UiValue.None);
         }
-        else if (input.Kind == NativeInputKind.Text && focused is { IsInput: true } field) { field.Composition = ""; Edit(field, input.Text); }
-        else if (input.Kind == NativeInputKind.Composition && focused is { IsInput: true } composing) { composing.Composition = input.Text; invalidate(); }
+        else if (input.Kind == NativeInputKind.Text && focused is { IsInput: true } field) { if (field.Renderer != "editor.readonly") { field.Composition = ""; Edit(field, input.Text); } }
+        else if (input.Kind == NativeInputKind.Composition && focused is { IsInput: true } composing) { if (composing.Renderer != "editor.readonly") { composing.Composition = input.Text; invalidate(); } }
         else if (input.Kind == NativeInputKind.Key)
         {
             if (input.Key is "LeftCtrl" or "RightCtrl") control = input.Down;
@@ -175,9 +192,12 @@ public sealed class LinuxPackBackend(Action invalidate) : IUiBackend, IDisposabl
             if (input.Key == "Tab") { var inputs = elements.Where(e => (e.IsInput || e.Renderer is "editor.button" or "editor.card" or "editor.tile" or "editor.slot") && e.Visible && e.Enabled && !e.Bounds.IsEmpty).ToArray(); if (inputs.Length > 0) { int i = Array.IndexOf(inputs, focused); Focus(inputs[(i + (shift ? inputs.Length - 1 : 1) + inputs.Length) % inputs.Length]); } return; }
             if (focused is not { } e) return;
             if (!e.IsInput) { if (input.Key is "Enter" or "Space") e.Emit("activate", e.Renderer == "editor.slot" ? UiValue.Text(e.Text("value")) : UiValue.None); invalidate(); return; }
+            if (e.Renderer == "editor.readonly" && input.Key is "Up" or "Down" or "PageUp" or "PageDown") { e.FirstLine = Math.Clamp(e.FirstLine + (input.Key is "Up" or "PageUp" ? -1 : 1) * (input.Key is "PageUp" or "PageDown" ? e.VisibleLines : 1), 0, Math.Max(0, e.LineCount - e.VisibleLines)); invalidate(); return; }
+            if (e.Renderer == "editor.readonly" && input.Key is "Home" or "End") e.FirstLine = input.Key == "Home" ? 0 : Math.Max(0, e.LineCount - e.VisibleLines);
             if (control && input.Key == "A") { e.Selection = 0; e.Caret = e.Text("text").Length; }
             else if (control && e.Renderer == "editor.secret" && input.Key is "C" or "X") { }
             else if (control && input.Key == "C") NativeWindow.Clipboard = Selected(e);
+            else if (control && e.Renderer == "editor.readonly" && input.Key == "X") { }
             else if (control && input.Key == "X") { NativeWindow.Clipboard = Selected(e); Edit(e, ""); }
             else if (control && input.Key == "V") Edit(e, NativeWindow.Clipboard);
             else if (input.Key == "Backspace") { if (e.Selection == e.Caret && e.Caret > 0) e.Selection--; Edit(e, ""); }
@@ -191,6 +211,7 @@ public sealed class LinuxPackBackend(Action invalidate) : IUiBackend, IDisposabl
     private static string Selected(Element e) => e.Text("text").Substring(Math.Min(e.Selection, e.Caret), Math.Abs(e.Selection - e.Caret));
     private void Edit(Element e, string insertion)
     {
+        if (e.Renderer == "editor.readonly") return;
         string text = e.Text("text"); int start = Math.Min(e.Selection, e.Caret), end = Math.Max(e.Selection, e.Caret);
         string next = text.Substring(0, start) + insertion + text.Substring(end); if (next.Length > 200000) return;
         e.UserText(next); e.Caret = e.Selection = start + insertion.Length; invalidate();
@@ -224,7 +245,8 @@ public sealed class LinuxPackBackend(Action invalidate) : IUiBackend, IDisposabl
         internal SKBitmap? Image;
         internal bool Disposed;
         public long InputRevision { get; private set; }
-        public bool IsInput => Renderer is "editor.input" or "editor.inline" or "editor.secret";
+        internal int FirstLine, LineCount, VisibleLines = 1;
+        public bool IsInput => Renderer is "editor.input" or "editor.inline" or "editor.secret" or "editor.readonly";
         internal Element? Parent;
         public bool Visible => Bool("visible") && (Parent?.Visible ?? true);
         public bool Enabled => Bool("enabled") && (Parent?.Enabled ?? true);
@@ -246,7 +268,7 @@ public sealed class LinuxPackBackend(Action invalidate) : IUiBackend, IDisposabl
                 if (property == "text" && IsInput)
                 {
                     string? next = textUpdates.Receive(value.Literal, Text("text"), Composition.Length > 0);
-                    if (next is null) return; values[property] = UiValue.Text(next); Caret = Math.Min(Caret, next.Length); Selection = Math.Min(Selection, next.Length);
+                    if (next is null) return; if (Renderer == "editor.readonly") FirstLine = 0; values[property] = UiValue.Text(next); Caret = Math.Min(Caret, next.Length); Selection = Math.Min(Selection, next.Length);
                 }
                 else values[property] = value;
                 owner.Invalidate();

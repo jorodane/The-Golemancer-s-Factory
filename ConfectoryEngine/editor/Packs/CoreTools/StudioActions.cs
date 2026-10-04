@@ -5,10 +5,14 @@ namespace Confectory.Editor.CoreTools;
 
 public sealed class StudioActions : IEditorStudioActions
 {
+    public const int ProfileImageLimit = 12 * 1024 * 1024;
+    public int ProfileImageMaximumBytes => ProfileImageLimit;
+    public IEditorStudioDirectory Directory(EditorStudioPresentation presentation, IUiBackend backend, AiDirectory directory, Action save, Action changed, Action addAgent, Action<AiAgentProfile?, AiHelper?> profile, Action closed, Func<byte[], string, string> preview) => new StudioDirectory(presentation, backend, directory, save, changed, addAgent, profile, closed, preview);
+    public IEditorStudioProfile Profile(EditorStudioPresentation presentation, IUiBackend backend, AiDirectory directory, string agentId, string helperId, string privateRoot, string project, Action save, Action changed, Action connect, Action? join, Action closed, Action<Action<byte[], string>> imagePicker, Func<byte[], string, string> preview, Action<Action> onUi, Func<bool>? idle = null) => new StudioProfile(presentation, backend, directory, agentId, helperId, privateRoot, project, save, changed, connect, join, closed, imagePicker, preview, onUi, idle);
     public IEditorStudioStartupState Startup(EditorStudioMotion motion, AiDirectory directory, bool apiOnly = false) => new StudioStartupState(motion, directory, apiOnly);
     public IEditorStudioProjectHome ProjectHome(EditorStudioPresentation presentation, IUiBackend backend, AssistantSettings settings,
         Action save, Action create, Action<string> open, Action<string> folder, Action<Action<byte[], string>> iconPicker,
-        Action<Action> onUi, Func<bool>? idle = null) => new StudioProjectHome(presentation, backend, settings, save, create, open, folder, iconPicker, onUi, idle);
+        Action<Action> onUi, Func<bool>? idle = null, Action? manage = null) => new StudioProjectHome(presentation, backend, settings, save, create, open, folder, iconPicker, onUi, idle, manage);
     public IEditorStudioProjectCreation ProjectCreation(EditorStudioPresentation presentation, IUiBackend backend, AiDirectory directory,
         string parent, string platform, string framework, Action<Action<byte[], string>> iconPicker,
         Action<Action<string>> folderPicker, Action saveDirectory, Action<WorkspaceProject> opened, Action cancel,

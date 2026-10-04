@@ -63,7 +63,7 @@ public sealed partial class MainActivity
         sharedMobileProjectHome = new(new(InstalledEngine), new AndroidPackBackend(this), mobileProjects,
             () => mobileProjects.Save(MobileProjectsPath), ShowMobileNewProject, OpenMobileProject,
             path => BrowseMobileFolder(path, null), apply => PickMobileImage(bytes => apply(bytes, ".png")),
-            action => RunOnUiThread(action), () => !aiWorking && !aiConnecting && operation.CurrentCount > 0);
+            action => RunOnUiThread(action), () => !aiWorking && !aiConnecting && operation.CurrentCount > 0, manage: ShowMobileStudioDirectory);
         welcome.AddView(((AndroidPackBackend.Element)sharedMobileProjectHome.View.Root).Control);
 
     }
@@ -113,12 +113,43 @@ public sealed partial class MainActivity
         int[] position = new int[2]; anchor.GetLocationOnScreen(position); int height = Resources?.DisplayMetrics?.HeightPixels ?? Dp(700), width = Resources?.DisplayMetrics?.WidthPixels ?? Dp(400);
         mobileProfile.ShowAtLocation(mobileContent!, GravityFlags.Top | GravityFlags.Left, Math.Min(position[0] + anchor.Width + Dp(8), Math.Max(0, width - Dp(240))), Math.Max(0, Math.Min(position[1], height - Dp(440))));
     }
-    private void MobileAgentSettings(AiAgentProfile agent)
+    private readonly List<Dialog> studioProfileDialogs = new();
+    private readonly List<IEditorStudioDirectory> mobileDirectoryViews = new();
+    private void RefreshMobileStudioDirectories() { foreach (var directory in mobileDirectoryViews.ToArray()) directory.Render(); }
+    private void ShowMobileStudioDirectory()
     {
-        var panel = new LinearLayout(this) { Orientation = Orientation.Vertical }; panel.AddView(MobileAiCircle(agent.Name, agent.AvatarPath, () => { }, size: 60));
-        panel.AddView(AiAction("이름 변경", () => MobileName("Agent 이름", name => { if (string.IsNullOrWhiteSpace(name) || name.Length > 80) throw new ArgumentException("이름은 1–80자로 입력해줘."); agent.Name = name.Trim(); SaveMobileDirectory(); RefreshMobileManagement(); })));
-        panel.AddView(AiAction("아이콘 변경", () => PickMobileImage(bytes => { string path = Path.Combine(root, "Agents", agent.Id, "avatar.png"); AtomicWrite(path, bytes); agent.AvatarPath = path; SaveMobileDirectory(); RefreshMobileManagement(); })));
-        panel.AddView(AiAction("연결 설정", () => { SelectMobileAgent(agent); mobileEditingAgent = agent.Id; ShowEditorAiSetup(); })); new AlertDialog.Builder(this).SetTitle(agent.Name)!.SetView(panel)!.SetNegativeButton("닫기", (_, _) => { })!.Show();
+        var presentation = new EditorStudioPresentation(InstalledEngine); var dialog = new Dialog(this); studioProfileDialogs.Add(dialog);
+        var directory = presentation.Actions.Directory(presentation, new AndroidPackBackend(this), mobileDirectory, SaveMobileDirectory,
+            () => { RefreshMobileManagement(); RefreshMobileHome(); },
+            () => { mobileEditingAgent = ""; ShowEditorAiSetup(); }, (agent, helper) => ShowMobileStudioProfile(agent, helper), () => dialog.Dismiss(), MobileStudioProfilePreview);
+        dialog.SetTitle(((TextView)((AndroidPackBackend.Element)directory.View.Element("directory-title")).Native).Text);
+        var scroll = new ScrollView(this); scroll.AddView(((AndroidPackBackend.Element)directory.View.Root).Control); dialog.SetContentView(scroll);
+        mobileDirectoryViews.Add(directory); dialog.DismissEvent += (_, _) => { directory.Dispose(); mobileDirectoryViews.Remove(directory); studioProfileDialogs.Remove(dialog); }; dialog.Show();
+        dialog.Window?.SetLayout(Math.Min(Resources!.DisplayMetrics!.WidthPixels - Dp(24), Dp(680)), ViewGroup.LayoutParams.WrapContent);
+    }
+    private void MobileAgentSettings(AiAgentProfile agent) => ShowMobileStudioProfile(agent, null);
+    private void ShowMobileStudioProfile(AiAgentProfile? agent, AiHelper? helper)
+    {
+        var presentation = new EditorStudioPresentation(InstalledEngine); var dialog = new Dialog(this); studioProfileDialogs.Add(dialog);
+        var profile = presentation.Actions.Profile(presentation, new AndroidPackBackend(this), mobileDirectory, agent?.Id ?? "", helper?.Id ?? "", root,
+            studioSession.Project.Identity, SaveMobileDirectory,
+            () => { if (helper is not null) { foreach (var worker in mobileWorkers.Where(w => w.Participant.HelperId == helper.Id)) worker.Participant.Name = helper.Name; studioSession.Collaboration.Save(); } RefreshMobileManagement(); RefreshMobileHome(); RefreshMobileStudioDirectories(); },
+            () => { dialog.Dismiss(); SelectMobileAgent(agent!); mobileEditingAgent = agent!.Id; ShowEditorAiSetup(); },
+            () => { dialog.Dismiss(); var worker = CreateMobileWorker(helper!); if (worker is not null) OpenMobileWorker(worker); }, () => dialog.Dismiss(),
+            apply => PickMobileImage(bytes => apply(bytes, ".png"), presentation.Actions.ProfileImageMaximumBytes), MobileStudioProfilePreview, OnAiUi, () => !aiWorking && !aiConnecting && operation.CurrentCount > 0);
+        dialog.SetTitle(((TextView)((AndroidPackBackend.Element)profile.View.Element("profile-title")).Native).Text);
+        var scroll = new ScrollView(this); scroll.AddView(((AndroidPackBackend.Element)profile.View.Root).Control); dialog.SetContentView(scroll);
+        dialog.DismissEvent += (_, _) => { profile.Dispose(); studioProfileDialogs.Remove(dialog); }; dialog.Show();
+        dialog.Window?.SetLayout(Math.Min(Resources!.DisplayMetrics!.WidthPixels - Dp(24), Dp(650)), ViewGroup.LayoutParams.WrapContent);
+    }
+    private static string MobileStudioProfilePreview(byte[] bytes, string extension)
+    {
+        using var bounds = new BitmapFactory.Options { InJustDecodeBounds = true }; using var ignored = BitmapFactory.DecodeByteArray(bytes, 0, bytes.Length, bounds);
+        if (bounds.OutWidth <= 0 || bounds.OutHeight <= 0) throw new InvalidDataException("이미지를 읽지 못했어.");
+        int sample = 1; while (Math.Max(bounds.OutWidth, bounds.OutHeight) / sample > 512) sample *= 2;
+        using var options = new BitmapFactory.Options { InSampleSize = sample }; using var bitmap = BitmapFactory.DecodeByteArray(bytes, 0, bytes.Length, options) ?? throw new InvalidDataException("이미지를 읽지 못했어.");
+        using var output = new MemoryStream(); if (!bitmap.Compress(Bitmap.CompressFormat.Png!, 100, output)) throw new IOException("이미지 미리보기를 만들지 못했어.");
+        return "data:image/png;base64," + Convert.ToBase64String(output.ToArray());
     }
     private void DisconnectMobileAgent(AiAgentProfile agent)
     {
@@ -133,17 +164,18 @@ public sealed partial class MainActivity
         if (MobileProject) { mobileProjectStudio.RemoveHelper(helper.Id); mobileProjectStudio.Save(studioSession.Project); studioSession.Collaboration.Save(); } else helper.Enabled = false;
         RefreshMobileHome();
     }
-    private void AddMobileHelper() => PickMobileAgent(mobileDirectory.SelectedAgentId, id => { if (id.Length == 0) return; MobileName("도우미 이름", name => { mobileDirectory.CreateHelper(id, name); SaveMobileDirectory(); RefreshMobileManagement(); }); });
+    private void AddMobileHelper() => ShowMobileStudioDirectory();
 #pragma warning disable CA1422, CS0618
-    private void PickMobileImage(Action<byte[]> apply) { mobileImageChosen = apply; StartActivityForResult(new Intent(Intent.ActionOpenDocument).SetType("image/*").AddCategory(Intent.CategoryOpenable), 20); }
+    private int mobileImageMaximumBytes = 10_000_000;
+    private void PickMobileImage(Action<byte[]> apply, int maximumBytes = 10_000_000) { mobileImageMaximumBytes = maximumBytes; mobileImageChosen = apply; StartActivityForResult(new Intent(Intent.ActionOpenDocument).SetType("image/*").AddCategory(Intent.CategoryOpenable), 20); }
 #pragma warning restore CA1422, CS0618
     private void ReadMobileImage(global::Android.Net.Uri uri)
     {
-        var apply = mobileImageChosen; mobileImageChosen = null;
+        var apply = mobileImageChosen; int maximumBytes = mobileImageMaximumBytes; mobileImageChosen = null;
         MobileHomeAction(() =>
         {
             using var source = ContentResolver!.OpenInputStream(uri) ?? throw new IOException("이미지를 열지 못했어."); using var memory = new MemoryStream(); var buffer = new byte[8192]; int read;
-            while ((read = source.Read(buffer, 0, buffer.Length)) > 0) { if (memory.Length + read > 10_000_000) throw new InvalidDataException("10 MB 이하 이미지를 선택해줘."); memory.Write(buffer, 0, read); }
+            while ((read = source.Read(buffer, 0, buffer.Length)) > 0) { if (memory.Length + read > maximumBytes) throw new InvalidDataException("선택한 이미지가 허용 크기를 넘었어."); memory.Write(buffer, 0, read); }
             byte[] bytes = memory.ToArray(); using var bounds = new BitmapFactory.Options { InJustDecodeBounds = true }; using var ignored = BitmapFactory.DecodeByteArray(bytes, 0, bytes.Length, bounds);
             if (bounds.OutWidth <= 0 || bounds.OutHeight <= 0) throw new InvalidDataException("지원하는 이미지 파일을 선택해줘."); int sample = 1; while (Math.Max(bounds.OutWidth, bounds.OutHeight) / sample > 1024) sample *= 2;
             using var options = new BitmapFactory.Options { InSampleSize = sample }; using var bitmap = BitmapFactory.DecodeByteArray(bytes, 0, bytes.Length, options) ?? throw new InvalidDataException("이미지를 읽지 못했어."); using var output = new MemoryStream(); if (!bitmap.Compress(Bitmap.CompressFormat.Png!, 100, output)) throw new IOException("이미지를 저장하지 못했어."); apply?.Invoke(output.ToArray());

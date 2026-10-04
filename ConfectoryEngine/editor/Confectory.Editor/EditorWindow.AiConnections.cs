@@ -59,7 +59,7 @@ public sealed partial class EditorWindow
                 if (connected.Account is not null) ShowAccount(connected.Account);
                 models.ItemsSource = connected.Models ?? Array.Empty<AssistantModel>();
                 if (connected.Assistant is IResidentAssistant resident) models.SelectedItem = connected.Models?.FirstOrDefault(m => m.Id == resident.Model);
-                editingAgentId = ""; CompleteStudioSetup(); dialog.Close();
+                editingAgentId = ""; CompleteStudioSetup(); RefreshStudioDirectories(); dialog.Close();
             }, () => dialog.Close(),
             select => { var picker = new OpenFileDialog { Filter = "Assistant DLL|*.dll" }; if (picker.ShowDialog(dialog) == true) select(picker.FileName); },
             action => Dispatcher.Invoke(action), () => !busy && !WorkersRunning);

@@ -20,13 +20,11 @@ adapters, regression checks and remote CI, actual Linux screen/input flows,
 final exact remote main SHA, and an executable package delivered through Library.
 Report source/reference compilation separately from desktop/device execution.
 
-Current next checkpoint: trusted engine-pack ownership of common shell actions. Agent connection/model UI and secure input are published as 61c747efc40e435f2d35e1398b16e08eb3a28035; native verification compilation was corrected in e72b3eb247e8b56002e4ed20312a1335ee7978a6. The recent
-project checkpoint is published as f20337b404fdff3f2244eaaf5bae6b03a84c7f63;
-all five remote CI jobs passed in run 37183768783. Startup motion/home branding is published as
-e91cf44a4ac67bc72853c0956b43b8775b27d10c; all five remote CI jobs passed in
-run 37184934309. Continue Agent connection/model/Helper management next, then
-workspace, conversations, collaboration, pack management and granular review.
-Do not mistake this checkpoint for completion of the overall task.
+Current turn scope: finish and publish only the Agent/Helper profile and global
+Helper directory checkpoint on top of d0104dd1aab8c7de55f64f69ad69954a049be04f.
+Do not start workspace or conversation migration in this turn. The broader
+acceptance matrix remains incomplete; the next worker resumes it from this
+checkpoint after reading the handoff below. Ordinary main pushes are authorized.
 
 All three editor hosts must mount the same installed engine pack elements and
 invoke the same shared actions. Native adapters own drawing, input, measurement,
@@ -38,9 +36,9 @@ Project packs cannot replace the trusted shell or access credentials.
 | Flow | Existing behavior to preserve | Migration status |
 | --- | --- | --- |
 | Startup | vector logo, staged entrance, logo flight to home, Connect/Later, saved Agent skip | pack presentation, trusted motion, saved-identity state and home branding shared; local verification passed |
-| Agents | provider/auth/model/profile selection, restore, enabled state, private credentials | pending |
-| Helpers | avatar/character/memories, Main Helper and worker roles | creation and MAIN selection shared within project creation; profiles pending |
-| Project home | recent cards, icons, rename/delete, last opened | shared cards/actions, branding and motion published; native directory surfaces still pending |
+| Agents | provider/auth/model/profile selection, restore, enabled state, private credentials | setup/provider policy and private profiles shared; restore/enabled/reconnect menus pending |
+| Helpers | avatar/character/memories, Main Helper and worker roles | creation and MAIN selection shared within project creation; private profiles and global creation directory shared; workspace roles pending |
+| Project home | recent cards, icons, rename/delete, last opened | shared cards/actions, branding and motion published; common Agent/Helper directory mounted; workspace sidebar surfaces pending |
 | Creation | name/icon/description/path, Main Agent/Helpers | shared controller and pack view mounted; portable and SDL input verified |
 | Workspace | independent project surface, role characters, movable panels and persisted layout | pending |
 | Conversation | send/stream/cancel/history/context, reviewed changes, no automatic requests on open | pending |
@@ -113,7 +111,9 @@ Common Agent connection/model selection and private input were published in
 61c747efc40e435f2d35e1398b16e08eb3a28035. Its new Windows native test used the
 wrong namespace for EditorWindowState; e72b3eb247e8b56002e4ed20312a1335ee7978a6
 corrected that reference. All five remote jobs passed in run 37187565091.
-Latest exact published main: e72b3eb247e8b56002e4ed20312a1335ee7978a6.
+Latest exact published main: d0104dd1aab8c7de55f64f69ad69954a049be04f.
+Action ownership checkpoint d0104dd passed all five remote CI jobs in run
+37188287264.
 
 The common workflow requires API transmission consent, safe indexed model
 choices, separate CLI-install consent, staged provider ownership, encrypted
@@ -134,7 +134,7 @@ Android device execution is not represented by reference compilation or APK CI.
 
 ## Structural checkpoint review
 
-The next uncommitted checkpoint moves implementation, not just source placement:
+The published d0104dd checkpoint moves implementation, not just source placement:
 CoreTools supplies IEditorStudioActions from its verified installed DLL. Startup
 saved-identity/home-entry policy, home, project creation, Agent connection and
 provider creation/model/account policy compile into that engine pack. Host
@@ -155,7 +155,7 @@ screenshots stay outside Git under
 /workspace/scratch/studio-pack-actions.png.{startup,home,agent}.png.
 
 These successful flows do not establish full shell parity. Native Agent menus/
-reconnect, profile/Helper management, conversations, collaboration, pack/review
+reconnect, workspace Helper roles, conversations, collaboration, pack/review
 flows and the Linux toolbar/manual project surface remain active. Replace those
 paths with the same trusted pack actions. Preserve the acceptance matrix above.
 Physical source relocation or passing tests for one flow is insufficient evidence
@@ -163,3 +163,96 @@ that all native business workflows migrated. No final executable Library package
 has been delivered for the complete migration because it is not complete.
 
 Continue the current migration; do not return to the old repository-sync task.
+
+## Profile / global Helper directory checkpoint handoff
+
+This checkpoint implements common pack-owned name/avatar/character/private-memory/
+experience actions and the global Helper creation directory. It is a bounded
+checkpoint, not completion of the common shell migration. Implementation lives in
+`editor/Packs/CoreTools/StudioProfile.cs`, `StudioDirectory.cs`, `StudioActions.cs`
+and `ui.xml`; the private ABI is `editor/Confectory.EditorPacks/StudioShellActions.cs`.
+Every host calls the verified installed CoreTools factory. Project overlays cannot
+supply these private actions. No provider request is made by opening a profile,
+listing identities, reading experience, creating a Helper or saving private data.
+
+The pack validates names, owns explicit save/rollback, stages images until use or
+cancel, stores new private assets under unique paths and preserves old image bytes
+on removal. Avatar and character are independent. Invalid existing images show an
+empty preview without hiding the profile/directory. The common limit is 12 MiB;
+native adapters generate bounded PNG thumbnails. `editor.image` respects the
+pack's 96/128/240 size and aspect ratio rather than drawing a tiny concept slot.
+Private experience contents are read only after an explicit click; `editor.readonly`
+supports selection/copy/scroll and is excluded from editable window snapshots.
+Helper memory scope stays explicitly project-local or global across projects.
+
+Native mounting/picker/thumbnail paths:
+- Windows: `editor/Confectory.Editor/EditorWindow.ProjectHome.cs`, with profile
+  aliases in `EditorWindow.Studio.cs`; native renderer in `EditorPackBackend.cs`.
+- Android: `editor/Confectory.Editor.Android/MainActivity.ProjectHome.cs`, with
+  alias in `MainActivity.Incidents.cs`; native renderer in `AndroidPackBackend.cs`.
+  Superseded `MainActivity.HelperImages.cs` and request-code 3 handling are removed.
+- Linux: `editor/Confectory.Editor.Linux/EditorSurface.cs` and `LinuxPackBackend.cs`.
+  Temporary path pickers retain the common profile/directory and restore pack titles;
+  scrolled content and hit testing stay within the profile/directory viewport.
+
+Portable fixtures are in `tests/Confectory.EditorPacks.Verification/LiveViewVerification.cs`;
+WPF renderer regression checks are in `tests/Confectory.Editor.Native.Verification/Program.cs`;
+actual SDL pointer/text/keyboard fixtures are in
+`editor/Confectory.Editor.Linux/EditorSurface.Verification.cs`. All service and
+credential verification uses isolated fakes; no real authentication, paid inference,
+credential registration or external CLI install is part of the tests. Screenshots,
+logs and build outputs remain under `/workspace/scratch` or ignored build folders.
+
+Structural limitations and next worker scope (not implemented in this turn):
+- Windows `EditorWindow.ProjectHome.cs` / `EditorWindow.Studio.cs` still own worker
+  participant-name projection, Join and workspace sidebar role selection. Android
+  `MainActivity.ProjectHome.cs` / `MainActivity.Studio.cs` retain equivalent worker
+  orchestration. Move these business paths with shared workspace/conversations.
+- Linux Join is explicitly disabled because worker/conversation support is absent;
+  its generic toolbar/manual project surface still lacks full common shell parity.
+- Agent restore/enabled/disconnect/reconnect/model/account management still has
+  active native menus in `EditorWindow.AiConnections.cs`, `MainActivity.AiConnections.cs`
+  and the host project-home/sidebar files. Setup alone does not migrate all management.
+- Workspace, send/stream/cancel/history/pointing, collaboration/Yogi/participants/
+  inbox/handoffs/incidents and authoring/inheritance/global/import/export/plugins/
+  granular review remain as described in the acceptance matrix. Keep scope separate.
+- Specification paths: this acceptance matrix, `docs/PROJECT_EXECUTION.md`,
+  `docs/UI_PACKS.md`, `docs/INHERITANCE.md`, `docs/TIMING.md`, `docs/CAMERA.md` and
+  the repository/engine `AGENTS.md`. Read relevant contracts before each phase.
+- Final executable delivery through Library awaits the complete shell; no incomplete
+  package is delivered as completion by this checkpoint.
+
+Local final validation: engine isolation passed; Studio 225, authoring 39 and
+common editor packs 467 checks passed; the full selected external consumer clean
+build/verification campaign passed. Forced Windows net48 and Android source/reference
+builds, CoreTools net48 and native Windows test compilation passed with zero errors.
+Actual Linux SDL window/input passed PROFILE GLOBAL_MEMORY IMAGE_REVIEW
+READONLY_EXPERIENCE alongside startup, Agent setup, home and creation regressions.
+Pixel checks verify staged preview rendering; screenshots were visually inspected
+for full-size avatars and clean scrolled viewport/title restoration. This is actual
+SDL execution in this cloud environment, not an Android device test or a claim that
+the user's desktop package was executed. Windows native runtime is validated by
+remote CI separately. No final Library executable is produced for this partial scope.
+
+Implementation commit subject: `Share private profiles and global Helper directory
+through the trusted engine pack`. It follows d0104dd1aab8c7de55f64f69ad69954a049be04f;
+use `git log --all --format='%H %s' --grep='Share private profiles and global Helper directory'`
+to resolve the exact checkpoint hash. Remote CI evidence will be recorded in a
+documentation-only handoff update after the implementation commit is verified.
+
+## User-approved follow-on sequence (do not mix into current migration)
+
+Complete the common shell acceptance matrix and executable delivery first.
+Then implement, sequentially: foreman Task/Callback persistence foundation;
+instant data tables; augmentation; render inheritance/authoring. The parent will
+supply the complete follow-on specifications at their implementation stages.
+Preserve each stage's specification, decisions, outstanding work, checks and
+commits in repository documents for disconnect/context recovery.
+
+Current Helper/workspace/collaboration constraints: Helpers have a global memory
+space and can move between projects. Explicitly retain brief, meaningful larger
+context. Unconfirmed changes remain local changes. Changes arriving at an active
+work target use the existing conflict/collision Callback behavior. Do not add a
+new scheme that locks another participant's work solely because an unconfirmed
+change exists. The profile/global-memory work must preserve these semantics;
+Task/Callback persistence or new data/render designs are not part of this turn.

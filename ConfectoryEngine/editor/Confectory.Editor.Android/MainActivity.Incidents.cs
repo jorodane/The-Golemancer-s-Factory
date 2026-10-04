@@ -99,17 +99,5 @@ public sealed partial class MainActivity
             { studioSession.Collaboration.Triage(incident.Id, "human", people[selected.Which].Id, severities[severity.Which], "사용자가 신문고에서 지정"); })!.Show();
         })!.Show();
     }
-    private void OpenMobileHelper(AiHelper helper)
-    {
-        var panel = new LinearLayout(this) { Orientation = Orientation.Vertical }; var scroll = new ScrollView(this); scroll.AddView(panel);
-        AddHelperImage(panel, helper);
-        panel.AddView(AiAction("대화 · 프로젝트 참여", () => { var worker = CreateMobileWorker(helper); if (worker is not null) OpenMobileWorker(worker); }));
-        panel.AddView(AiAction("이름 바꾸기", () => MobileName("이름", name => { if (string.IsNullOrWhiteSpace(name) || name.Length > 80) throw new ArgumentException("이름은 1–80자로 입력해줘."); helper.Name = name; foreach (var worker in mobileWorkers.Where(w => w.Participant.HelperId == helper.Id)) worker.Participant.Name = name; studioSession.Collaboration.Save(); SaveMobileDirectory(); RefreshMobileManagement(); })));
-        panel.AddView(AiAction("프로젝트 기억 추가", () => MobileName("기억할 내용", text => { mobileDirectory.Remember(helper.Id, text, studioSession.Project.Identity); SaveMobileDirectory(); })));
-        panel.AddView(AiAction("공통 기억 추가", () => MobileName("프로젝트를 넘어 기억할 내용", text => { mobileDirectory.Remember(helper.Id, text, ""); SaveMobileDirectory(); })));
-        foreach (var memory in helper.Memories.ToArray()) { panel.AddView(new TextView(this) { Text = (memory.Project.Length == 0 ? "공통" : "프로젝트") + " · " + memory.Text }); panel.AddView(AiAction("이 기억 잊기", () => { helper.Memories.Remove(memory); SaveMobileDirectory(); Report("기억을 지웠어."); })); }
-        string directory = Path.Combine(root, "Helpers", helper.Id);
-        if (Directory.Exists(directory)) foreach (var history in Directory.GetFiles(directory, "*.json", SearchOption.AllDirectories)) panel.AddView(AiAction(Path.GetFileName(history) == "first-experience.json" ? "최초 경험 보기" : "프로젝트 경험 보기", () => { var view = new TextView(this) { Text = File.ReadAllText(history) }; view.SetTextIsSelectable(true); var list = new ScrollView(this); list.AddView(view); new AlertDialog.Builder(this).SetTitle(helper.Name + " · 경험")!.SetView(list)!.SetNegativeButton("닫기", (_, _) => { })!.Show(); }));
-        new AlertDialog.Builder(this).SetTitle(helper.Name)!.SetView(scroll)!.SetNegativeButton("닫기", (_, _) => { })!.Show();
-    }
+    private void OpenMobileHelper(AiHelper helper) => ShowMobileStudioProfile(null, helper);
 }

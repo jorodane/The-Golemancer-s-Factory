@@ -15,6 +15,7 @@ public sealed class StudioProjectHome : IEditorStudioProjectHome
     private readonly Action<string> open, folder;
     private readonly Action<Action<byte[], string>> iconPicker;
     private readonly Action<Action> onUi;
+    private readonly Action? manage;
     private readonly Func<bool> idle;
     private readonly Dictionary<string, string> drafts = new(StringComparer.Ordinal);
     private readonly UiSignal error = new(UiValue.Text(""));
@@ -23,10 +24,10 @@ public sealed class StudioProjectHome : IEditorStudioProjectHome
     public EditorLiveView View { get; }
     public StudioProjectHome(EditorStudioPresentation presentation, IUiBackend backend, AssistantSettings settings,
         Action save, Action create, Action<string> open, Action<string> folder, Action<Action<byte[], string>> iconPicker,
-        Action<Action> onUi, Func<bool>? idle = null)
+        Action<Action> onUi, Func<bool>? idle = null, Action? manage = null)
     {
         this.presentation = presentation; this.settings = settings; this.save = save; this.create = create; this.open = open;
-        this.folder = folder; this.iconPicker = iconPicker; this.onUi = onUi; this.idle = idle ?? (() => true);
+        this.manage = manage; this.folder = folder; this.iconPicker = iconPicker; this.onUi = onUi; this.idle = idle ?? (() => true);
         var state = Build(); View = new(state.Catalog, "editor.studio.home.state", state.Context, backend);
     }
     private void Guard(Action action)
@@ -37,7 +38,8 @@ public sealed class StudioProjectHome : IEditorStudioProjectHome
     }
     private (UiCatalog Catalog, UiContext Context) Build()
     {
-        var context = new UiContext(); context.AddValue("studio.home.error", error);
+        var context = new UiContext(); context.AddValue("studio.home.error", error); context.AddValue("studio.home.canManage", new UiSignal(UiValue.Boolean(manage is not null)));
+        context.AddCommand("studio.home.manage", UiValueKind.None, _ => { if (disposed) return; try { manage?.Invoke(); } catch (Exception e) { error.Set(UiValue.Text(e.Message)); } });
         context.AddCommand("studio.home.create", UiValueKind.None, _ => Guard(create));
         var cards = new List<XElement> { presentation.Template("editor.studio.project-new") };
         foreach (var entry in ProjectCatalog.Recent(settings))

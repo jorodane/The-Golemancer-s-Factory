@@ -70,6 +70,54 @@ internal sealed partial class EditorSurface
         var setupFlight = System.Diagnostics.Stopwatch.StartNew();
         while (homeFlightClock.IsRunning && setupFlight.ElapsedMilliseconds < 2000) { native.Pump(); Tick(); native.Paint(); Thread.Sleep(5); }
         Check(!homeFlightClock.IsRunning && brandFlight.Count == 0, "Agent startup flight restores home input");
+        void Reveal(string id)
+        {
+            scroll = 0; native.Paint(); float maximum = Math.Max(0, contentHeight - viewportHeight + 150);
+            for (float position = 0; position <= maximum + 120; position += 120)
+            {
+                scroll = Math.Min(maximum, position); native.Paint(); if (!backend.Bounds(id).IsEmpty && backend.Bounds(id).Height > 15) return;
+            }
+            Check(false, "revealed shared profile control " + id);
+        }
+        var profileDirectory = new AiDirectory(); var profileAgent = profileDirectory.AddAgent("Profile fixture", new() { Provider = "openai", Model = "fixture-model" });
+        string profileRoot = Path.Combine(Path.GetDirectoryName(session.Project.Root)!, "FixtureProfiles"); int profileSaves = 0;
+        ShowStudioDirectory(profileDirectory, () => profileSaves++, profileRoot);
+        Reveal("directory-name"); EditCreation("directory-name", "전역 도우미"); Reveal("directory-create-helper"); Click("directory-create-helper");
+        var globalHelper = profileDirectory.Helpers.Single(); Check(profileSaves == 1 && globalHelper.AgentId == profileAgent.Id, "real SDL creates a global Helper through the installed pack action");
+        string historyFolder = Path.Combine(profileRoot, "Helpers", globalHelper.Id); Directory.CreateDirectory(historyFolder);
+        string privateHistory = string.Join("\n", Enumerable.Range(0, 50).Select(i => "개인 경험 " + i));
+        File.WriteAllText(Path.Combine(historyFolder, "first-experience.json"), privateHistory);
+        Reveal("directory-helper-0"); Click("directory-helper-0"); Check(mode == "profile", "shared directory opens the common Helper profile");
+        Reveal("profile-name"); EditCreation("profile-name", "이름 변경 도우미"); Reveal("profile-save-name"); Click("profile-save-name");
+        Check(globalHelper.Name == "이름 변경 도우미", "real SDL profile saves the explicit Unicode name");
+        Reveal("profile-memory"); EditCreation("profile-memory", "짧은 전역 맥락"); Reveal("profile-scope"); Click("profile-scope"); Reveal("profile-remember"); Click("profile-remember");
+        Check(globalHelper.Memories.Single().Project.Length == 0 && profileDirectory.PrivateContext(globalHelper.Id, "different-project").Contains("짧은 전역 맥락"), "real SDL global memory follows the Helper across projects without inference");
+        string portrait = Path.Combine(profileRoot, "selected.png"); Directory.CreateDirectory(profileRoot);
+        using (var bitmap = new SkiaSharp.SKBitmap(16, 16)) { bitmap.Erase(SkiaSharp.SKColors.Teal); using var image = SkiaSharp.SKImage.FromBitmap(bitmap); using var encoded = image.Encode(SkiaSharp.SKEncodedImageFormat.Png, 100); File.WriteAllBytes(portrait, encoded.ToArray()); }
+        Reveal("profile-pick-avatar"); Click("profile-pick-avatar"); EditCreation("answer", portrait); Reveal("confirm"); Click("confirm");
+        Check(mode == "profile" && title.Contains("Helper") && globalHelper.AvatarPath.Length == 0, "native file input returns to the same unsaved common preview");
+        Reveal("profile-preview-image");
+        Check(((Element)studioProfile!.View.Element("profile-preview-image")).Renderer == "editor.image" && backend.Bounds("profile-preview-image").Width == 240 && backend.Bounds("profile-preview-image").Top >= 56, "shared preview uses its full declared image box rather than a concept slot");
+        if (screenshot.Length > 0)
+        {
+            native.Screenshot(screenshot + ".preview.png");
+            using var rendered = SkiaSharp.SKBitmap.Decode(screenshot + ".preview.png"); var box = backend.Bounds("profile-preview-image");
+            Check(rendered.GetPixel((int)box.MidX, (int)box.MidY) == SkiaSharp.SKColors.Teal, "actual SDL preview renders the staged image at the center of its declared box");
+        }
+        Reveal("profile-cancel-image"); Click("profile-cancel-image"); Check(globalHelper.AvatarPath.Length == 0, "real SDL image cancellation does not publish an avatar");
+        Reveal("profile-pick-avatar"); Click("profile-pick-avatar"); EditCreation("answer", portrait); Reveal("confirm"); Click("confirm");
+        Reveal("profile-use-image"); Click("profile-use-image"); Check(File.Exists(globalHelper.AvatarPath), "real SDL preview confirmation publishes only the selected device-owned image");
+        if (screenshot.Length > 0) { scroll = 0; native.Paint(); native.Screenshot(screenshot + ".profile.png"); }
+        Reveal("profile-history-0"); Click("profile-history-0"); Reveal("profile-experience"); Click("profile-experience");
+        var experience = (Element)studioProfile!.View.Element("profile-experience");
+        native.PushText("must-not-edit"); native.Pump();
+        Check(experience.Text("text") == privateHistory && !backend.Capture().Values.ContainsKey("profile-experience"), "private experience is explicitly opened, read-only and excluded from editable state");
+        native.PushKey(1073742048, true); native.PushKey('a', true); native.PushKey('a', false); native.PushKey('c', true); native.PushKey('c', false); native.PushKey(1073742048, false); native.Pump();
+        Check(NativeWindow.Clipboard == privateHistory, "read-only experience supports explicit native select and copy");
+        native.PushKey(1073741902, true); native.PushKey(1073741902, false); native.Pump(); native.Paint();
+        Check(experience.FirstLine > 0 && backend.ScrollReadOnly(1), "long private experience supports native page and inner-wheel scrolling");
+        Reveal("profile-close"); Click("profile-close"); Check(mode == "directory", "Linux profile closure restores the retained directory and creation draft");
+        Reveal("directory-close"); Click("directory-close"); Check(mode == "home", "shared directory closes without reconnecting a provider");
         ShowNewProject(new());
         void EditCreation(string id, string text)
         {
@@ -126,7 +174,7 @@ internal sealed partial class EditorSurface
         while ((mode == "startup" || homeFlightClock.IsRunning) && automaticClock.ElapsedMilliseconds < 2500) { native.Pump(); Tick(); native.Paint(); Thread.Sleep(5); }
         Check(mode == "home" && studioStartup!.SavedAgent == savedProfile && !homeFlightClock.IsRunning, "saved Agent automatically reaches home with the common motion state and no provider request");
         ShowObjects(concept.Id); status = "Native verification passed · SDL input, semantic save, DLL command and dynamic window"; native.Paint();
-        Console.WriteLine("LINUX_EDITOR_SMOKE_PASS SDL_WINDOW STARTUP AGENT_CONNECTION PRIVATE_INPUT PROJECT_CREATION PROJECT_HOME TEXT_INPUT POINTER SCHEMA_SAVE PACK_DLL DYNAMIC_VIEW");
+        Console.WriteLine("LINUX_EDITOR_SMOKE_PASS SDL_WINDOW STARTUP AGENT_CONNECTION PRIVATE_INPUT PROFILE GLOBAL_MEMORY IMAGE_REVIEW READONLY_EXPERIENCE PROJECT_CREATION PROJECT_HOME TEXT_INPUT POINTER SCHEMA_SAVE PACK_DLL DYNAMIC_VIEW");
     }
     private sealed class VerificationCredentials : IAiCredentialStore
     {

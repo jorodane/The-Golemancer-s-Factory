@@ -115,12 +115,7 @@ public sealed partial class EditorWindow
         projectWorkspaceVisible = false; OpenProject(path); RefreshStudioShell();
     });
     private void RefreshAiManagement() { if (aiProfile?.IsOpen != true) BuildAiSidebar(); RefreshProjectAiRoles(); }
-    private void AddHelper() => PickAgent(this, aiDirectory.SelectedAgentId, id =>
-    {
-        if (id.Length == 0) return;
-        var agent = aiDirectory.Agent(id);
-        AskName("새 도우미", "도우미 " + (aiDirectory.Helpers.Count + 1), name => { aiDirectory.CreateHelper(agent.Id, name); SaveAiDirectory(); });
-    });
+    private void AddHelper() => ShowStudioDirectory();
     private void AskName(string title, string initial, Action<string> save)
     {
         var dialog = new Window { Owner = this, Title = title, Width = 400, SizeToContent = SizeToContent.Height, Background = PanelInk, Foreground = TextInk };
@@ -150,39 +145,8 @@ public sealed partial class EditorWindow
         var worker = workers.Single(w => w.Participant.Id == p.Id); if (open) SelectWorker(worker); ShowProjectWorkspace(); tabs.SelectedIndex = 0;
         SetStatus(helper.Name + "가 참여했어. 개인 기억은 이 도우미에게만 전달돼.");
     }
-    private void EditHelperMemory(AiHelper helper)
-    {
-        var dialog = new Window { Owner = this, Title = helper.Name + " · 개인 기억", Width = 650, Height = 620, Background = PanelInk, Foreground = TextInk };
-        var panel = new DockPanel { Margin = new Thickness(15) }; var bottom = new StackPanel(); var input = Input(true); input.Height = 100; bottom.Children.Add(input);
-        var global = Setting("프로젝트를 넘어 기억하기"); bottom.Children.Add(global); var rows = new StackPanel();
-        void Refresh() { rows.Children.Clear(); foreach (var memory in helper.Memories.ToArray()) { rows.Children.Add(Label((memory.Project.Length == 0 ? "공통" : "프로젝트") + " · " + memory.Text)); rows.Children.Add(Action("잊기", () => { helper.Memories.Remove(memory); SaveAiDirectory(); Refresh(); })); } }
-        bottom.Children.Add(Action("기억 추가", () => Guard(() => { aiDirectory.Remember(helper.Id, input.Text, global.IsChecked == true ? "" : session?.Project.Identity ?? ""); SaveAiDirectory(); input.Clear(); Refresh(); })));
-        DockPanel.SetDock(bottom, Dock.Bottom); panel.Children.Add(bottom); panel.Children.Add(new ScrollViewer { Content = rows, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
-        dialog.Content = panel; Refresh(); dialog.Show();
-    }
-    private void EditHelperProfile(AiHelper helper)
-    {
-        var window = new Window { Owner = this, Title = helper.Name + " · 도우미", Width = 470, SizeToContent = SizeToContent.Height, Background = PanelInk, Foreground = TextInk };
-        var panel = new StackPanel { Margin = new Thickness(18) }; panel.Children.Add(AiCircle(helper.Name, helper.AvatarPath, () => { }, main: !Standalone && helper.Id == projectStudio.MainHelperId, size: 64)); var name = Input(); name.Text = helper.Name; panel.Children.Add(name);
-        panel.Children.Add(Action("이름 저장", () => Guard(() =>
-        {
-            if (string.IsNullOrWhiteSpace(name.Text) || name.Text.Trim().Length > 80) throw new ArgumentException("이름은 1–80자로 입력해줘.");
-            helper.Name = name.Text.Trim(); foreach (var worker in workers.Where(w => w.Participant.HelperId == helper.Id)) { worker.Participant.Name = helper.Name; RenderWorker(worker); } session?.Collaboration.Save(); SaveAiDirectory();
-        })));
-        panel.Children.Add(Action("이미지 선택", () => Guard(() =>
-        {
-            var file = new Microsoft.Win32.OpenFileDialog { Filter = "이미지|*.png;*.jpg;*.jpeg;*.bmp" }; if (file.ShowDialog(window) != true) return;
-            if (new FileInfo(file.FileName).Length > 10_000_000) throw new InvalidDataException("10 MB 이하 이미지를 선택해줘.");
-            Directory.CreateDirectory(HelperDirectory(helper.Id)); string target = Path.Combine(HelperDirectory(helper.Id), "avatar" + Path.GetExtension(file.FileName).ToLowerInvariant());
-            if (!string.Equals(file.FileName, target, StringComparison.OrdinalIgnoreCase)) File.Copy(file.FileName, target, true);
-            helper.AvatarPath = target; SaveAiDirectory(); foreach (var worker in workers.Where(w => w.Participant.HelperId == helper.Id)) RenderWorker(worker);
-        })));
-        panel.Children.Add(Action("기억 관리", () => EditHelperMemory(helper)));
-        string folder = HelperDirectory(helper.Id);
-        if (Directory.Exists(folder)) foreach (var history in Directory.GetFiles(folder, "*.json", SearchOption.AllDirectories))
-            panel.Children.Add(Action(Path.GetFileName(history) == "first-experience.json" ? "최초 경험 보기" : "프로젝트 경험 · " + Path.GetFileNameWithoutExtension(history).Substring(0, 8), () => { var view = ReadBox(); view.Text = File.ReadAllText(history); new Window { Owner = window, Title = helper.Name + " · 개인 경험", Width = 800, Height = 650, Content = view }.Show(); }));
-        window.Content = panel; window.Show();
-    }
+    private void EditHelperMemory(AiHelper helper) => ShowStudioProfile(null, helper);
+    private void EditHelperProfile(AiHelper helper) => ShowStudioProfile(null, helper);
     private UIElement BuildProjectChat()
     {
         var root = new DockPanel { Margin = new Thickness(3) }; var bottom = new StackPanel(); projectMessage.Height = 48; projectMessage.FontSize = 11; projectMessage.TextWrapping = TextWrapping.Wrap; bottom.Children.Add(projectMessage);

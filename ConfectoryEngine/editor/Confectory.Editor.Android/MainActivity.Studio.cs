@@ -40,25 +40,6 @@ public sealed partial class MainActivity
         public string[] DisplayedMessageIds = [];
         public bool Completed;
     }
-    private void ManageMobileAgent(AiAgentProfile agent)
-    {
-        new AlertDialog.Builder(this).SetTitle(agent.Name)!.SetItems(new[] { "선택", agent.Enabled ? "연결 해제" : "활성화", "이름 변경" }, (_, choice) =>
-        {
-            try
-            {
-                if (choice.Which == 2) { MobileName("에이전트 이름", name => { if (string.IsNullOrWhiteSpace(name) || name.Length > 80) throw new ArgumentException("이름은 1–80자로 입력해줘."); agent.Name = name; SaveMobileDirectory(); RefreshMobileManagement(); RefreshMobileSidebarChat(); }); return; }
-                if (choice.Which == 1)
-                {
-                    if (mobileWorkers.Any(w => w.Participant.AgentId == agent.Id && w.Cancellation is not null)) throw new InvalidOperationException("이 에이전트의 작업을 먼저 끝내줘.");
-                    agent.Enabled = !agent.Enabled; foreach (var worker in mobileWorkers.Where(w => w.Participant.AgentId == agent.Id)) { worker.Assistant?.Dispose(); worker.Assistant = null; }
-                    if (mobileDirectory.SelectedAgentId == agent.Id) { editorAi?.Dispose(); editorAi = null; }
-                }
-                else { if (!agent.Enabled) throw new InvalidOperationException("에이전트를 먼저 활성화해줘."); SelectMobileAgent(agent); }
-                SaveMobileDirectory(); RefreshMobileManagement();
-            }
-            catch (Exception e) { Report(e.Message); }
-        })!.Show();
-    }
     private void SelectMobileAgent(AiAgentProfile agent)
     {
         if (!ReferenceEquals(aiConnections.Editor, agent.Connection)) { editorAi?.Dispose(); editorAi = null; }

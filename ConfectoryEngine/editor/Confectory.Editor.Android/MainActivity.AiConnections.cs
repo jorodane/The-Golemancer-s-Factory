@@ -79,7 +79,7 @@ public sealed partial class MainActivity
             {
                 SelectMobileAgent(profile); editorAi?.Dispose(); editorAi = (ApiAssistant)connected.Assistant;
                 foreach (var worker in mobileWorkers.Where(w => w.Participant.AgentId == profile.Id)) { worker.Assistant?.Dispose(); worker.Assistant = null; }
-                mobileEditingAgent = ""; aiConnections.SetupCompleted = true; SaveAiConnections(); dialog.Dismiss(); Report("에이전트 연결됨 · " + profile.Connection.Name);
+                mobileEditingAgent = ""; aiConnections.SetupCompleted = true; SaveAiConnections(); RefreshMobileStudioDirectories(); dialog.Dismiss(); Report("에이전트 연결됨 · " + profile.Connection.Name);
             }, () => dialog.Dismiss(), _ => { }, OnAiUi, () => !aiWorking && !aiConnecting && operation.CurrentCount > 0);
         var scroll = new ScrollView(this); scroll.AddView(((AndroidPackBackend.Element)model.View.Root).Control);
         dialog.SetContentView(scroll); dialog.DismissEvent += (_, _) => { model.Dispose(); if (ReferenceEquals(agentConnectionDialog, dialog)) agentConnectionDialog = null; }; dialog.Show();

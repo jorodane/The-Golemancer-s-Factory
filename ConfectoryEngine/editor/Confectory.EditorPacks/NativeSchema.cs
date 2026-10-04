@@ -19,12 +19,13 @@ public static class EditorNativeSchema
     { double number = UiVector2.Finite(value); return number >= min && number <= max ? number : throw new InvalidDataException("Editor layout value is outside its supported range."); }
     public static bool Supports(string renderer, UiWidgetDefinition widget, string platform = "windows")
     {
-        if (renderer is not ("editor.stack" or "editor.text" or "editor.button" or "editor.input" or "editor.inline" or "editor.card" or "editor.wrap" or "editor.slot" or "editor.vector" or "editor.grid" or "editor.tile" or "editor.secret")) return false;
+        if (renderer is not ("editor.stack" or "editor.text" or "editor.button" or "editor.input" or "editor.inline" or "editor.card" or "editor.wrap" or "editor.slot" or "editor.vector" or "editor.grid" or "editor.tile" or "editor.secret" or "editor.readonly" or "editor.image")) return false;
         var properties = new Dictionary<string, UiValueKind> { ["enabled"] = UiValueKind.Boolean, ["visible"] = UiValueKind.Boolean,
             ["tooltip"] = UiValueKind.Text, ["fontSize"] = UiValueKind.Number, ["margin"] = UiValueKind.Number, ["foreground"] = UiValueKind.Text, ["background"] = UiValueKind.Text, ["alignment"] = UiValueKind.Text };
         if (renderer == "editor.secret") properties.Add("clearRevision", UiValueKind.Number);
         else if (renderer == "editor.grid") properties.Add("columns", UiValueKind.Number);
         else if (renderer is "editor.stack" or "editor.wrap" or "editor.card" or "editor.tile") properties.Add("orientation", UiValueKind.Text);
+        else if (renderer == "editor.image") properties.Add("image", UiValueKind.Text);
         else if (renderer == "editor.vector") properties.Add("polygons", UiValueKind.Text);
         else if (renderer == "editor.slot")
         { foreach (string name in new[] { "image", "glyph", "value", "tint" }) properties.Add(name, UiValueKind.Text); properties.Add("count", UiValueKind.Number); }

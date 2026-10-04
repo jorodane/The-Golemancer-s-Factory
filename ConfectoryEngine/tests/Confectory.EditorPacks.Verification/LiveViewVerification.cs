@@ -108,6 +108,59 @@ internal static class LiveViewVerification
                     ((Element)setup.View.Element("agent-install-consent")).Activate(); ((Element)setup.View.Element("agent-connect")).Activate();
                     Check(installService.ConnectCalls == 1 && installationDirectory.Agents.Count == 1, "common Codex installation consent reaches only the fixture service on " + platform);
                 }
+                var profiles = new AiDirectory(); var profileAgent = profiles.AddAgent("Profile Agent", new() { Provider = "openai", Model = "private-model" });
+                var profileHelper = profiles.CreateHelper(profileAgent.Id, "Global Helper");
+                string privateRoot = Path.Combine(creationRoot, "PrivateProfiles", platform); string historyFolder = Path.Combine(privateRoot, "Helpers", profileHelper.Id);
+                Directory.CreateDirectory(historyFolder); File.WriteAllText(Path.Combine(historyFolder, "a.json"), "private-history-fixture");
+                int profileSaves = 0, profileConnections = 0, profileJoins = 0, profileCloses = 0;
+                bool rejectProfileSave = false;
+                byte[] fixtureImage = new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 };
+                using (var profile = presentation.Actions.Profile(presentation, new Backend(platform), profiles, "", profileHelper.Id, privateRoot, "fixture-project",
+                    () => { if (rejectProfileSave) throw new IOException("fixture profile save failure"); profileSaves++; }, () => { }, () => profileConnections++, () => profileJoins++, () => profileCloses++,
+                    picked => picked(fixtureImage, ".png"), (_, _) => "", action => action()))
+                {
+                    void ProfileAction(string id) => ((Element)profile.View.Element(id)).Activate();
+                    void ProfileEdit(string id, string text) => ((Element)profile.View.Element(id)).Emit("changed", UiValue.Text(text));
+                    Check(profile.GetType().Assembly.GetName().Name == "Confectory.Editor.CoreTools" && profileConnections == 0 && profileSaves == 0 && ((Element)profile.View.Element("profile-experience")).Text == "", "same trusted profile mounts on " + platform + " without a provider request or reading experience contents");
+                    ProfileEdit("profile-name", "  이름 변경 Helper  ");
+                    Check(profileHelper.Name == "Global Helper", "private profile name changes remain drafts until save on " + platform);
+                    ProfileAction("profile-save-name"); Check(profileHelper.Name == "이름 변경 Helper" && profileSaves == 1, "pack-owned profile name validation persists the explicit trimmed value on " + platform);
+                    rejectProfileSave = true; ProfileEdit("profile-name", "Failed name"); ProfileAction("profile-save-name");
+                    Check(profileHelper.Name == "이름 변경 Helper", "failed private profile save preserves the existing name on " + platform); rejectProfileSave = false;
+                    ProfileAction("profile-pick-avatar");
+                    Check(profileHelper.AvatarPath.Length == 0 && Directory.GetFiles(historyFolder).Length == 1, "image selection stages a preview without writing private assets on " + platform);
+                    ProfileAction("profile-cancel-image"); Check(profileHelper.AvatarPath.Length == 0 && profileSaves == 1, "shared image cancellation preserves the old profile on " + platform);
+                    ProfileAction("profile-pick-avatar"); ProfileAction("profile-use-image"); string originalAvatar = profileHelper.AvatarPath;
+                    Check(File.Exists(originalAvatar) && File.ReadAllBytes(originalAvatar).SequenceEqual(fixtureImage), "only explicit preview confirmation stores a device-owned avatar on " + platform);
+                    rejectProfileSave = true; ProfileAction("profile-pick-avatar"); ProfileAction("profile-use-image");
+                    Check(profileHelper.AvatarPath == originalAvatar && Directory.GetFiles(historyFolder).Length == 2 && File.Exists(originalAvatar), "failed avatar publication removes only its newly staged file on " + platform); rejectProfileSave = false;
+                    ProfileAction("profile-pick-character"); ProfileAction("profile-use-image");
+                    Check(File.Exists(profileHelper.CharacterPath) && profileHelper.CharacterPath != originalAvatar, "the shared profile stores character and avatar independently on " + platform);
+                    ProfileAction("profile-remove-avatar"); Check(profileHelper.AvatarPath.Length == 0 && File.Exists(originalAvatar), "avatar removal preserves the existing user image bytes on " + platform);
+                    ProfileEdit("profile-memory", "Meaningful project context"); ProfileAction("profile-remember");
+                    ProfileAction("profile-scope"); ProfileEdit("profile-memory", "Brief global context"); ProfileAction("profile-remember");
+                    Check(profileHelper.Memories.Count == 2 && profileHelper.Memories[0].Project == "fixture-project" && profileHelper.Memories[1].Project.Length == 0 && profiles.PrivateContext(profileHelper.Id, "another-project").Contains("Brief global context") && !profiles.PrivateContext(profileHelper.Id, "another-project").Contains("Meaningful project context"), "global Helper memories move between projects while scoped memories stay private to their project on " + platform);
+                    rejectProfileSave = true; ProfileEdit("profile-memory", "Unsaved memory"); ProfileAction("profile-remember");
+                    Check(profileHelper.Memories.Count == 2 && !profiles.PrivateContext(profileHelper.Id, "fixture-project").Contains("Unsaved memory"), "failed memory save rolls back private context on " + platform);
+                    ProfileAction("memory-forget-0"); Check(profileHelper.Memories.Count == 2 && profileHelper.Memories[0].Text == "Meaningful project context", "failed forgetting restores the selected memory in its original position on " + platform); rejectProfileSave = false;
+                    ProfileAction("memory-forget-0"); Check(profileHelper.Memories.Count == 1 && profileHelper.Memories[0].Text == "Brief global context", "explicit forgetting changes only the selected private memory on " + platform);
+                    ProfileAction("profile-history-0"); Check(((Element)profile.View.Element("profile-experience")).Text == "private-history-fixture", "experience contents are read only through an explicit private action on " + platform);
+                    ProfileAction("profile-join"); ProfileAction("profile-close"); Check(profileJoins == 1 && profileCloses == 1 && profileConnections == 0, "profile delegates only explicit presentation/presence actions without inference on " + platform);
+                }
+                using (var profile = presentation.Actions.Profile(presentation, new Backend(platform), profiles, profileAgent.Id, "", privateRoot, "", () => { }, () => { }, () => profileConnections++, null, () => { }, _ => { }, (_, _) => "", action => action(), () => false))
+                {
+                    ((Element)profile.View.Element("profile-connect")).Activate(); Check(profileConnections == 0, "busy connection switching remains guarded without locking ordinary profile/memory drafts on " + platform);
+                }
+                profileHelper.AvatarPath = Path.Combine(historyFolder, "broken.png"); File.WriteAllText(profileHelper.AvatarPath, "broken existing asset");
+                using (var brokenProfile = presentation.Actions.Profile(presentation, new Backend(platform), profiles, "", profileHelper.Id, privateRoot, "", () => { }, () => { }, () => { }, null, () => { }, _ => { }, (_, _) => throw new InvalidDataException("fixture corrupt image"), action => action()))
+                    Check(((Element)brokenProfile.View.Element("profile-name")).Text == profileHelper.Name, "unreadable existing images cannot hide private profiles on " + platform);
+                int directorySaves = 0, addedAgents = 0, chosenProfiles = 0;
+                using (var identities = presentation.Actions.Directory(presentation, new Backend(platform), profiles, () => directorySaves++, () => { }, () => addedAgents++, (_, _) => chosenProfiles++, () => { }, (_, _) => throw new InvalidDataException("fixture corrupt image")))
+                {
+                    ((Element)identities.View.Element("directory-add-agent")).Activate(); ((Element)identities.View.Element("directory-helper-0")).Activate();
+                    ((Element)identities.View.Element("directory-name")).Emit("changed", UiValue.Text("Another Global Helper")); ((Element)identities.View.Element("directory-source-0")).Activate(); ((Element)identities.View.Element("directory-create-helper")).Activate();
+                    Check(addedAgents == 1 && chosenProfiles == 1 && directorySaves == 1 && profiles.Helpers.Count == 2 && profiles.Helpers.Last().AgentId == profileAgent.Id, "same pack directory routes explicit setup/profile actions and creates global Helpers on " + platform);
+                }
                 var helper = directory.CreateHelper(agent.Id, "First Helper");
                 int saves = 0, cancellations = 0;
                 WorkspaceProject? opened = null;

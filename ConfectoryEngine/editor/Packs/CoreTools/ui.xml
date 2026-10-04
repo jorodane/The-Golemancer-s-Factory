@@ -5,11 +5,13 @@
   <Widget id="editor.button" extends="editor.text"><Property name="appearance" type="text" default="standard"><Option value="standard" /><Option value="quiet" /><Option value="accent" /></Property><Property name="hoverForeground" type="text" default="" /><Property name="hoverBackground" type="text" default="" /><Property name="pressedBackground" type="text" default="" /><Event name="activate" payload="none" /><Renderer platform="*" key="editor.button" /></Widget>
   <Widget id="editor.input" extends="editor.text"><Event name="changed" payload="text" /><Renderer platform="*" key="editor.input" /></Widget>
   <Widget id="editor.inline" extends="editor.input"><Event name="committed" payload="text" /><Property name="placeholder" type="text" default="" /><Property name="multiline" type="boolean" default="false" /><Renderer platform="*" key="editor.inline" /></Widget>
+  <Widget id="editor.readonly" extends="editor.text"><Renderer platform="*" key="editor.readonly" /></Widget>
   <Widget id="editor.secret" extends="editor.element"><Property name="clearRevision" type="number" default="0" min="0" max="1000000" /><Event name="changed" payload="text" /><Renderer platform="*" key="editor.secret" /></Widget>
   <Widget id="editor.card" extends="editor.stack"><Property name="selected" type="boolean" default="false" /><Event name="activate" payload="none" /><Renderer platform="*" key="editor.card" /></Widget>
   <Widget id="editor.wrap" extends="editor.stack"><Renderer platform="*" key="editor.wrap" /></Widget>
   <Widget id="editor.tile" extends="editor.card"><Property name="borderStyle" type="text" default="solid"><Option value="solid" /><Option value="dashed" /></Property><Renderer platform="*" key="editor.tile" /></Widget>
   <Widget id="editor.grid" extends="editor.element"><Slot name="children" min="0" /><Property name="columns" type="number" default="2" min="1" max="4" /><Renderer platform="*" key="editor.grid" /></Widget>
+  <Widget id="editor.image" extends="editor.element"><Property name="image" type="text" default="" /><Renderer platform="*" key="editor.image" /></Widget>
   <Widget id="editor.slot" extends="editor.element">
     <Property name="image" type="text" default="" /><Property name="glyph" type="text" default="" />
     <Property name="count" type="number" default="0" min="0" max="1000000" /><Property name="value" type="text" default="" />
@@ -56,6 +58,7 @@
   </Slot></Node></View>
   <View id="editor.studio.projects"><Node id="home-projects" widget="editor.stack"><Slot name="children">
     <Node id="home-heading" order="0" widget="editor.text"><Set property="text" value="프로젝트" /><Set property="fontSize" value="26" /></Node>
+    <Node id="home-manage" order="5" widget="editor.button"><Set property="text" value="Agent · Helper 관리" /><Bind property="visible" source="studio.home.canManage" /><On event="activate" command="studio.home.manage" /></Node>
     <Node id="home-grid" order="10" widget="editor.grid"><Set property="columns" value="2" /><Slot name="children" export="true" /></Node>
     <Node id="home-error" order="20" widget="editor.text"><Set property="foreground" value="#E35561" /><Bind property="text" source="studio.home.error" /></Node>
   </Slot></Node></View>
@@ -134,5 +137,46 @@
     <Node id="agent-note" order="50" widget="editor.text"><Bind property="text" source="studio.agent.note" /></Node>
     <Node id="agent-connect" order="60" widget="editor.button"><Set property="text" value="연결 확인 · 사용" /><Bind property="enabled" source="studio.agent.idle" /><On event="activate" command="studio.agent.connect" /></Node>
     <Node id="agent-cancel" order="70" widget="editor.button"><Set property="text" value="취소" /><On event="activate" command="studio.agent.cancel" /></Node>
+  </Slot></Node></View>
+  <View id="editor.studio.profile"><Node id="profile-root" widget="editor.stack"><Slot name="children">
+    <Node id="profile-title" order="0" widget="editor.text"><Bind property="text" source="studio.profile.title" /><Set property="fontSize" value="23" /></Node>
+    <Node id="profile-avatar" order="5" widget="editor.image"><Bind property="image" source="studio.profile.avatar" /><Layout size="96,96" /></Node>
+    <Node id="profile-name-label" order="10" widget="editor.text"><Set property="text" value="이름 · 1–80자" /></Node>
+    <Node id="profile-name" order="20" widget="editor.inline"><Bind property="text" source="studio.profile.name" /><On event="changed" command="studio.profile.name" /></Node>
+    <Node id="profile-save-name" order="30" widget="editor.button"><Set property="text" value="이름 저장" /><On event="activate" command="studio.profile.saveName" /></Node>
+    <Node id="profile-pick-avatar" order="40" widget="editor.button"><Set property="text" value="아이콘 이미지 선택" /><On event="activate" command="studio.profile.avatar" /></Node>
+    <Node id="profile-remove-avatar" order="45" widget="editor.button"><Set property="text" value="아이콘 이미지 제거" /><On event="activate" command="studio.profile.removeAvatar" /></Node>
+    <Node id="profile-connect" order="50" widget="editor.button"><Bind property="visible" source="studio.profile.agent" /><Set property="text" value="연결 설정" /><On event="activate" command="studio.profile.connect" /></Node>
+    <Node id="profile-helper" order="60" widget="editor.stack"><Bind property="visible" source="studio.profile.helper" /><Slot name="children">
+      <Node id="profile-character" order="0" widget="editor.image"><Bind property="image" source="studio.profile.character" /><Layout size="128,128" /></Node>
+      <Node id="profile-pick-character" order="10" widget="editor.button"><Set property="text" value="캐릭터 이미지 선택" /><On event="activate" command="studio.profile.character" /></Node>
+      <Node id="profile-remove-character" order="15" widget="editor.button"><Set property="text" value="캐릭터 이미지 제거" /><On event="activate" command="studio.profile.removeCharacter" /></Node>
+      <Node id="profile-join" order="20" widget="editor.button"><Bind property="enabled" source="studio.profile.canJoin" /><Set property="text" value="대화 · 프로젝트 참여" /><On event="activate" command="studio.profile.join" /></Node>
+      <Node id="profile-private-label" order="30" widget="editor.text"><Set property="text" value="개인 기억 · 이 Helper에게만 전달돼. 프로필을 열 때 AI 요청은 하지 않아." /></Node>
+      <Node id="profile-memory" order="40" widget="editor.inline"><Bind property="text" source="studio.profile.memory" /><Set property="multiline" value="true" /><Layout size="0,100" /><On event="changed" command="studio.profile.memory" /></Node>
+      <Node id="profile-scope" order="50" widget="editor.button"><Bind property="text" source="studio.profile.scope" /><On event="activate" command="studio.profile.scope" /></Node>
+      <Node id="profile-remember" order="60" widget="editor.button"><Set property="text" value="기억 추가" /><On event="activate" command="studio.profile.remember" /></Node>
+      <Node id="profile-memories" order="70" widget="editor.stack"><Slot name="children" export="true" /></Node>
+      <Node id="profile-histories" order="80" widget="editor.stack"><Slot name="children" export="true" /></Node>
+      <Node id="profile-experience" order="90" widget="editor.readonly"><Bind property="text" source="studio.profile.experience" /><Layout size="0,260" /></Node>
+    </Slot></Node>
+    <Node id="profile-preview" order="65" widget="editor.stack"><Bind property="visible" source="studio.profile.pending" /><Slot name="children"><Node id="profile-preview-image" widget="editor.image"><Bind property="image" source="studio.profile.preview" /><Layout size="240,240" /></Node><Node id="profile-use-image" order="10" widget="editor.button"><Set property="text" value="이 이미지 사용" /><On event="activate" command="studio.profile.useImage" /></Node><Node id="profile-cancel-image" order="20" widget="editor.button"><Set property="text" value="이미지 선택 취소" /><On event="activate" command="studio.profile.cancelImage" /></Node></Slot></Node>
+    <Node id="profile-note" order="70" widget="editor.text"><Bind property="text" source="studio.profile.note" /></Node>
+    <Node id="profile-close" order="80" widget="editor.button"><Set property="text" value="닫기" /><On event="activate" command="studio.profile.close" /></Node>
+  </Slot></Node></View>
+  <View id="editor.studio.directory"><Node id="directory-root" widget="editor.stack"><Slot name="children">
+    <Node id="directory-title" order="0" widget="editor.text"><Set property="text" value="Agent · Helper 목록" /><Set property="fontSize" value="23" /></Node>
+    <Node id="directory-private" order="5" widget="editor.text"><Set property="text" value="이 기기의 프로필과 전역 Helper 기억. 목록을 열 때 AI 요청을 하지 않아." /></Node>
+    <Node id="directory-agent-label" order="10" widget="editor.text"><Set property="text" value="Agent" /></Node>
+    <Node id="directory-agents" order="20" widget="editor.grid"><Set property="columns" value="2" /><Slot name="children" export="true" /></Node>
+    <Node id="directory-add-agent" order="30" widget="editor.button"><Set property="text" value="Agent 추가 · 연결" /><On event="activate" command="studio.directory.addAgent" /></Node>
+    <Node id="directory-helper-label" order="40" widget="editor.text"><Set property="text" value="Helper · 프로젝트간 이동 가능한 전역 기억 공간" /></Node>
+    <Node id="directory-helpers" order="50" widget="editor.grid"><Set property="columns" value="2" /><Slot name="children" export="true" /></Node>
+    <Node id="directory-name" order="60" widget="editor.inline"><Set property="placeholder" value="새 Helper 이름" /><Bind property="text" source="studio.directory.name" /><On event="changed" command="studio.directory.name" /></Node>
+    <Node id="directory-selected-source" order="70" widget="editor.text"><Bind property="text" source="studio.directory.agent" /></Node>
+    <Node id="directory-source-choices" order="80" widget="editor.grid"><Set property="columns" value="2" /><Slot name="children" export="true" /></Node>
+    <Node id="directory-create-helper" order="90" widget="editor.button"><Set property="text" value="이 Agent의 Helper 만들기" /><On event="activate" command="studio.directory.createHelper" /></Node>
+    <Node id="directory-note" order="100" widget="editor.text"><Bind property="text" source="studio.directory.note" /></Node>
+    <Node id="directory-close" order="110" widget="editor.button"><Set property="text" value="닫기" /><On event="activate" command="studio.directory.close" /></Node>
   </Slot></Node></View>
 </Ui>

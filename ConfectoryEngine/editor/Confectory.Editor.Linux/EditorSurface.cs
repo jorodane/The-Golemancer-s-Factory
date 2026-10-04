@@ -28,6 +28,8 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
     private readonly Dictionary<string, SKRect> startupBrandOrigins = new();
 
     private EditorStudioAgentConnection? studioAgent;
+    private IEditorStudioProfile? studioProfile;
+    private IEditorStudioDirectory? sharedStudioDirectory;
     private IEditorAssistant? connectedAgent;
     private AiDirectory studioDirectory = new();
     private readonly LinuxAiCredentials aiCredentials = new();
@@ -94,7 +96,7 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
     public override void Input(NativeInput input)
     {
         if (input.Kind == NativeInputKind.Key && input.Key is "LeftShift" or "RightShift") { shift = input.Down; Invalidate(); }
-        if (input.Kind == NativeInputKind.Wheel) { scroll = Math.Clamp(scroll - input.Value * 48, 0, Math.Max(0, contentHeight - viewportHeight + 150)); Invalidate(); return; }
+        if (input.Kind == NativeInputKind.Wheel) { if ((activeWindow?.Backend ?? backend).ScrollReadOnly(input.Value)) return; scroll = Math.Clamp(scroll - input.Value * 48, 0, Math.Max(0, contentHeight - viewportHeight + 150)); Invalidate(); return; }
         if (input.Kind == NativeInputKind.PointerMove && map is not null && mode == "map") { map.Hover = mapButtons.FirstOrDefault(p => p.Value.Bounds.Contains(input.X, input.Y)).Key ?? ""; Invalidate(); }
         if (homeFlightClock.IsRunning || busy && activeWindow is null) return;
         try
@@ -132,7 +134,10 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
             if (elapsed >= 1) FinishStudioHomeFlight();
             return;
         }
+        canvas.Save();
+        if (mode is "profile" or "directory") canvas.ClipRect(new SKRect(20, 56, width - 20, height - 40));
         contentHeight = activeWindow is not null && focusLayout ? 0 : backend.Draw(root, canvas, new(20, 56 - scroll, width - 20, height - 40));
+        canvas.Restore();
         if (activeWindow is not null)
         {
             activeWindow.Backend.BeginFrame(); contentHeight = 100 + activeWindow.Backend.Draw(activeWindow.Root, canvas, new(24, (focusLayout ? 56 : 148) - scroll, width - 24, height - 42));
@@ -165,8 +170,10 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
         var e = New("editor.inline", id, value); e.Set("multiline", UiValue.Boolean(multiline)); e.Listen("changed", v => changed(v.Literal));
         if (multiline) e.UpdateLayout(new() { Size = new(0, 320) }); return e;
     }
-    private void Page(string name, string page, bool preserveStartup = false)
+    private void Page(string name, string page, bool preserveStartup = false, bool preserveProfile = false, bool preserveDirectory = false)
     {
+        if (!preserveDirectory) { sharedStudioDirectory?.Dispose(); sharedStudioDirectory = null; }
+        if (!preserveProfile) { studioProfile?.Dispose(); studioProfile = null; }
         activeWindow = null; if (!preserveStartup) { studioStartView?.Dispose(); studioStartView = null; } foreach (var c in controls.ToArray()) c.Dispose(); controls.Clear(); mapButtons.Clear();
         title = name; mode = page; scroll = 0; root = Stack("root"); var bar = Stack("toolbar", true); Add(root, bar);
         Add(bar, Button("home", "← Project", Home)); Add(bar, Button("concepts", "Concepts", () => ShowMap())); Add(bar, Button("packs", "Packs", ShowPacks)); Add(bar, Button("functions", "Functions", ShowFunctions));
@@ -180,24 +187,64 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
             () => ShowAgentSetup(), EnterStudioHome);
         root = (Element)studioStartView.Root; studioClock.Restart(); Tick(); Invalidate();
     }
-    private void ShowAgentSetup(IEditorStudioAgentService? service = null, IAiCredentialStore? credentials = null, AiDirectory? directory = null, Action? saveDirectory = null)
+    private void ShowAgentSetup(IEditorStudioAgentService? service = null, IAiCredentialStore? credentials = null, AiDirectory? directory = null, Action? saveDirectory = null, string editingId = "")
     {
+        bool returnToDirectory = sharedStudioDirectory is not null && mode is "directory" or "profile";
+        studioProfile?.Dispose(); studioProfile = null;
         bool returnToStartup = mode == "startup" && studioStartView is not null;
         if (returnToStartup) foreach (string id in new[] { "logo", "brand-title", "brand-subtitle" }) startupBrandOrigins[id] = ((Element)studioStartView!.Element(id)).Bounds;
         var presentation = new EditorStudioPresentation(EditorEngineDistribution.Open(engineDirectory));
-        FinishStudioHomeFlight(); studioAgent?.Dispose(); Page(presentation.Text("editor.studio.agent-connection", "agent-heading"), "agent-setup", returnToStartup);
+        FinishStudioHomeFlight(); studioAgent?.Dispose(); Page(presentation.Text("editor.studio.agent-connection", "agent-heading"), "agent-setup", returnToStartup, preserveDirectory: returnToDirectory);
         directory ??= studioDirectory; credentials ??= aiCredentials;
         service ??= new EditorStudioAgentService(presentation, () => new() { ProjectIdentity = session?.Project.Identity ?? "confectory.editor", StateDirectory = session?.StateDirectory ?? Path.Combine(Path.GetDirectoryName(AiDirectory.DefaultPath)!, "Studio"), AccessEnabled = true, HistoryEnabled = true },
             externalDll: true, prepareCodex: async token => new(await LinuxCodexPreparation.Prepare(token), Path.Combine(AppContext.BaseDirectory, "Confectory.Assistant.Codex.dll")), needsInstallation: LinuxCodexPreparation.Required);
-        studioAgent = new(presentation, backend, directory, credentials, service, "", saveDirectory ?? (() => directory.Save(AiDirectory.DefaultPath)),
-            (_, connected) => { connectedAgent?.Dispose(); connectedAgent = connected.Assistant; if (returnToStartup) EnterStudioHome(); else Home(); },
-            () => { if (returnToStartup) { studioAgent?.Dispose(); studioAgent = null; mode = "startup"; root = (Element)studioStartView!.Root; scroll = 0; Tick(); Invalidate(); } else Home(); },
+        studioAgent = new(presentation, backend, directory, credentials, service, editingId, saveDirectory ?? (() => directory.Save(AiDirectory.DefaultPath)),
+            (_, connected) => { connectedAgent?.Dispose(); connectedAgent = connected.Assistant; if (returnToStartup) EnterStudioHome(); else if (returnToDirectory) RestoreStudioDirectory(); else Home(); },
+            () => { if (returnToStartup) { studioAgent?.Dispose(); studioAgent = null; mode = "startup"; root = (Element)studioStartView!.Root; scroll = 0; Tick(); Invalidate(); } else if (returnToDirectory) RestoreStudioDirectory(); else Home(); },
             selected =>
             {
-                void Restore() { if (studioAgent is null) return; mode = "agent-setup"; root = (Element)studioAgent.View.Root; scroll = 0; Invalidate(); }
-                Ask("제공자 DLL 경로", "", path => { selected(path); Restore(); }, Restore, preserveStartup: returnToStartup);
+                void Restore() { if (studioAgent is null) return; foreach (var control in controls.ToArray()) control.Dispose(); controls.Clear(); mapButtons.Clear(); mode = "agent-setup"; title = presentation.Text("editor.studio.agent-connection", "agent-heading"); root = (Element)studioAgent.View.Root; scroll = 0; Invalidate(); }
+                Ask("제공자 DLL 경로", "", path => { selected(path); Restore(); }, Restore, preserveStartup: returnToStartup, preserveDirectory: returnToDirectory);
             }, OnUi, () => !busy);
         root = (Element)studioAgent.View.Root; Invalidate();
+    }
+    private void RestoreStudioDirectory()
+    {
+        studioAgent?.Dispose(); studioAgent = null; studioProfile?.Dispose(); studioProfile = null;
+        foreach (var control in controls.ToArray()) control.Dispose(); controls.Clear(); mapButtons.Clear();
+        if (sharedStudioDirectory is null) { Home(); return; }
+        sharedStudioDirectory.Render(); mode = "directory"; root = (Element)sharedStudioDirectory.View.Root; scroll = 0;
+        title = ((Element)sharedStudioDirectory.View.Element("directory-title")).Text("text"); Invalidate();
+    }
+    private void ShowStudioDirectory(AiDirectory? directory = null, Action? save = null, string? privateRoot = null)
+    {
+        FinishStudioHomeFlight(); Page("", "directory"); var presentation = new EditorStudioPresentation(EditorEngineDistribution.Open(engineDirectory)); directory ??= studioDirectory;
+        sharedStudioDirectory = presentation.Actions.Directory(presentation, backend, directory, save ?? (() => directory.Save(AiDirectory.DefaultPath)), Invalidate,
+            () => ShowAgentSetup(), (agent, helper) => ShowStudioProfile(agent, helper, directory, privateRoot, save), Home, StudioProfilePreview);
+        title = ((Element)sharedStudioDirectory.View.Element("directory-title")).Text("text"); root = (Element)sharedStudioDirectory.View.Root; Invalidate();
+    }
+    private void ShowStudioProfile(AiAgentProfile? agent, AiHelper? helper, AiDirectory? directory = null, string? privateRoot = null, Action? save = null,
+        Action<Action<byte[], string>>? picker = null)
+    {
+        studioProfile?.Dispose(); studioProfile = null; FinishStudioHomeFlight(); Page("", "profile", preserveDirectory: true);
+        var presentation = new EditorStudioPresentation(EditorEngineDistribution.Open(engineDirectory)); directory ??= studioDirectory;
+        privateRoot ??= Path.GetDirectoryName(AiDirectory.DefaultPath)!;
+        void Restore() { if (studioProfile is null) return; foreach (var control in controls.ToArray()) control.Dispose(); controls.Clear(); mapButtons.Clear(); mode = "profile"; title = ((Element)studioProfile.View.Element("profile-title")).Text("text"); root = (Element)studioProfile.View.Root; scroll = 0; Invalidate(); }
+        studioProfile = presentation.Actions.Profile(presentation, backend, directory, agent?.Id ?? "", helper?.Id ?? "", privateRoot,
+            session?.Project.Identity ?? "", save ?? (() => directory.Save(AiDirectory.DefaultPath)), () => { sharedStudioDirectory?.Render(); Invalidate(); },
+            () => ShowAgentSetup(editingId: agent!.Id), null,
+            RestoreStudioDirectory,
+            picker ?? (apply => Ask("이미지 파일 경로", "", path => { var info = new FileInfo(path); if (info.Length > presentation.Actions.ProfileImageMaximumBytes) throw new InvalidDataException("12 MiB 이하 이미지를 선택해줘."); apply(File.ReadAllBytes(path), Path.GetExtension(path)); Restore(); }, Restore, preserveProfile: true, preserveDirectory: true)),
+            StudioProfilePreview, OnUi, () => !busy);
+        title = ((Element)studioProfile.View.Element("profile-title")).Text("text"); root = (Element)studioProfile.View.Root; Invalidate();
+    }
+    private static string StudioProfilePreview(byte[] bytes, string extension)
+    {
+        using var bitmap = SKBitmap.Decode(bytes) ?? throw new InvalidDataException("이미지를 읽지 못했어.");
+        double scale = Math.Min(1, 512.0 / Math.Max(bitmap.Width, bitmap.Height));
+        using var resized = bitmap.Resize(new SKImageInfo(Math.Max(1, (int)(bitmap.Width * scale)), Math.Max(1, (int)(bitmap.Height * scale))), new SKSamplingOptions(SKFilterMode.Linear)) ?? throw new InvalidDataException("이미지 미리보기를 만들지 못했어.");
+        using var image = SKImage.FromBitmap(resized); using var encoded = image.Encode(SKEncodedImageFormat.Png, 100);
+        return "data:image/png;base64," + Convert.ToBase64String(encoded.ToArray());
     }
     private void EnterStudioHome()
     {
@@ -220,6 +267,7 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
     }
     private void Home()
     {
+        studioProfile?.Dispose(); studioProfile = null;
         studioAgent?.Dispose(); studioAgent = null;
         studioCreation?.Dispose(); studioCreation = null;
         sharedProjectHome?.Dispose(); sharedProjectHome = null;
@@ -231,7 +279,7 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
             () => projectSettings.Save(AssistantSettings.DefaultPath), () => ShowNewProject(), Open,
             path => System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("xdg-open") { ArgumentList = { path } }),
             apply => Ask("이미지 파일 경로", "", path => { var file = new FileInfo(path); if (file.Length > 10_000_000) throw new InvalidDataException("10 MB 이하 이미지를 선택해줘."); var bytes = File.ReadAllBytes(path); using var image = SKBitmap.Decode(bytes) ?? throw new InvalidDataException("이미지 파일을 선택해줘."); apply(bytes, Path.GetExtension(path)); Home(); }, Home),
-            OnUi, () => !busy);
+            OnUi, () => !busy, manage: () => ShowStudioDirectory());
         Add(root, (Element)sharedProjectHome.View.Root);
         Add(root, Label("A native workspace for project-owned concepts, objects and packs."));
         Add(root, InputBox("project-path", projectPath, value => projectPath = value)); Add(root, Button("open-project", "Open project path", () => Open(projectPath)));
@@ -275,9 +323,9 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
         string state = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Confectory", "Linux", project.Identity);
         session = new(project.Manifest, state); editor = new(session); var entry = projectSettings.Register(project); entry.LastOpenedUtc = DateTime.UtcNow.ToString("O"); projectSettings.Save(AssistantSettings.DefaultPath); Home();
     }
-    private void Ask(string prompt, string initial, Action<string> apply, Action back, bool multiline = false, bool preserveStartup = false)
+    private void Ask(string prompt, string initial, Action<string> apply, Action back, bool multiline = false, bool preserveStartup = false, bool preserveProfile = false, bool preserveDirectory = false)
     {
-        Page(prompt, "form", preserveStartup); string text = initial; Add(root, InputBox("answer", text, value => text = value, multiline));
+        Page(prompt, "form", preserveStartup, preserveProfile, preserveDirectory); string text = initial; Add(root, InputBox("answer", text, value => text = value, multiline));
         Add(root, Button("confirm", "Apply", () => { apply(text); })); Add(root, Button("cancel", "Cancel", back));
     }
     private void Choose(string prompt, IEnumerable<(string Id, string Title)> values, Action<string> select, Action back)
@@ -538,5 +586,5 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
         }, ShowDocuments, true);
         if (!session.CanEdit(path)) Disable(root.Children.First(c => c.Id == "confirm"));
     }
-    public void Dispose() { if (disposed) return; disposed = true; lifetime.Cancel(); pendingReview?.Cancel(); windows.Dispose(); execution?.Dispose(); runner?.Dispose(); FinishStudioHomeFlight(); connectedAgent?.Dispose(); studioAgent?.Dispose(); sharedProjectHome?.Dispose(); studioCreation?.Dispose(); studioStartView?.Dispose(); studioHomeBrandView?.Dispose(); backend.Dispose(); lifetime.Dispose(); }
+    public void Dispose() { if (disposed) return; disposed = true; lifetime.Cancel(); pendingReview?.Cancel(); windows.Dispose(); execution?.Dispose(); runner?.Dispose(); FinishStudioHomeFlight(); sharedStudioDirectory?.Dispose(); studioProfile?.Dispose(); connectedAgent?.Dispose(); studioAgent?.Dispose(); sharedProjectHome?.Dispose(); studioCreation?.Dispose(); studioStartView?.Dispose(); studioHomeBrandView?.Dispose(); backend.Dispose(); lifetime.Dispose(); }
 }

@@ -247,7 +247,7 @@ public sealed partial class MainActivity : Activity
         catch (IOException) { }
     }
     protected override void OnPause() { SaveWindowState(); if (studioSession is not null) { foreach (var doc in studioSession.Documents.Where(d => studioSession.CanEdit(d.Path)).ToArray()) studioSession.SaveRoom("human", doc.Path); } base.OnPause(); }
-    protected override void OnDestroy() { agentConnectionDialog?.Dismiss(); sharedMobileProjectHome?.Dispose(); mobileProfile?.Dismiss(); mobileImageChosen = null; StopMobileStartPage(); StopMobilePeers(); lifetime.Cancel(); editorAi?.Dispose(); studioRunner?.Dispose(); foreach (var worker in mobileWorkers) { worker.Cancellation?.Cancel(); worker.Assistant?.Dispose(); } windows.Dispose(); SaveWindowState(); packExecution?.Dispose(); runtime?.Dispose(); base.OnDestroy(); }
+    protected override void OnDestroy() { foreach (var profile in studioProfileDialogs.ToArray()) profile.Dismiss(); agentConnectionDialog?.Dismiss(); sharedMobileProjectHome?.Dispose(); mobileProfile?.Dismiss(); mobileImageChosen = null; StopMobileStartPage(); StopMobilePeers(); lifetime.Cancel(); editorAi?.Dispose(); studioRunner?.Dispose(); foreach (var worker in mobileWorkers) { worker.Cancellation?.Cancel(); worker.Assistant?.Dispose(); } windows.Dispose(); SaveWindowState(); packExecution?.Dispose(); runtime?.Dispose(); base.OnDestroy(); }
 
 #pragma warning disable CA1422, CS0618 // Framework document picker supports the app's API 26 deployment minimum.
     private void ImportPicker() => StartActivityForResult(new Intent(Intent.ActionOpenDocument).SetType("application/zip").AddCategory(Intent.CategoryOpenable), 1);
@@ -265,12 +265,11 @@ public sealed partial class MainActivity : Activity
     {
         base.OnActivityResult(requestCode, resultCode, data);
         if (requestCode == ProjectActivityRequest) { MobileProjectActivityEnded(); return; }
-        if (resultCode != Result.Ok || data?.Data is not { } uri) { if (requestCode == 20) mobileImageChosen = null; if (requestCode == 21) mobileExportingFile = ""; if (requestCode == 3) pickingHelper = ""; if (requestCode == 5) exportingProject = null; if (requestCode == 7) { projectPackExport = null; projectPackExportSources = null; } return; }
+        if (resultCode != Result.Ok || data?.Data is not { } uri) { if (requestCode == 20) mobileImageChosen = null; if (requestCode == 21) mobileExportingFile = ""; if (requestCode == 5) exportingProject = null; if (requestCode == 7) { projectPackExport = null; projectPackExportSources = null; } return; }
         if (requestCode == 21) { ExportMobileFolderFile(uri); return; }
         if (requestCode == 20) { ReadMobileImage(uri); return; }
         if (requestCode == 6) { ImportMobileProjectPack(uri); return; }
         if (requestCode == 7) { ExportMobileProjectPack(uri); return; }
-        if (requestCode == 3) { ReadHelperImage(uri); return; }
         if (requestCode == 4) { ImportMobileProject(uri); return; }
         if (requestCode == 5)
         {

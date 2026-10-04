@@ -24,10 +24,12 @@ internal sealed class EditorPackBackend(Action<string> point, Func<bool> pointin
             "editor.tile" => new Tile(),
             "editor.inline" => new InlineEditor(),
             "editor.slot" => new Slot(),
+            "editor.image" => new Image { Stretch = Stretch.Uniform },
             "editor.vector" => new Vector(),
             "editor.text" => new TextBlock { TextWrapping = TextWrapping.Wrap, Foreground = Brushes.WhiteSmoke },
             "editor.button" => new Button { Padding = new Thickness(10, 7, 10, 7), HorizontalAlignment = HorizontalAlignment.Stretch, Foreground = Brushes.WhiteSmoke, Background = new SolidColorBrush(Color.FromRgb(41, 59, 77)), BorderThickness = new Thickness(0) },
             "editor.secret" => new PasswordBox(),
+            "editor.readonly" => new ReadOnlyText(),
             "editor.input" => new TextBox { Padding = new Thickness(8), MinWidth = 180, Foreground = Brushes.WhiteSmoke, Background = new SolidColorBrush(Color.FromRgb(17, 23, 31)), CaretBrush = Brushes.WhiteSmoke },
             _ => throw new InvalidDataException("Unsupported editor renderer.") };
         if (viewId.Length > 0) control.SetValue(EditorWindow.YogiKeyProperty, EditorYogiContext.Prefix + viewId + "/" + nodeId);
@@ -45,7 +47,7 @@ internal sealed class EditorPackBackend(Action<string> point, Func<bool> pointin
     public EditorWindowState Capture()
     {
         var state = new EditorWindowState();
-        foreach (var item in elements.Where(p => p.Key.InputControl is not null))
+        foreach (var item in elements.Where(p => p.Key.InputControl is not null && !p.Key.IsReadOnly))
         {
             var text = item.Key.InputControl!;
             state.Values["input:" + item.Value] = text.Text;
@@ -56,7 +58,7 @@ internal sealed class EditorPackBackend(Action<string> point, Func<bool> pointin
     }
     public void Restore(EditorWindowState state)
     {
-        foreach (var item in elements.Where(p => p.Key.InputControl is not null))
+        foreach (var item in elements.Where(p => p.Key.InputControl is not null && !p.Key.IsReadOnly))
         {
             if (state.Values.TryGetValue("input:" + item.Value, out var value)) item.Key.Set("text", UiValue.Text(value));
             if (state.Values.TryGetValue("selection:" + item.Value, out var position) && int.TryParse(position, out var caret))
@@ -99,6 +101,7 @@ internal sealed class EditorPackBackend(Action<string> point, Func<bool> pointin
         private int compositionVersion;
         public long InputRevision { get; private set; }
         public FrameworkElement Control => control;
+        public bool IsReadOnly => control is ReadOnlyText;
         public TextBox? InputControl => control as TextBox ?? (control as InlineEditor)?.Input;
         private Panel Children => control is Card card ? card.Children : control is Tile tile ? tile.Children : (Panel)control;
         private bool setting;
@@ -141,7 +144,7 @@ internal sealed class EditorPackBackend(Action<string> point, Func<bool> pointin
         {
             EditorNativeSchema.ValidateValue(property, value);
             if (property == "image")
-            { var image = Slot.DecodeImage(value.Literal); return () => ((Slot)control).SetImage(image); }
+            { var image = Slot.DecodeImage(value.Literal, control is Image ? 512 : 128); return () => { if (control is Image picture) picture.Source = image; else ((Slot)control).SetImage(image); }; }
             return () => Set(property, value);
         }
         public void Set(string property, UiValue value)
@@ -173,7 +176,7 @@ internal sealed class EditorPackBackend(Action<string> point, Func<bool> pointin
                     case "borderStyle": ((Tile)control).Outline.StrokeDashArray = value.Literal == "dashed" ? new DoubleCollection { 5, 5 } : null; break;
                     case "placeholder": ((InlineEditor)control).Placeholder = value.Literal; ((InlineEditor)control).Refresh(); break;
                     case "multiline": ((InlineEditor)control).Input.AcceptsReturn = value.AsBoolean(); break;
-                    case "image": ((Slot)control).SetImage(Slot.DecodeImage(value.Literal)); break;
+                    case "image": if (control is Image picture) picture.Source = Slot.DecodeImage(value.Literal, 512); else ((Slot)control).SetImage(Slot.DecodeImage(value.Literal)); break;
                     case "glyph": ((Slot)control).Glyph.Text = value.Literal; break;
                     case "count": ((Slot)control).Count.Text = value.AsNumber() == 0 ? "" : value.Literal; break;
                     case "value": ((Slot)control).Value = value.Literal; break;
@@ -254,6 +257,7 @@ internal sealed class EditorPackBackend(Action<string> point, Func<bool> pointin
                 text.RemoveHandler(TextCompositionManager.PreviewTextInputEvent, new TextCompositionEventHandler(CompositionCompleted));
                 text.LostKeyboardFocus -= InputLostFocus;
             }
+            if (control is Image picture) picture.Source = null;
             if (control is Panel panel) panel.Children.Clear();
             if (control is Card card) card.Children.Children.Clear(); if (control is Tile tile) tile.Children.Children.Clear();
         }
@@ -289,6 +293,10 @@ internal sealed class EditorPackBackend(Action<string> point, Func<bool> pointin
             for (int i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++) if (FirstInline(VisualTreeHelper.GetChild(root, i)) is { } found) return found;
             return null;
         }
+    }
+    private sealed class ReadOnlyText : TextBox
+    {
+        public ReadOnlyText() { IsReadOnly = true; AcceptsReturn = true; TextWrapping = TextWrapping.Wrap; Padding = new Thickness(8); Foreground = Brushes.WhiteSmoke; Background = new SolidColorBrush(Color.FromRgb(17, 23, 31)); }
     }
     private sealed class InlineEditor : Grid
     {
@@ -327,14 +335,14 @@ internal sealed class EditorPackBackend(Action<string> point, Func<bool> pointin
             var grid = new Grid(); grid.Children.Add(image); grid.Children.Add(Glyph); grid.Children.Add(Count); Content = grid;
         }
         public void SetImage(ImageSource? value) => image.Source = value;
-        public static ImageSource? DecodeImage(string value)
+        public static ImageSource? DecodeImage(string value, int width = 128)
         {
             if (value.Length == 0) return null;
             string prefix = value.Substring(0, value.IndexOf(','));
             if (prefix is not ("data:image/png;base64" or "data:image/jpeg;base64" or "data:image/gif;base64" or "data:image/bmp;base64")) throw new InvalidDataException("Unsupported native bitmap format.");
             byte[] bytes = Convert.FromBase64String(value.Substring(value.IndexOf(',') + 1));
             using var stream = new MemoryStream(bytes); var bitmap = new System.Windows.Media.Imaging.BitmapImage();
-            bitmap.BeginInit(); bitmap.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad; bitmap.DecodePixelWidth = 128; bitmap.StreamSource = stream; bitmap.EndInit(); bitmap.Freeze(); return bitmap;
+            bitmap.BeginInit(); bitmap.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad; bitmap.DecodePixelWidth = width; bitmap.StreamSource = stream; bitmap.EndInit(); bitmap.Freeze(); return bitmap;
         }
     }
 }

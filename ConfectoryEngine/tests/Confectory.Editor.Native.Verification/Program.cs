@@ -198,6 +198,18 @@ internal static class Program
             Check(privateEvents == 1 && !privateState.Values.Values.Contains("synthetic-native-secret"), "native secret edits never enter captured window state");
             privateInput.Set("clearRevision", UiValue.Number(1));
             Check(password.Password.Length == 0 && privateEvents == 1, "pack-owned private reset clears the native password without manufacturing edits");
+            using var readOnly = backend.Create("editor.readonly", "private-history", new()); card.Add("children", readOnly);
+            var reader = (TextBox)Control(readOnly); readOnly.Set("text", UiValue.Text("Private history fixture"));
+            var readOnlyState = (Confectory.EditorPacks.EditorWindowState)type.GetMethod("Capture")!.Invoke(backend, null)!;
+            Check(reader.IsReadOnly && reader.AcceptsReturn && !readOnlyState.Values.ContainsKey("private-history"), "native readonly histories support text selection without entering editable window snapshots");
+            using var pictureElement = backend.Create("editor.image", "private-preview", new() { Size = new(240, 240) }); card.Add("children", pictureElement);
+            var picture = (Image)Control(pictureElement);
+            var source = System.Windows.Media.Imaging.BitmapSource.Create(16, 16, 96, 96, System.Windows.Media.PixelFormats.Bgra32, null, new byte[16 * 16 * 4], 16 * 4);
+            var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder(); encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(source));
+            using var imageBytes = new MemoryStream(); encoder.Save(imageBytes);
+            pictureElement.Set("image", UiValue.Text("data:image/png;base64," + Convert.ToBase64String(imageBytes.ToArray())));
+            Check(picture.Width == 240 && picture.Height == 240 && picture.Stretch == System.Windows.Media.Stretch.Uniform && picture.Source is not null, "native profile preview uses the declared image dimensions and preserves aspect ratio");
+            pictureElement.Set("image", UiValue.Text("")); Check(picture.Source is null, "native cancelled preview releases its image source");
             Key(input, System.Windows.Input.Key.Escape);
             Check(!input.IsVisible && input.Text == "Native item" && edited == "Native item", "Escape restores the inline baseline and updates the workspace draft");
         }

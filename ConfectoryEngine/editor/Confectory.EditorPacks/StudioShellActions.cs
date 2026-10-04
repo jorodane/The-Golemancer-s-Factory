@@ -46,10 +46,13 @@ public interface IEditorStudioAgentConnection : IDisposable
 /// <summary>Private trusted-shell ABI. Never supplied to project modules or overlays.</summary>
 public interface IEditorStudioActions
 {
+    int ProfileImageMaximumBytes { get; }
+    IEditorStudioDirectory Directory(EditorStudioPresentation presentation, IUiBackend backend, AiDirectory directory, Action save, Action changed, Action addAgent, Action<AiAgentProfile?, AiHelper?> profile, Action closed, Func<byte[], string, string> preview);
+    IEditorStudioProfile Profile(EditorStudioPresentation presentation, IUiBackend backend, AiDirectory directory, string agentId, string helperId, string privateRoot, string project, Action save, Action changed, Action connect, Action? join, Action closed, Action<Action<byte[], string>> imagePicker, Func<byte[], string, string> preview, Action<Action> onUi, Func<bool>? idle = null);
     IEditorStudioStartupState Startup(EditorStudioMotion motion, AiDirectory directory, bool apiOnly = false);
     IEditorStudioProjectHome ProjectHome(EditorStudioPresentation presentation, IUiBackend backend, AssistantSettings settings,
         Action save, Action create, Action<string> open, Action<string> folder, Action<Action<byte[], string>> iconPicker,
-        Action<Action> onUi, Func<bool>? idle = null);
+        Action<Action> onUi, Func<bool>? idle = null, Action? manage = null);
     IEditorStudioProjectCreation ProjectCreation(EditorStudioPresentation presentation, IUiBackend backend, AiDirectory directory,
         string parent, string platform, string framework, Action<Action<byte[], string>> iconPicker,
         Action<Action<string>> folderPicker, Action saveDirectory, Action<WorkspaceProject> opened, Action cancel,
@@ -67,4 +70,15 @@ public interface IEditorStudioStartupState
     bool EnteredHome { get; }
     bool AutomaticHomeDue(double milliseconds);
     bool BeginHome();
+}
+
+public interface IEditorStudioProfile : IDisposable
+{
+    EditorLiveView View { get; }
+}
+
+public interface IEditorStudioDirectory : IDisposable
+{
+    EditorLiveView View { get; }
+    void Render();
 }

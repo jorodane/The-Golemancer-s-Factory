@@ -27,10 +27,12 @@ internal sealed class AndroidPackBackend(Context context, string viewId = "") : 
             "editor.tile" => new Card(context),
             "editor.inline" => new InlineEditor(context),
             "editor.slot" => new SlotButton(context),
+            "editor.image" => new BitmapView(context),
             "editor.vector" => new Vector(context),
             "editor.text" => new TextView(context),
             "editor.button" => new Button(context),
             "editor.secret" => new Secret(context),
+            "editor.readonly" => new ReadOnlyText(context),
             "editor.input" => new EditText(context) { InputType = InputTypes.ClassText | InputTypes.TextFlagMultiLine },
             _ => throw new InvalidDataException("Unsupported Android editor renderer: " + renderer)
         };
@@ -42,7 +44,7 @@ internal sealed class AndroidPackBackend(Context context, string viewId = "") : 
         };
         wrapper.SetMinimumWidth(Dp(layout.MinSize.X)); wrapper.SetMinimumHeight(Dp(layout.MinSize.Y));
         if (native is Button || native is EditText) native.SetMinimumHeight(Dp(48));
-        wrapper.AddView(native, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, renderer == "editor.vector" ? ViewGroup.LayoutParams.MatchParent : ViewGroup.LayoutParams.WrapContent));
+        wrapper.AddView(native, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, renderer is "editor.vector" or "editor.image" ? ViewGroup.LayoutParams.MatchParent : ViewGroup.LayoutParams.WrapContent));
         Element element = null!;
         element = new Element(native, wrapper, Dp, () => elements.Remove(element));
         elements.Add(element, nodeId); return element;
@@ -50,7 +52,7 @@ internal sealed class AndroidPackBackend(Context context, string viewId = "") : 
     public EditorWindowState Capture()
     {
         var state = new EditorWindowState();
-        foreach (var p in elements.Where(p => p.Key.InputControl is not null))
+        foreach (var p in elements.Where(p => p.Key.InputControl is not null && !p.Key.IsReadOnly))
         {
             var text = p.Key.InputControl!;
             state.Values["input:" + p.Value] = text.Text ?? "";
@@ -61,7 +63,7 @@ internal sealed class AndroidPackBackend(Context context, string viewId = "") : 
     }
     public void Restore(EditorWindowState state)
     {
-        foreach (var p in elements.Where(p => p.Key.InputControl is not null))
+        foreach (var p in elements.Where(p => p.Key.InputControl is not null && !p.Key.IsReadOnly))
         {
             var text = p.Key.InputControl!;
             if (state.Values.TryGetValue("input:" + p.Value, out var value)) p.Key.Set("text", UiValue.Text(value));
@@ -113,6 +115,7 @@ internal sealed class AndroidPackBackend(Context context, string viewId = "") : 
         private bool disposed, pendingCompositionCheck;
         public long InputRevision { get; private set; }
         public AView Native => native;
+        public bool IsReadOnly => native is ReadOnlyText;
         public EditText? InputControl => native is Secret ? null : native as EditText ?? (native as InlineEditor)?.Input;
         public AView Control => wrapper;
         private bool setting;
@@ -211,6 +214,7 @@ internal sealed class AndroidPackBackend(Context context, string viewId = "") : 
                         }
                         else ((TextView)native).Text = value.Literal;
                         break;
+                    case "image" when native is BitmapView picture: picture.SetImage(value.Literal); break;
                     case "image": case "glyph": case "value": case "count": case "tint": ((SlotButton)native).SetSlot(property, value); break;
                     default: throw new InvalidDataException("Unsupported Android editor property: " + property);
                 }
@@ -278,6 +282,7 @@ internal sealed class AndroidPackBackend(Context context, string viewId = "") : 
             if (disposed) return; disposed = true; if (native is Secret secret) secret.Text = "";
             if (InputControl is { } input) input.TextChanged -= InputChanged;
             if (native is SlotButton slot) slot.ReleaseImage();
+            if (native is BitmapView picture) picture.ReleaseImage();
             cleanup(); if (native is ViewGroup group) group.RemoveAllViews(); wrapper.RemoveAllViews();
             if (wrapper.Parent is ViewGroup parent) parent.RemoveView(wrapper);
             native.Dispose(); wrapper.Dispose();
@@ -308,6 +313,10 @@ internal sealed class AndroidPackBackend(Context context, string viewId = "") : 
             return null;
         }
     }
+    private sealed class ReadOnlyText : EditText
+    {
+        public ReadOnlyText(Context context) : base(context) { InputType = InputTypes.ClassText | InputTypes.TextFlagMultiLine; KeyListener = null; SetTextIsSelectable(true); ShowSoftInputOnFocus = false; SaveEnabled = false; }
+    }
     private sealed class InlineEditor : FrameLayout
     {
         public EditText Input { get; }
@@ -336,6 +345,24 @@ internal sealed class AndroidPackBackend(Context context, string viewId = "") : 
         private void End(bool commit = true) { if (Input.Visibility != ViewStates.Visible) return; Input.Visibility = ViewStates.Gone; display.Visibility = ViewStates.Visible; Refresh(); if (commit) Committed?.Invoke(Input.Text ?? ""); }
         public void SetFont(float size) { Input.TextSize = size; display.TextSize = size; }
         public void Refresh() { display.Text = string.IsNullOrEmpty(Input.Text) ? Placeholder : Input.Text; display.SetTextColor(string.IsNullOrEmpty(Input.Text) ? global::Android.Graphics.Color.Rgb(163, 180, 199) : global::Android.Graphics.Color.White); }
+    }
+    private sealed class BitmapView : ImageView
+    {
+        private global::Android.Graphics.Bitmap? image;
+        public BitmapView(Context context) : base(context) { SetScaleType(ScaleType.FitCenter); }
+        public void SetImage(string data)
+        {
+            SlotButton.ValidateImage(data);
+            global::Android.Graphics.Bitmap? next = null;
+            if (data.Length > 0)
+            {
+                byte[] bytes = Convert.FromBase64String(data.Substring(data.IndexOf(',') + 1));
+                next = global::Android.Graphics.BitmapFactory.DecodeByteArray(bytes, 0, bytes.Length);
+                if (next is null) throw new InvalidDataException("이미지를 읽을 수 없어.");
+            }
+            SetImageBitmap(next); image?.Dispose(); image = next;
+        }
+        public void ReleaseImage() { SetImageBitmap(null); image?.Dispose(); image = null; }
     }
     private sealed class SlotButton : Button
     {
