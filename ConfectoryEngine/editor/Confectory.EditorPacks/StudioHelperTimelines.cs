@@ -17,6 +17,8 @@ public sealed class EditorStudioHelperTurn
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string WorkerParticipantId { get; set; } = "";
     public string RequestId { get; set; } = "";
+    public string ProjectIdentity { get; set; } = "";
+    public bool Read { get; set; }
     public ConversationExchange Exchange { get; set; } = new();
 }
 
@@ -26,11 +28,17 @@ public interface IEditorStudioHelperTimelines : IDisposable
     void Refresh();
 }
 
-/// <summary>Project-owned state survives disposal of any mounted conversation view.</summary>
+/// <summary>Controller-owned private state survives disposal of any mounted conversation view.</summary>
 public interface IEditorStudioHelperTimeline
 {
     event Action? Changed;
     string ParticipantId { get; }
+    string HelperId { get; }
+    string Name { get; }
+    bool Visible { get; }
+    bool PublicChatAvailable { get; }
+    bool Unread(string turnId);
+    void Display(bool visible);
     bool Owned { get; }
     IReadOnlyList<EditorStudioHelperTurn> Turns { get; }
     int Index { get; }

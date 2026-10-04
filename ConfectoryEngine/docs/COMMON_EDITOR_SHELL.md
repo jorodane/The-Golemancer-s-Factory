@@ -1537,3 +1537,40 @@ errors. Actual WPF execution and Android compilation remain exact-head CI checks
 no physical Android device, paid model, external authentication or production
 credential storage was exercised. Production conversation adoption and the global
 Helper lifecycle remain the next implementation stage, not completed parity.
+
+Published foundation `5cba2dfb48cf163aa9be776fbb794b125fdfcf9c` matches remote main.
+All five jobs pass in [CI 37226496334](https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37226496334).
+Windows actually ran **58 native workspace checks**, including the shared Helper
+bridge, readonly bubble/copy, view close/reentry and late-provider cancellation.
+The next contract is `GLOBAL_HELPER_CHAT.md`; current local implementation work
+adds genuine project-free execution and scoped global timelines. Native production
+entry points have not yet switched to that controller.
+
+Current project-optional implementation passes **1,865 portable editor-pack checks**.
+`GlobalHelperExecution` constructs neither a project nor an EditorSession for
+global chat. It resolves the exact global Helper/source and exposes only its
+global-memory tool. Explicit Yogi snapshots remain usable; unresolved EY references
+are reported without opening their projects. One global provider conversation per
+Helper stays reserved through cleanup, while another Helper remains usable.
+
+Explicit project bindings must contain the installed workspace and execution
+actions for the same session, private directory and generation. Send captures that
+binding and delegates to the existing internal Worker runtime. Global timelines
+store each turn's project identity, filter model history to global/current-project
+turns, persist private read receipts, and acknowledge only selected deliveries in
+the active matching project. Exit/switch cancels captured project work without
+opening another project. Urgent cancellation preserves the existing suspended
+Worker/checkpoint state rather than relabeling it as an ordinary cancellation.
+
+Portable checks cover no-project mount/send, invalid input, source failure/mutation,
+access revocation, memory-save compensation, retained capabilities after completion,
+close/reentry/late-provider disposal, independent Helpers, cross-project locality,
+binding mismatch rejection, read receipts and urgent suspension. Engine isolation
+and the explicit external Golemancer campaign pass. The actual SDL global fixture
+also passes and its screenshot was inspected; the final-source SDL recheck passes.
+Windows net48 source/reference and native-fixture compilation pass with zero
+warnings/errors. Its native fixture now includes the same global mount/send;
+actual WPF execution and Android compilation will be checked in exact-head CI.
+These are fixture mounts. Production Windows/Android/Linux entry points, private
+storage/consent services, review/incident adapters and legacy-history recovery are
+still the next stage; current native conversation routes remain active.

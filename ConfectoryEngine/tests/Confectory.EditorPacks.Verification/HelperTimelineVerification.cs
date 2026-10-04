@@ -95,6 +95,7 @@ internal static class HelperTimelineVerification
     }
     private sealed class Execution : IEditorStudioHelperExecution
     {
+        public string ProjectIdentity => "";
         private readonly List<EditorStudioHelperOperation> operations = new();
         private readonly Dictionary<string, TaskCompletionSource<EditorStudioHelperOperation>> pending = new();
         public int Calls; public bool Delay, Disposed; public ConversationExchange[] LastHistory = Array.Empty<ConversationExchange>();

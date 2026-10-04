@@ -24,9 +24,10 @@ public sealed class EditorStudioHelperOperation
 {
     public string Id { get; init; } = "";
     public string HelperParticipantId { get; init; } = "";
-    public string WorkerParticipantId { get; init; } = "";
+    public string WorkerParticipantId { get; set; } = "";
+    public string ProjectIdentity { get; init; } = "";
     public string RequestId { get; set; } = "";
-    public ConversationExchange Exchange { get; } = new();
+    public ConversationExchange Exchange { get; set; } = new();
     public string Activity { get; set; } = "";
     public bool Running { get; set; } = true;
 }
@@ -34,6 +35,7 @@ public sealed class EditorStudioHelperOperation
 public interface IEditorStudioHelperExecution : IDisposable
 {
     event Action? Changed;
+    string ProjectIdentity { get; }
     IReadOnlyList<EditorStudioHelperOperation> Operations { get; }
     Task<EditorStudioHelperOperation> Send(string helperParticipantId, string prompt, IReadOnlyList<ConversationExchange> history,
         YogiBox? attachment = null, CancellationToken cancellation = default);

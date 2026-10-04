@@ -17,6 +17,8 @@ public sealed partial class StudioHelperExecution : IEditorStudioHelperExecution
     private readonly List<EditorStudioHelperOperation> operations = new();
     private bool disposed;
     public event Action? Changed;
+    public string ProjectIdentity => session.Project.Identity;
+    internal bool BelongsTo(EditorSession owner, AiDirectory identities) => ReferenceEquals(session, owner) && ReferenceEquals(directory, identities);
     public IReadOnlyList<EditorStudioHelperOperation> Operations => operations;
     public StudioHelperExecution(EditorSession session, ProjectRunner runner, AiDirectory directory, IAiCredentialStore credentials, IEditorStudioHelperExecutionHost host)
     {
@@ -43,7 +45,7 @@ public sealed partial class StudioHelperExecution : IEditorStudioHelperExecution
                 privateHistory = EditorSession.Serialize(history.Where(t => t.State != "delivered").Reverse().Take(6).Reverse()
                     .Select(t => new { User = Bounded(t.User, 1200), Answer = Bounded(t.Answer, 2000), t.State }));
                 helper = session.Collaboration.Require(helperParticipantId, ParticipantPermission.Work);
-                operation = new() { Id = lease.Id, HelperParticipantId = helperParticipantId, WorkerParticipantId = lease.WorkerParticipantId };
+                operation = new() { Id = lease.Id, HelperParticipantId = helperParticipantId, WorkerParticipantId = lease.WorkerParticipantId, ProjectIdentity = session.Project.Identity };
                 operation.Exchange.User = prompt; operation.Exchange.State = "working"; operation.Exchange.Yogi = attachment?.Copy();
                 active.Add(operation.Id, lease); operations.Add(operation); Changed?.Invoke();
             });

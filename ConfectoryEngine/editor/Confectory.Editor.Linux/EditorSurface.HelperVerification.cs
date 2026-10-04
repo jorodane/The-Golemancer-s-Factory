@@ -62,6 +62,21 @@ internal sealed partial class EditorSurface
         Check(workload.Width >= 20 && workload.Height >= 24 && Math.Abs(backend.Bounds("helper-dots").MidX - backend.Bounds("helper-character").MidX) < 1,
             "workload dot fits its text box and history dots remain centered under the character");
         if (screenshot.Length > 0) native.Screenshot(screenshot + ".helper-conversation.png");
+        reopened.Dispose();
+        var originalSession = session; var globalHost = new HelperVerificationHost(OnUi); globalHost.Service.Global = true;
+        using var globalExecution = presentation.Actions.GlobalHelperExecution(directory, credentials, globalHost);
+        using var globalTimelines = presentation.Actions.HelperTimelines(directory, null, "", globalExecution, new HelperVerificationHistory(), OnUi);
+        var globalTimeline = globalTimelines.Open(profile.Id); globalTimeline.Draft = "global native request";
+        Page("Global Helper fixture", "helper-global-verification");
+        using var globalView = presentation.Actions.HelperConversation(presentation, backend, directory, null, globalTimeline, _ => "", _ => { }, _ => throw new InvalidOperationException("No public project chat"), () => { });
+        root = (LinuxPackBackend.Element)globalView.View.Root; native.Paint();
+        Check(globalHost.Service.Calls == 0 && globalTimeline.Workers.Count == 0, "global native mount creates no request or internal Worker");
+        scroll = Math.Max(0, contentHeight - viewportHeight + 150); Click("helper-send"); Pump(() => globalExecution.Operations.Count == 1 && !globalExecution.Operations[0].Running);
+        Check(globalExecution.Operations[0].Exchange.State == "completed" && globalExecution.Operations[0].ProjectIdentity.Length == 0
+            && globalExecution.Operations[0].WorkerParticipantId.Length == 0 && ReferenceEquals(session, originalSession) && credentials.Writes == 0,
+            "SDL global Helper send uses no project and leaves the selected project lifecycle unchanged");
+        scroll = 0; native.Paint(); if (screenshot.Length > 0) native.Screenshot(screenshot + ".global-helper.png");
+        globalView.Dispose();
         Page("Helper fixture complete", "helper-verification-done");
     }
     private sealed class HelperVerificationCredentials : IAiCredentialStore
@@ -80,7 +95,7 @@ internal sealed partial class EditorSurface
         public void Write(string helper, string project, string? expected, string contents)
         { if (Contents != expected) throw new IOException("Fixture history changed"); Contents = contents; }
     }
-    private sealed class HelperVerificationAssistant : IEditorAssistant
+    private sealed class HelperVerificationAssistant(bool global = false) : IEditorAssistant
     {
         public bool Disposed;
         public string Name => "Injected verification provider";
@@ -88,20 +103,21 @@ internal sealed partial class EditorSurface
         {
             if (request.ParticipantId == "helper-native" || !request.PrivateIdentity.Contains("global native fixture") || workspace is not IAgentWorkspace)
                 throw new InvalidOperationException("Missing real shared Worker/context/tool boundary");
+            if (global && (request.Project.Length > 0 || ((IAgentWorkspace)workspace).ToolDefinitions.Count != 1)) throw new InvalidOperationException("Global fixture received project capabilities");
             return Task.FromResult("Injected provider through the shared bridge");
         }
         public void Dispose() { Disposed = true; }
     }
     private sealed class HelperVerificationService : IEditorStudioAgentService
     {
-        public int Calls; public TaskCompletionSource<EditorStudioConnectedAgent>? Pending;
+        public int Calls; public bool Global; public TaskCompletionSource<EditorStudioConnectedAgent>? Pending;
         public bool Supports(string provider) => provider == "openai";
         public bool InstallationRequired(string provider) => false;
         public Task<IReadOnlyList<AssistantModel>> Models(EditorAiConnection connection, string secret, CancellationToken cancellation) => throw new NotSupportedException();
         public Task<EditorStudioConnectedAgent> Connect(EditorAiConnection connection, string secret, CancellationToken cancellation)
-        { Calls++; return Pending?.Task ?? Task.FromResult(new EditorStudioConnectedAgent(new HelperVerificationAssistant(), null)); }
+        { Calls++; return Pending?.Task ?? Task.FromResult(new EditorStudioConnectedAgent(new HelperVerificationAssistant(Global), null)); }
     }
-    private sealed class HelperVerificationHost(Action<Action> dispatch) : IEditorStudioHelperExecutionHost
+    private sealed class HelperVerificationHost(Action<Action> dispatch) : IEditorStudioHelperExecutionHost, IEditorStudioGlobalHelperHost
     {
         public HelperVerificationService Service = new();
         public bool Allowed => true;

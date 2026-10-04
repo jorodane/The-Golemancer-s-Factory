@@ -58,6 +58,23 @@ internal static partial class Program
             PumpUntil(() => !execution.Operations.Last().Running, "Native Helper delayed cancellation");
             Check(late.Disposed && execution.Operations.Last().Exchange.State == "cancelled" && history.Contents!.Contains("pending native request"),
                 "native reentry cancels and disposes late provider while retaining private request history"); second.Close();
+            var originalSession = Field<EditorSession>(window, "session");
+            var globalHost = new NativeHelperHost(action => window.Dispatcher.Invoke(action)); globalHost.Service.Global = true;
+            using var globalExecution = presentation.Actions.GlobalHelperExecution(directory, credentials, globalHost);
+            using var globalTimelines = presentation.Actions.HelperTimelines(directory, null, "", globalExecution, new NativeHelperHistory(), globalHost.Dispatch);
+            var globalTimeline = globalTimelines.Open(profile.Id); globalTimeline.Draft = "global native request";
+            var globalDialog = new Window { Owner = window, Width = 400, Height = 780 };
+            var globalBackendType = typeof(EditorWindow).Assembly.GetType("Confectory.Editor.EditorPackBackend")!;
+            var globalBackend = (IUiBackend)Activator.CreateInstance(globalBackendType, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null,
+                new object[] { new Action<string>(_ => { }), new Func<bool>(() => false), "" }, null)!;
+            using var globalView = presentation.Actions.HelperConversation(presentation, globalBackend, directory, null, globalTimeline, _ => "", _ => { }, _ => throw new Exception("No project chat"), globalDialog.Close);
+            globalDialog.Content = new ScrollViewer { Content = NativeControl(globalView.View.Root), VerticalScrollBarVisibility = ScrollBarVisibility.Auto }; globalDialog.Show(); globalDialog.UpdateLayout();
+            Check(globalHost.Service.Calls == 0 && globalTimeline.Workers.Count == 0, "native global Helper mount needs no project execution or Worker");
+            ((Button)NativeControl(globalView.View.Element("helper-send"))).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            PumpUntil(() => globalExecution.Operations.Count == 1 && !globalExecution.Operations[0].Running, "Native global Helper send");
+            Check(globalExecution.Operations[0].Exchange.State == "completed" && globalExecution.Operations[0].ProjectIdentity.Length == 0
+                && globalExecution.Operations[0].WorkerParticipantId.Length == 0 && ReferenceEquals(originalSession, Field<EditorSession>(window, "session")) && credentials.Writes == 0,
+                "native global Helper sends without project capabilities or any implicit project transition"); globalDialog.Close();
         }
         finally { if (System.IO.Directory.Exists(root)) System.IO.Directory.Delete(root, true); }
     }
@@ -76,27 +93,28 @@ internal static partial class Program
         public string? Read(string helper, string project) => Contents;
         public void Write(string helper, string project, string? expected, string contents) { if (Contents != expected) throw new IOException("Fixture history changed"); Contents = contents; }
     }
-    private sealed class NativeHelperAssistant : IEditorAssistant
+    private sealed class NativeHelperAssistant(bool global = false) : IEditorAssistant
     {
         public bool Disposed;
         public string Name => "Injected native provider";
         public Task<string> ReplyAsync(ContextRequest request, IAssistantWorkspace workspace, CancellationToken cancellation)
         {
             if (request.ParticipantId == "helper-fixture" || !request.PrivateIdentity.Contains("global native fixture") || workspace is not IAgentWorkspace) throw new Exception("Shared execution boundary missing");
+            if (global && (request.Project.Length > 0 || ((IAgentWorkspace)workspace).ToolDefinitions.Count != 1)) throw new Exception("Global fixture received project capabilities");
             return Task.FromResult("Injected native Helper answer");
         }
         public void Dispose() { Disposed = true; }
     }
     private sealed class NativeHelperService : IEditorStudioAgentService
     {
-        public int Calls; public TaskCompletionSource<EditorStudioConnectedAgent>? Pending;
+        public int Calls; public bool Global; public TaskCompletionSource<EditorStudioConnectedAgent>? Pending;
         public bool Supports(string provider) => provider == "openai";
         public bool InstallationRequired(string provider) => false;
         public Task<IReadOnlyList<AssistantModel>> Models(EditorAiConnection connection, string secret, CancellationToken cancellation) => throw new NotSupportedException();
         public Task<EditorStudioConnectedAgent> Connect(EditorAiConnection connection, string secret, CancellationToken cancellation)
-        { Calls++; return Pending?.Task ?? Task.FromResult(new EditorStudioConnectedAgent(new NativeHelperAssistant(), null)); }
+        { Calls++; return Pending?.Task ?? Task.FromResult(new EditorStudioConnectedAgent(new NativeHelperAssistant(Global), null)); }
     }
-    private sealed class NativeHelperHost(Action<Action> dispatch) : IEditorStudioHelperExecutionHost
+    private sealed class NativeHelperHost(Action<Action> dispatch) : IEditorStudioHelperExecutionHost, IEditorStudioGlobalHelperHost
     {
         public NativeHelperService Service = new();
         public bool Allowed => true;

@@ -25,6 +25,7 @@ public sealed partial class StudioWorkspace : IEditorStudioWorkspace
     private readonly UiSignal note = new(UiValue.Text(""));
     private bool disposed;
     public EditorLiveView View { get; }
+    internal bool BelongsTo(EditorSession session, AiDirectory identities) => ReferenceEquals(directory, identities) && ReferenceEquals(project, session.Project) && ReferenceEquals(collaboration, session.Collaboration);
 
     public StudioWorkspace(EditorStudioPresentation presentation, IUiBackend backend, AiDirectory directory, WorkspaceProject project,
         ProjectStudio roles, CollaborationWorkspace collaboration, Action saveDirectory, Action<Participant, bool> joined,
