@@ -186,6 +186,17 @@
     <Node id="workspace-agents" order="20" widget="editor.stack"><Slot name="children" export="true" /></Node>
     <Node id="workspace-helper-heading" order="30" widget="editor.text"><Set property="text" value="Helper · 개인 기억은 이 Helper에게만 전달돼." /></Node>
     <Node id="workspace-helpers" order="40" widget="editor.stack"><Slot name="children" export="true" /></Node>
+    <Node id="workspace-workers" order="45" widget="editor.stack"><Slot name="children" export="true" /></Node>
     <Node id="workspace-note" order="50" widget="editor.text"><Bind property="text" source="studio.workspace.note" /></Node>
+  </Slot></Node></View>
+  <View id="editor.studio.worker-settings"><Node id="worker-settings-root" widget="editor.stack"><Slot name="children">
+    <Node id="worker-settings-title" widget="editor.text"><Set property="text" value="작업자 설정" /></Node>
+    <Node id="worker-settings-name" order="10" widget="editor.inline"><Set property="placeholder" value="작업자 이름" /><Bind property="text" source="studio.worker.name" /><On event="changed" command="studio.worker.name" /></Node>
+    <Node id="worker-settings-model" order="20" widget="editor.inline"><Set property="placeholder" value="모델 · 비우면 연결 기본값" /><Bind property="text" source="studio.worker.model" /><On event="changed" command="studio.worker.model" /></Node>
+    <Node id="worker-settings-task" order="30" widget="editor.inline"><Set property="placeholder" value="참여자에게 공개할 작업 설명" /><Bind property="text" source="studio.worker.task" /><On event="changed" command="studio.worker.task" /></Node>
+    <Node id="worker-settings-auto" order="40" widget="editor.button"><Bind property="text" source="studio.worker.autoLabel" /><On event="activate" command="studio.worker.auto" /></Node>
+    <Node id="worker-settings-save" order="50" widget="editor.button"><Set property="text" value="이름 · 모델 · 작업 설정 저장" /><On event="activate" command="studio.worker.save" /></Node>
+    <Node id="worker-settings-note" order="60" widget="editor.text"><Bind property="text" source="studio.worker.note" /></Node>
+    <Node id="worker-settings-cancel" order="70" widget="editor.button"><Set property="text" value="닫기 · 미저장 편집 취소" /><On event="activate" command="studio.worker.close" /></Node>
   </Slot></Node></View>
 </Ui>

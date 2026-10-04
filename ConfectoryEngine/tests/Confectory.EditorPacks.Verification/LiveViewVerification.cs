@@ -237,6 +237,7 @@ internal static class LiveViewVerification
                     Check(workspaceHub.State.Participants.Count == priorParticipants && directoryWrites == priorDirectoryWrites, "saved Helper restoration stays owner-local and idempotent without provider or credential actions on " + platform);
                     workspace.Dispose(); Reject(() => workspace.JoinHelper(workspaceHelper.Id), "disposed workspace actions cannot mutate a previous project on " + platform);
                 }
+                WorkerSettingsVerification.Run(presentation, new Backend(platform), creationRoot, platform, Check, Reject);
                 ParticipantLifecycleVerification.Run(presentation, new Backend(platform), creationRoot, platform, Check, Reject);
                 var helper = directory.CreateHelper(agent.Id, "First Helper");
                 int saves = 0, cancellations = 0;
@@ -424,7 +425,7 @@ internal static class LiveViewVerification
         public bool Supports(string renderer, UiWidgetDefinition contract) => EditorNativeSchema.Supports(renderer, contract, platform);
         public IUiElement Create(string renderer, string nodeId, UiLayout layout) { var e = new Element(nodeId, renderer) { Layout = layout }; All.Add(e); return e; }
     }
-    private sealed class Element(string id, string renderer) : IEditorViewElement
+    internal sealed class Element(string id, string renderer) : IEditorViewElement
     {
         public readonly string Id = id;
         public readonly List<Element> Children = [];

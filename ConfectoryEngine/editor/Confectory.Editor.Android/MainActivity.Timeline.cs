@@ -75,7 +75,7 @@ public sealed partial class MainActivity
         body.AddView(MobileAiCircle(worker.Participant.Name, helper?.AvatarPath ?? "", () => { })); body.AddView(HomeLabel(worker.Participant.Name, 20)); body.AddView(HomeLabel(ConversationTimeline.Activity(worker.ResultState, worker.Cancellation is not null), 12));
         if (studioSession.Collaboration.CanControl("human", worker.Participant.Id))
         {
-            body.AddView(AiAction("설정", () => { mobileProfile?.Dismiss(); if (helper is not null) OpenMobileHelper(helper); else MobileName("작업자 이름", name => { worker.Participant.Name = name; studioSession.Collaboration.Save(); }); }));
+            body.AddView(AiAction("설정", () => { mobileProfile?.Dismiss(); if (helper is not null) OpenMobileHelper(helper); else ShowMobileWorkerSettings(worker); }));
             body.AddView(AiAction("연결 해제", () => MobileHomeAction(() => { if (worker.Cancellation is not null) throw new InvalidOperationException("작업을 먼저 중단해줘."); if (helper is not null) DisconnectMobileHelper(helper); else { worker.Assistant?.Dispose(); worker.Assistant = null; MobileParticipantActions().Display(worker.Participant.Id, CharacterDisplay.Hidden); } mobileProfile?.Dismiss(); })));
         }
         mobileProfileBody = body; mobileProfile = new PopupWindow(body, Dp(230), ViewGroup.LayoutParams.WrapContent, false) { OutsideTouchable = true }; mobileProfile.SetBackgroundDrawable(BubbleShape(HomePanel)); mobileProfile.ShowAsDropDown(anchor, Dp(45), -anchor.Height);

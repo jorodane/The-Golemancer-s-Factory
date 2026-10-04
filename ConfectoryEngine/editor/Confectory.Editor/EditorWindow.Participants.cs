@@ -124,19 +124,25 @@ public sealed partial class EditorWindow
     private void RenderWorker(EditorWorker worker) => RenderWorkerConversation(worker);
     private void SaveWorker(EditorWorker worker)
     { if (CurrentAccess?.HistoryEnabled != false) EditorSession.AtomicWrite(Path.Combine(worker.Directory, "turns.json"), Encoding.UTF8.GetBytes(EditorSession.Serialize(worker.Turns))); RenderWorker(worker); worker.RefreshLog?.Invoke(); }
+    private void ShowWorkerSettings(EditorWorker worker)
+    {
+        var presentation = new Confectory.EditorPacks.EditorStudioPresentation(InstalledEngine);
+        var window = StudioDialog(this, presentation.Text("editor.studio.worker-settings", "worker-settings-title"), 520);
+        var settings = presentation.Actions.WorkerSettings(presentation, new EditorPackBackend(_ => { }, () => false), session!.Collaboration, worker.Participant.Id, () => worker.Running,
+            () => { worker.Model = worker.Participant.Model; if (worker.Log is not null) worker.Log.Title = worker.Participant.Name + " · 대화 로그"; RefreshRecipients(); RenderWorker(worker); RefreshAiManagement(); }, window.Close);
+        window.Content = new ScrollViewer { Content = ((EditorPackBackend.Element)settings.View.Root).Control, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Margin = new Thickness(16) };
+        window.Closed += (_, _) => settings.Dispose(); window.Show();
+    }
     private void OpenWorkerLog(EditorWorker worker)
     {
         session!.Collaboration.RequireControl("human", worker.Participant.Id);
         SelectWorker(worker); if (worker.Log is not null) { worker.Log.Activate(); return; }
         var window = new Window { Owner = this, Title = worker.Participant.Name + " · 대화 로그", Width = 800, Height = 780, MinWidth = 460, MinHeight = 440, Background = PanelInk, Foreground = TextInk };
         worker.Log = window; var root = new DockPanel { Margin = new Thickness(14) }; window.Content = root;
-        var composer = new StackPanel(); var name = Input(); name.Text = worker.Participant.Name;
-        var model = Input(); model.Text = worker.Model; model.ToolTip = "비워 두면 연결에서 선택한 모델을 사용해.";
-        var publicTask = Input(); publicTask.Width = 220; publicTask.Text = worker.Participant.PublicTask; publicTask.ToolTip = "참여자에게 공개할 작업 설명";
-        var settings = new WrapPanel(); settings.Children.Add(publicTask); name.Width = 160; model.Width = 220; settings.Children.Add(name); settings.Children.Add(model);
+        var composer = new StackPanel(); var settings = new WrapPanel();
+        settings.Children.Add(Action(studioPresentation.Text("editor.studio.worker-settings", "worker-settings-title"), () => ShowWorkerSettings(worker)));
         if (worker.Participant.HelperId.Length == 0) settings.Children.Add(Action("도우미로 승격", () => PromoteWorker(worker)));
         settings.Children.Add(Action("제안 승인 범위", () => AskName("승인할 프로젝트 경로 · 쉼표 구분, *는 전체, 비우면 해제", string.Join(",", session!.Collaboration.State.Authorities.FirstOrDefault(a => a.Participant == worker.Participant.Id)?.Scopes ?? []), scopes => session!.Collaboration.GrantProposalAuthority("human", worker.Participant.Id, scopes.Split(',')))));
-        settings.Children.Add(Action("이름 · 모델 저장", () => Guard(() => { if (worker.Running) throw new InvalidOperationException("이 작업자의 현재 요청이 끝난 뒤 바꿔줘."); worker.Participant.Name = name.Text.Trim().Length == 0 ? worker.Participant.Name : name.Text.Trim(); worker.Model = model.Text.Trim(); worker.Participant.Model = worker.Model; worker.Participant.PublicTask = publicTask.Text.Trim(); session!.Collaboration.Save(); RefreshRecipients(); RenderWorker(worker); window.Title = worker.Participant.Name + " · 대화 로그"; })));
         DockPanel.SetDock(settings, Dock.Top); root.Children.Add(settings);
         var entry = Input(true); entry.Height = 85; entry.TextWrapping = TextWrapping.Wrap; composer.Children.Add(entry);
         var actions = new WrapPanel(); var send = Action("이 작업자에게 보내기", async () => { string text = entry.Text.Trim(); if (text.Length == 0 || worker.Running) return; entry.Clear(); await RunWorker(worker, text); }); actions.Children.Add(send);
@@ -213,7 +219,7 @@ public sealed partial class EditorWindow
         try
         {
             var assistant = await ConnectWorker(worker, token);
-            if (assistant is IResidentAssistant resident && worker.Model.Length > 0) resident.Model = worker.Model;
+            if (assistant is IResidentAssistant resident) resident.Model = StudioParticipantActions().Model(worker.Participant.Id);
             // Ordinary text carries no global hover/selection. Only this worker's frozen Yogi attachment is attached.
             string previousMode = owner.Pointing.Mode; var previousTargets = owner.Pointing.Targets.ToArray(); owner.Pointing.Mode = "none"; owner.Pointing.Targets.Clear();
             ContextRequest request;

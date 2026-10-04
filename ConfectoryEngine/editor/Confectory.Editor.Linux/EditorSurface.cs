@@ -29,6 +29,7 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
 
     private EditorStudioAgentConnection? studioAgent;
     private IEditorStudioProfile? studioProfile;
+    private IEditorStudioWorkerSettings? studioWorkerSettings;
     private IEditorStudioDirectory? sharedStudioDirectory;
     private IEditorAssistant? connectedAgent;
     private AiDirectory studioDirectory = new();
@@ -135,7 +136,7 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
             return;
         }
         canvas.Save();
-        if (mode is "profile" or "directory" or "home") canvas.ClipRect(new SKRect(20, 56, width - 20, height - 40));
+        if (mode is "profile" or "directory" or "home" or "worker-settings") canvas.ClipRect(new SKRect(20, 56, width - 20, height - 40));
         contentHeight = activeWindow is not null && focusLayout ? 0 : backend.Draw(root, canvas, new(20, 56 - scroll, width - 20, height - 40));
         canvas.Restore();
         if (activeWindow is not null)
@@ -172,6 +173,7 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
     }
     private void Page(string name, string page, bool preserveStartup = false, bool preserveProfile = false, bool preserveDirectory = false)
     {
+        studioWorkerSettings?.Dispose(); studioWorkerSettings = null;
         if (!preserveDirectory) { sharedStudioDirectory?.Dispose(); sharedStudioDirectory = null; }
         if (!preserveProfile) { studioProfile?.Dispose(); studioProfile = null; }
         activeWindow = null; if (!preserveStartup) { studioStartView?.Dispose(); studioStartView = null; } foreach (var c in controls.ToArray()) c.Dispose(); controls.Clear(); mapButtons.Clear();
@@ -238,6 +240,13 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
             StudioProfilePreview, OnUi, () => !busy);
         title = ((Element)studioProfile.View.Element("profile-title")).Text("text"); root = (Element)studioProfile.View.Root; Invalidate();
     }
+    private void ShowWorkerSettings(string participantId)
+    {
+        if (session is null) return;
+        var presentation = new EditorStudioPresentation(EditorEngineDistribution.Open(engineDirectory)); Page(presentation.Text("editor.studio.worker-settings", "worker-settings-title"), "worker-settings");
+        studioWorkerSettings = presentation.Actions.WorkerSettings(presentation, backend, session.Collaboration, participantId, () => false, Invalidate, Home);
+        root = (Element)studioWorkerSettings.View.Root; Invalidate();
+    }
     private static string StudioProfilePreview(byte[] bytes, string extension)
     {
         using var bitmap = SKBitmap.Decode(bytes) ?? throw new InvalidDataException("이미지를 읽지 못했어.");
@@ -273,10 +282,11 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
         var presentation = new EditorStudioPresentation(EditorEngineDistribution.Open(engineDirectory));
         return presentation.Actions.Workspace(presentation, backend, studioDirectory, session.Project, linuxProjectRoles, session.Collaboration,
             () => studioDirectory.Save(AiDirectory.DefaultPath), (participant, open) => { status = participant.Name + "가 참여했어. 아직 AI 요청은 하지 않았어."; Invalidate(); },
-            id => { connectedAgent?.Dispose(); connectedAgent = null; if (id.Length > 0) studioDirectory.SelectedAgentId = id; studioDirectory.Save(AiDirectory.DefaultPath); }, _ => false, () => !busy);
+            id => { connectedAgent?.Dispose(); connectedAgent = null; if (id.Length > 0) studioDirectory.SelectedAgentId = id; studioDirectory.Save(AiDirectory.DefaultPath); }, _ => false, () => !busy, workerSettings: ShowWorkerSettings);
     }
     private void Home()
     {
+        studioWorkerSettings?.Dispose(); studioWorkerSettings = null;
         studioProfile?.Dispose(); studioProfile = null;
         studioAgent?.Dispose(); studioAgent = null;
         studioCreation?.Dispose(); studioCreation = null;
@@ -597,5 +607,5 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
         }, ShowDocuments, true);
         if (!session.CanEdit(path)) Disable(root.Children.First(c => c.Id == "confirm"));
     }
-    public void Dispose() { if (disposed) return; disposed = true; lifetime.Cancel(); pendingReview?.Cancel(); sharedWorkspaceRoles?.Dispose(); windows.Dispose(); execution?.Dispose(); runner?.Dispose(); FinishStudioHomeFlight(); sharedStudioDirectory?.Dispose(); studioProfile?.Dispose(); connectedAgent?.Dispose(); studioAgent?.Dispose(); sharedProjectHome?.Dispose(); studioCreation?.Dispose(); studioStartView?.Dispose(); studioHomeBrandView?.Dispose(); backend.Dispose(); lifetime.Dispose(); }
+    public void Dispose() { if (disposed) return; disposed = true; lifetime.Cancel(); studioWorkerSettings?.Dispose(); pendingReview?.Cancel(); sharedWorkspaceRoles?.Dispose(); windows.Dispose(); execution?.Dispose(); runner?.Dispose(); FinishStudioHomeFlight(); sharedStudioDirectory?.Dispose(); studioProfile?.Dispose(); connectedAgent?.Dispose(); studioAgent?.Dispose(); sharedProjectHome?.Dispose(); studioCreation?.Dispose(); studioStartView?.Dispose(); studioHomeBrandView?.Dispose(); backend.Dispose(); lifetime.Dispose(); }
 }

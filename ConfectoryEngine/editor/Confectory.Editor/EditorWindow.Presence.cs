@@ -69,7 +69,7 @@ public sealed partial class EditorWindow
                             var worker = workers.FirstOrDefault(w => w.Participant.Id == p.Id);
                             if (worker is not null) actions.Children.Add(Action("대화 로그", () => OpenWorkerLog(worker)));
                             var auto = new CheckBox { Content = "겹치지 않는 검증된 단위 자동 확정", IsChecked = p.AutoConfirm, Foreground = TextInk, Margin = new Thickness(5) };
-                            auto.Click += (_, _) => Guard(() => { hub.RequireControl("human", p.Id); p.AutoConfirm = auto.IsChecked == true; hub.Save(); }); panel.Children.Add(auto);
+                            auto.Click += (_, _) => Guard(() => { StudioParticipantActions().AutoConfirm(p.Id, auto.IsChecked == true); }); panel.Children.Add(auto);
                         }
                     }
                     panel.Children.Add(actions); rows.Children.Add(new Border { Background = BackgroundInk, Padding = new Thickness(8), Margin = new Thickness(2), Child = panel });

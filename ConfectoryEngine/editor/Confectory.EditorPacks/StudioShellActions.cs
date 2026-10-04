@@ -46,8 +46,9 @@ public interface IEditorStudioAgentConnection : IDisposable
 /// <summary>Private trusted-shell ABI. Never supplied to project modules or overlays.</summary>
 public interface IEditorStudioActions
 {
-    IEditorStudioWorkspace Workspace(EditorStudioPresentation presentation, IUiBackend backend, AiDirectory directory, WorkspaceProject project, ProjectStudio roles, CollaborationWorkspace collaboration, Action saveDirectory, Action<Participant, bool> joined, Action<string> selectedAgent, Func<string, bool> running, Func<bool>? idle = null, Action<IReadOnlyList<Participant>>? removed = null);
+    IEditorStudioWorkspace Workspace(EditorStudioPresentation presentation, IUiBackend backend, AiDirectory directory, WorkspaceProject project, ProjectStudio roles, CollaborationWorkspace collaboration, Action saveDirectory, Action<Participant, bool> joined, Action<string> selectedAgent, Func<string, bool> running, Func<bool>? idle = null, Action<IReadOnlyList<Participant>>? removed = null, Action<string>? workerSettings = null);
     IEditorStudioParticipants Participants(AiDirectory directory, CollaborationWorkspace collaboration, string actor = "human");
+    IEditorStudioWorkerSettings WorkerSettings(EditorStudioPresentation presentation, IUiBackend backend, CollaborationWorkspace collaboration, string participantId, Func<bool> running, Action changed, Action closed);
     int ProfileImageMaximumBytes { get; }
     IEditorStudioDirectory Directory(EditorStudioPresentation presentation, IUiBackend backend, AiDirectory directory, Action save, Action changed, Action addAgent, Action<AiAgentProfile?, AiHelper?> profile, Action closed, Func<byte[], string, string> preview);
     IEditorStudioProfile Profile(EditorStudioPresentation presentation, IUiBackend backend, AiDirectory directory, string agentId, string helperId, string privateRoot, string project, Action save, Action changed, Action connect, Action? join, Action closed, Action<Action<byte[], string>> imagePicker, Func<byte[], string, string> preview, Action<Action> onUi, Func<bool>? idle = null);
@@ -82,6 +83,8 @@ public interface IEditorStudioWorkspace : IDisposable
 public interface IEditorStudioParticipants
 {
     IReadOnlyList<Participant> RefreshHelperName(string helperId);
+    string Model(string participantId);
+    void AutoConfirm(string participantId, bool enabled);
     EditorStudioPlacement Layout(string participantId, double width, double height, double characterWidth, double characterHeight);
     EditorStudioPlacement Move(string participantId, double x, double y, double width, double height, double characterWidth, double characterHeight, bool persist = false);
     void CommitPlacement(string participantId);
@@ -108,4 +111,10 @@ public interface IEditorStudioDirectory : IDisposable
 {
     EditorLiveView View { get; }
     void Render();
+}
+
+public interface IEditorStudioWorkerSettings : IDisposable
+{
+    EditorLiveView View { get; }
+    void Save();
 }

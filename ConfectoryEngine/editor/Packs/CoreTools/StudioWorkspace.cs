@@ -20,18 +20,19 @@ public sealed partial class StudioWorkspace : IEditorStudioWorkspace
     private readonly Func<string, bool> running;
     private readonly Func<bool> idle;
     private readonly Action<IReadOnlyList<Participant>>? removed;
+    private readonly Action<string>? workerSettings;
     private readonly UiSignal note = new(UiValue.Text(""));
     private bool disposed;
     public EditorLiveView View { get; }
 
     public StudioWorkspace(EditorStudioPresentation presentation, IUiBackend backend, AiDirectory directory, WorkspaceProject project,
         ProjectStudio roles, CollaborationWorkspace collaboration, Action saveDirectory, Action<Participant, bool> joined,
-        Action<string> selectedAgent, Func<string, bool> running, Func<bool>? idle, Action<IReadOnlyList<Participant>>? removed)
+        Action<string> selectedAgent, Func<string, bool> running, Func<bool>? idle, Action<IReadOnlyList<Participant>>? removed, Action<string>? workerSettings)
     {
         this.presentation = presentation; this.directory = directory; this.project = project; this.roles = roles;
         this.collaboration = collaboration; this.saveDirectory = saveDirectory; this.joined = joined; this.selectedAgent = selectedAgent;
         this.running = running; this.idle = idle ?? (() => true);
-        this.removed = removed;
+        this.removed = removed; this.workerSettings = workerSettings;
         var state = State(); View = new(state.Catalog, "editor.studio.workspace.state", state.Context, backend);
     }
     private bool ProjectRoles => project.Id != "confectory.editor";
@@ -141,9 +142,17 @@ public sealed partial class StudioWorkspace : IEditorStudioWorkspace
                 Button("workspace-main-" + index, "MAIN으로 지정", main, ProjectRoles && roles.HelperIds.Contains(id)),
                 Button("workspace-remove-" + index, "연결 해제", remove, ProjectRoles ? roles.HelperIds.Contains(id) : helper?.Enabled == true))));
         }
+        var workers = new List<XElement>();
+        foreach (var participant in collaboration.State.Participants.Where(p => p.Kind == ParticipantKind.AI).ToArray())
+        {
+            int index = workers.Count; string command = "studio.workspace.settings." + index;
+            Command(command, () => { RequireAction(false); collaboration.RequireControl("human", participant.Id); workerSettings?.Invoke(participant.Id); });
+            workers.Add(Button("workspace-worker-settings-" + index, participant.Name + " · 설정", command, workerSettings is not null && collaboration.CanControl("human", participant.Id)));
+        }
         var view = new XElement("View", new XAttribute("id", "editor.studio.workspace.state"), new XAttribute("extends", "editor.studio.workspace"),
             new XElement("Override", new XAttribute("node", "workspace-agents"), new XElement("Slot", new XAttribute("name", "children"), agents)),
-            new XElement("Override", new XAttribute("node", "workspace-helpers"), new XElement("Slot", new XAttribute("name", "children"), helpers)));
+            new XElement("Override", new XAttribute("node", "workspace-helpers"), new XElement("Slot", new XAttribute("name", "children"), helpers)),
+            new XElement("Override", new XAttribute("node", "workspace-workers"), new XElement("Slot", new XAttribute("name", "children"), workers)));
         return (presentation.Compose(new XElement("Ui", new XAttribute("version", "1"), new XAttribute("id", "editor.studio.workspace.state"), view).ToString()), context);
     }
     public void Render() { if (disposed) return; var state = State(); View.Update(state.Catalog, "editor.studio.workspace.state", state.Context); }

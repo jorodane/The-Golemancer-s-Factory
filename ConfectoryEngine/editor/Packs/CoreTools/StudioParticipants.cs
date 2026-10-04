@@ -18,6 +18,29 @@ public sealed partial class StudioParticipants : IEditorStudioParticipants
         _ = collaboration.Require(actor, ParticipantPermission.None);
     }
 
+    public void AutoConfirm(string participantId, bool enabled)
+    {
+        _ = collaboration.Require(actor, ParticipantPermission.Work); collaboration.RequireControl(actor, participantId);
+        var participant = collaboration.Require(participantId, ParticipantPermission.None);
+        if (participant.Kind != ParticipantKind.AI) throw new InvalidOperationException("AI 작업자를 선택해줘.");
+        bool previous = participant.AutoConfirm;
+        try { participant.AutoConfirm = enabled; collaboration.Save(); }
+        catch (Exception failure)
+        {
+            participant.AutoConfirm = previous;
+            try { collaboration.Save(); } catch (Exception compensation) { throw new AggregateException("자동 확정 설정 저장과 복원에 실패했어.", failure, compensation); }
+            throw;
+        }
+    }
+    public string Model(string participantId)
+    {
+        _ = collaboration.Require(actor, ParticipantPermission.Work); collaboration.RequireControl(actor, participantId);
+        var participant = collaboration.Require(participantId, ParticipantPermission.None);
+        if (participant.Kind != ParticipantKind.AI) throw new InvalidOperationException("AI 작업자를 선택해줘.");
+        var agent = directory.Agent(participant.AgentId);
+        if (!agent.Connection.Enabled) throw new InvalidOperationException("작업자의 Agent 연결 설정을 먼저 활성화해줘.");
+        return participant.Model.Length > 0 ? participant.Model : agent.Connection.Model;
+    }
     public IReadOnlyList<Participant> RefreshHelperName(string helperId)
     {
         // Recheck authority on every action: creating a controller does not retain a revoked grant.

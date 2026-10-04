@@ -155,6 +155,17 @@ internal sealed partial class EditorSurface
         Check(!ProjectStudio.Load(session.Project).HelperIds.Contains(globalHelper.Id) && !session.Collaboration.State.Participants.Any(p => p.Id == roleParticipant.Id) && globalHelper.Memories.Count > 0, "actual SDL removal retains private global memory while detaching project participation");
         Reveal("workspace-helper-0"); Click("workspace-helper-0");
         Check(session.Collaboration.State.Participants.Count(p => p.HelperId == globalHelper.Id && p.OwnerId == "human") == 1, "actual SDL remove and rejoin restores one participant");
+        Reveal("workspace-worker-settings-0"); Click("workspace-worker-settings-0");
+        var settingsParticipant = session.Collaboration.State.Participants.Single(p => p.HelperId == globalHelper.Id && p.OwnerId == "human");
+        string settingsOldName = settingsParticipant.Name;
+        EditCreation("worker-settings-name", "SDL saved worker"); EditCreation("worker-settings-model", "fixture-override-model"); EditCreation("worker-settings-task", "Explicit public task");
+        Check(settingsParticipant.Name == settingsOldName, "actual SDL settings edits stay unpublished before save");
+        Reveal("worker-settings-auto"); Click("worker-settings-auto"); Reveal("worker-settings-save"); Click("worker-settings-save");
+        Check(settingsParticipant.Name == "SDL saved worker" && settingsParticipant.Model == "fixture-override-model" && settingsParticipant.AutoConfirm && globalHelper.Name != settingsParticipant.Name, "actual SDL common settings save public worker state without renaming private global identity");
+        if (screenshot.Length > 0) native.Screenshot(screenshot + ".settings.png");
+        Reveal("worker-settings-cancel"); Click("worker-settings-cancel"); Reveal("workspace-worker-settings-0"); Click("workspace-worker-settings-0");
+        EditCreation("worker-settings-name", "Cancelled SDL draft"); Reveal("worker-settings-cancel"); Click("worker-settings-cancel");
+        Check(settingsParticipant.Name == "SDL saved worker" && mode == "home", "actual SDL settings reentry and cancellation preserve saved state");
         if (screenshot.Length > 0) native.Screenshot(screenshot + ".roles.png");
         Open(originalProject);
         Page("Native input verification", "verification");

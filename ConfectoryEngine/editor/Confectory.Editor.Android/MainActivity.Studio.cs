@@ -116,6 +116,14 @@ public sealed partial class MainActivity
     }
     private void OpenMobileWorker(MobileWorker worker)
         => SelectMobileWorker(worker);
+    private void ShowMobileWorkerSettings(MobileWorker worker)
+    {
+        var presentation = new Confectory.EditorPacks.EditorStudioPresentation(InstalledEngine); var dialog = new Dialog(this); dialog.SetTitle(presentation.Text("editor.studio.worker-settings", "worker-settings-title"));
+        var settings = presentation.Actions.WorkerSettings(presentation, new AndroidPackBackend(this), studioSession.Collaboration, worker.Participant.Id, () => worker.Cancellation is not null,
+            () => { worker.Log?.SetTitle(worker.Participant.Name + " · 대화 기록"); RenderMobileWorker(worker); RefreshMobileManagement(); }, dialog.Dismiss);
+        var scroll = new ScrollView(this); scroll.AddView(((AndroidPackBackend.Element)settings.View.Root).Control); dialog.SetContentView(scroll);
+        dialog.DismissEvent += (_, _) => settings.Dispose(); dialog.Show(); dialog.Window?.SetLayout(Math.Min(Resources!.DisplayMetrics!.WidthPixels - Dp(24), Dp(520)), ViewGroup.LayoutParams.WrapContent);
+    }
     private void OpenMobileWorkerLog(MobileWorker worker)
     {
         studioSession.Collaboration.RequireControl("human", worker.Participant.Id);
@@ -124,6 +132,7 @@ public sealed partial class MainActivity
         if (shown.Length > 0) studioSession.Collaboration.Acknowledge("human", worker.Participant.Id, shown); RefreshMobileManagement();
         var layout = new LinearLayout(this) { Orientation = Orientation.Vertical }; var text = new TextView(this) { Text = string.Join("\n\n", worker.Turns.Select(t => t.Role + "\n" + t.Text)), TextSize = 15 }; text.SetTextIsSelectable(true); worker.Transcript = text;
         var scroll = new ScrollView(this); scroll.AddView(text); layout.AddView(scroll, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, 0, 1));
+        layout.AddView(AiAction(mobileStudioPresentation.Text("editor.studio.worker-settings", "worker-settings-title"), () => ShowMobileWorkerSettings(worker)));
         layout.AddView(AiAction("요청 취소", () => worker.Cancellation?.Cancel()));
         if (worker.Participant.HelperId.Length == 0) layout.AddView(AiAction("도우미로 승격", () => MobileName("도우미 이름", name =>
         {
@@ -153,6 +162,7 @@ public sealed partial class MainActivity
                 worker.Assistant = new(); worker.Assistant.Configure(profile.Connection, aiCredentials.Read(profile.CredentialKey.Length > 0 ? profile.CredentialKey : profile.Connection.Provider));
                 await worker.Assistant.ConnectAsync(new() { ProjectIdentity = owner.Project.Identity, StateDirectory = Path.Combine(owner.StateDirectory, "participants", worker.Participant.Id), AccessEnabled = true, HistoryEnabled = true }, token);
             }
+            worker.Assistant.Model = MobileParticipantActions().Model(worker.Participant.Id);
             string mode = owner.Pointing.Mode; var targets = owner.Pointing.Targets.ToArray(); owner.SetPointingMode("none"); ContextRequest request;
             try { request = owner.PrepareContext(prompt); } finally { owner.Pointing.Mode = mode; owner.Pointing.Targets.AddRange(targets); }
             if (exchange.Yogi is not null) { owner.ApplyYogi(request, exchange.Yogi); EditorYogiContext.Apply(request, exchange.Yogi, runtime, Sources()); ApplyMobileNativeYogi(request, exchange.Yogi); }

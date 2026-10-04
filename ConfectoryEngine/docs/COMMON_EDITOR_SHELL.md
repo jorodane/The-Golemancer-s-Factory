@@ -532,3 +532,54 @@ Remaining work is implementation scope, not a failed test or access blocker.
 Android device behavior and local Windows native execution remain unavailable in
 this Linux environment; remote build/native checks do not imply physical-device
 conversation/gesture verification.
+
+## Worker settings continuation checkpoint
+
+Continuation after 48127794 replaces the duplicated Windows log name/model/task
+form and ordinary-worker rename callbacks with installed CoreTools
+`StudioWorkerSettings` and `editor.studio.worker-settings`. Android log/profile
+settings mount the identical form, and Linux exposes it through the common
+workspace participant settings entries. Windows/Android retain their existing
+logs, promotion and proposal-authority actions; these were not deleted to simplify
+the form. Native adapters present/close windows/pages and refresh runtime/UI state.
+This is public participant configuration; changing a character's public name here
+does not rename its separate private global Helper profile.
+
+The pack owns draft name/model/public-task/auto-confirm state, explicit save,
+current-owner/work-permission/active-request checks, normalization/validation,
+persistence and compensation after failed/post-write-observer saves. Cancel and
+reentry discard unpublished drafts. Changing auto-confirm does not grant proposal
+scope or bypass review/conflict rules. Model lookup also belongs to installed
+`StudioParticipants`: an explicit worker override wins, clearing it restores the
+source Agent model, another owner's private Agent is inaccessible, and a disabled
+source is never enabled implicitly. Windows and Android apply the resulting model
+to their existing provider instances at send time. Mount/save cannot initiate
+inference, authentication or credential-store writes.
+
+Acceptance coverage loads the verified factory under all three platform
+contracts: inert mount, unpublished edits, running/revoked-authority/owner-change
+guards, complete explicit save, reopen/privacy, override/default/disabled-source
+model selection, validation, write and observer failures, compensation, draft
+retry, cancellation, reentry, remote-owner mount denial and disposal. Actual SDL
+pointer/keyboard cases edit/save/reopen/cancel worker settings and verify that the
+public name change leaves private Helper identity unchanged.
+
+Remaining assigned scope continues: common sidebar cards/status/menu definitions,
+ordinary-worker creation, promotion dialog/character/movable-window definitions,
+Agent disable/reconnect/account/model management, and common conversation
+execution/UI on all hosts, including real Linux send/stream/cancel/history/context
+and reviewed local changes. Existing native conversations stay active. Existing
+clash callbacks and semantic locality remain; no new locks, Supervisor/table/
+augment/render-authoring features or reduced Linux fallback are introduced.
+Verification/publication evidence follows when the checkpoint's checks finish.
+
+Local checks: installed-pack suite 782, including 499 live-view/action checks;
+actual self-contained Linux SDL settings save/reentry/cancel plus existing startup,
+Agent, profile/global memory, home/creation, role/remove/rejoin and semantic-editing
+regressions passed. The common settings screenshot was inspected outside Git.
+Studio 225, Authoring 39, engine isolation, and the explicitly selected external
+consumer clean build/full campaign passed. Windows/native-test and CoreTools
+net48 source compilation passed with zero warnings/errors. Android local build/
+device execution remains unavailable; exact pushed CI must confirm its build and
+remote Windows/Linux native execution. Provider behavior remains fixture-backed;
+no paid inference, real authentication or production credential writes occurred.

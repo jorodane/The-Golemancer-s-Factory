@@ -19,7 +19,7 @@ public sealed partial class EditorWindow
         profileBody.Children.Add(Label(ConversationTimeline.Activity(worker.Turns.LastOrDefault()?.State ?? "", worker.Running, worker.Activity), 12));
         if (session.Collaboration.CanControl("human", worker.Participant.Id))
         {
-            profileBody.Children.Add(Action("설정", () => { aiProfile.IsOpen = false; if (helper is not null) EditHelperProfile(helper); else AskName("작업자 이름", worker.Participant.Name, name => { worker.Participant.Name = name; session.Collaboration.Save(); }); }));
+            profileBody.Children.Add(Action("설정", () => { aiProfile.IsOpen = false; if (helper is not null) EditHelperProfile(helper); else ShowWorkerSettings(worker); }));
             profileBody.Children.Add(Action("연결 해제", () => { if (worker.Running) throw new InvalidOperationException("작업을 먼저 중단해줘."); if (helper is not null) DisconnectHelper(helper); else { worker.Assistant?.Dispose(); worker.Assistant = null; StudioParticipantActions().Display(worker.Participant.Id, CharacterDisplay.Hidden); session.Collaboration.Presence(worker.Participant.Id).Connected = false; session.Collaboration.Save(); } aiProfile.IsOpen = false; }));
         }
         aiProfile.IsOpen = true; // Profile visibility is deliberately unrelated to read receipts.
