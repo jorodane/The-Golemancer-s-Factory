@@ -86,11 +86,26 @@ verification covers the lifecycle and boundaries above; native fixtures are bein
 verified. The Windows adapter now mounts the common floating view for existing
 Helper entry points, binds explicitly selected projects, registers pending reviews
 before provider tools run, and mirrors cancellation into existing incident hooks.
-The global adapter also supports a genuine null-session mount; home sidebar access
-still requires the forthcoming common entry-point update. Android now mounts the
+The global adapter supports a genuine null-session mount; the installed sidebar
+now opens and hides that same private conversation without joining a project. Android now mounts the
 same view through its existing Helper entry points, with shared placement/input,
 document-only capabilities and the existing review/peer-handoff/incident services.
 Its global controller skips the legacy standalone workspace binding and never
-opens a project for chat. Linux production adoption, common global sidebar entry,
-legacy recovery and Worker-direct/promotion removal remain pending.
+opens a project for chat. Its common sidebar uses the same project-optional entry.
+Linux production adoption, legacy recovery and Worker-direct/promotion removal
+remain pending.
 Do not describe the shell lifecycle as complete yet.
+
+## Common entry and closure contract
+
+A local Helper's sidebar open action mounts its application-owned conversation,
+including on a genuine sessionless home. Opening or dropping a YogiBox creates no
+project participant, Worker, provider request or implicit project. A project-bound
+send still goes through installed Join/request authority. Repeated entry preserves
+the same draft and active operation; explicit sidebar close hides the private view
+without cancelling it. Owned joined-Helper portraits resolve to that same private
+conversation. Foreign participants never resolve a matching local Helper profile;
+they retain the existing project-public routes and permission checks. YogiBox drops
+are validated and copied into the local draft, not sent automatically. Host methods
+only mount/hide the already installed timeline/view actions. An unavailable native
+conversation implementation remains visibly disabled until its adapter is complete.

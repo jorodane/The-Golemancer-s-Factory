@@ -90,6 +90,8 @@ public interface IEditorStudioSidebarHost
     void ClosePane();
     void Run(string action, string id);
     void Receive(string participantId, YogiBox box);
+    void OpenHelper(string helperId, YogiBox? attachment);
+    void CloseHelper(string helperId);
 }
 
 /// <summary>Private trusted-shell ABI. Never supplied to project modules or overlays.</summary>

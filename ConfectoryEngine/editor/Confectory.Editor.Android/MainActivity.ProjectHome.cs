@@ -164,6 +164,8 @@ public sealed partial class MainActivity
         public bool PromotionAvailable => true;
         public void Pane(EditorLiveView view, string anchorNode) => activity.ShowSharedMobileSidebarPane(view, anchorNode);
         public void ClosePane() { if (activity.mobileProfile?.IsShowing == true) activity.mobileProfile.Dismiss(); }
+        public void OpenHelper(string id, YogiBox? attachment) => activity.OpenMobileHelperConversation(id, attachment);
+        public void CloseHelper(string id) { if (activity.mobileHelperCharacters.TryGetValue("helper:" + id, out var character)) character.Timeline.Display(false); }
         public void Receive(string id, YogiBox box) => activity.ReceiveMobileYogi(activity.mobileWorkers.Single(w => w.Participant.Id == id), box);
         public void Run(string action, string id)
         {

@@ -158,6 +158,8 @@ public sealed partial class EditorWindow
         public bool PromotionAvailable => true;
         public void Pane(EditorLiveView view, string anchorNode) => window.ShowSharedSidebarPane(view, anchorNode);
         public void ClosePane() { if (window.aiProfile is not null) window.aiProfile.IsOpen = false; }
+        public void OpenHelper(string id, YogiBox? attachment) => window.OpenHelperConversation(id, attachment);
+        public void CloseHelper(string id) { if (window.helperCharacters.TryGetValue("helper:" + id, out var character)) character.Timeline.Display(false); }
         public void Receive(string id, YogiBox box) => window.ReceiveWorkerYogi(window.workers.Single(w => w.Participant.Id == id), box);
         public void Run(string action, string id)
         {

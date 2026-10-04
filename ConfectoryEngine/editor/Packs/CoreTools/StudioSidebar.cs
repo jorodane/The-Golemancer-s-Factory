@@ -128,7 +128,7 @@ public sealed class StudioSidebar : IEditorStudioSidebar
         { string command = "studio.sidebar.pane." + id; context.AddCommand(command, UiValueKind.None, _ => Guard(action)); content.Add(Button("sidebar-pane-" + id, label, command, index++, enabled)); }
         if (agent is not null && project) Action("main", "메인 에이전트로 지정", () => { using var action = workspace(); action.SelectMainAgent(agent.Id); ClosePane(); host.Run("refresh", ""); });
         if (agent is not null && project && roles.MainAgentId == agent.Id) Action("clear-main", "메인 에이전트 지정 해제", () => { using var action = workspace(); action.SelectMainAgent(""); ClosePane(); host.Run("refresh", ""); });
-        if (helper is not null || participant is not null) Action("open", "대화창 열기", () => { Open(key); ClosePane(); }, host.ConversationAvailable && (participant is not null || project));
+        if (helper is not null || participant is not null) Action("open", "대화창 열기", () => { Open(key); ClosePane(); }, host.ConversationAvailable);
         if (participant is not null)
         {
             if (controlled)
@@ -137,8 +137,9 @@ public sealed class StudioSidebar : IEditorStudioSidebar
                 if (helper is null) Action("promote", "도우미로 승격", () => { Hub.RequireControl("human", participant.Id); ClosePane(); host.Run("promote", participant.Id); }, host.PromotionAvailable);
             }
             else Action("call", "프로젝트에서 호출", () => { Require(ParticipantPermission.Talk); ClosePane(); host.Run("call", participant.Id); }, host.ConversationAvailable);
-            Action("hide", "대화창 닫기", () => { presentation.Actions.Participants(directory, Hub).Display(participant.Id, CharacterDisplay.Hidden); ClosePane(); host.Run("refresh", ""); });
+            if (helper is null) Action("hide", "대화창 닫기", () => { presentation.Actions.Participants(directory, Hub).Display(participant.Id, CharacterDisplay.Hidden); ClosePane(); host.Run("refresh", ""); });
         }
+        if (helper is not null) Action("hide", "대화창 닫기", () => { host.CloseHelper(helper.Id); ClosePane(); }, host.ConversationAvailable);
         if (helper is not null && project && roles.HelperIds.Contains(helper.Id)) Action("main", "MAIN으로 지정", () => { if (participant is not null) Hub.RequireControl("human", participant.Id); using var action = workspace(); action.SetMainHelper(helper.Id); ClosePane(); host.Run("refresh", ""); });
         if (controlled)
         {
@@ -155,21 +156,31 @@ public sealed class StudioSidebar : IEditorStudioSidebar
         try { host.Pane(pane, Items.FirstOrDefault(i => i.Key == key)?.NodeId ?? ""); }
         catch { PaneOpen = wasOpen; if (!wasOpen) host.ClosePane(); throw; }
     }
+    private AiHelper? LocalHelper((string Kind, string Id) target)
+    {
+        if (target.Kind == "helper") return directory.Helpers.Single(h => h.Id == target.Id);
+        if (target.Kind != "worker") return null;
+        var participant = Hub.Require(target.Id, ParticipantPermission.None);
+        return participant.AiRole == ParticipantAiRole.Helper && Hub.CanControl("human", participant.Id)
+            ? directory.Helpers.FirstOrDefault(h => h.Id == participant.HelperId) : null;
+    }
     public void Open(string key)
     {
-        var target = Target(key); Require(ParticipantPermission.Talk);
+        var target = Target(key);
         if (!host.ConversationAvailable) throw new NotSupportedException("이 호스트의 작업자 대화 실행은 아직 사용할 수 없어.");
-        if (target.Kind == "helper") { if (!project) throw new InvalidOperationException("먼저 프로젝트를 열어줘."); using var action = workspace(); var participant = action.JoinHelper(target.Id, false); host.Run("open", participant.Id); }
-        else if (target.Kind == "worker") { RequireWorker(target.Id); host.Run("open", target.Id); }
+        if (LocalHelper(target) is { } helper) { host.OpenHelper(helper.Id, null); return; }
+        Require(ParticipantPermission.Talk);
+        if (target.Kind == "worker") { RequireWorker(target.Id); host.Run("open", target.Id); }
         else throw new InvalidOperationException("작업자 또는 Helper를 선택해줘.");
     }
     public void Drop(string key, YogiBox box)
     {
-        var target = Target(key); Require(ParticipantPermission.Talk);
-        if (target.Kind == "human") { if (Hub.Require(target.Id, ParticipantPermission.None).Kind != ParticipantKind.Human) throw new InvalidOperationException("사람을 선택해줘."); Hub.DeliverYogi("human", box, "direct", target.Id); return; }
+        var target = Target(key); box.Validate(true);
+        if (target.Kind == "human") { Require(ParticipantPermission.Talk); if (Hub.Require(target.Id, ParticipantPermission.None).Kind != ParticipantKind.Human) throw new InvalidOperationException("사람을 선택해줘."); Hub.DeliverYogi("human", box, "direct", target.Id); return; }
         if (!host.ConversationAvailable) throw new NotSupportedException("이 호스트의 작업자 대화 실행은 아직 사용할 수 없어.");
-        if (target.Kind == "helper") { if (!project) throw new InvalidOperationException("먼저 프로젝트를 열어줘."); using var action = workspace(); var participant = action.JoinHelper(target.Id, false); host.Receive(participant.Id, box); }
-        else if (target.Kind == "worker") { RequireWorker(target.Id); host.Receive(target.Id, box); }
+        if (LocalHelper(target) is { } helper) { host.OpenHelper(helper.Id, box.Copy()); return; }
+        Require(ParticipantPermission.Talk);
+        if (target.Kind == "worker") { RequireWorker(target.Id); host.Receive(target.Id, box); }
         else throw new InvalidOperationException("YogiBox 전달 대상을 선택해줘.");
     }
     private void RequireWorker(string id)

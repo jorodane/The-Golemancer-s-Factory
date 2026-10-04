@@ -42,8 +42,14 @@ internal static class SidebarVerification
         Reject(() => host.PaneView!.Element("sidebar-pane-log"), "foreign popover excludes private history");
         sidebar.ClosePane(); Check(!sidebar.PaneOpen && host.PaneView is null, "closing a popover preserves the sidebar for reentry");
         sidebar.Show("helper:" + helper.Id); Check(reads.Contains(helper.CharacterPath) && attachments == 0, "local Helper preview remains passive");
+        foreign.AiRole = ParticipantAiRole.Helper; sidebar.Open("worker:" + foreign.Id);
+        Check(host.Calls.Last() == ("open", foreign.Id), "foreign participant cannot resolve a matching local private Helper identity");
         sidebar.ClosePane(); sidebar.Open("helper:" + helper.Id); sidebar.Open("helper:" + helper.Id);
-        Check(attachments == 2 && hub.State.Participants.Count(p => p.HelperId == helper.Id && p.OwnerId == "human") == 1 && host.Calls.Count(c => c.Action == "open") == 2, "repeat open joins once and reattaches the same local identity without inference");
+        Check(attachments == 0 && hub.State.Participants.All(p => p.HelperId != helper.Id || p.OwnerId != "human") && host.Calls.Count(c => c.Action == "helper-open" && c.Id == helper.Id) == 2, "repeat local Helper entry mounts the global conversation without joining or attaching a Worker");
+        var alias = hub.Register("owned-helper-alias", helper.Name, ParticipantKind.AI, ParticipantPermission.Work | ParticipantPermission.Talk);
+        alias.AiRole = ParticipantAiRole.Helper; alias.HelperId = helper.Id; alias.AgentId = agent.Id;
+        sidebar.Open("worker:" + alias.Id);
+        Check(host.Calls.Last() == ("helper-open", helper.Id) && attachments == 0, "owned joined-Helper portrait resolves the same global private conversation without attachment side effects");
         sidebar.Render(); sidebar.Show("worker:" + ordinary.Id);
         var disconnect = Node(host.PaneView!, "sidebar-pane-disconnect");
         hub.Require("human", ParticipantPermission.Work).Permissions = ParticipantPermission.Talk;
@@ -82,7 +88,15 @@ internal static class SidebarVerification
             Check(global.Items.Any(i => i.Kind == "agent") && global.Items.Any(i => i.Kind == "helper") && !Node(global.View, "sidebar-add-worker").Properties["enabled"].AsBoolean(), "sessionless home mounts the identical global groups without a workspace or activity reads");
             global.Show("agent:" + agent.Id); Reject(() => globalHost.PaneView!.Element("sidebar-pane-main"), "sessionless Agent profile omits project role actions");
             global.Show("helper:" + helper.Id);
-            Check(!Node(globalHost.PaneView!, "sidebar-pane-open").Properties["enabled"].AsBoolean() && !Node(globalHost.PaneView!, "sidebar-pane-disconnect").Properties["enabled"].AsBoolean(), "sessionless Helper profile retains settings while deferring workspace actions");
+            Check(Node(globalHost.PaneView!, "sidebar-pane-open").Properties["enabled"].AsBoolean() && !Node(globalHost.PaneView!, "sidebar-pane-disconnect").Properties["enabled"].AsBoolean(), "sessionless Helper profile exposes global conversation while deferring project disconnection");
+            Node(globalHost.PaneView!, "sidebar-pane-open").Activate(); global.Show("helper:" + helper.Id); Node(globalHost.PaneView!, "sidebar-pane-hide").Activate();
+            Check(globalHost.Calls.Any(c => c.Action == "helper-open" && c.Id == helper.Id) && globalHost.Calls.Any(c => c.Action == "helper-close" && c.Id == helper.Id), "sessionless open and close route private identity without constructing a workspace");
+            var attachment = new YogiBox { Sealed = true, Explanation = "explicit global context" };
+            global.Drop("helper:" + helper.Id, attachment); attachment.Explanation = "later local edit";
+            Check(globalHost.LastAttachment?.Explanation == "explicit global context" && globalHost.Calls.Any(c => c.Action == "helper-drop"), "sessionless Yogi drop freezes a valid local attachment without joining or sending");
+            Reject(() => global.Drop("helper:" + helper.Id, new YogiBox { Sealed = true }), "empty global attachment is rejected before native mounting");
+            Reject(() => global.Open("helper:" + Guid.NewGuid().ToString("N")), "missing private Helper identity cannot be opened from a forged target");
+            global.Show("helper:" + helper.Id);
             Node(globalHost.PaneView!, "sidebar-pane-settings").Activate();
             Check(globalHost.Calls.Any(c => c.Action == "helper-profile" && c.Id == helper.Id), "sessionless private Helper settings route through the installed global menu");
         }
@@ -95,10 +109,13 @@ internal static class SidebarVerification
         public bool PromotionAvailable => true;
         public EditorLiveView? PaneView;
         public bool FailCleanup, FailPane;
+        public YogiBox? LastAttachment;
         public readonly List<(string Action, string Id)> Calls = new();
         public void Pane(EditorLiveView view, string anchorNode) { PaneView = view; if (FailPane) throw new IOException("fixture popover failure"); }
         public void ClosePane() => PaneView = null;
         public void Run(string action, string id) { Calls.Add((action, id)); if (action == "disconnect-runtime" && FailCleanup) throw new IOException("fixture cleanup failure"); }
+        public void OpenHelper(string id, YogiBox? attachment) { LastAttachment = attachment; Calls.Add((attachment is null ? "helper-open" : "helper-drop", id)); }
+        public void CloseHelper(string id) => Calls.Add(("helper-close", id));
         public void Receive(string participantId, YogiBox box) => Calls.Add(("receive", participantId));
     }
 }

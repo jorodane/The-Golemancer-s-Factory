@@ -1709,3 +1709,33 @@ All original selection, cancellation, reentry and no-premature-write assertions
 remain. Compilation passes; the exact-commit native rerun must confirm the result.
 Engine source is unchanged from the passing isolation and full external consumer
 campaign recorded above. Global-sidebar WIP remains preserved separately.
+
+Windows review verification now passes **76 actual native checks** on
+`6da2422821f3e3a06a1af20786ff51258d3d3d38`, including the production common review
+mount, complete before/after text, empty finish, cancel/reentry and reviewed
+application. [CI 37235465034](https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37235465034)
+passed all five jobs. The dispatcher fixture correction is confirmed;
+the earlier b56b4e6 run's native interaction had stalled rather than completed.
+
+### Project-optional sidebar entry
+
+The installed sidebar now resolves local Helper cards and owned joined-Helper
+portraits to the application-owned conversation, including a genuine sessionless
+home. Opening and Yogi drops do not join a project, create a Worker or call a model;
+Join remains part of an explicit project-bound send or explicit workspace Join.
+Sidebar closure hides the same private view without cancelling its active request.
+Foreign Helper identities cannot resolve a matching local private profile and keep
+the existing project-public route. Attachments are validated and copied into the
+local composer. Windows and Android hosts only mount/hide the installed views.
+Linux's native conversation capability remains explicitly unavailable pending its
+persistent-overlay/execution adapter; the common policy is tested for Linux too.
+
+The entry increment passes **1,994 portable checks**, Windows native-fixture and
+Android source/reference compilation, engine isolation, the full explicitly
+selected external Golemancer campaign and the actual Linux UI smoke. A Windows
+production fixture now opens/closes the Helper through the installed sidebar with
+no session and checks preserved active work/draft. Its execution remains an
+exact-commit CI check. Legacy Worker-direct/promotion routes remain available until
+readable legacy history and replacement interactions are tested. Linux production
+Helper integration, Project Chat, finalized shell layout/navigation, temporary
+Yogi lifecycle and explicit project-entry/Run survival remain active next work.

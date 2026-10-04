@@ -142,7 +142,8 @@ internal static partial class Program
         try
         {
             Call(window, "EnsureHelperConversations", service, credentials, new NativeHelperHistory());
-            Call(window, "OpenHelperConversation", helper.Id, null!); window.UpdateLayout();
+            Call(window, "BuildAiSidebar"); var sidebar = Field<IEditorStudioSidebar>(window, "sharedSidebar");
+            sidebar.Open("helper:" + helper.Id); window.UpdateLayout();
             var execution = Field<IEditorStudioGlobalHelperExecution>(window, "globalHelperExecution");
             var timelines = Field<IEditorStudioHelperTimelines>(window, "globalHelperTimelines"); var timeline = timelines.Open(helper.Id);
             IEditorStudioHelperConversation View()
@@ -162,7 +163,10 @@ internal static partial class Program
             ((Button)NativeControl(View().View.Element("helper-send"))).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             PumpUntil(() => service.Calls == 2, "Production adapter delayed connection");
             ((Button)NativeControl(View().View.Element("helper-close"))).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            timeline.Draft = "unsent after reentry"; Call(window, "OpenHelperConversation", helper.Id, null!);
+            sidebar.Show("helper:" + helper.Id);
+            ((Button)NativeControl(Field<EditorLiveView>(sidebar, "pane").Element("sidebar-pane-hide"))).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Check(!timeline.Visible && execution.Operations.Last().Running, "common sidebar closes the global private Helper without cancelling its active request");
+            timeline.Draft = "unsent after reentry"; sidebar.Open("helper:" + helper.Id);
             Check(timeline.Draft == "unsent after reentry" && execution.Operations.Last().Running && Field<Canvas>(window, "helperConversationCanvas").Children.Count == 1,
                 "production Helper close and reentry preserve the request and next draft without duplicate native views");
             ((Button)NativeControl(View().View.Element("helper-cancel"))).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
@@ -195,6 +199,6 @@ internal static partial class Program
             PumpUntil(() => execution.Operations.Count == 4 && !execution.Operations.Last().Running, "Production adapter explicit rejoin");
             Check(execution.Operations.Last().Exchange.State == "completed", "completed native Worker records do not prevent a Helper from leaving and explicitly rejoining on its next request");
         }
-        finally { typeof(EditorWindow).GetField("session", Fields)!.SetValue(window, selected); Call(window, "DisposeHelperConversations"); }
+        finally { typeof(EditorWindow).GetField("session", Fields)!.SetValue(window, selected); Call(window, "DisposeHelperConversations"); Call(window, "BuildAiSidebar"); }
     }
 }
