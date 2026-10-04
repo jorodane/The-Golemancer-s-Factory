@@ -1000,8 +1000,28 @@ The correction lets the same installed sidebar accept an absent collaboration
 context for the global home. It mounts identical global identity groups and
 private profile settings without creating a workspace, reading project activity,
 starting a provider or writing project presence. Project role controls are omitted
-and workspace-only actions are disabled until a workspace exists. Windows,
+and Worker creation/Helper workspace actions are disabled until a workspace exists. Windows,
 Android and Linux use this common lifecycle contract. Added portable sessionless
 coverage brings the installed-pack count to **1,085**. Actual SDL passes again;
 Windows source/CoreTools net48 builds again have zero warnings/errors. Exact-head
 CI confirmation follows below.
+
+### Sidebar verified publication
+
+Code correction **`aa439dca12a469534a0e762daa063ae5bc020ca9`** is confirmed at
+remote `refs/heads/main`; the tree was clean after ordinary pushes.
+[CI 37210355823](https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37210355823)
+completed successfully for **all five jobs**: Windows, Android, Linux native,
+portable and engine compatibility. Windows reports **34 actual native GUI
+interaction checks**, including the unchanged initial sidebar assertion,
+independent Worker conversations, read receipts/unread dots, private input and
+native profile/image behavior. Android native compilation passes; physical device
+interaction remains untested. Linux runs the actual SDL window; real Worker AI
+conversation execution is still unimplemented rather than passed or faked.
+
+This is the next coherent sidebar checkpoint only. Continue from the numbered
+handoff above; do not repeat profile/Helper, worker settings/creation, management,
+portrait or completed sidebar work. No current SDK/CI blocker remains. The larger
+workspace/participant/conversation task remains open until Worker presentation,
+saved-Agent execution and full common conversation flows are implemented and
+verified across the required platforms.
