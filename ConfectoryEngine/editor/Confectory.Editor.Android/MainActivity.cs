@@ -36,6 +36,7 @@ public sealed partial class MainActivity : Activity
     protected override async void OnCreate(Bundle? state)
     {
         base.OnCreate(state); root = FilesDir!.AbsolutePath;
+        using (var bundled = Assets!.Open("Engine.zip")) installedEngine = EditorEngineDistribution.Install(bundled, Path.Combine(root, "Engine"));
         mobileNavigation = new(this) { Orientation = Orientation.Vertical };
         var layout = new LinearLayout(this) { Orientation = Orientation.Vertical };
         layout.SetBackgroundColor(global::Android.Graphics.Color.Rgb(17, 23, 31));
@@ -62,7 +63,6 @@ public sealed partial class MainActivity : Activity
         {
             string saved = Path.Combine(root, "window-state.json");
             if (File.Exists(saved)) SavedStates = JsonSerializer.Deserialize<Dictionary<string, EditorWindowState>>(File.ReadAllText(saved)) ?? new(StringComparer.Ordinal);
-            using (var bundled = Assets!.Open("Engine.zip")) installedEngine = EditorEngineDistribution.Install(bundled, Path.Combine(root, "Engine"));
             InstallAssets("Plugins"); PrepareAiConnections(); await Task.CompletedTask;
         }
         catch (Exception e) { Report(e.Message); }

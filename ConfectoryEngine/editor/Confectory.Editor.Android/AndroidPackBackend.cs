@@ -25,6 +25,7 @@ internal sealed class AndroidPackBackend(Context context, string viewId = "") : 
             "editor.card" => new Card(context),
             "editor.inline" => new InlineEditor(context),
             "editor.slot" => new SlotButton(context),
+            "editor.vector" => new Vector(context),
             "editor.text" => new TextView(context),
             "editor.button" => new Button(context),
             "editor.input" => new EditText(context) { InputType = InputTypes.ClassText | InputTypes.TextFlagMultiLine },
@@ -38,7 +39,7 @@ internal sealed class AndroidPackBackend(Context context, string viewId = "") : 
         };
         wrapper.SetMinimumWidth(Dp(layout.MinSize.X)); wrapper.SetMinimumHeight(Dp(layout.MinSize.Y));
         if (native is Button || native is EditText) native.SetMinimumHeight(Dp(48));
-        wrapper.AddView(native, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent));
+        wrapper.AddView(native, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, renderer == "editor.vector" ? ViewGroup.LayoutParams.MatchParent : ViewGroup.LayoutParams.WrapContent));
         Element element = null!;
         element = new Element(native, wrapper, Dp, () => elements.Remove(element));
         elements.Add(element, nodeId); return element;
@@ -67,6 +68,22 @@ internal sealed class AndroidPackBackend(Context context, string viewId = "") : 
                 int end = state.Values.TryGetValue("selectionEnd:" + p.Value, out var last) && int.TryParse(last, out int saved) ? saved : start;
                 start = Math.Clamp(start, 0, length); end = Math.Clamp(end, start, length); text.SetSelection(start, end);
             }
+        }
+    }
+    private sealed class Vector(Context context) : AView(context)
+    {
+        public EditorVector.Polygon[] Polygons = [];
+        protected override void OnDraw(global::Android.Graphics.Canvas canvas)
+        {
+            base.OnDraw(canvas); canvas.Save(); canvas.Scale(Width / 96f, Height / 96f);
+            using var paint = new global::Android.Graphics.Paint(global::Android.Graphics.PaintFlags.AntiAlias);
+            foreach (var polygon in Polygons)
+            {
+                using var path = new global::Android.Graphics.Path(); path.MoveTo(polygon.Points[0], polygon.Points[1]);
+                for (int i = 2; i < polygon.Points.Length; i += 2) path.LineTo(polygon.Points[i], polygon.Points[i + 1]);
+                path.Close(); paint.Color = global::Android.Graphics.Color.ParseColor(polygon.Color); canvas.DrawPath(path, paint);
+            }
+            canvas.Restore();
         }
     }
     internal sealed class Bounds(Context context, int maximumWidth, int maximumHeight) : FrameLayout(context)
@@ -139,6 +156,12 @@ internal sealed class AndroidPackBackend(Context context, string viewId = "") : 
             {
                 switch (property)
                 {
+                    case "polygons": ((Vector)native).Polygons = EditorVector.Parse(value.Literal); native.Invalidate(); break;
+                    case "alignment":
+                        if (native is TextView alignedText) alignedText.Gravity = value.Literal == "center" ? GravityFlags.Center : GravityFlags.Start | GravityFlags.CenterVertical;
+                        if (wrapper.LayoutParameters is LinearLayout.LayoutParams aligned) { aligned.Gravity = value.Literal == "center" ? GravityFlags.CenterHorizontal : GravityFlags.Start; wrapper.LayoutParameters = aligned; } break;
+                    case "foreground": if (value.Literal.Length > 0 && native is TextView coloredText) coloredText.SetTextColor(global::Android.Graphics.Color.ParseColor(value.Literal)); break;
+                    case "background": if (value.Literal.Length > 0) native.SetBackgroundColor(value.Literal == "transparent" ? global::Android.Graphics.Color.Transparent : global::Android.Graphics.Color.ParseColor(value.Literal)); break;
                     case "enabled": native.Enabled = value.AsBoolean(); wrapper.Enabled = native.Enabled; if (native is InlineEditor enabledInline) enabledInline.Input.Enabled = native.Enabled; break;
                     case "visible": wrapper.Visibility = value.AsBoolean() ? ViewStates.Visible : ViewStates.Gone; break;
                     case "tooltip": native.TooltipText = value.Literal; break;

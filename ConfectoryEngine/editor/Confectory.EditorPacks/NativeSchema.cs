@@ -12,17 +12,18 @@ public static class EditorNativeSchema
         "enabled" or "visible" => UiValue.Boolean(true),
         "selected" or "multiline" => UiValue.Boolean(false),
         "fontSize" => UiValue.Number(13), "margin" or "count" => UiValue.Number(0),
-        "orientation" => UiValue.Text("vertical"), "tint" => UiValue.Text("#293B4D"),
+        "alignment" => UiValue.Text("stretch"), "orientation" => UiValue.Text("vertical"), "tint" => UiValue.Text("#293B4D"),
         _ => UiValue.Text("")
     };
     public static double LayoutNumber(string value, double min, double max)
     { double number = UiVector2.Finite(value); return number >= min && number <= max ? number : throw new InvalidDataException("Editor layout value is outside its supported range."); }
     public static bool Supports(string renderer, UiWidgetDefinition widget, string platform = "windows")
     {
-        if (renderer is not ("editor.stack" or "editor.text" or "editor.button" or "editor.input" or "editor.inline" or "editor.card" or "editor.wrap" or "editor.slot")) return false;
+        if (renderer is not ("editor.stack" or "editor.text" or "editor.button" or "editor.input" or "editor.inline" or "editor.card" or "editor.wrap" or "editor.slot" or "editor.vector")) return false;
         var properties = new Dictionary<string, UiValueKind> { ["enabled"] = UiValueKind.Boolean, ["visible"] = UiValueKind.Boolean,
-            ["tooltip"] = UiValueKind.Text, ["fontSize"] = UiValueKind.Number, ["margin"] = UiValueKind.Number };
+            ["tooltip"] = UiValueKind.Text, ["fontSize"] = UiValueKind.Number, ["margin"] = UiValueKind.Number, ["foreground"] = UiValueKind.Text, ["background"] = UiValueKind.Text, ["alignment"] = UiValueKind.Text };
         if (renderer is "editor.stack" or "editor.wrap" or "editor.card") properties.Add("orientation", UiValueKind.Text);
+        else if (renderer == "editor.vector") properties.Add("polygons", UiValueKind.Text);
         else if (renderer == "editor.slot")
         { foreach (string name in new[] { "image", "glyph", "value", "tint" }) properties.Add(name, UiValueKind.Text); properties.Add("count", UiValueKind.Number); }
         else properties.Add("text", UiValueKind.Text);
@@ -55,6 +56,10 @@ public static class EditorNativeSchema
     }
     public static void ValidateValue(string property, UiValue value)
     {
+        if (property is "foreground" or "background" && value.Literal.Length > 0 && value.Literal != "transparent"
+            && (value.Literal.Length != 7 || value.Literal[0] != '#' || value.Literal.Skip(1).Any(c => !Uri.IsHexDigit(c)))) throw new InvalidDataException("Use a #RRGGBB presentation color.");
+        if (property == "alignment" && value.Literal is not ("stretch" or "center" or "left")) throw new InvalidDataException("Unknown native alignment.");
+        if (property == "polygons") EditorVector.Parse(value.Literal);
         if (property == "fontSize" && (value.AsNumber() < 8 || value.AsNumber() > 48) || property == "margin" && (value.AsNumber() < 0 || value.AsNumber() > 64)) throw new InvalidDataException("Editor property exceeds native range: " + property);
         if (property == "orientation" && value.Literal is not ("horizontal" or "vertical")) throw new InvalidDataException("Unknown editor orientation.");
         if (property == "count" && (value.AsNumber() < 0 || value.AsNumber() > 1_000_000 || value.AsNumber() != Math.Floor(value.AsNumber()))) throw new InvalidDataException("Slot counts are non-negative integers.");

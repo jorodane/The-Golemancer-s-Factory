@@ -22,6 +22,7 @@ internal sealed class EditorPackBackend(Action<string> point, Func<bool> pointin
             "editor.card" => new Card(),
             "editor.inline" => new InlineEditor(),
             "editor.slot" => new Slot(),
+            "editor.vector" => new Vector(),
             "editor.text" => new TextBlock { TextWrapping = TextWrapping.Wrap, Foreground = Brushes.WhiteSmoke },
             "editor.button" => new Button { Padding = new Thickness(10, 7, 10, 7), HorizontalAlignment = HorizontalAlignment.Stretch, Foreground = Brushes.WhiteSmoke, Background = new SolidColorBrush(Color.FromRgb(41, 59, 77)), BorderThickness = new Thickness(0) },
             "editor.input" => new TextBox { Padding = new Thickness(8), MinWidth = 180, Foreground = Brushes.WhiteSmoke, Background = new SolidColorBrush(Color.FromRgb(17, 23, 31)), CaretBrush = Brushes.WhiteSmoke },
@@ -62,6 +63,26 @@ internal sealed class EditorPackBackend(Action<string> point, Func<bool> pointin
                 int length = state.Values.TryGetValue("selectionLength:" + item.Value, out var selection) && int.TryParse(selection, out var saved) ? Math.Max(0, Math.Min(saved, text.Text.Length - start)) : 0;
                 text.Select(start, length);
             }
+        }
+    }
+    private sealed class Vector : FrameworkElement
+    {
+        public EditorVector.Polygon[] Polygons = [];
+        protected override void OnRender(DrawingContext drawing)
+        {
+            base.OnRender(drawing);
+            drawing.PushTransform(new ScaleTransform(ActualWidth / 96, ActualHeight / 96));
+            foreach (var polygon in Polygons)
+            {
+                var shape = new StreamGeometry();
+                using (var path = shape.Open())
+                {
+                    path.BeginFigure(new Point(polygon.Points[0], polygon.Points[1]), true, true);
+                    for (int i = 2; i < polygon.Points.Length; i += 2) path.LineTo(new Point(polygon.Points[i], polygon.Points[i + 1]), true, false);
+                }
+                drawing.DrawGeometry((Brush)new BrushConverter().ConvertFromString(polygon.Color)!, null, shape);
+            }
+            drawing.Pop();
         }
     }
     internal sealed class Element : IEditorViewElement
@@ -125,6 +146,11 @@ internal sealed class EditorPackBackend(Action<string> point, Func<bool> pointin
             {
                 switch (property)
                 {
+                    case "polygons": ((Vector)control).Polygons = EditorVector.Parse(value.Literal); ((Vector)control).InvalidateVisual(); break;
+                    case "alignment": control.HorizontalAlignment = value.Literal == "center" ? HorizontalAlignment.Center : value.Literal == "left" ? HorizontalAlignment.Left : HorizontalAlignment.Stretch;
+                        if (control is TextBlock alignedText) alignedText.TextAlignment = value.Literal == "center" ? TextAlignment.Center : TextAlignment.Left; break;
+                    case "foreground": if (value.Literal.Length > 0) { var ink = (Brush)new BrushConverter().ConvertFromString(value.Literal)!; if (control is Control coloredControl) coloredControl.Foreground = ink; else if (control is TextBlock coloredText) coloredText.Foreground = ink; } break;
+                    case "background": if (value.Literal.Length > 0) { var fill = value.Literal == "transparent" ? Brushes.Transparent : (Brush)new BrushConverter().ConvertFromString(value.Literal)!; if (control is Control filledControl) filledControl.Background = fill; else if (control is Panel filledPanel) filledPanel.Background = fill; } break;
                     case "enabled": control.IsEnabled = value.AsBoolean(); break;
                     case "visible": control.Visibility = value.AsBoolean() ? Visibility.Visible : Visibility.Collapsed; break;
                     case "tooltip": control.ToolTip = value.Literal; break;

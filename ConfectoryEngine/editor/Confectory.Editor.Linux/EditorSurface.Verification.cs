@@ -21,6 +21,10 @@ internal sealed partial class EditorSurface
             while (busy && watch.Elapsed < TimeSpan.FromSeconds(30)) { native.Pump(); Tick(); native.Paint(); Thread.Sleep(5); }
             Check(!busy, "asynchronous operation completed");
         }
+        StartStudio(); native.Paint();
+        Check(mode == "startup" && !backend.Bounds("logo").IsEmpty, "trusted engine pack supplies the startup vector before project modules run");
+        Check(((LinuxPackBackend.Element)studioStartView!.Element("brand-title")).Text("text") == "Confectory", "startup title comes from the shared pack view");
+        Click("later"); Check(mode == "home", "shared startup Later event enters the project home");
         Page("Native input verification", "verification");
         int activations = 0, changes = 0; var group = Stack("test-group"); Add(root, group);
         var button = Button("test-button", "Native button", () => activations++); Add(group, button);

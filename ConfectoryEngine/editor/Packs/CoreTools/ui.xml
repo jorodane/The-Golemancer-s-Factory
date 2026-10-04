@@ -1,5 +1,5 @@
 <Ui version="1" id="editor.core.ui">
-  <Widget id="editor.element"><Property name="enabled" type="boolean" default="true" /><Property name="visible" type="boolean" default="true" /><Property name="tooltip" type="text" default="" /><Property name="fontSize" type="number" default="13" min="8" max="48" /><Property name="margin" type="number" default="4" min="0" max="64" /><Renderer platform="*" key="editor.text" /></Widget>
+  <Widget id="editor.element"><Property name="enabled" type="boolean" default="true" /><Property name="visible" type="boolean" default="true" /><Property name="tooltip" type="text" default="" /><Property name="fontSize" type="number" default="13" min="8" max="48" /><Property name="margin" type="number" default="4" min="0" max="64" /><Property name="foreground" type="text" default="" /><Property name="background" type="text" default="" /><Property name="alignment" type="text" default="stretch"><Option value="stretch" /><Option value="center" /><Option value="left" /></Property><Renderer platform="*" key="editor.text" /></Widget>
   <Widget id="editor.stack" extends="editor.element"><Property name="orientation" type="text" default="vertical"><Option value="vertical" /><Option value="horizontal" /></Property><Slot name="children" min="0" /><Renderer platform="*" key="editor.stack" /></Widget>
   <Widget id="editor.text" extends="editor.element"><Property name="text" type="text" default="" /><Renderer platform="*" key="editor.text" /></Widget>
   <Widget id="editor.button" extends="editor.text"><Event name="activate" payload="none" /><Renderer platform="*" key="editor.button" /></Widget>
@@ -13,6 +13,14 @@
     <Property name="tint" type="text" default="#293B4D" /><Event name="activate" payload="text" />
     <Renderer platform="*" key="editor.slot" />
   </Widget>
+  <Widget id="editor.vector" extends="editor.element"><Property name="polygons" type="text" default="" /><Renderer platform="*" key="editor.vector" /></Widget>
+  <View id="editor.studio.start"><Node id="startup" widget="editor.stack"><Layout size="430,0" /><Slot name="children">
+    <Node id="logo" order="0" widget="editor.vector"><Layout size="96,96" /><Set property="alignment" value="center" /><Set property="tooltip" value="Confectory 로고" /><Set property="margin" value="10" /><Set property="polygons" value="#69D1BD:72,16 36,16 16,36 16,60 36,80 72,80 72,62 43,62 34,53 34,43 43,34 72,34;#E9EFF6:67,40 75,48 67,56 59,48" /></Node>
+    <Node id="brand-title" order="10" widget="editor.text"><Set property="text" value="Confectory" /><Set property="fontSize" value="42" /><Set property="foreground" value="#E9EFF6" /><Set property="alignment" value="center" /></Node>
+    <Node id="brand-subtitle" order="20" widget="editor.text"><Set property="text" value="AI-Integrated Development Environment" /><Set property="fontSize" value="12" /><Set property="foreground" value="#94A5B7" /><Set property="alignment" value="center" /><Set property="margin" value="12" /></Node>
+    <Node id="connect" order="30" widget="editor.button"><Layout size="240,48" /><Set property="text" value="AI Agent 연결" /><Set property="fontSize" value="15" /><Set property="foreground" value="#10251F" /><Set property="background" value="#69D1BD" /><Set property="alignment" value="center" /><On event="activate" command="editor.studio.connect" /></Node>
+    <Node id="later" order="40" widget="editor.button"><Layout size="80,36" /><Set property="text" value="나중에" /><Set property="fontSize" value="12" /><Set property="foreground" value="#94A5B7" /><Set property="background" value="transparent" /><Set property="alignment" value="center" /><On event="activate" command="editor.studio.later" /></Node>
+  </Slot></Node></View>
   <View id="editor.core.tools"><Node id="tools" widget="editor.stack"><Slot name="children" export="true">
     <Node id="project" order="0" widget="editor.text"><Bind property="text" source="editor.project" /><Set property="fontSize" value="20" /></Node>
     <Node id="hint" order="10" widget="editor.text"><Set property="text" value="‘이거’ 모드로 이 패널의 요소를 가리키면 에디터팩의 XML을 AI에게 전달할 수 있어." /></Node>

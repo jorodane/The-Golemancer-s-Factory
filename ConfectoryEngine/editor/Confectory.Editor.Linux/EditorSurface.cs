@@ -20,6 +20,7 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
     private EditorSession? session;
     private ConceptEditorController? editor;
     private Element root = null!;
+    private EditorLiveView? studioStartView;
     private ConceptMapState? map;
     private readonly Dictionary<string, Element> mapButtons = new();
     private string projectPath = "", title = "Confectory", status = "Open a project to begin", mode = "home";
@@ -43,7 +44,7 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
     public EditorSurface(string engineDirectory, string engineRoot, string dotnet, string project)
     {
         this.engineDirectory = engineDirectory; this.engineRoot = engineRoot; this.dotnet = dotnet;
-        backend = new(Invalidate); if (project.Length > 0) Open(project); else Home();
+        backend = new(Invalidate); if (project.Length > 0) Open(project); else StartStudio();
     }
     public void Invalidate() => RequestRender();
     private void OnUi(Action action)
@@ -77,7 +78,12 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
     public override void Render(SKCanvas canvas, int width, int height)
     {
         viewportHeight = height; canvas.Clear(SKColor.Parse("#0D141D")); backend.BeginFrame();
-        LinuxPackBackend.Text(canvas, "CONFECTORY", 28, 36, 21, "#71D7C6");
+        if (mode == "startup")
+        {
+            backend.Draw(root, canvas, new(Math.Max(0, (width - 430) / 2f), Math.Max(20, (height - 380) / 2f), Math.Min(width, (width + 430) / 2f), height));
+            return;
+        }
+        LinuxPackBackend.Text(canvas, "Confectory", 28, 36, 21, "#71D7C6");
         LinuxPackBackend.Text(canvas, title, 220, 35, 18, "#E6EDF3");
         LinuxPackBackend.Fill(canvas, new(0, height - 34, width, height), "#18232E");
         LinuxPackBackend.Text(canvas, (busy ? "● " : "") + status, 24, height - 12, 12, "#A9BBC8");
@@ -116,9 +122,17 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
     }
     private void Page(string name, string page)
     {
-        activeWindow = null; foreach (var c in controls.ToArray()) c.Dispose(); controls.Clear(); mapButtons.Clear();
+        activeWindow = null; studioStartView?.Dispose(); studioStartView = null; foreach (var c in controls.ToArray()) c.Dispose(); controls.Clear(); mapButtons.Clear();
         title = name; mode = page; scroll = 0; root = Stack("root"); var bar = Stack("toolbar", true); Add(root, bar);
         Add(bar, Button("home", "← Project", Home)); Add(bar, Button("concepts", "Concepts", () => ShowMap())); Add(bar, Button("packs", "Packs", ShowPacks)); Add(bar, Button("functions", "Functions", ShowFunctions));
+        Invalidate();
+    }
+    private void StartStudio()
+    {
+        mode = "startup";
+        studioStartView = new EditorStudioPresentation(EditorEngineDistribution.Open(engineDirectory)).Start(backend,
+            () => { status = "Agent management migration is in progress"; Home(); }, Home);
+        root = (Element)studioStartView.Root;
         Invalidate();
     }
     private void Home()
@@ -407,5 +421,5 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
         }, ShowDocuments, true);
         if (!session.CanEdit(path)) Disable(root.Children.First(c => c.Id == "confirm"));
     }
-    public void Dispose() { if (disposed) return; disposed = true; lifetime.Cancel(); pendingReview?.Cancel(); windows.Dispose(); execution?.Dispose(); runner?.Dispose(); backend.Dispose(); lifetime.Dispose(); }
+    public void Dispose() { if (disposed) return; disposed = true; lifetime.Cancel(); pendingReview?.Cancel(); windows.Dispose(); execution?.Dispose(); runner?.Dispose(); studioStartView?.Dispose(); backend.Dispose(); lifetime.Dispose(); }
 }

@@ -40,8 +40,10 @@ public sealed class LinuxPackBackend(Action invalidate) : IUiBackend, IDisposabl
         if (!e.Visible) return 0;
         float margin = (float)e.Number("margin"), size = (float)e.Number("fontSize");
         x += margin; y += margin; width = Math.Max(20, width - margin * 2);
+        float availableWidth = width;
         if (e.Layout.Size.X > 0) width = Math.Min(width, (float)e.Layout.Size.X);
         width = Math.Max((float)e.Layout.MinSize.X, Math.Min(width, (float)(e.Layout.MaxSize?.X ?? double.MaxValue)));
+        if (e.Text("alignment") == "center") x += (availableWidth - width) / 2;
         float height;
         if (e.Renderer is "editor.stack" or "editor.wrap" or "editor.card")
         {
@@ -68,13 +70,25 @@ public sealed class LinuxPackBackend(Action invalidate) : IUiBackend, IDisposabl
             if (wrap) height += rowHeight;
             height += padding * 2;
         }
+        else if (e.Renderer == "editor.vector")
+        {
+            height = e.Layout.Size.Y > 0 ? (float)e.Layout.Size.Y : 96;
+            canvas.Save(); canvas.Translate(x, y); canvas.Scale(width / 96, height / 96);
+            foreach (var polygon in EditorVector.Parse(e.Text("polygons")))
+            {
+                using var path = new SKPath(); path.MoveTo(polygon.Points[0], polygon.Points[1]);
+                for (int i = 2; i < polygon.Points.Length; i += 2) path.LineTo(polygon.Points[i], polygon.Points[i + 1]);
+                path.Close(); using var paint = new SKPaint { Color = SKColor.Parse(polygon.Color), IsAntialias = true }; canvas.DrawPath(path, paint);
+            }
+            canvas.Restore();
+        }
         else
         {
             bool input = e.IsInput; string text = input && focused == e ? e.Text("text") + e.Composition : e.Text("text");
             height = e.Renderer == "editor.slot" ? 76 : Math.Max(38, size + 20);
             if (e.Bool("multiline") || e.Renderer == "editor.text") height = Math.Max(height, TextLines(text, Math.Max(8, (int)(width / (size * .62)))).Length * (size + 5) + 16);
             if (e.Layout.Size.Y > 0) height = (float)e.Layout.Size.Y;
-            if (e.Renderer != "editor.text") Fill(canvas, new(x, y, x + width, y + height), input ? focused == e ? "#243E4B" : "#101922" : e.Renderer == "editor.slot" ? e.Text("tint") : e.Enabled ? "#293B4D" : "#18232E", 7);
+            if (e.Renderer != "editor.text" && e.Text("background") != "transparent") Fill(canvas, new(x, y, x + width, y + height), e.Text("background").Length > 0 ? e.Text("background") : input ? focused == e ? "#243E4B" : "#101922" : e.Renderer == "editor.slot" ? e.Text("tint") : e.Enabled ? "#293B4D" : "#18232E", 7);
             if (e.Renderer == "editor.slot")
             {
                 if (e.Image is not null) canvas.DrawBitmap(e.Image, new SKRect(x + 8, y + 6, x + 60, y + 58));
@@ -86,7 +100,12 @@ public sealed class LinuxPackBackend(Action invalidate) : IUiBackend, IDisposabl
                 if (input && text.Length == 0) text = e.Text("placeholder");
                 var lines = TextLines(text, Math.Max(8, (int)((width - 20) / (size * .62))));
                 int limit = e.Bool("multiline") || e.Renderer == "editor.text" ? Math.Max(1, (int)((height - 10) / (size + 5))) : 1;
-                for (int i = 0; i < Math.Min(lines.Length, limit); i++) Text(canvas, lines[i], x + 10, y + 9 + size + i * (size + 5), size, e.Enabled ? "#E6EDF3" : "#71808F");
+                for (int i = 0; i < Math.Min(lines.Length, limit); i++)
+                {
+                    float textX = x + 10;
+                    if (e.Text("alignment") == "center") { using var typeface = SKTypeface.FromFamilyName("Noto Sans CJK KR"); using var font = new SKFont(typeface, size); textX = x + (width - font.MeasureText(lines[i])) / 2; }
+                    Text(canvas, lines[i], textX, y + 9 + size + i * (size + 5), size, e.Text("foreground").Length > 0 ? e.Text("foreground") : e.Enabled ? "#E6EDF3" : "#71808F");
+                }
                 if (input && focused == e) { using var pen = new SKPaint { Color = SKColor.Parse("#71D7C6"), StrokeWidth = 2 }; float caret = Math.Min(width - 10, 10 + e.Caret * size * .57f); canvas.DrawLine(x + caret, y + 7, x + caret, y + Math.Min(height - 6, size + 12), pen); }
             }
         }

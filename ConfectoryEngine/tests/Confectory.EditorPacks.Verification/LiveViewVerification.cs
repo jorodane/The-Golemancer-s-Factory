@@ -11,6 +11,26 @@ internal static class LiveViewVerification
         void Check(bool condition, string label) { outer(condition, label); checks++; }
         void Reject(Action action, string label) { bool rejected = false; try { action(); } catch (Exception) { rejected = true; } Check(rejected, label); }
         string core = File.ReadAllText(Path.Combine(repository, "editor/Packs/CoreTools/ui.xml"));
+        var startupContext = new UiContext();
+        int connects = 0, skips = 0;
+        startupContext.AddCommand("editor.studio.connect", UiValueKind.None, _ => connects++);
+        startupContext.AddCommand("editor.studio.later", UiValueKind.None, _ => skips++);
+        var startupCatalog = new UiCatalog(new[] { UiXml.Read(new StringReader(core)) });
+        foreach (string platform in new[] { "windows", "android", "linux" })
+        {
+            EditorNativeSchema.PreflightView(startupCatalog, "editor.studio.start", startupContext, platform);
+            Check(true, "same startup pack contract preflights on " + platform);
+        }
+        var startupBackend = new Backend();
+        using (var startup = new EditorLiveView(startupCatalog, "editor.studio.start", startupContext, startupBackend))
+        {
+            Check(((Element)startup.Root).Children.Select(e => e.Id).SequenceEqual(new[] { "logo", "brand-title", "brand-subtitle", "connect", "later" }), "startup preserves visual and keyboard action order across native adapters");
+            ((Element)startup.Element("connect")).Activate(); ((Element)startup.Element("later")).Activate();
+            Check(connects == 1 && skips == 1, "shared startup commands reach explicit host actions without a project module");
+            Check(((Element)startup.Element("brand-title")).Text == "Confectory", "startup elements are supplied by the installed pack definition");
+        }
+        Reject(() => EditorVector.Parse("#69D1BD:0,0 96,0 97,96"), "vector presentation rejects out-of-canvas coordinates");
+        Reject(() => EditorVector.Parse("https://example.invalid/logo.svg"), "vector presentation cannot fetch remote resources");
         XElement Node(string id, string widget, string? text = null, string? command = null) => new("Node", new XAttribute("id", id), new XAttribute("widget", widget),
             text is null ? null : new XElement("Set", new XAttribute("property", "text"), new XAttribute("value", text)),
             command is null ? null : new XElement("On", new XAttribute("event", "changed"), new XAttribute("command", command)));
@@ -124,6 +144,7 @@ internal static class LiveViewVerification
         public UiLayout Layout = new();
         public long InputRevision { get; private set; }
         public int ListenerCount => listeners.Count;
+        public void Activate() { if (listeners.TryGetValue("activate", out var action)) action(UiValue.None); }
         public void Edit(string value, int caret) { Text = value; Caret = caret; InputRevision++; if (listeners.TryGetValue("changed", out var action)) action(UiValue.Text(value)); }
         public Action PrepareSet(string property, UiValue value) { if (value.Literal == "reject-native") throw new InvalidDataException("Native fixture decode failure"); return () => Set(property, value); }
         public void Set(string property, UiValue value)

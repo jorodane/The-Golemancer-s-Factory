@@ -5,12 +5,14 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using Confectory.Editor.Startup;
+using Confectory.EditorPacks;
 
 namespace Confectory.Editor;
 
 public sealed partial class EditorWindow
 {
     private Grid? studioRoot;
+    private EditorLiveView? studioStartView;
     private readonly Grid startPage = new() { Background = BackgroundInk };
     private readonly List<(FrameworkElement Element, ConfectoryStartPage.Entrance Entrance)> startPageElements = [];
     private bool startPagePlayed, autoEnterHome, homeTransitionPlayed;
@@ -47,9 +49,7 @@ public sealed partial class EditorWindow
             {
                 var element = item.Element;
                 var from = element.TransformToVisual(brandFlight).TransformBounds(new Rect(element.RenderSize));
-                FrameworkElement copy = element is Image ? new Image { Source = StartPageLogo(), Width = 96, Height = 96 } :
-                    new TextBlock { Text = ((TextBlock)element).Text, FontSize = ((TextBlock)element).FontSize,
-                        FontWeight = ((TextBlock)element).FontWeight, Foreground = ((TextBlock)element).Foreground };
+                FrameworkElement copy = element is TextBlock text ? new TextBlock { Text = text.Text, FontSize = text.FontSize, FontWeight = text.FontWeight, Foreground = text.Foreground } : new Image { Source = StartPageLogo(), Width = 96, Height = 96 };
                 var view = new Viewbox { Child = copy, Stretch = Stretch.Fill };
                 brandFlight.Children.Add(view); flyingBrand.Add((view, from));
             }
@@ -96,35 +96,24 @@ public sealed partial class EditorWindow
         studioRoot = shell; shell.Visibility = Visibility.Collapsed;
         var host = new Grid { Background = BackgroundInk }; Content = host;
         host.Children.Add(shell); host.Children.Add(startPage); host.Children.Add(brandFlight);
-        var content = new StackPanel { Width = 430, HorizontalAlignment = HorizontalAlignment.Center };
+        var backend = new EditorPackBackend(_ => { }, () => false);
+        studioStartView = new EditorStudioPresentation(InstalledEngine).Start(backend,
+            () => Guard(() => { editingAgentId = ""; ShowEditorAiSetup(); }), () => Guard(CompleteStudioSetup));
+        var content = ((EditorPackBackend.Element)studioStartView.Root).Control;
         startPage.Children.Add(new Viewbox { Child = content, Stretch = Stretch.Uniform, StretchDirection = StretchDirection.DownOnly,
             HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(32) });
-
-        var logo = new Image { Source = StartPageLogo(), Width = 96, Height = 96, Margin = new Thickness(0, 0, 0, 20) };
-        AutomationProperties.SetName(logo, "Confectory 로고");
-        Add(logo, ConfectoryStartPage.LogoEntrance);
-        Add(new TextBlock { Text = ConfectoryStartPage.Title, FontSize = 42, FontWeight = FontWeights.SemiBold,
-            TextAlignment = TextAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center, Foreground = TextInk }, ConfectoryStartPage.TitleEntrance);
-        Add(new TextBlock { Text = ConfectoryStartPage.Subtitle, FontSize = 12, Foreground = Brush(ConfectoryStartPage.Muted),
-            TextAlignment = TextAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center, TextWrapping = TextWrapping.NoWrap, Margin = new Thickness(0, 6, 0, 46) }, ConfectoryStartPage.SubtitleEntrance);
-
-        var connect = StartPageAction(ConfectoryStartPage.Connect, false);
-        connect.Width = 240; connect.Height = 48; connect.FontSize = 15; connect.FontWeight = FontWeights.SemiBold;
-        connect.Click += (_, _) => Guard(() => { editingAgentId = ""; ShowEditorAiSetup(); });
-        KeyboardNavigation.SetTabIndex(connect, 0); Add(connect, ConfectoryStartPage.ConnectEntrance);
-        var later = StartPageAction(ConfectoryStartPage.Later, true);
-        later.Height = 36; later.MinWidth = 80; later.FontSize = 12; later.Margin = new Thickness(0, 12, 0, 0);
-        later.Click += (_, _) => Guard(CompleteStudioSetup);
-        KeyboardNavigation.SetTabIndex(later, 1); Add(later, ConfectoryStartPage.LaterEntrance);
+        foreach (var item in new[] { ("logo", ConfectoryStartPage.LogoEntrance), ("brand-title", ConfectoryStartPage.TitleEntrance),
+            ("brand-subtitle", ConfectoryStartPage.SubtitleEntrance), ("connect", ConfectoryStartPage.ConnectEntrance), ("later", ConfectoryStartPage.LaterEntrance) })
+            Add(((EditorPackBackend.Element)studioStartView.Element(item.Item1)).Control, item.Item2);
 
         ContentRendered += (_, _) => { PlayStartPage(); ScheduleAutomaticHome(); };
-        Closed += (_, _) => { autoHomeTimer?.Stop(); StopStartPage(); FinishHomeTransition(); };
+        Closed += (_, _) => { autoHomeTimer?.Stop(); StopStartPage(); FinishHomeTransition(); studioStartView?.Dispose(); };
         void Add(FrameworkElement element, ConfectoryStartPage.Entrance entrance)
         {
             element.Opacity = 0; element.IsHitTestVisible = false;
             if (element is Button button) button.IsEnabled = false;
             element.RenderTransform = new TranslateTransform(0, entrance.Rise);
-            startPageElements.Add((element, entrance)); content.Children.Add(element);
+            startPageElements.Add((element, entrance));
         }
     }
     private static DrawingImage StartPageLogo()

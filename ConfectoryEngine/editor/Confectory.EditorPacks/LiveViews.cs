@@ -28,6 +28,7 @@ public sealed class EditorLiveView : IDisposable
     private bool updating, disposed;
     public IUiElement Root { get; private set; } = null!;
     public string EventNodeId { get; private set; } = "";
+    public IUiElement Element(string nodeId) => handles.TryGetValue(nodeId, out var handle) ? handle.Native : throw new KeyNotFoundException("Unknown view node: " + nodeId);
     public bool Contains(IUiElement element) => handles.Values.Any(h => ReferenceEquals(h.Native, element));
 
     public EditorLiveView(UiCatalog catalog, string view, UiContext context, IUiBackend backend)
