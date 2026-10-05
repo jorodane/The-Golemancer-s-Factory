@@ -73,3 +73,15 @@ from physical-device execution. Never use paid requests, actual authentication o
 real credential saving in verification. Only after recovery and Helper replacement
 are verified may direct Worker chat, promotion and creation UI routes be retired;
 participant storage, internal Workers, pending edits and clash callbacks remain.
+
+## Bounded transcript viewport acceptance
+
+The installed view declares a fixed-height vertical `editor.viewport` children
+slot for transcript and operation rows. Composer, send, tabs and latest-log stay
+outside this viewport. Windows/Android native scrolling and Linux clipped drawing,
+wheel and hit testing interpret this identical declaration. Offscreen rows have no
+hit target or read receipt. Updating keyed children preserves the native scroll
+position. Earlier public records remain reachable through an explicit installed
+"earlier messages" action, without replaying model requests. Viewport scrolling
+never sends or changes semantic Room activity. This is a standard native layout
+adapter capability, not a new authoring workflow.

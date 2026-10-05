@@ -1,5 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Threading;
 using Confectory.Editor;
 using Confectory.EditorPacks;
 using Confectory.Workspace;
@@ -23,14 +25,23 @@ internal static partial class Program
             access.Enabled = true; settings.ConnectionEnabled = true; window.GetType().GetField("aiDirectory", Fields)!.SetValue(window, fixtureDirectory);
             var fixtureRoles = ProjectStudio.Load(session.Project); fixtureRoles.HelperIds.Clear(); fixtureRoles.MainHelperId = ""; fixtureRoles.MainAgentId = source.Id; window.GetType().GetField("projectStudio", Fields)!.SetValue(window, fixtureRoles);
             using (var workspace = (IEditorStudioWorkspace)window.GetType().GetMethod("CreateStudioWorkspace", Fields)!.Invoke(window, null)!) { participant = workspace.JoinHelper(helper.Id, false); workspace.SetMainHelper(helper.Id); }
+            for (int i = 0; i < 25; i++) session.Collaboration.Post("human", "historical native public record " + i);
             Call(window, "BindPublicConversations", service, vault); var dialog = Open();
             Check(dialog.Content is ScrollViewer && service.Calls == 0, "production Windows public panel uses installed view without historical replay");
+            var transcriptViewport = Descendants(dialog).OfType<ScrollViewer>().Single(s => s.Height == 220);
+            transcriptViewport.ScrollToEnd(); dialog.UpdateLayout();
+            Check(transcriptViewport.ScrollableHeight > 0 && transcriptViewport.VerticalOffset > 0 && service.Calls == 0, "native declared transcript viewport scrolls history without provider replay");
             var input = Descendants(dialog).OfType<TextBox>().Single(t => !t.IsReadOnly); input.Text = "native public main question";
             var panel = Field<List<(Window Window, IEditorStudioPublicChat Chat)>>(window, "sharedPublicWindows").Single(item => item.Window == dialog).Chat;
+            Check(transcriptViewport.VerticalOffset > 0, "updating native public composer preserves transcript scroll position");
             Check(panel.Draft == input.Text, "native public typing reaches the installed composer"); Click(dialog, "보내기");
             var controller = Field<IEditorStudioPublicConversations>(window, "sharedPublicConversations");
             Check(controller.Operations.Count > 0 && controller.Operations.All(o => o.State != "failed"), "native public send starts: " + controller.Notice + " / " + string.Join("; ", controller.Operations.Select(o => o.State + ": " + o.Error))); PumpUntil(() => controller.Operations.Any(o => o.State == "completed"), "production Windows public send");
             Check(controller.Operations.Single().HelperId == helper.Id && vault.Writes == 0 && input.Text.Length == 0, "native public input and Send route Main through fresh public-only injected provider");
+            transcriptViewport.ScrollToTop(); dialog.UpdateLayout(); dialog.Activate();
+            var outerScroll = (ScrollViewer)dialog.Content; outerScroll.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left) { RoutedEvent = Mouse.PreviewMouseUpEvent });
+            bool displayedChecked = false; dialog.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() => displayedChecked = true)); PumpUntil(() => displayedChecked, "production public clipped receipt check");
+            Check(!session.Collaboration.State.Views.Any(v => v.ParticipantId == "human" && v.ReadMessages.Contains(controller.Operations.Single().ReplyId)), "native nested viewport never acknowledges an offscreen reply");
             dialog.Close(); dialog = Open(); Check(service.Calls == 1 && controller.Operations.Count == 1, "production public close and reentry never replay completed dialogue");
             service.Pending = new(TaskCreationOptions.RunContinuationsAsynchronously); input = Descendants(dialog).OfType<TextBox>().Single(t => !t.IsReadOnly); input.Text = "pending public native request"; Click(dialog, "보내기"); var pending = controller.Operations.Last(); dialog.Close();
             Check(pending.State == "working", "native public panel close preserves running connection"); dialog = Open();

@@ -17,6 +17,7 @@ public sealed class StudioPublicChat : IEditorStudioPublicChat
     private readonly string channel, room;
     private bool disposed;
     private string notice = "";
+    private int visibleMessageCount = 20;
     private readonly StudioPublicConversations controller;
     private readonly StudioPublicConversations.Composer composer;
     private YogiBox? attachment { get => composer.Attachment; set => composer.Attachment = value; }
@@ -59,7 +60,9 @@ public sealed class StudioPublicChat : IEditorStudioPublicChat
         context.AddCommand("studio.public.chat", UiValueKind.None, _ => Guard(() => Tab = "chat")); context.AddCommand("studio.public.log", UiValueKind.None, _ => Guard(() => Tab = "log"));
         var messages = new List<XElement>(); var rows = new List<EditorStudioPublicMessageRow>();
         var permitted = hub.State.Messages.Where(m => m.Channel == channel && m.Room == room && hub.CanRead("human", m)).ToArray();
-        foreach (var message in permitted.Skip(Math.Max(0, permitted.Length - 20)))
+        Flag("hasEarlier", permitted.Length > visibleMessageCount);
+        context.AddCommand("studio.public.earlier", UiValueKind.None, _ => Guard(() => visibleMessageCount = Math.Min(permitted.Length, visibleMessageCount + 20)));
+        foreach (var message in permitted.Skip(Math.Max(0, permitted.Length - visibleMessageCount)))
         {
             string id = message.Id, node = "public-message-" + id;
             string name = hub.State.Participants.Concat(hub.State.ArchivedParticipants).FirstOrDefault(p => p.Id == message.Author)?.Name ?? message.Author;

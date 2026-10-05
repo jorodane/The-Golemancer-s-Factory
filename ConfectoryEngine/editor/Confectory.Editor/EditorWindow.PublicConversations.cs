@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using Confectory.EditorPacks;
 using Confectory.Workspace;
 
@@ -52,11 +53,22 @@ public sealed partial class EditorWindow
         void ReadDisplayed()
         {
             if (!window.IsActive || chat.Tab != "chat") return;
-            var visible = chat.Rows.Where(row => { var element = ((EditorPackBackend.Element)chat.View.Element(row.NodeId)).Control; if (!element.IsVisible) return false; var point = element.TranslatePoint(new Point(), scroll); return point.X < scroll.ActualWidth && point.X + element.ActualWidth > 0 && point.Y < scroll.ActualHeight && point.Y + element.ActualHeight > 0; }).Select(row => row.MessageId).ToArray(); chat.ReadDisplayed(visible);
+            bool Displayed(FrameworkElement element)
+            {
+                if (!element.IsVisible || element.ActualWidth <= 0 || element.ActualHeight <= 0) return false;
+                for (DependencyObject? ancestor = VisualTreeHelper.GetParent(element); ancestor is not null; ancestor = VisualTreeHelper.GetParent(ancestor))
+                    if (ancestor is FrameworkElement clipped && (clipped.ClipToBounds || clipped is ScrollViewer))
+                    {
+                        var point = element.TranslatePoint(new Point(), clipped); var bounds = new Rect(point, new Size(element.ActualWidth, element.ActualHeight));
+                        bounds.Intersect(new Rect(0, 0, clipped.ActualWidth, clipped.ActualHeight)); if (bounds.IsEmpty || bounds.Width <= 0 || bounds.Height <= 0) return false;
+                    }
+                return true;
+            }
+            var visible = chat.Rows.Where(row => Displayed(((EditorPackBackend.Element)chat.View.Element(row.NodeId)).Control)).Select(row => row.MessageId).ToArray(); chat.ReadDisplayed(visible);
         }
         scroll.PreviewMouseUp += (_, _) => Dispatcher.BeginInvoke(new Action(ReadDisplayed));
         window.Closed += (_, _) => { sharedPublicWindows.RemoveAll(item => item.Window == window); chat.Dispose(); }; window.Show();
-        ((EditorPackBackend.Element)chat.View.Element("public-draft")).Control.Focus();
+        ((IEditorFocusElement)chat.View.Element("public-draft")).Focus();
     }
     private sealed class WindowsPublicConversationHost(EditorWindow owner, EditorSession selected, AiDirectory directory) : IEditorStudioPublicConversationHost
     {

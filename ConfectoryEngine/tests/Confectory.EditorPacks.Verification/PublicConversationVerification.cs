@@ -15,7 +15,9 @@ internal static class PublicConversationVerification
         using var workspace = presentation.Actions.Workspace(presentation, backend, directory, session.Project, roles, session.Collaboration, () => { }, (_, _) => { }, _ => { }, _ => false);
         var mainParticipant = workspace.JoinHelper(main.Id, false); var ordinaryParticipant = workspace.JoinHelper(ordinary.Id, false);
         var foreign = session.Collaboration.Register("foreign-public", "Foreign public Helper", ParticipantKind.AI, ParticipantPermission.Talk); foreign.OwnerId = "other"; foreign.HelperId = ordinary.Id; foreign.AgentId = source.Id; foreign.AiRole = ParticipantAiRole.Helper;
-        session.Collaboration.Post("human", "old public historical question"); var host = new Host(); var credentials = new Credentials();
+        session.Collaboration.Post("human", "old public historical question");
+        for (int i = 0; i < 25; i++) session.Collaboration.Post("human", "historical public record " + i);
+        var host = new Host(); var credentials = new Credentials();
         using var controller = presentation.Actions.PublicConversations(session, directory, roles, workspace, credentials, host);
         Check(controller.GetType().Assembly.GetName().Name == "Confectory.Editor.CoreTools" && host.Service.Calls == 0 && controller.Operations.Count == 0, "public controller mounts inert and never replays historical messages");
         host.Service.Reply = (request, tools, _) =>
@@ -28,6 +30,10 @@ internal static class PublicConversationVerification
         using (var panel = presentation.Actions.PublicChat(presentation, backend, session, controller, () => new[] { "", "build complete" }, _ => { }, () => { }))
         {
             Check(panel.GetType().Assembly.GetName().Name == "Confectory.Editor.CoreTools" && host.Service.Calls == 0 && ((LiveViewVerification.Element)panel.View.Element("public-latest-log")).Text == "build complete", "installed public panel mounts inert with latest meaningful log");
+            var viewport = (LiveViewVerification.Element)panel.View.Element("public-transcript-viewport");
+            Check(viewport.Layout.Size.Y == 220 && ((LiveViewVerification.Element)panel.View.Element("public-draft")).Parent != viewport && panel.Rows.Count == 20, "installed transcript viewport bounds history independently from composer");
+            ((LiveViewVerification.Element)panel.View.Element("public-earlier")).Activate();
+            Check(panel.Rows.Count == 26 && host.Service.Calls == 0 && !((LiveViewVerification.Element)panel.View.Element("public-earlier")).Properties["visible"].AsBoolean(), "earlier public history remains reachable without replaying providers");
             ((LiveViewVerification.Element)panel.View.Element("public-log-tab")).Activate(); Check(panel.Tab == "log" && host.Service.Calls == 0, "shared log tab never connects a provider");
             ((LiveViewVerification.Element)panel.View.Element("public-chat-tab")).Activate();
             panel.Draft = "held composer text"; panel.Attach(new YogiBox { Sealed = true, Explanation = "held composer attachment" });

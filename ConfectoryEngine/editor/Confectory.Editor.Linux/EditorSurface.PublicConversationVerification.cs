@@ -12,7 +12,13 @@ internal sealed partial class EditorSurface
         void Pump(Func<bool> ready) { var clock = System.Diagnostics.Stopwatch.StartNew(); while (!ready() && clock.Elapsed.TotalSeconds < 15) { native.Pump(); Tick(); native.Paint(); Thread.Sleep(5); } Check(ready(), "production public request settles"); }
         void Click(string id)
         {
-            scroll = 0; native.Paint(); float maximum = Math.Max(0, contentHeight - viewportHeight + 150);
+            scroll = 0; native.Paint();
+            if (id.StartsWith("public-operation-", StringComparison.Ordinal))
+            {
+                var viewport = backend.Bounds("public-transcript-viewport");
+                native.PushPointerMotion((int)viewport.MidX, (int)viewport.MidY); native.PushWheel(-100); native.Pump(); native.Paint();
+            }
+            float maximum = Math.Max(0, contentHeight - viewportHeight + 150);
             for (float position = 0; position <= maximum + 120; position += 120)
             {
                 scroll = Math.Min(maximum, position); native.Paint(); var box = backend.Bounds(id); if (box.IsEmpty || box.Height < 15) continue;
@@ -30,7 +36,13 @@ internal sealed partial class EditorSurface
             access.Enabled = true; projectSettings.ConnectionEnabled = true; studioDirectory = fixtureDirectory;
             linuxProjectRoles = ProjectStudio.Load(selected.Project); linuxProjectRoles.HelperIds.Clear(); linuxProjectRoles.MainHelperId = ""; linuxProjectRoles.MainAgentId = source.Id;
             Home(); using (var workspace = CreateLinuxWorkspaceRoles()) { added.Add(workspace.JoinHelper(main.Id, false).Id); added.Add(workspace.JoinHelper(ordinary.Id, false).Id); workspace.SetMainHelper(main.Id); }
+            for (int i = 0; i < 10; i++) selected.Collaboration.Post("human", "historical native public " + i);
             BindLinuxPublicConversations(service, credentials); OpenLinuxProjectChat(); native.Paint();
+            var transcriptBounds = backend.Bounds("public-transcript-viewport");
+            Check(!transcriptBounds.IsEmpty && backend.Bounds("public-draft").Top >= transcriptBounds.Bottom && !backend.Bounds("public-send").IsEmpty, "bounded native transcript leaves composer and Send visible");
+            Check(linuxPublicChat!.Rows.Any(row => backend.Bounds(row.NodeId).IsEmpty), "native viewport excludes offscreen history from pointer and receipt bounds");
+            native.PushPointerMotion((int)transcriptBounds.MidX, (int)transcriptBounds.MidY); native.PushWheel(-3); native.Pump(); native.Paint();
+            Check(backend.ElementById("public-transcript-viewport").ScrollOffset > 0 && service.Calls == 0, "actual SDL wheel scrolls only transcript without replaying providers");
             Check(mode == "public-chat" && linuxPublicChat is not null && service.Calls == 0, "production installed public entry is inert with no historical replay");
             Click("public-draft"); native.PushText("native public question"); native.Pump(); Click("public-send"); Pump(() => linuxPublicConversations!.Operations.Any(o => o.State == "completed"));
             Check(linuxPublicConversations!.Operations.Single().HelperId == main.Id && credentials.Writes == 0, "actual SDL send routes only Main through injected public provider without credentials writes");

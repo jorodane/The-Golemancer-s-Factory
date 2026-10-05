@@ -114,6 +114,7 @@ public sealed class NativeWindow : IDisposable
         for (int i = 0; i < bytes.Length; i++) e.Text[i] = bytes[i];
         if (Sdl.SDL_PushEvent(ref e) < 0) throw new InvalidOperationException(Sdl.Error);
     }
+    public void PushWheel(int delta) { var e = new Sdl.Event { Type = 0x403u, X = delta }; if (Sdl.SDL_PushEvent(ref e) < 0) throw new InvalidOperationException(Sdl.Error); }
     public void PushPointerMotion(int x, int y) { var e = new Sdl.Event { Type = 0x400u, X = x, Y = y }; if (Sdl.SDL_PushEvent(ref e) < 0) throw new InvalidOperationException(Sdl.Error); }
     public void PushPointer(int button, int x, int y, bool down) => PushPointer(button, x, y, down, 1);
     public void PushPointer(int button, int x, int y, bool down, int clicks) { var e = new Sdl.Event { Type = down ? 0x401u : 0x402u, Button = (byte)button, Clicks = (byte)clicks, X = x, Y = y }; if (Sdl.SDL_PushEvent(ref e) < 0) throw new InvalidOperationException(Sdl.Error); }

@@ -1,5 +1,6 @@
 <Ui version="1" id="editor.core.ui">
   <Widget id="editor.element"><Property name="enabled" type="boolean" default="true" /><Property name="visible" type="boolean" default="true" /><Property name="tooltip" type="text" default="" /><Property name="fontSize" type="number" default="13" min="8" max="48" /><Property name="margin" type="number" default="4" min="0" max="64" /><Property name="foreground" type="text" default="" /><Property name="background" type="text" default="" /><Property name="alignment" type="text" default="stretch"><Option value="stretch" /><Option value="center" /><Option value="left" /></Property><Renderer platform="*" key="editor.text" /></Widget>
+  <Widget id="editor.viewport" extends="editor.element"><Slot name="children" min="0" /><Renderer platform="*" key="editor.viewport" /></Widget>
   <Widget id="editor.stack" extends="editor.element"><Property name="orientation" type="text" default="vertical"><Option value="vertical" /><Option value="horizontal" /></Property><Slot name="children" min="0" /><Renderer platform="*" key="editor.stack" /></Widget>
   <Widget id="editor.text" extends="editor.element"><Property name="text" type="text" default="" /><Property name="wrapText" type="boolean" default="true" /><Property name="overflow" type="text" default="clip"><Option value="clip" /><Option value="ellipsis" /></Property><Property name="fontWeight" type="text" default="normal"><Option value="normal" /><Option value="semibold" /><Option value="bold" /></Property><Renderer platform="*" key="editor.text" /></Widget>
   <Widget id="editor.button" extends="editor.text"><Property name="appearance" type="text" default="standard"><Option value="standard" /><Option value="quiet" /><Option value="accent" /></Property><Property name="hoverForeground" type="text" default="" /><Property name="hoverBackground" type="text" default="" /><Property name="pressedBackground" type="text" default="" /><Event name="activate" payload="none" /><Renderer platform="*" key="editor.button" /></Widget>
@@ -346,8 +347,11 @@
     </Slot></Node>
     <Node id="public-notice" order="10" widget="editor.text"><Bind property="text" source="studio.public.notice" /><Set property="foreground" value="#F8DA79" /></Node>
     <Node id="public-chat-content" order="20" widget="editor.stack"><Bind property="visible" source="studio.public.chatVisible" /><Slot name="children">
-      <Node id="public-messages" order="0" widget="editor.stack"><Slot name="children" export="true" /></Node>
-      <Node id="public-operations" order="10" widget="editor.stack"><Slot name="children" export="true" /></Node>
+      <Node id="public-transcript-viewport" order="0" widget="editor.viewport"><Layout size="0,220" /><Slot name="children">
+      <Node id="public-earlier" order="0" widget="editor.button"><Set property="text" value="이전 공개 대화 보기" /><Bind property="visible" source="studio.public.hasEarlier" /><On event="activate" command="studio.public.earlier" /></Node>
+      <Node id="public-messages" order="10" widget="editor.stack"><Slot name="children" export="true" /></Node>
+      <Node id="public-operations" order="20" widget="editor.stack"><Slot name="children" export="true" /></Node>
+      </Slot></Node>
       <Node id="public-attachment" order="20" widget="editor.button"><Bind property="visible" source="studio.public.hasAttachment" /><Bind property="text" source="studio.public.attachment" /><On event="activate" command="studio.public.detach" /></Node>
       <Node id="public-draft" order="30" widget="editor.inline"><Layout size="0,85" /><Set property="multiline" value="true" /><Set property="placeholder" value="공개 프로젝트 대화 · 일반 도우미는 @태그" /><Bind property="text" source="studio.public.draft" /><On event="changed" command="studio.public.draft" /></Node>
       <Node id="public-send" order="40" widget="editor.button"><Set property="text" value="보내기" /><On event="activate" command="studio.public.send" /></Node>

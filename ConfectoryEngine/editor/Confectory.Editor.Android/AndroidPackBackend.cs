@@ -20,6 +20,7 @@ internal sealed partial class AndroidPackBackend(Context context, string viewId 
         EditorNativeSchema.ValidateLayout(layout);
         AView native = renderer switch
         {
+            "editor.viewport" => new Viewport(context),
             "editor.stack" => new LinearLayout(context) { Orientation = Orientation.Vertical },
             "editor.wrap" => new Flow(context),
             "editor.grid" => new Grid(context),
@@ -90,6 +91,15 @@ internal sealed partial class AndroidPackBackend(Context context, string viewId 
                 path.Close(); paint.Color = global::Android.Graphics.Color.ParseColor(polygon.Color); canvas.DrawPath(path, paint);
             }
             canvas.Restore();
+        }
+    }
+    internal sealed class Viewport : ScrollView
+    {
+        public LinearLayout Children { get; }
+        public Viewport(Context context) : base(context)
+        {
+            Children = new LinearLayout(context) { Orientation = Orientation.Vertical };
+            AddView(Children, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent));
         }
     }
     internal sealed class Bounds(Context context, int maximumWidth, int maximumHeight) : FrameLayout(context)
@@ -252,12 +262,13 @@ internal sealed partial class AndroidPackBackend(Context context, string viewId 
             if (native is InlineEditor inline) inline.Begin(); else native.RequestFocus();
             if (selectAll && InputControl is { } text) text.SelectAll();
         }
+        private ViewGroup Children => native is Viewport viewport ? viewport.Children : (ViewGroup)native;
         public void Add(string slot, IUiElement child)
-            => InsertChild(((ViewGroup)native).ChildCount, child);
-        public void RemoveChild(IUiElement child) => ((ViewGroup)native).RemoveView(((Element)child).Control);
+            => InsertChild(Children.ChildCount, child);
+        public void RemoveChild(IUiElement child) => Children.RemoveView(((Element)child).Control);
         public void InsertChild(int index, IUiElement child)
         {
-            var stack = (ViewGroup)native; var control = ((Element)child).Control;
+            var stack = Children; var control = ((Element)child).Control;
             if ((stack is Flow || stack is LinearLayout { Orientation: Orientation.Horizontal }) && control.LayoutParameters is ViewGroup.LayoutParams layout && layout.Width == ViewGroup.LayoutParams.MatchParent)
                 layout.Width = ViewGroup.LayoutParams.WrapContent;
             stack.AddView(control, index);

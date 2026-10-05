@@ -58,7 +58,16 @@ public sealed partial class LinuxPackBackend(Action invalidate) : IUiBackend, ID
         width = Math.Max((float)e.Layout.MinSize.X, Math.Min(width, (float)(e.Layout.MaxSize?.X ?? double.MaxValue)));
         if (e.Text("alignment") == "center") x += (availableWidth - width) / 2;
         float height;
-        if (e.Renderer == "editor.grid")
+        if (e.Renderer == "editor.viewport")
+        {
+            height = e.Layout.Size.Y > 0 ? (float)e.Layout.Size.Y : 220;
+            var originalClip = clip; canvas.Save(); canvas.ClipRect(new SKRect(x, y, x + width, y + height)); clip = canvas.LocalClipBounds;
+            float content = 0;
+            foreach (var child in e.Children.Where(child => child.Visible)) content += Paint(child, canvas, x, y + content - e.ScrollOffset, width);
+            canvas.Restore(); clip = originalClip; e.ScrollExtent = Math.Max(0, content - height);
+            float adjusted = Math.Clamp(e.ScrollOffset, 0, e.ScrollExtent); if (adjusted != e.ScrollOffset) { e.ScrollOffset = adjusted; Invalidate(); }
+        }
+        else if (e.Renderer == "editor.grid")
         {
             var children = e.Children.Where(c => c.Visible).ToArray(); int columns = (int)e.Number("columns"); float cell = width / columns; height = 0;
             for (int row = 0; row < children.Length; row += columns)
@@ -184,6 +193,12 @@ public sealed partial class LinuxPackBackend(Action invalidate) : IUiBackend, ID
         canvas.DrawText(text, x, y, font, paint);
     }
     private static string[] TextLines(string value, int columns) => value.Replace("\r", "").Split('\n').SelectMany(line => line.Length == 0 ? new[] { "" } : Enumerable.Range(0, (line.Length + columns - 1) / columns).Select(i => line.Substring(i * columns, Math.Min(columns, line.Length - i * columns)))).ToArray();
+    public bool ScrollViewport(float delta, float x, float y)
+    {
+        var viewport = elements.Where(e => e.Renderer == "editor.viewport" && e.Visible && e.Enabled && !e.Bounds.IsEmpty && e.Bounds.Contains(x, y)).OrderBy(e => e.PaintOrder).LastOrDefault();
+        if (viewport is null) return false;
+        viewport.ScrollOffset = Math.Clamp(viewport.ScrollOffset - delta * 48, 0, viewport.ScrollExtent); invalidate(); return true;
+    }
     public bool ScrollReadOnly(float delta)
     {
         if (focused is not { Renderer: "editor.readonly", Visible: true, Enabled: true } text || text.Bounds.IsEmpty) return false;
@@ -264,7 +279,7 @@ public sealed partial class LinuxPackBackend(Action invalidate) : IUiBackend, ID
         public UiLayout Layout { get; private set; }
         public List<Element> Children { get; } = [];
         public SKRect Bounds { get; internal set; }
-        internal float LastHeight;
+        internal float LastHeight, ScrollOffset, ScrollExtent;
         internal int PaintOrder;
         internal double MotionOpacity = 1;
         internal float MotionRise;

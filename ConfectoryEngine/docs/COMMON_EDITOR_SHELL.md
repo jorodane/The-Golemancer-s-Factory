@@ -15,11 +15,13 @@
 
 ## Current resume checkpoint
 
-Latest CI-complete, exact remotely verified checkpoint: `1e907cb5bce816789653446f3926950e6b99f25e`.
-All five jobs passed in [CI 37261206655](https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37261206655),
-including 88 actual Windows native checks, 2,354 portable checks, actual Android
-APK build and the actual SDL regression. The installed public controller/view
-foundation is published; its native bindings and final layout remain in progress.
+Latest CI-complete, exact remotely verified checkpoint: `efddefe5d7a76764afdba8f57d8405304de7bd25`.
+All five jobs passed in [CI 37264710834](https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37264710834),
+including 95 actual Windows native checks, 2,354 portable checks, actual Android
+APK build and the actual SDL public regression. The installed public controller/view
+and native bindings are published; the final panel layout remains in progress.
+The preceding foundation `1e907cb5bce816789653446f3926950e6b99f25e` passed
+[CI 37261206655](https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37261206655).
 
 Previous recovery checkpoint: `5580f95fabe7db19ca194bebb89c37f43944cd96`.
 All five jobs passed in [CI 37258012412](https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37258012412),
@@ -2009,3 +2011,35 @@ private `helperClosing` flag. The public adapter had incorrectly reused that fla
 Public requests now use a separate actual-window closing flag; private Helper
 shutdown does not disable the independent public controller. No consent check is
 removed. Source compilation and the next exact CI verify this correction.
+
+## Shared transcript viewport continuation (local, 2026-10-05)
+
+CoreTools declares a fixed vertical transcript/operation viewport. Native Windows
+ScrollViewer, Android ScrollView and Linux clipped layout/wheel/hit testing interpret
+that same installed element. Composer, send, tabs and latest-log remain outside.
+An installed earlier-history action exposes older public records without replaying
+providers. Keyed view updates preserve native scroll. Windows receipts intersect
+all clipping ancestors; Android observes dialog input after child consumption and
+uses actual visible rectangles. Android log input supplies individual lines rather
+than treating the full status transcript as a latest line.
+
+Local portable matrix passes 2,360 checks. Actual SDL regression passes 99 printed
+checks, including native wheel scrolling, clipping, composer visibility and the
+existing public send/retry/cancel/reentry flows. Windows viewport fixture source
+compiles with zero warnings/errors. Android official-reference compilation, full
+independent-engine isolation and explicit external-consumer campaign are final
+local gates. Actual Windows viewport runtime and Android APK will be checked by
+exact-head CI after ordinary push. The final wide lower-panel placement and shared
+navigation/mailbox/Run/selected-entry→Run are still pending, as are retirement of
+superseded default Worker UI routes after replacement verification. No new supervisor,
+instant-table/functions/augment/render-authoring workflow is included.
+
+Final viewport local gates all pass: 2,360 installed portable checks; 99 actual
+SDL regression checks; Windows native source and Android official-reference
+source compilation with zero warnings/errors; isolated independent engine campaign;
+full external-consumer clean-build/verification campaign with explicit selection.
+Evidence: `/workspace/scratch/public-viewport-{portable,native,windows,android-touch,isolation,consumer}.log`.
+No paid requests, actual authentication or real credential saving were exercised.
+All five jobs for the preceding lifetime correction are now confirmed successful
+in CI 37264710834, with 95 actual Windows native checks. The new viewport awaits
+its own exact-head remote execution after ordinary push.

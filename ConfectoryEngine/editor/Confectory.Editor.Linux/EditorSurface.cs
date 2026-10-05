@@ -103,7 +103,7 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
         try { if (LinuxImageInput(input) || ConflictInput(input) || ReviewInput(input) || LinuxYogiInput(input) || LinuxHelperInput(input) || LinuxPublicChatInput(input)) return; }
         catch (Exception error) { status = error.Message; Invalidate(); return; }
         if (input.Kind == NativeInputKind.Wheel && sidebarPane is not null && sidebarPointerX is >= 112 and <= 364 && sidebarPointerY >= 56) { sidebarPaneScroll = Math.Clamp(sidebarPaneScroll - input.Value * 48, 0, Math.Max(0, sidebarPaneHeight - viewportHeight + 132)); Invalidate(); return; }
-        if (input.Kind == NativeInputKind.Wheel) { if ((activeWindow?.Backend ?? backend).ScrollReadOnly(input.Value)) return; scroll = Math.Clamp(scroll - input.Value * 48, 0, Math.Max(0, contentHeight - viewportHeight + 150)); Invalidate(); return; }
+        if (input.Kind == NativeInputKind.Wheel) { if ((activeWindow?.Backend ?? backend).ScrollViewport(input.Value, sidebarPointerX, sidebarPointerY) || (activeWindow?.Backend ?? backend).ScrollReadOnly(input.Value)) return; scroll = Math.Clamp(scroll - input.Value * 48, 0, Math.Max(0, contentHeight - viewportHeight + 150)); Invalidate(); return; }
         if (input.Kind == NativeInputKind.PointerMove && map is not null && mode == "map") { map.Hover = mapButtons.FirstOrDefault(p => p.Value.Bounds.Contains(input.X, input.Y)).Key ?? ""; Invalidate(); }
         if (homeFlightClock.IsRunning || busy && activeWindow is null) return;
         try

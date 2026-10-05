@@ -18,6 +18,7 @@ internal sealed partial class EditorPackBackend(Action<string> point, Func<bool>
         EditorNativeSchema.ValidateLayout(layout);
         FrameworkElement control = renderer switch {
             "editor.stack" => new StackPanel(),
+            "editor.viewport" => new ScrollViewer { Content = new StackPanel(), VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled },
             "editor.wrap" => new WrapPanel(),
             "editor.grid" => new System.Windows.Controls.Primitives.UniformGrid(),
             "editor.card" => new Card(),
@@ -38,7 +39,7 @@ internal sealed partial class EditorPackBackend(Action<string> point, Func<bool>
         // Bubble from the deepest control, so a container does not steal its child's pointing target.
         control.MouseLeftButtonDown += capture;
         System.Windows.Input.MouseButtonEventHandler preview = (_, e) => {
-            if (!pointing() || renderer is "editor.stack" or "editor.wrap") return; point(nodeId); e.Handled = true;
+            if (!pointing() || renderer is "editor.viewport" or "editor.stack" or "editor.wrap") return; point(nodeId); e.Handled = true;
         };
         control.PreviewMouseLeftButtonDown += preview;
         Element element = null!;
@@ -104,7 +105,7 @@ internal sealed partial class EditorPackBackend(Action<string> point, Func<bool>
         public FrameworkElement Control => control;
         public bool IsReadOnly => control is ReadOnlyText;
         public TextBox? InputControl => control as TextBox ?? (control as InlineEditor)?.Input;
-        private Panel Children => control is Card card ? card.Children : control is Tile tile ? tile.Children : (Panel)control;
+        private Panel Children => control is ScrollViewer viewport ? (Panel)viewport.Content : control is Card card ? card.Children : control is Tile tile ? tile.Children : (Panel)control;
         private bool setting;
         private readonly Dictionary<string, string> appearance = new(StringComparer.Ordinal);
         public Element(FrameworkElement control, Action cleanup)

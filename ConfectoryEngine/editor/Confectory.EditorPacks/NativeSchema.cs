@@ -20,11 +20,12 @@ public static class EditorNativeSchema
     { double number = UiVector2.Finite(value); return number >= min && number <= max ? number : throw new InvalidDataException("Editor layout value is outside its supported range."); }
     public static bool Supports(string renderer, UiWidgetDefinition widget, string platform = "windows")
     {
-        if (renderer is not ("editor.stack" or "editor.text" or "editor.button" or "editor.input" or "editor.inline" or "editor.card" or "editor.wrap" or "editor.slot" or "editor.vector" or "editor.grid" or "editor.tile" or "editor.secret" or "editor.readonly" or "editor.image" or "editor.portrait")) return false;
+        if (renderer is not ("editor.viewport" or "editor.stack" or "editor.text" or "editor.button" or "editor.input" or "editor.inline" or "editor.card" or "editor.wrap" or "editor.slot" or "editor.vector" or "editor.grid" or "editor.tile" or "editor.secret" or "editor.readonly" or "editor.image" or "editor.portrait")) return false;
         var properties = new Dictionary<string, UiValueKind> { ["enabled"] = UiValueKind.Boolean, ["visible"] = UiValueKind.Boolean,
             ["tooltip"] = UiValueKind.Text, ["fontSize"] = UiValueKind.Number, ["margin"] = UiValueKind.Number, ["foreground"] = UiValueKind.Text, ["background"] = UiValueKind.Text, ["alignment"] = UiValueKind.Text };
         if (renderer == "editor.secret") properties.Add("clearRevision", UiValueKind.Number);
         else if (renderer == "editor.grid") properties.Add("columns", UiValueKind.Number);
+        else if (renderer == "editor.viewport") { }
         else if (renderer is "editor.stack" or "editor.wrap" or "editor.card" or "editor.tile") properties.Add("orientation", UiValueKind.Text);
         else if (renderer == "editor.portrait")
         {
@@ -42,7 +43,7 @@ public static class EditorNativeSchema
         if (renderer is "editor.card" or "editor.tile") properties.Add("selected", UiValueKind.Boolean);
         if (renderer == "editor.tile") properties.Add("borderStyle", UiValueKind.Text);
         return widget.Properties.All(p => properties.TryGetValue(p.Name, out var type) && type == p.Type)
-            && widget.Slots.All(s => renderer is "editor.stack" or "editor.wrap" or "editor.card" or "editor.tile" or "editor.grid" && s.Name == "children")
+            && widget.Slots.All(s => renderer is "editor.viewport" or "editor.stack" or "editor.wrap" or "editor.card" or "editor.tile" or "editor.grid" && s.Name == "children")
             && widget.Events.All(e => renderer is "editor.button" or "editor.card" or "editor.tile" or "editor.portrait" && e.Name == "activate" && e.Payload == UiValueKind.None
                 || renderer == "editor.slot" && e.Name == "activate" && e.Payload == UiValueKind.Text
                 || renderer is "editor.input" or "editor.inline" or "editor.secret" && e.Name == "changed" && e.Payload == UiValueKind.Text

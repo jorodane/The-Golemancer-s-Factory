@@ -1,4 +1,5 @@
 using Android.App;
+using Android.Content;
 using Android.Views;
 using Android.Widget;
 using Confectory.EditorPacks;
@@ -31,24 +32,36 @@ public sealed partial class MainActivity
     private void OpenMobileSharedPublicChat(string channel, string room = "", string initial = "")
     {
         BindMobilePublicConversations(); var selected = studioSession; var controller = mobilePublicConversations ?? throw new InvalidOperationException("선택한 프로젝트에서 공개 대화를 열어줘.");
-        var dialog = new Dialog(this); dialog.SetTitle(channel == "room" ? "Room 채팅" : "프로젝트 채팅");
-        var chat = mobileStudioPresentation.Actions.PublicChat(mobileStudioPresentation, new AndroidPackBackend(this), selected, controller, () => new[] { status.Text ?? "" }, ShowMobileYogiContents, dialog.Dismiss, channel, room);
+        var dialog = new PublicChatDialog(this); dialog.SetTitle(channel == "room" ? "Room 채팅" : "프로젝트 채팅");
+        var chat = mobileStudioPresentation.Actions.PublicChat(mobileStudioPresentation, new AndroidPackBackend(this), selected, controller, () => (status.Text ?? "").Split(new[] { '\n' }, StringSplitOptions.None), ShowMobileYogiContents, dialog.Dismiss, channel, room);
         if (initial.Length > 0) { chat.Draft = initial; chat.Render(); }
         var control = ((AndroidPackBackend.Element)chat.View.Root).Control; var scroll = new ScrollView(this); scroll.AddView(control); dialog.SetContentView(scroll); BindMobileYogiDrop(control, chat.Attach);
         mobilePublicDialogs.Add((dialog, chat)); dialog.DismissEvent += (_, _) => { mobilePublicDialogs.RemoveAll(item => item.Dialog == dialog); chat.Dispose(); };
-        control.Touch += (_, e) => { if (e.Event?.ActionMasked != MotionEventActions.Up || chat.Tab != "chat") return; control.Post(() =>
+        dialog.DisplayedInput = () => control.Post(() =>
         {
-            if (!dialog.IsShowing || !control.HasWindowFocus) return;
-            var visible = chat.Rows.Where(row => { using var rect = new global::Android.Graphics.Rect(); return ((AndroidPackBackend.Element)chat.View.Element(row.NodeId)).Control.GetGlobalVisibleRect(rect); }).Select(row => row.MessageId).ToArray(); chat.ReadDisplayed(visible);
-        }); };
+            if (!dialog.IsShowing || !control.HasWindowFocus || chat.Tab != "chat") return;
+            var visible = chat.Rows.Where(row => { using var rect = new global::Android.Graphics.Rect(); return ((AndroidPackBackend.Element)chat.View.Element(row.NodeId)).Control.GetGlobalVisibleRect(rect) && rect.Width() > 0 && rect.Height() > 0; }).Select(row => row.MessageId).ToArray(); chat.ReadDisplayed(visible);
+        });
         if (((AndroidPackBackend.Element)chat.View.Element("public-draft")).InputControl is { } input)
             input.KeyPress += (_, e) => { if (e.Event?.Action == KeyEventActions.Down && e.KeyCode == Keycode.Enter && e.Event.IsCtrlPressed) { chat.Send(); e.Handled = true; } };
         dialog.Show(); dialog.Window?.SetLayout(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent);
+        ((IEditorFocusElement)chat.View.Element("public-draft")).Focus();
+    }
+    private sealed class PublicChatDialog(Context context) : Dialog(context)
+    {
+        public Action? DisplayedInput;
+        public override bool DispatchTouchEvent(MotionEvent? motion)
+        {
+            if (motion is null) return false;
+            bool handled = base.DispatchTouchEvent(motion);
+            if (motion?.ActionMasked == MotionEventActions.Up) DisplayedInput?.Invoke();
+            return handled;
+        }
     }
     private sealed class MobilePublicConversationHost(MainActivity owner, EditorSession selected, AiDirectory directory) : IEditorStudioPublicConversationHost
     {
         private ProjectAssistantAccess? Access => owner.mobileProjects.Projects.FirstOrDefault(p => p.Identity == selected.Project.Identity);
-        public bool Allowed => !owner.mobileHelpersClosing && owner.MobileProject && ReferenceEquals(owner.studioSession, selected) && ReferenceEquals(owner.mobileDirectory, directory) && owner.mobileProjects.ConnectionEnabled && Access?.Enabled == true;
+        public bool Allowed => !owner.IsFinishing && !owner.IsDestroyed && owner.MobileProject && ReferenceEquals(owner.studioSession, selected) && ReferenceEquals(owner.mobileDirectory, directory) && owner.mobileProjects.ConnectionEnabled && Access?.Enabled == true;
         public void Dispatch(Action action) => owner.OnAiUi(action);
         public EditorStudioHelperAgentContext AgentContext(string participant, string operation)
         {
