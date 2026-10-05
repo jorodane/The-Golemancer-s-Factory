@@ -101,8 +101,8 @@ public sealed partial class EditorWindow : Window
         SetupRangePointing();
         draftTimer.Tick += (_, _) => { draftTimer.Stop(); Guard(() => { if (session is not null && activeDocument is not null) session.SaveRoom("human", activeDocument.Path, activeMember); RefreshRoomCaption(); RefreshContext(); }); };
         prompt.PreviewKeyDown += (_, e) => { if (e.Key == Key.Enter && Keyboard.Modifiers.HasFlag(ModifierKeys.Control)) { e.Handled = true; Submit(); } };
-        Closing += (_, e) => { if (busy || WorkersRunning || publicMentions.Count > 0 || PendingReviews || manualReviewActive) { SetStatus("현재 작업을 마치거나 취소한 뒤 닫아줘."); e.Cancel = true; return; } if (PackDocumentDirty()) Guard(() => UpdatePackRoomDraft(true)); Guard(() => session?.Persist()); };
-        Closed += (_, _) => { draftTimer.Stop(); StopPeers(); runner?.Dispose(); provider?.Dispose(); foreach (var worker in workers) worker.Assistant?.Dispose(); };
+        Closing += (_, e) => { if (busy || WorkersRunning || PendingReviews || manualReviewActive) { SetStatus("현재 작업을 마치거나 취소한 뒤 닫아줘."); e.Cancel = true; return; } if (PackDocumentDirty()) Guard(() => UpdatePackRoomDraft(true)); Guard(() => session?.Persist()); };
+        Closed += (_, _) => { DetachPublicConversations(); draftTimer.Stop(); StopPeers(); runner?.Dispose(); provider?.Dispose(); foreach (var worker in workers) worker.Assistant?.Dispose(); };
         AddStudioShell(root, body, primary);
         Message("시작", "일반 대화에는 포인팅을 첨부하지 않아. 대상을 가리키려면 ‘이거’ 모드를 켜고 탐색기·관계도·XML에서 지정해줘. 전송할 때 대상과 문서 버전을 고정해."); SetBusy(false);
         RememberWindow(this, "studio.main");
@@ -184,7 +184,7 @@ public sealed partial class EditorWindow : Window
     }
     public void OpenProject(string path) => Guard(() =>
     {
-        if (busy || WorkersRunning || publicMentions.Count > 0 || PendingReviews || manualReviewActive) { SetStatus("작업자의 요청을 마치거나 취소한 뒤 프로젝트를 바꿔줘."); return; }
+        if (busy || WorkersRunning || PendingReviews || manualReviewActive) { SetStatus("작업자의 요청을 마치거나 취소한 뒤 프로젝트를 바꿔줘."); return; }
         if (runner?.GameRunning == true) throw new InvalidOperationException("현재 프로젝트의 게임 창을 닫은 뒤 다른 프로젝트를 열어줘.");
         if (PackDocumentDirty()) UpdatePackRoomDraft(true);
         session?.Persist(); StopPeers();

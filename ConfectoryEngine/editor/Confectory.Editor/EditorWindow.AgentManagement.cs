@@ -12,7 +12,7 @@ public sealed partial class EditorWindow
         var presentation = new EditorStudioPresentation(InstalledEngine);
         return presentation.Actions.AgentManagement(presentation, new EditorPackBackend(_ => { }, () => false), aiDirectory, session?.Collaboration,
             CreateStudioAgentService(presentation), () => aiDirectory.Save(AiDirectory.DefaultPath),
-            id => busy || publicMentions.Count > 0 || workers.Any(w => w.Participant.AgentId == id && w.Running),
+            id => busy || sharedPublicConversations?.Operations.Any(o => o.State is "queued" or "working" && aiDirectory.Helpers.Any(h => h.Id == o.HelperId && h.AgentId == id)) == true || workers.Any(w => w.Participant.AgentId == id && w.Running),
             agent => { if (WorkersRunning) throw new InvalidOperationException("작업을 마치거나 취소한 뒤 연결 설정을 열어줘."); closed(); editingAgentId = agent.Id; ShowEditorAiSetup(); },
             agent => { closed(); EditAgentProfile(agent); }, ClearStudioAgentRuntime, closed);
     }

@@ -100,7 +100,7 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
         if (input.Kind is NativeInputKind.PointerMove or NativeInputKind.PointerDown or NativeInputKind.PointerUp) { sidebarPointerX = input.X; sidebarPointerY = input.Y; }
         if (input.Kind == NativeInputKind.Key && input.Key is "LeftCtrl" or "RightCtrl") linuxControl = input.Down;
         if (input.Kind == NativeInputKind.Key && input.Key is "LeftShift" or "RightShift") { shift = input.Down; Invalidate(); }
-        try { if (LinuxImageInput(input) || ConflictInput(input) || ReviewInput(input) || LinuxYogiInput(input) || LinuxHelperInput(input)) return; }
+        try { if (LinuxImageInput(input) || ConflictInput(input) || ReviewInput(input) || LinuxYogiInput(input) || LinuxHelperInput(input) || LinuxPublicChatInput(input)) return; }
         catch (Exception error) { status = error.Message; Invalidate(); return; }
         if (input.Kind == NativeInputKind.Wheel && sidebarPane is not null && sidebarPointerX is >= 112 and <= 364 && sidebarPointerY >= 56) { sidebarPaneScroll = Math.Clamp(sidebarPaneScroll - input.Value * 48, 0, Math.Max(0, sidebarPaneHeight - viewportHeight + 132)); Invalidate(); return; }
         if (input.Kind == NativeInputKind.Wheel) { if ((activeWindow?.Backend ?? backend).ScrollReadOnly(input.Value)) return; scroll = Math.Clamp(scroll - input.Value * 48, 0, Math.Max(0, contentHeight - viewportHeight + 150)); Invalidate(); return; }
@@ -112,6 +112,7 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
             bool sidebarPointer = sharedSidebar is not null && (input.Kind is NativeInputKind.PointerDown or NativeInputKind.PointerUp or NativeInputKind.PointerMove) && input.X < (sidebarPane is null ? 112 : 364);
             if (activeWindow is not null && !sidebarPointer && (input.Kind is not (NativeInputKind.PointerDown or NativeInputKind.PointerUp or NativeInputKind.PointerMove) || input.Y >= (focusLayout ? 56 : 145))) activeWindow.Backend.Input(input);
             else backend.Input(input);
+            if (input.Kind == NativeInputKind.PointerUp && linuxPublicChat is not null) ReadLinuxPublicDisplayed();
         }
         catch (Exception e) { status = e.Message; Invalidate(); }
     }
@@ -175,7 +176,7 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
     }
     private void Page(string name, string page, bool preserveStartup = false, bool preserveProfile = false, bool preserveDirectory = false)
     {
-        DisposeLinuxLegacyHistory();
+        DisposeLinuxLegacyHistory(); DisposeLinuxPublicChat();
         sharedSidebar?.ClosePane();
         studioWorkerSettings?.Dispose(); studioWorkerSettings = null;
         studioAgentManagement?.Dispose(); studioAgentManagement = null;
@@ -313,7 +314,7 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
     }
     private void Home()
     {
-        DisposeLinuxLegacyHistory();
+        DisposeLinuxLegacyHistory(); DisposeLinuxPublicChat();
         sharedWorkspaceRoles?.Dispose(); sharedWorkspaceRoles = null;
         studioWorkerSettings?.Dispose(); studioWorkerSettings = null;
         studioAgentManagement?.Dispose(); studioAgentManagement = null;
@@ -332,6 +333,7 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
             OnUi, () => !busy, manage: () => ShowStudioDirectory());
         Add(root, (Element)sharedProjectHome.View.Root);
         Add(root, Label("A native workspace for project-owned concepts, objects and packs."));
+        BindLinuxPublicConversations();
         if (session is null) { BuildSharedSidebar(); return; }
         sharedWorkspaceRoles?.Dispose(); sharedWorkspaceRoles = CreateLinuxWorkspaceRoles(); Add(root, (Element)sharedWorkspaceRoles.View.Root); BuildSharedSidebar();
         Add(root, Label(ProjectName, "project-title")); Add(root, Label($"{Space.Packs.Count} packs ready to edit"));
@@ -371,7 +373,7 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
         var project = WorkspaceProject.Open(path); var roles = ProjectStudio.Load(project);
         string state = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Confectory", "Linux", project.Identity);
         var nextSession = new EditorSession(project.Manifest, state); var nextEditor = new ConceptEditorController(nextSession);
-        DetachLinuxHelperProject(); ClearLinuxYogi(); runner?.Dispose(); runner = null; objectWindows.Clear(); pendingReview?.Cancel(); pendingReview = null;
+        DetachLinuxPublicConversations(); DetachLinuxHelperProject(); ClearLinuxYogi(); runner?.Dispose(); runner = null; objectWindows.Clear(); pendingReview?.Cancel(); pendingReview = null;
         windows.Dispose(); windows = new(); execution?.Dispose(); execution = null; runtime = null;
         connectedAgent?.Dispose(); connectedAgent = null; connectedAgentId = ""; connectedAgentSession = null;
         projectPath = project.Manifest; session = nextSession; editor = nextEditor; linuxProjectRoles = roles;
@@ -381,7 +383,7 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
     }
     private void ExitLinuxProject()
     {
-        DetachLinuxHelperProject(); ClearLinuxYogi(); pendingReview?.Cancel(); pendingReview = null; windows.Dispose(); windows = new(); execution?.Dispose(); execution = null; runtime = null;
+        DetachLinuxPublicConversations(); DetachLinuxHelperProject(); ClearLinuxYogi(); pendingReview?.Cancel(); pendingReview = null; windows.Dispose(); windows = new(); execution?.Dispose(); execution = null; runtime = null;
         runner?.Dispose(); runner = null; connectedAgent?.Dispose(); connectedAgent = null; connectedAgentId = ""; connectedAgentSession = null;
         objectWindows.Clear(); session = null; editor = null; projectPath = ""; linuxProjectRoles = new(); Home();
     }
@@ -714,5 +716,5 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
         Add(root, Button("cancel", "Close draft", Leave));
         if (!editable) { Disable(root.Children.First(c => c.Id == "confirm")); Disable(root.Children.First(c => c.Id == "answer")); }
     }
-    public void Dispose() { if (disposed) return; DisposeLinuxLegacyHistory(); DisposeLinuxHelpers(); DisposeLinuxYogi(); DisposeSharedConflict(); DisposeSharedReview(); disposed = true; lifetime.Cancel(); sharedSidebar?.Dispose(); studioAgentManagement?.Dispose(); studioWorkerSettings?.Dispose(); pendingReview?.Cancel(); sharedWorkspaceRoles?.Dispose(); windows.Dispose(); execution?.Dispose(); runner?.Dispose(); FinishStudioHomeFlight(); sharedStudioDirectory?.Dispose(); studioProfile?.Dispose(); connectedAgent?.Dispose(); studioAgent?.Dispose(); sharedProjectHome?.Dispose(); studioCreation?.Dispose(); studioStartView?.Dispose(); studioHomeBrandView?.Dispose(); backend.Dispose(); lifetime.Dispose(); }
+    public void Dispose() { if (disposed) return; DetachLinuxPublicConversations(); DisposeLinuxLegacyHistory(); DisposeLinuxHelpers(); DisposeLinuxYogi(); DisposeSharedConflict(); DisposeSharedReview(); disposed = true; lifetime.Cancel(); sharedSidebar?.Dispose(); studioAgentManagement?.Dispose(); studioWorkerSettings?.Dispose(); pendingReview?.Cancel(); sharedWorkspaceRoles?.Dispose(); windows.Dispose(); execution?.Dispose(); runner?.Dispose(); FinishStudioHomeFlight(); sharedStudioDirectory?.Dispose(); studioProfile?.Dispose(); connectedAgent?.Dispose(); studioAgent?.Dispose(); sharedProjectHome?.Dispose(); studioCreation?.Dispose(); studioStartView?.Dispose(); studioHomeBrandView?.Dispose(); backend.Dispose(); lifetime.Dispose(); }
 }

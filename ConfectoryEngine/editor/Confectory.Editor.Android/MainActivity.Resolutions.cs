@@ -113,21 +113,5 @@ public sealed partial class MainActivity
             var scroll = new ScrollView(this); scroll.AddView(text); new AlertDialog.Builder(this).SetTitle(conflict.Target)!.SetView(scroll)!.SetNegativeButton("닫기", (_, _) => { })!.Show();
         })!.Show();
     }
-    private async Task ReplyMobileMentions(CollaborationMessage message)
-    {
-        var owner = studioSession;
-        try
-        {
-            foreach (var id in message.Mentions)
-            {
-                var worker = mobileWorkers.FirstOrDefault(w => w.Participant.Id == id);
-                if (worker is null || !owner.Collaboration.CanControl("human", id)) continue;
-                var context = owner.Collaboration.PublicContext(id, message.Channel, message.Room);
-                string answer = await IsolatedMobileReply(worker, "공개 문맥만으로 답해. 개인 기억·대화는 참조하지 마.\n" + EditorSession.Serialize(context) + "\n" + message.Text, context, lifetime.Token, message.Yogi);
-                if (!ReferenceEquals(owner, studioSession)) return;
-                owner.Collaboration.Post(id, answer, message.Channel, message.Room, parentId: message.Id);
-            }
-        }
-        catch (Exception e) { Report("공개 AI 답변: " + e.Message); }
-    }
+    private Task ReplyMobileMentions(CollaborationMessage message) { BindMobilePublicConversations(); return Task.CompletedTask; }
 }

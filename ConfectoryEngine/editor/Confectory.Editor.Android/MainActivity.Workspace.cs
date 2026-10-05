@@ -87,17 +87,5 @@ public sealed partial class MainActivity
             ("호스트 확정본 검토", ReviewPeerPublications), ("동시 수정 비교", () => { foreach (var pair in blockedRemote.ToArray()) ResolvePeerDraft(pair.Key, pair.Value); }), ("프로젝트팩 내보내기", ProjectPackExportPicker), ("프로젝트팩 가져오기", ProjectPackImportPicker), ("프로젝트 문서 내보내기", ExportMobileProject), ("협의 기록", MobileResolutionHistory), ("신문고", MobileIncidents) };
         new AlertDialog.Builder(this).SetTitle("프로젝트 도구")!.SetItems(actions.Select(a => a.Title).ToArray(), (_, e) => { try { actions[e.Which].Run(); } catch (Exception error) { Report(error.Message); } })!.Show();
     }
-    private void OpenMobileProjectChat(string initial = "")
-    {
-        var owner = studioSession; var panel = new LinearLayout(this) { Orientation = Orientation.Vertical };
-        var text = new LinearLayout(this) { Orientation = Orientation.Vertical };
-        var scroll = new ScrollView(this); scroll.AddView(text); panel.AddView(scroll, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, 0, 1));
-        var input = new EditText(this) { Text = initial, Hint = "프로젝트에 말하기 · @작업자", InputType = InputTypes.ClassText | InputTypes.TextFlagMultiLine }; panel.AddView(input);
-        panel.AddView(AiAction("보내기", async () => { if (!string.IsNullOrWhiteSpace(input.Text)) { var message = owner.Collaboration.Post("human", input.Text.Trim(), "project"); input.Text = ""; await ReplyMobileMentions(message); } }));
-        BindMobileYogiDrop(panel, box => owner.Collaboration.DeliverYogi("human", box, "project"));
-        void Refresh() => RunOnUiThread(() => RenderMobileChat(text, owner.Collaboration.State.Messages.Where(m => m.Channel == "project")));
-
-        var dialog = new Dialog(this); dialog.SetTitle("프로젝트 채팅"); dialog.SetContentView(panel); dialog.Show(); dialog.Window?.SetLayout(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent);
-        input.RequestFocus(); owner.Collaboration.Changed += Refresh; Refresh(); dialog.DismissEvent += (_, _) => owner.Collaboration.Changed -= Refresh;
-    }
+    private void OpenMobileProjectChat(string initial = "") => OpenMobileSharedPublicChat("project", initial: initial);
 }

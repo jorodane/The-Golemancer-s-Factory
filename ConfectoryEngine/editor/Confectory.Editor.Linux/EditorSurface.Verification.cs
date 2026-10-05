@@ -13,6 +13,7 @@ internal sealed partial class EditorSurface
     // Invoked only with --smoke on an isolated, newly created project.
     public void VerifyNative(NativeWindow native, string screenshot = "")
     {
+        nativeVerificationOnly = true;
         VerifySavedAgent(native);
         void Check(bool condition, string message) { if (!condition) throw new InvalidOperationException("Linux native verification: " + message + " / " + status); }
         void Click(string id, LinuxPackBackend? target = null)
@@ -291,6 +292,7 @@ internal sealed partial class EditorSurface
         VerifyReviewChoice(native, screenshot);
         VerifyProductionHelper(native, screenshot);
         VerifyLegacyRecovery(native);
+        VerifyProductionPublicChat(native);
         ShowObjects(concept.Id); status = "Native verification passed · SDL input, semantic save, DLL command and dynamic window"; native.Paint();
         Console.WriteLine("LINUX_EDITOR_SMOKE_PASS SDL_WINDOW STARTUP AGENT_CONNECTION PRIVATE_INPUT PROFILE PARTICIPANT_NAME SHARED_SIDEBAR SHARED_HELPER_CONVERSATION WORKSPACE_ROLES JOIN GLOBAL_MEMORY IMAGE_REVIEW READONLY_EXPERIENCE PROJECT_CREATION PROJECT_HOME TEXT_INPUT POINTER SCHEMA_SAVE PACK_DLL DYNAMIC_VIEW");
     }

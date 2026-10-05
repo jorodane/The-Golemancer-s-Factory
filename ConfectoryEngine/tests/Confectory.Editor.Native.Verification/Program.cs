@@ -102,7 +102,7 @@ internal static partial class Program
         EditorWindow? window = null;
         try
         {
-            window = new EditorWindow(); window.Show();
+            window = new EditorWindow(); window.GetType().GetField("publicVerificationOnly", Fields)!.SetValue(window, true); window.Show();
             var intro = Field<Grid>(window, "startPage");
             var startButtons = Descendants(intro).OfType<Button>().ToArray();
             var connect = startButtons.Single(b => (string?)b.Content == "AI Agent 연결");
@@ -224,6 +224,7 @@ internal static partial class Program
             VerifyProductionHelperAdapter(window);
             VerifyProductionReviewChoice(window);
             VerifyProductionLegacyHistory(window);
+            VerifyProductionPublicConversation(window);
             VerifyProductionYogi(window);
             Console.WriteLine("NATIVE_WORKSPACE_CHECKS=" + checks); return 0;
         }

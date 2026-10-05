@@ -15,7 +15,13 @@
 
 ## Current resume checkpoint
 
-Latest CI-complete, exact remotely verified checkpoint: `5580f95fabe7db19ca194bebb89c37f43944cd96`.
+Latest CI-complete, exact remotely verified checkpoint: `1e907cb5bce816789653446f3926950e6b99f25e`.
+All five jobs passed in [CI 37261206655](https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37261206655),
+including 88 actual Windows native checks, 2,354 portable checks, actual Android
+APK build and the actual SDL regression. The installed public controller/view
+foundation is published; its native bindings and final layout remain in progress.
+
+Previous recovery checkpoint: `5580f95fabe7db19ca194bebb89c37f43944cd96`.
 All five jobs passed in [CI 37258012412](https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37258012412),
 including 88 actual Windows native checks, 2,189 portable checks, actual Android
 APK build and the SDL legacy-recovery regression.
@@ -1949,3 +1955,42 @@ also passes, including a copied project with no prior output.
 Evidence: `/workspace/scratch/public-chat-foundation-{final,isolation,core48,windows,android,native,consumer}.log`.
 Local actual APK prerequisites and physical-device execution remain unavailable;
 remote actual Windows execution/Android APK build will be confirmed by exact CI.
+
+## Native public conversation integration (local continuation, 2026-10-05)
+
+Windows/Android project and Room entry points and Linux project chat now bind the
+installed public controller/view. Native public provider/mention workflows are
+replaced by controller observation. Controllers survive panel close/reentry and
+cancel on captured-session disposal. Native hosts retain provider construction,
+UI dispatch and explicit capture boundaries. Automated native verification requires
+injected services before automatic public provider use; no paid AI/authentication
+or credential saving is exercised.
+
+Actual SDL production checks pass mount/no replay, physical send, Main routing,
+ordinary explicit tags and continuous Main replies, close/reentry, failure/retry,
+pending-connect persistence and cancellation with late-provider disposal. Temporary
+Yogi/modal inputs retain precedence over public-panel Escape. Windows native
+fixtures cover mount/send/reentry/connect-cancel with synthetic services; source
+build and Android official-reference source build pass with zero warnings/errors.
+Actual Windows execution and Android APK build require the next exact remote CI.
+The Android device/runtime remains unavailable locally.
+
+Current local evidence: `/workspace/scratch/public-chat-production-linux.log`,
+`public-chat-windows-integration-source.log`, `public-chat-android-integration-source.log`.
+Final repeated SDL/isolation/explicit-consumer checks use `public-native-*.log`.
+
+The final wide lower panel/viewport, common navigation/mailbox/Run and selected
+project entry→Run remain pending. Windows/Android embedded tiny project chat UI
+still needs replacement. Retire superseded direct Worker/promotion/creation default
+entry points only after the shared replacement is verified; preserve internal
+Workers and legacy read-only recovery. This integration is a checkpoint, not
+completion of the assigned stage. Do not repeat the published controller/view,
+Helper/Yogi or recovery implementations.
+
+Final local integration gates pass: actual SDL regression (97 printed PASS checks),
+Windows native fixture source build (zero warnings/errors), independent net48/net10
+engine/button/timing/camera/external UI isolation and the full explicitly selected
+external-consumer clean-build/verification campaign. Agent management consults
+active installed public operations instead of the retired native mention-token
+set. Project detachment/whole-window close cancels those captured public operations.
+Remote exact-head CI remains to be confirmed after ordinary push.

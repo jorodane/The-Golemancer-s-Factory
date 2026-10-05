@@ -126,6 +126,7 @@ internal sealed partial class EditorSurface
                     var target = sharedSidebar?.Items.FirstOrDefault(i => ((LinuxPackBackend.Element)sharedSidebar.View.Element(i.NodeId)).Bounds.Contains(input.X, input.Y));
                     if (target is not null) sharedSidebar!.Drop(target.Key, delivered);
                     else if (linuxHelperCharacters.LastOrDefault(c => c.Timeline.Visible && c.Overlay.Bounds.Contains(input.X, input.Y)) is { } helper) helper.Conversation.Attach(delivered);
+                    else if (linuxPublicChat is not null && backend.Bounds("public-draft").Contains(input.X, input.Y)) linuxPublicChat.Attach(delivered);
                     else throw new InvalidOperationException("Helper, Player 또는 프로젝트 채팅에 전달해줘.");
                 }
                 Invalidate(); return true;
@@ -248,5 +249,4 @@ internal sealed partial class EditorSurface
         public string Preview(YogiVisual visual) => StudioProfilePreview(Convert.FromBase64String(visual.Image.Data), ".png");
         public void Image(YogiVisual visual) => owner.ShowLinuxYogiImage(visual);
     }
-    private void OpenLinuxProjectChat(string initial) => throw new NotSupportedException("공통 프로젝트 채팅 연결을 준비하고 있어.");
 }

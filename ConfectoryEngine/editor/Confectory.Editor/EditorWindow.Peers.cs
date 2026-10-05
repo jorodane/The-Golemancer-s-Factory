@@ -239,11 +239,7 @@ public sealed partial class EditorWindow
         finally { peerApplying = false; }
         return Task.CompletedTask;
     }
-    private async void RespondToPeerMention(CollaborationMessage message)
-    {
-        try { foreach (var id in message.Mentions) { var worker = workers.FirstOrDefault(w => w.Participant.Id == id); if (worker is not null && session!.Collaboration.CanControl("human", id)) await RunPublicMention(worker, message, status); } }
-        catch (Exception e) { AppendLog("공개 AI 답변: " + e.Message); }
-    }
+    private void RespondToPeerMention(CollaborationMessage message) => BindPublicConversations();
     private void ResolvePeerDraft(string path, string remote)
     {
         if (session is null) return; var doc = session.Open(path);

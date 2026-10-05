@@ -13,7 +13,6 @@ public sealed partial class MainActivity
     private bool MobileProject => mobileProjectManifest.Length > 0;
     private OpenDocument? sharedDocument;
     private EditText? sharedEditor;
-    private TextView? roomChat;
     private Dialog? documentDialog;
     private bool loadingSharedText, mobileFileReview;
     private EditorSession? exportingProject;
@@ -27,7 +26,7 @@ public sealed partial class MainActivity
     private void ReplaceMobileSession(string manifest, bool project)
     {
         RequireMobileIdle(); var next = new EditorSession(manifest); var nextRoles = ProjectStudio.Load(next.Project);
-        CloseMobileLegacyHistories(); DetachMobileHelperProject(); StopMobilePeers(); documentDialog?.Dismiss(); mobileDirectoryExpanded = false; CloseMobileConceptWindows();
+        DetachMobilePublicConversations(); CloseMobileLegacyHistories(); DetachMobileHelperProject(); StopMobilePeers(); documentDialog?.Dismiss(); mobileDirectoryExpanded = false; CloseMobileConceptWindows();
         foreach (var window in LiveWindows.ToArray()) CloseWindow(window.Id);
         mobileObjectWindows.Clear(); mobileEditorPackSelection = "";
         foreach (var worker in mobileWorkers) { worker.Log?.Dismiss(); worker.Assistant?.Dispose(); } mobileWorkers.Clear(); mobileWorkerLayer.RemoveAllViews(); mobileParticipantNotices.RemoveAllViews(); selectedMobileWorker = "";
@@ -162,17 +161,8 @@ public sealed partial class MainActivity
         using var stop = lifetime.Token.Register(() => RunOnUiThread(() => { done.TrySetCanceled(); dialog.Dismiss(); }));
         return await done.Task;
     }
-    private void ShowMobileRoomChat(string path)
-    {
-        var owner = studioSession; var panel = new LinearLayout(this) { Orientation = Orientation.Vertical };
-        var log = new TextView(this) { TextSize = 14 }; log.SetTextIsSelectable(true); roomChat = log;
-        var scroll = new ScrollView(this); scroll.AddView(log); panel.AddView(scroll, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, 0, 1));
-        var input = new EditText(this) { Hint = "이 문서에서 대화하기 · @작업자", InputType = InputTypes.ClassText | InputTypes.TextFlagMultiLine }; panel.AddView(input);
-        void Render() => RunOnUiThread(() => log.Text = string.Join("\n\n", owner.Collaboration.State.Messages.Where(m => m.Channel == "room" && m.Room == path).Select(m => MobileParticipantName(m.Author) + "\n" + m.Text)));
-        panel.AddView(AiAction("보내기", async () => { try { if (string.IsNullOrWhiteSpace(input.Text)) return; var message = owner.Collaboration.Post("human", input.Text.Trim(), "room", path); input.Text = ""; await ReplyMobileMentions(message); } catch (Exception e) { Report(e.Message); } }));
-        var dialog = new Dialog(this); dialog.SetTitle(path + " · 채팅"); dialog.SetContentView(panel); dialog.Show(); dialog.Window?.SetLayout(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent);
-        owner.Collaboration.Changed += Render; Render(); dialog.DismissEvent += (_, _) => { owner.Collaboration.Changed -= Render; roomChat = null; };
-    }
+    private void ShowMobileRoomChat(string path) => OpenMobileSharedPublicChat("room", path);
+
     private string MobileParticipantName(string id) => studioSession.Collaboration.State.Participants.FirstOrDefault(p => p.Id == id)?.Name ?? id;
     private string StagePeerWorkerChanges(ChangeReviewBatch review, IReadOnlyCollection<string> selected)
     {

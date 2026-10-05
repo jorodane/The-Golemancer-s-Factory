@@ -80,7 +80,7 @@ public sealed partial class EditorWindow
     }
     private void RefreshStudioShell()
     {
-        RefreshLegacyHistoryWindows();
+        RefreshLegacyHistoryWindows(); BindPublicConversations();
         if (projectCommands is null || editorBody is null) return;
         RefreshStartPage();
         bool project = studioReady && session is not null && !Standalone;
@@ -111,7 +111,7 @@ public sealed partial class EditorWindow
     private void SelectTab(string name) { for (int i = 0; i < tabs.Items.Count; i++) if ((string?)((TabItem)tabs.Items[i]).Header == name) { OpenNativeTool(i); return; } }
     private void ShowProjectHome() => Guard(() =>
     {
-        if (busy || WorkersRunning || publicMentions.Count > 0 || PendingReviews) throw new InvalidOperationException("진행 중인 작업을 끝내거나 취소한 뒤 프로젝트 목록으로 돌아가줘.");
+        if (busy || WorkersRunning || PendingReviews) throw new InvalidOperationException("진행 중인 작업을 끝내거나 취소한 뒤 프로젝트 목록으로 돌아가줘.");
         var path = StandaloneEditorWorkspace.Prepare(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Confectory", "Studio"), "windows", "net48");
         projectWorkspaceVisible = false; OpenProject(path); RefreshStudioShell();
     });
@@ -159,13 +159,12 @@ public sealed partial class EditorWindow
         if (session is null) return;
         RenderChatRows(projectChatRows, session.Collaboration.State.Messages.Where(m => m.Channel == "project"));
     }
-    private async void SendProjectMessage()
+    private void SendProjectMessage()
     {
         if (session is null || string.IsNullOrWhiteSpace(projectMessage.Text)) return;
         try
         {
-            var message = session.Collaboration.Post("human", projectMessage.Text.Trim(), "project"); projectMessage.Clear(); RefreshEmbeddedChat();
-            foreach (var id in message.Mentions) { var worker = workers.FirstOrDefault(w => w.Participant.Id == id); if (worker is not null && session.Collaboration.CanControl("human", id)) await RunPublicMention(worker, message, status); }
+            BindPublicConversations(); sharedPublicConversations!.Post(projectMessage.Text.Trim()); projectMessage.Clear(); RefreshEmbeddedChat();
         }
         catch (Exception e) { SetStatus(e.Message); }
     }
