@@ -15,12 +15,14 @@
 
 ## Current resume checkpoint
 
-Latest CI-complete, exact remotely verified checkpoint: `534e5fd30c1166c7493637feca0a80b6d405b558`.
-All five jobs passed in [CI 37265345014](https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37265345014),
-including 98 actual Windows native checks, 2,360 portable checks, actual Android
-APK build and the actual SDL public/viewport regression. Installed public controller,
-native bindings and the common transcript viewport are published. Native final
-lower-panel placement and navigation remain in progress.
+Latest CI-complete, exact remotely verified implementation: `cd0ee2ae1c5df59aba96fecbc085e9c42d1fcbe8`.
+All five jobs passed in [CI 37267513899](https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37267513899),
+including 98 actual Windows native checks, 2,408 portable checks, actual Android
+APK build and actual SDL regression. Installed public controller, native bindings,
+common transcript viewport and navigation definition/action foundation are published.
+Native final lower-panel/navigation adoption remains unfinished.
+The viewport implementation `534e5fd30c1166c7493637feca0a80b6d405b558` passed
+[CI 37265345014](https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37265345014).
 The preceding public-lifetime correction `efddefe5d7a76764afdba8f57d8405304de7bd25`
 passed [CI 37264710834](https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37264710834).
 The preceding foundation `1e907cb5bce816789653446f3926950e6b99f25e` passed
@@ -2079,3 +2081,52 @@ engine isolation; full explicit external-consumer clean-build/verification campa
 Evidence: `/workspace/scratch/workspace-navigation-{portable,native,windows,android,isolation,consumer}.log`.
 Viewport checkpoint 534e5fd is independently confirmed CI-complete in run
 37265345014 (all five jobs, including 98 actual Windows native checks).
+
+## Exact continuation and preserved native adoption draft
+
+Implementation `cd0ee2ae1c5df59aba96fecbc085e9c42d1fcbe8` exactly matched remote
+main and all five CI jobs succeeded in run 37267513899. This assigned stage is
+still incomplete. Resume the native adoption; do not duplicate installed workspace/
+participant/Agent/Helper/Yogi/recovery/public-controller/viewport/navigation work.
+
+The unpublished 19-source-file draft is preserved in the named stash:
+`WIP native shared navigation and lower-panel adoption after cd0ee2a`, exact stash
+commit `a36c4121976412168747d8c5daa762ff2944feb4`. A second source-only recovery copy
+is `/workspace/scratch/native-navigation-adoption-recovery-20261005.tar.gz`.
+Older recovery stashes are retained. Apply the named stash once to continue; the
+archive is an alternative recovery copy, not a second patch to apply afterward.
+
+Draft contents: private `CloseMenu` ABI/action; CoreTools mailbox badge/severity
+signals; native Windows/Android/Linux header/toolbar/menu adapters and explicit
+selected-project entry wrappers; attempted lower public-panel placement; retirement
+of Windows tiny sidebar chat and Android default sidebar-chat construction. Native
+project execution remains behind captured-project host boundaries. The existing
+Android launch/stop/activity lifecycle helpers were restored after a source-edit
+boundary temporarily omitted them. Its latest official-reference build passes
+with zero warnings/errors; these drafts have no actual native runtime verification.
+
+Specific next checks/fixes before publishing that draft:
+
+- Windows source build must be repeated after removing obsolete button fields and
+  initializing the reflection-only executor override. The earlier draft build
+  failed only those warnings-as-errors; it has not been represented as passing.
+- Linux mailbox binding currently has an explicit temporary unsupported placeholder.
+  Implement its actual installed shared UI/boundary; never ship that placeholder
+  or substitute a generic fallback shell. Linux draft source/runtime is unverified.
+- Complete actual body/lower-panel geometry and responsive clipping. Linux draft
+  uses a provisional 520-pixel lower area and has not yet reserved body bounds.
+- Add displayed-receipt, keyboard/IME, focus/suspend and Yogi drop handling to the
+  embedded lower panels; preserve private overlays and temporary-draft Escape.
+- Exercise production layouts and captured/injected Run/Stop/entry/error/exit
+  boundaries on actual Windows and SDL, including busy and same-project reentry.
+  Keep actual project process execution disabled during native verification.
+- Retire superseded default Worker direct-chat/promotion/creation entrypoints only
+  after replacement flows pass. Preserve internal Workers, stored participant
+  records, original read-only recovery and existing clash/handoff callbacks.
+- Repeat portable/isolation/full explicit external-consumer/source/native gates,
+  publish small ordinary main commits and confirm exact-head CI before completion.
+
+No paid AI, actual authentication or real credential saving was used. Android
+physical-device execution remains unavailable; official-reference compilation and
+successful actual APK CI are distinct evidence. Subsequent supervisor/instant-table/
+functions/augment/render-authoring work remains outside this task.
