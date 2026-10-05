@@ -15,6 +15,7 @@ public sealed partial class EditorWindow
     private sealed class EditorWorker
     {
         public Participant Participant = null!;
+        public EditorSession Session = null!;
         public IEditorAssistant? Assistant;
         public string Profile = "", Model = "", Directory = "";
         public CancellationTokenSource? Cancellation;
@@ -74,14 +75,33 @@ public sealed partial class EditorWindow
         legacyConversationWindow = window; window.Closed += (_, _) => { window.Content = null; legacyConversationWindow = null; };
         RememberWindow(window, "legacy-conversation"); window.Show();
     }
+    private bool WorkerRuntimeCurrent(EditorWorker worker) => !publicClosing && ReferenceEquals(worker.Session, session)
+        && worker.Session.Collaboration.State.Participants.Any(p => ReferenceEquals(p, worker.Participant));
+    private void RemoveWorkerRuntime(EditorWorker worker)
+    {
+        workers.Remove(worker);
+        if (worker.Character is not null) participantsCanvas.Children.Remove(worker.Character);
+        if (selectedWorker == worker.Participant.Id) { selectedWorker = ""; participantSelection.Text = "작업자를 선택해줘."; }
+        worker.Cancellation?.Cancel(); worker.Log?.Close(); worker.Log = null; worker.RefreshLog = null;
+        worker.Assistant?.Dispose(); worker.Assistant = null;
+    }
+    private void ReconcileWorkerRuntimes(EditorSession selected)
+    {
+        foreach (var worker in workers.Where(w => !ReferenceEquals(w.Session, selected) || !selected.Collaboration.State.Participants.Any(p => ReferenceEquals(p, w.Participant))).ToArray()) RemoveWorkerRuntime(worker);
+        RefreshRecipients();
+    }
+    private void ClearWorkerRuntimes()
+    {
+        foreach (var worker in workers.ToArray()) RemoveWorkerRuntime(worker);
+        yogiTray.Visibility = Visibility.Collapsed; DisarmYogi(); temporaryYogi?.Clear(); yogiUi.Clear(); participantsCanvas.Children.Clear(); activeReviews.Clear(); selectedWorker = "";
+        participantNotifications.Children.Clear(); yogiRecipient.ItemsSource = null;
+    }
     private void ResetWorkers()
     {
-        foreach (var worker in workers) { worker.Log?.Close(); worker.Assistant?.Dispose(); }
-        yogiTray.Visibility = Visibility.Collapsed; DisarmYogi(); temporaryYogi?.Clear(); yogiUi.Clear(); workers.Clear(); participantsCanvas.Children.Clear(); activeReviews.Clear(); selectedWorker = "";
+        DetachParticipantObservation(); ClearWorkerRuntimes();
         if (session is null) return;
-        ObserveParticipants(); participantNotifications.Children.Clear();
         foreach (var participant in session.Collaboration.State.Participants.Where(p => p.Kind == ParticipantKind.AI && p.Id.StartsWith("worker-", StringComparison.Ordinal)).ToArray()) CreateWorker(participant);
-        RefreshRecipients(); RefreshStudioShell();
+        ObserveParticipants(); RefreshRecipients(); RefreshStudioShell();
     }
     private void AddWorker()
     {
@@ -91,8 +111,12 @@ public sealed partial class EditorWindow
     private void CreateWorker(Participant participant) => CreateWorkerRecord(participant, true);
     private void CreateWorkerRecord(Participant participant, bool character)
     {
+        var selected = session ?? throw new InvalidOperationException("Open a project before attaching its participant.");
+        if (!selected.Collaboration.State.Participants.Any(p => ReferenceEquals(p, participant))) throw new InvalidOperationException("Attach only the selected session's exact active participant.");
+        selected.Collaboration.Require(participant.Id, ParticipantPermission.None);
+        if (workers.Any(w => ReferenceEquals(w.Session, selected) && ReferenceEquals(w.Participant, participant))) return;
         if (participant.AgentId.Length == 0) participant.AgentId = aiDirectory.SelectedAgentId;
-        var worker = new EditorWorker { Participant = participant, Directory = Path.Combine(session!.StateDirectory, "participants", participant.Id), Model = participant.Model.Length > 0 ? participant.Model : aiConnections.Editor.Model };
+        var worker = new EditorWorker { Participant = participant, Session = selected, Directory = Path.Combine(session!.StateDirectory, "participants", participant.Id), Model = participant.Model.Length > 0 ? participant.Model : aiConnections.Editor.Model };
         Directory.CreateDirectory(worker.Directory); string logPath = Path.Combine(worker.Directory, "turns.json");
         if (session!.Collaboration.CanControl("human", participant.Id) && File.Exists(logPath) && CurrentAccess?.HistoryEnabled != false)
         {
@@ -107,7 +131,7 @@ public sealed partial class EditorWindow
     private void RefreshRecipients()
     {
         string selected = yogiRecipient.SelectedValue as string ?? selectedWorker;
-        var choices = workers.Where(w => session?.Collaboration.CanControl("human", w.Participant.Id) == true).Select(w => w.Participant).ToList();
+        var choices = workers.Where(w => WorkerRuntimeCurrent(w) && w.Session.Collaboration.CanControl("human", w.Participant.Id)).Select(w => w.Participant).ToList();
         yogiRecipient.ItemsSource = choices; yogiRecipient.SelectedValue = selected;
     }
     private void SelectWorker(EditorWorker worker)

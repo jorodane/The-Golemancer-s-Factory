@@ -101,7 +101,7 @@ public sealed partial class EditorWindow
     }
     private async Task<string> IsolatedWorkerReply(EditorWorker source, string promptText, object context, CancellationToken token)
     {
-        var temporary = new EditorWorker { PublicConversation = true, Participant = source.Participant, Model = source.Model, Directory = Path.Combine(session!.StateDirectory, "reviews", Guid.NewGuid().ToString("N")) };
+        var temporary = new EditorWorker { PublicConversation = true, Session = source.Session, Participant = source.Participant, Model = source.Model, Directory = Path.Combine(session!.StateDirectory, "reviews", Guid.NewGuid().ToString("N")) };
         Directory.CreateDirectory(temporary.Directory);
         try
         {

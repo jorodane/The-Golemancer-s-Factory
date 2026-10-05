@@ -175,6 +175,7 @@ internal static partial class Program
             Check(Descendants(host).Any(n => n.GetType().Name == "Card") && Descendants(host).OfType<TextBlock>().Any(t => itemTitles.Contains(t.Text))
                 && !Descendants(host).OfType<TextBox>().Any(t => t.IsVisible && t.Text.Contains("<ObjectPack")), "the native main view renders actual project item cards instead of source documents");
 
+            VerifyParticipantSessionLifetime(window);
             VerifyAgentRecovery(window);
             VerifySavedAgent(window);
             VerifyHelperConversation(window);

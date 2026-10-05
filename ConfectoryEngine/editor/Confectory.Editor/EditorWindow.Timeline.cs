@@ -57,7 +57,8 @@ public sealed partial class EditorWindow
     }
     private void RenderWorkerConversation(EditorWorker worker)
     {
-        if (session is null || worker.Character is null) return; var hub = session.Collaboration;
+        if (!WorkerRuntimeCurrent(worker)) { RemoveWorkerRuntime(worker); return; }
+        if (worker.Character is null) return; var hub = worker.Session.Collaboration;
         // A running exchange gets its receipt in finally; do not import its completion twice during Changed.
         if (!worker.Running) worker.Turn = ConversationTimeline.Synchronize(hub, "human", worker.Participant.Id, worker.Turns, worker.Turn);
         worker.Turn = ConversationTimeline.Clamp(worker.Turn, worker.Turns.Count); var turn = worker.Turns.ElementAtOrDefault(worker.Turn);

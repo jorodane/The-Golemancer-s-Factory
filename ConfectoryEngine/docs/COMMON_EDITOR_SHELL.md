@@ -2130,3 +2130,46 @@ No paid AI, actual authentication or real credential saving was used. Android
 physical-device execution remains unavailable; official-reference compilation and
 successful actual APK CI are distinct evidence. Subsequent supervisor/instant-table/
 functions/augment/render-authoring work remains outside this task.
+
+## Urgent Windows participant lifetime correction (2026-10-05)
+
+The reported existing/new-project crash is a native lifetime mismatch, not a
+legacy-data-only issue. The old queued presence callback read the window's mutable
+current session and then rendered Worker runtimes belonging to another session or
+an already removed participant. Project opening replaced `session` before clearing
+those runtimes; a nested WPF dispatcher pump during entry could reach `Unread` with
+an ID absent from the new collaboration. Shared Join publishes complete Agent/
+Helper identity before native attachment; retaining old native objects across that
+publication is not a substitute for binding them to the selected collaboration.
+
+The correction captures the originating session/hub and observation revision for
+queued refreshes, aborts and revokes old observation before session replacement,
+stops old pack work and clears native runtime objects before publishing the new
+session. Public roles load before controls can trigger refresh. Worker runtimes
+bind the exact session and Participant object, and refresh reconciles removed or
+replaced identities before rendering/receipts. This disposes obsolete native
+attachments; it does not remove collaboration records, reset permissions, create
+missing participants, change `Require`, acknowledge hidden messages or rewrite
+original histories.
+
+The native regression creates a fresh project through the installed creation
+view with a selected Helper, pumps an already queued old-project refresh inside
+project-title change, opens an existing project with stored conversations, returns
+to studio and reopens with late old-hub notifications, archives/restores a
+participant during queued refresh and disconnects its source. It checks complete
+fresh identity, stale runtime removal, intact original history bytes and continued
+permission rejection for archived participants. Actual Windows execution is the
+exact-head CI gate; local native fixture source compilation passed with zero
+warnings/errors. Independent-engine and full explicit external-consumer checks
+precede publication.
+
+Common-shell adoption is preserved separately in stash
+`ea8de665cb73c383293815e720e5fe621e3eb3cf`:
+`WIP installed mailbox and native lower panel preserved before Windows participant crash fix`.
+It includes the restored draft, installed mailbox UI/actions and preliminary
+reserved lower-panel geometry/input changes. Those additions are not published or
+fully verified. All prior stashes and the source recovery archive remain retained.
+Resume that draft after this urgent correction's exact CI passes; apply only the
+latest draft once, not every backup. Merge the new observation/runtime lifetime
+fix into native adoption rather than overwriting it. Remaining mailbox coverage,
+input/focus/Yogi/entry-to-Run checks and Worker entrypoint retirement still apply.

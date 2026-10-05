@@ -11,21 +11,43 @@ public sealed partial class EditorWindow
     private readonly List<(Window Window, Action Refresh)> publicChats = [];
     private CollaborationWorkspace? observedHub;
     private bool presenceRefreshQueued;
+    private EditorSession? observedParticipantSession;
+    private Action? observedParticipantChanged;
+    private System.Windows.Threading.DispatcherOperation? presenceRefreshOperation;
+    private long participantObservationRevision;
+    private void DetachParticipantObservation()
+    {
+        participantObservationRevision++;
+        if (observedHub is not null && observedParticipantChanged is not null) observedHub.Changed -= observedParticipantChanged;
+        observedHub = null; observedParticipantSession = null; observedParticipantChanged = null;
+        presenceRefreshOperation?.Abort(); presenceRefreshOperation = null; presenceRefreshQueued = false;
+        participantWindow?.Close(); foreach (var chat in publicChats.ToArray()) chat.Window.Close();
+    }
     private void ObserveParticipants()
     {
-        if (observedHub is not null) observedHub.Changed -= QueuePresenceRefresh;
-        participantWindow?.Close(); foreach (var chat in publicChats.ToArray()) chat.Window.Close();
-        observedHub = session?.Collaboration; knownIncidents.Clear(); pendingIncidents.Clear(); if (observedHub is not null) foreach (var incident in observedHub.State.Incidents) knownIncidents.Add(incident.Id);
-        if (observedHub is not null) { observedHub.Changed += QueuePresenceRefresh; observedHub.Move("human", activeDocument?.Path ?? "", activeMember); }
+        DetachParticipantObservation();
+        var selected = session; var hub = selected?.Collaboration; long revision = participantObservationRevision;
+        observedParticipantSession = selected; observedHub = hub; knownIncidents.Clear(); pendingIncidents.Clear();
+        if (hub is null) return;
+        foreach (var incident in hub.State.Incidents) knownIncidents.Add(incident.Id);
+        observedParticipantChanged = () => QueueCapturedPresenceRefresh(selected!, hub, revision);
+        hub.Changed += observedParticipantChanged; hub.Move("human", activeDocument?.Path ?? "", activeMember);
     }
     private void QueuePresenceRefresh()
     {
+        if (observedParticipantSession is { } selected && observedHub is { } hub) QueueCapturedPresenceRefresh(selected, hub, participantObservationRevision);
+    }
+    private void QueueCapturedPresenceRefresh(EditorSession selected, CollaborationWorkspace hub, long revision)
+    {
+        if (revision != participantObservationRevision || !ReferenceEquals(session, selected) || !ReferenceEquals(observedHub, hub) || publicClosing) return;
         if (presenceRefreshQueued) return; presenceRefreshQueued = true;
-        Dispatcher.BeginInvoke(new Action(() =>
+        presenceRefreshOperation = Dispatcher.BeginInvoke(new Action(() =>
         {
-            presenceRefreshQueued = false;
-            if (session is not null) foreach (var participant in session.Collaboration.State.Participants.Where(p => p.Kind == ParticipantKind.AI && p.Id.StartsWith("worker-", StringComparison.Ordinal) && workers.All(w => w.Participant.Id != p.Id)).ToArray()) CreateWorker(participant);
-            foreach (var worker in workers) RenderWorker(worker);
+            if (revision != participantObservationRevision || !ReferenceEquals(session, selected) || !ReferenceEquals(observedHub, hub) || publicClosing) return;
+            presenceRefreshQueued = false; presenceRefreshOperation = null;
+            ReconcileWorkerRuntimes(selected);
+            foreach (var participant in hub.State.Participants.Where(p => p.Kind == ParticipantKind.AI && p.Id.StartsWith("worker-", StringComparison.Ordinal) && workers.All(w => !ReferenceEquals(w.Participant, p))).ToArray()) CreateWorker(participant);
+            foreach (var worker in workers.ToArray()) RenderWorker(worker);
             RefreshParticipantNotices();
             refreshParticipantWindow?.Invoke(); foreach (var chat in publicChats.ToArray()) chat.Refresh(); RefreshRoomCaption(); RefreshAiManagement(); RefreshEmbeddedChat(); DispatchPendingIncidents();
         }));
@@ -99,12 +121,12 @@ public sealed partial class EditorWindow
     }
     private void ReadWorkerBubble(EditorWorker worker)
     {
-        if (session is null) return;
+        if (!WorkerRuntimeCurrent(worker)) { RemoveWorkerRuntime(worker); return; }
         string id = worker.Turns.ElementAtOrDefault(worker.Turn)?.MessageId ?? "";
-        var unread = session.Collaboration.Unread("human", worker.Participant.Id);
+        var unread = worker.Session.Collaboration.Unread("human", worker.Participant.Id);
         var displayed = unread.Where(m => worker.DisplayedAnswer.Length > 0 ? worker.DisplayedMessageIds.Contains(m.Id) : m.Id == id).Select(m => m.Id).ToArray();
-        if (displayed.Length > 0) session.Collaboration.Acknowledge("human", worker.Participant.Id, displayed);
-        if (session.Collaboration.Unread("human", worker.Participant.Id).Count == 0)
+        if (displayed.Length > 0) worker.Session.Collaboration.Acknowledge("human", worker.Participant.Id, displayed);
+        if (worker.Session.Collaboration.Unread("human", worker.Participant.Id).Count == 0)
             foreach (var notice in participantNotifications.Children.OfType<FrameworkElement>().Where(n => (string?)n.Tag == worker.Participant.Id).ToArray()) participantNotifications.Children.Remove(notice);
     }
     private void RefreshParticipantNotices()
