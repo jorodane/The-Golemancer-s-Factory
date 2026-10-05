@@ -16,6 +16,9 @@ public sealed partial class LinuxPackBackend(Action invalidate) : IUiBackend, ID
     private void Invalidate() => invalidate();
     public string Platform => "linux";
     public string FocusedId => focused?.Id ?? "";
+    internal Element? HitTest(float x, float y) => elements.OrderBy(e => e.PaintOrder).LastOrDefault(e => e.Visible && !e.Bounds.IsEmpty && e.Bounds.Contains(x, y));
+    internal Element ElementById(string id) => elements.Single(e => e.Id == id);
+    internal void FocusElement(Element element) { if (element.Disposed || !elements.Contains(element)) throw new InvalidOperationException("이 요소는 닫혔어."); Focus(element); }
     public bool Supports(string renderer, UiWidgetDefinition contract) => EditorNativeSchema.Supports(renderer, contract, Platform);
     public IUiElement Create(string renderer, string nodeId, UiLayout layout)
     {

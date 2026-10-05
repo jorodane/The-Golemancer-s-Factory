@@ -12,6 +12,7 @@ internal static class Sdl
         [FieldOffset(12)] public byte Kind;
         [FieldOffset(13)] public byte Repeat;
         [FieldOffset(16)] public byte Button;
+        [FieldOffset(18)] public byte Clicks;
         [FieldOffset(16)] public short AxisValue;
         [FieldOffset(20)] public int X;
         [FieldOffset(24)] public int Y;

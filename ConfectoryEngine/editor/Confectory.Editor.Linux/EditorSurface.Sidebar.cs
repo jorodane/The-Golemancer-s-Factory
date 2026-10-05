@@ -22,7 +22,7 @@ internal sealed partial class EditorSurface
                 CreateLinuxAgentService(presentation), () => studioDirectory.Save(AiDirectory.DefaultPath), _ => busy,
                 agent => ShowAgentSetup(editingId: agent.Id), agent => ShowStudioProfile(agent, null),
                 (_, _, selected) => { if (selected) { try { connectedAgent?.Dispose(); } finally { connectedAgent = null; } } }, Invalidate),
-            () => Array.Empty<EditorStudioWorkerFact>(), LinuxPortraitImage, new LinuxSidebarHost(this));
+            LinuxWorkerFacts, LinuxPortraitImage, new LinuxSidebarHost(this));
     }
     private bool SidebarInput(NativeInput input)
     {
@@ -31,7 +31,7 @@ internal sealed partial class EditorSurface
         if (item is null) { sidebarTap = ""; return false; }
         if (input.Code == 3 && item.Kind != "human") { sharedSidebar.Show(item.Key); return true; }
         long now = Environment.TickCount64;
-        if (input.Code == 1 && item.Kind is "helper" or "worker" && sidebarTap == item.Key && now - sidebarTapAt <= 320)
+        if (input.Code == 1 && item.Kind is "helper" or "worker" && sidebarTap == item.Key && (input.ClickCount >= 2 || now - sidebarTapAt <= 320))
         { sidebarTap = ""; sharedSidebar.ClosePane(); sharedSidebar.Open(item.Key); return true; }
         sidebarTap = item.Key; sidebarTapAt = now; return false;
     }
@@ -49,23 +49,25 @@ internal sealed partial class EditorSurface
     private sealed class LinuxSidebarHost(EditorSurface owner) : IEditorStudioSidebarHost
     {
         public bool ConversationAvailable => false;
+        public bool HelperConversationAvailable => true;
         public bool PromotionAvailable => false;
         public void Pane(EditorLiveView view, string anchorNode) { owner.sidebarPane = view; owner.sidebarPaneScroll = 0; owner.Invalidate(); }
         public void ClosePane() { owner.sidebarPane = null; owner.sidebarPaneScroll = 0; owner.Invalidate(); }
-        public void OpenHelper(string id, YogiBox? attachment) => throw new NotSupportedException("Linux Helper 대화의 네이티브 어댑터를 준비하고 있어.");
-        public void CloseHelper(string id) { }
+        public void OpenHelper(string id, YogiBox? attachment) => owner.OpenLinuxHelper(id, attachment);
+        public void CloseHelper(string id) { owner.linuxGlobalTimelines?.Open(id).Display(false); owner.Invalidate(); }
         public void Receive(string participantId, YogiBox box) => throw new NotSupportedException("Linux 작업자 대화 실행은 아직 사용할 수 없어.");
         public void Run(string action, string id)
         {
             switch (action)
             {
+                case "yogi": owner.OpenLinuxYogi(); break;
                 case "manage": owner.ShowAgentManagement(); break;
                 case "add-agent": owner.ShowAgentSetup(); break;
                 case "add-helper": owner.ShowStudioDirectory(); break;
                 case "agent-profile": owner.ShowStudioProfile(owner.studioDirectory.Agents.Single(a => a.Id == id), null); break;
                 case "helper-profile": owner.ShowStudioProfile(null, owner.studioDirectory.Helpers.Single(h => h.Id == id)); break;
                 case "worker-settings": owner.ShowWorkerSettings(id); break;
-                case "refresh": owner.sharedSidebar?.Render(); owner.Invalidate(); break;
+                case "refresh": owner.RefreshLinuxConversations(); break;
                 case "disconnect-runtime": break; // This host has no attached Worker runtime yet.
                 default: throw new NotSupportedException("이 Linux 호스트에서 아직 사용할 수 없는 작업이야: " + action);
             }

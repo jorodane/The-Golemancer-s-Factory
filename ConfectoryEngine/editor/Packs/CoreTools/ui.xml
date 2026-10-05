@@ -234,6 +234,15 @@
     <Node id="agent-management-note" order="30" widget="editor.text"><Bind property="text" source="studio.management.note" /></Node>
     <Node id="agent-management-close" order="40" widget="editor.button"><Set property="text" value="닫기" /><On event="activate" command="studio.management.close" /></Node>
   </Slot></Node></View>
+  <View id="editor.studio.conflict"><Node id="conflict-root" widget="editor.stack"><Slot name="children">
+    <Node id="conflict-target" widget="editor.text"><Set property="fontSize" value="22" /><Bind property="text" source="studio.conflict.target" /></Node>
+    <Node id="conflict-description" order="10" widget="editor.text"><Set property="text" value="겹치는 구간의 후보를 선택해줘. 다른 구간은 유지하며, 파일 적용은 다음 검토에서 확인해." /></Node>
+    <Node id="conflict-baseline" order="20" widget="editor.readonly"><Layout size="0,140" /><Bind property="text" source="studio.conflict.baseline" /></Node>
+    <Node id="conflict-candidates" order="30" widget="editor.stack"><Slot name="children" export="true" /></Node>
+    <Node id="conflict-notice" order="40" widget="editor.text"><Bind property="text" source="studio.conflict.notice" /><Set property="foreground" value="#F8DA79" /></Node>
+    <Node id="conflict-accept" order="50" widget="editor.button"><Set property="text" value="선택한 후보로 다시 비교" /><On event="activate" command="studio.conflict.accept" /></Node>
+    <Node id="conflict-cancel" order="60" widget="editor.button"><Set property="text" value="취소" /><On event="activate" command="studio.conflict.cancel" /></Node>
+  </Slot></Node></View>
   <View id="editor.studio.yogi"><Node id="yogi-root" widget="editor.stack"><Bind property="visible" source="studio.yogi.visible" /><Slot name="children">
     <Node id="yogi-heading" order="0" widget="editor.wrap"><Slot name="children">
       <Node id="yogi-name" order="0" widget="editor.text"><Set property="text" value="YogiBox" /><Set property="fontSize" value="20" /></Node>

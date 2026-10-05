@@ -95,7 +95,7 @@ internal sealed partial class EditorSurface
         public void Write(string helper, string project, string? expected, string contents)
         { if (Contents != expected) throw new IOException("Fixture history changed"); Contents = contents; }
     }
-    private sealed class HelperVerificationAssistant(bool global = false) : IEditorAssistant
+    private sealed class HelperVerificationAssistant(bool global = false, Action<ContextRequest>? validate = null, Func<ContextRequest, IAssistantWorkspace, CancellationToken, Task<string>>? reply = null) : IEditorAssistant
     {
         public bool Disposed;
         public string Name => "Injected verification provider";
@@ -104,18 +104,19 @@ internal sealed partial class EditorSurface
             if (request.ParticipantId == "helper-native" || !request.PrivateIdentity.Contains("global native fixture") || workspace is not IAgentWorkspace)
                 throw new InvalidOperationException("Missing real shared Worker/context/tool boundary");
             if (global && (request.Project.Length > 0 || ((IAgentWorkspace)workspace).ToolDefinitions.Count != 1)) throw new InvalidOperationException("Global fixture received project capabilities");
-            return Task.FromResult("Injected provider through the shared bridge");
+            validate?.Invoke(request);
+            return reply?.Invoke(request, workspace, cancellation) ?? Task.FromResult("Injected provider through the shared bridge");
         }
         public void Dispose() { Disposed = true; }
     }
     private sealed class HelperVerificationService : IEditorStudioAgentService
     {
-        public int Calls; public bool Global; public TaskCompletionSource<EditorStudioConnectedAgent>? Pending;
+        public int Calls; public bool Global; public Action<ContextRequest>? ValidateRequest; public Func<ContextRequest, IAssistantWorkspace, CancellationToken, Task<string>>? Reply; public TaskCompletionSource<EditorStudioConnectedAgent>? Pending;
         public bool Supports(string provider) => provider == "openai";
         public bool InstallationRequired(string provider) => false;
         public Task<IReadOnlyList<AssistantModel>> Models(EditorAiConnection connection, string secret, CancellationToken cancellation) => throw new NotSupportedException();
         public Task<EditorStudioConnectedAgent> Connect(EditorAiConnection connection, string secret, CancellationToken cancellation)
-        { Calls++; return Pending?.Task ?? Task.FromResult(new EditorStudioConnectedAgent(new HelperVerificationAssistant(Global), null)); }
+        { Calls++; return Pending?.Task ?? Task.FromResult(new EditorStudioConnectedAgent(new HelperVerificationAssistant(Global, ValidateRequest, Reply), null)); }
     }
     private sealed class HelperVerificationHost(Action<Action> dispatch) : IEditorStudioHelperExecutionHost, IEditorStudioGlobalHelperHost
     {

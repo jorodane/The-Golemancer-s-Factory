@@ -67,7 +67,12 @@ internal static class SidebarVerification
         host.ConversationAvailable = false; sidebar.Show("helper:" + helper.Id);
         Check(!Node(host.PaneView!, "sidebar-pane-open").Properties["enabled"].AsBoolean(), "unavailable native conversation is explicitly disabled");
         Reject(() => sidebar.Open("helper:" + helper.Id), "unavailable execution cannot attach a Worker");
-        host.ConversationAvailable = true;
+        host.LocalHelperAvailable = true; sidebar.Show("helper:" + helper.Id);
+        Check(Node(host.PaneView!, "sidebar-pane-open").Properties["enabled"].AsBoolean(), "local Helper capability can be available independently of legacy Worker execution");
+        sidebar.Open("helper:" + helper.Id); sidebar.Show("worker:" + ordinary.Id);
+        Check(!Node(host.PaneView!, "sidebar-pane-open").Properties["enabled"].AsBoolean(), "Helper adoption does not enable unavailable legacy Worker routes");
+        Reject(() => sidebar.Open("worker:" + ordinary.Id), "separate legacy execution capability remains enforced at invocation");
+        host.LocalHelperAvailable = false; host.ConversationAvailable = true;
         Reject(() => sidebar.Open("worker:" + person.Id), "forged worker target cannot open a human as an AI");
         var standaloneProject = WorkspaceProject.Open(StandaloneEditorWorkspace.Prepare(Path.Combine(root, "SidebarStandalone", platform), platform, "net10.0"));
         var standaloneHub = new CollaborationWorkspace(Path.Combine(root, "SidebarStandalonePresence", platform)); directory.SelectedAgentId = agent.Id;
@@ -106,6 +111,8 @@ internal static class SidebarVerification
     private sealed class Host : IEditorStudioSidebarHost
     {
         public bool ConversationAvailable { get; set; } = true;
+        public bool HelperConversationAvailable => ConversationAvailable || LocalHelperAvailable;
+        public bool LocalHelperAvailable;
         public bool PromotionAvailable => true;
         public EditorLiveView? PaneView;
         public bool FailCleanup, FailPane;

@@ -161,6 +161,7 @@ public sealed partial class MainActivity
     private sealed class MobileSidebarHost(MainActivity activity) : IEditorStudioSidebarHost
     {
         public bool ConversationAvailable => true;
+        public bool HelperConversationAvailable => true;
         public bool PromotionAvailable => true;
         public void Pane(EditorLiveView view, string anchorNode) => activity.ShowSharedMobileSidebarPane(view, anchorNode);
         public void ClosePane() { if (activity.mobileProfile?.IsShowing == true) activity.mobileProfile.Dismiss(); }

@@ -11,6 +11,7 @@ public sealed class NativeInput
     public string Key { get; init; } = "";
     public string Text { get; init; } = "";
     public int Code { get; init; }
+    public int ClickCount { get; init; }
     public int Device { get; init; }
     public float X { get; init; }
     public float Y { get; init; }
@@ -90,7 +91,7 @@ public sealed class NativeWindow : IDisposable
             case 0x400: case 0x401: case 0x402:
                 Sdl.SDL_GetWindowSize(window, out int ww, out int wh); Sdl.SDL_GetRendererOutputSize(renderer, out int rw, out int rh);
                 input = new() { Kind = e.Type == 0x401 ? NativeInputKind.PointerDown : e.Type == 0x402 ? NativeInputKind.PointerUp : NativeInputKind.PointerMove,
-                    Code = e.Button, X = e.X * rw / (float)Math.Max(1, ww), Y = e.Y * rh / (float)Math.Max(1, wh) }; break;
+                    Code = e.Button, ClickCount = e.Type == 0x400 ? 0 : e.Clicks, X = e.X * rw / (float)Math.Max(1, ww), Y = e.Y * rh / (float)Math.Max(1, wh) }; break;
             case 0x403: input = new() { Kind = NativeInputKind.Wheel, Value = e.X }; break;
             case 0x650: input = new() { Kind = NativeInputKind.GamepadAxis, Code = e.Kind, Device = e.Device, Value = Math.Clamp(e.AxisValue / 32767f, -1, 1) }; break;
             case 0x651: case 0x652:
@@ -113,7 +114,9 @@ public sealed class NativeWindow : IDisposable
         for (int i = 0; i < bytes.Length; i++) e.Text[i] = bytes[i];
         if (Sdl.SDL_PushEvent(ref e) < 0) throw new InvalidOperationException(Sdl.Error);
     }
-    public void PushPointer(int button, int x, int y, bool down) { var e = new Sdl.Event { Type = down ? 0x401u : 0x402u, Button = (byte)button, X = x, Y = y }; if (Sdl.SDL_PushEvent(ref e) < 0) throw new InvalidOperationException(Sdl.Error); }
+    public void PushPointerMotion(int x, int y) { var e = new Sdl.Event { Type = 0x400u, X = x, Y = y }; if (Sdl.SDL_PushEvent(ref e) < 0) throw new InvalidOperationException(Sdl.Error); }
+    public void PushPointer(int button, int x, int y, bool down) => PushPointer(button, x, y, down, 1);
+    public void PushPointer(int button, int x, int y, bool down, int clicks) { var e = new Sdl.Event { Type = down ? 0x401u : 0x402u, Button = (byte)button, Clicks = (byte)clicks, X = x, Y = y }; if (Sdl.SDL_PushEvent(ref e) < 0) throw new InvalidOperationException(Sdl.Error); }
     public void Paint()
     {
         Sdl.SDL_GetRendererOutputSize(renderer, out int w, out int h); if (w <= 0 || h <= 0) return;

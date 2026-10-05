@@ -155,6 +155,7 @@ public sealed partial class EditorWindow
     private sealed class WindowsSidebarHost(EditorWindow window) : IEditorStudioSidebarHost
     {
         public bool ConversationAvailable => true;
+        public bool HelperConversationAvailable => true;
         public bool PromotionAvailable => true;
         public void Pane(EditorLiveView view, string anchorNode) => window.ShowSharedSidebarPane(view, anchorNode);
         public void ClosePane() { if (window.aiProfile is not null) window.aiProfile.IsOpen = false; }

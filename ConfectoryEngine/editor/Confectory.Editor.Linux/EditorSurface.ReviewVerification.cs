@@ -38,5 +38,32 @@ internal sealed partial class EditorSurface
         batch = Batch(); task = ReviewLinuxChanges(batch, _ => Task.CompletedTask, lifetime.Token); Click("review-accept"); Pump(() => task.IsCompleted && sharedReview is null);
         Check(task.Result.SequenceEqual(batch.Items.Select(i => i.Id)) && writes == 0, "native reentry returns only newly approved IDs");
         batch.Apply(task.Result.ToArray(), default).GetAwaiter().GetResult(); Check(writes == 1, "existing batch applies the native selection exactly once"); busy = previousBusy;
+        VerifyConflictChoice(native);
     }
+    private void VerifyConflictChoice(NativeWindow native)
+    {
+        var hub = session!.Collaboration;
+        var first = new ChangeSet { Author = "human", Intent = "First native proposal" };
+        var second = new ChangeSet { Author = "human", Intent = "Second native proposal" };
+        var conflict = hub.OpenConflict("native-conflict-" + Guid.NewGuid().ToString("N"), "native baseline", new[] { first, second });
+        var task = ChooseLinuxConflict(hub, conflict, new[] { (first, "first text"), (second, "second text") }, lifetime.Token);
+        void Click(string id)
+        {
+            native.Paint(); var overlay = conflictOverlay!;
+            overlay.Measure((LinuxPackBackend.Element)sharedConflict!.View.Root, overlay.Width);
+            var measured = overlay.Backend.Bounds(id);
+            if (measured.IsEmpty) throw new InvalidOperationException("SDL conflict missing control " + id);
+            overlay.Scroll = Math.Max(0, measured.Bottom - overlay.Height + 10);
+            native.Paint(); var bounds = overlay.ElementBounds(id);
+            native.PushPointer(1, (int)bounds.MidX, (int)bounds.MidY, true); native.PushPointer(1, (int)bounds.MidX, (int)bounds.MidY, false); native.Pump(); Tick(); native.Paint();
+        }
+        Click("conflict-accept");
+        if (task.IsCompleted) throw new InvalidOperationException("SDL conflict accepted without choice");
+        Click("conflict-select-1"); Click("conflict-accept");
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        while (!task.IsCompleted && clock.Elapsed.TotalSeconds < 10) { native.Pump(); Tick(); native.Paint(); Thread.Sleep(5); }
+        if (!task.IsCompletedSuccessfully || task.Result != second.ChangeSetId || conflict.State != "open") throw new InvalidOperationException("SDL conflict exact candidate selection failed");
+        Console.WriteLine("PASS SDL conflict installed picker returns explicit candidate without applying or resolving");
+    }
+
 }

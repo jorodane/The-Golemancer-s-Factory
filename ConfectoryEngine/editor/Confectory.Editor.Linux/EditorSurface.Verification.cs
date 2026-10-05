@@ -209,7 +209,7 @@ internal sealed partial class EditorSurface
         native.PushPointer(3, (int)sidebarBounds.MidX, (int)sidebarBounds.MidY, true); native.PushPointer(3, (int)sidebarBounds.MidX, (int)sidebarBounds.MidY, false); native.Pump(); Tick(); native.Paint();
         Check(sharedSidebar.PaneOpen && sidebarPane is not null && ((Element)sidebarPane.Element("sidebar-pane-title")).Text("text") == settingsParticipant.Name,
             "actual SDL opens installed sidebar Worker popover with shared public caption");
-        Check(!((Element)sidebarPane!.Element("sidebar-pane-open")).Enabled, "actual SDL explicitly disables unavailable conversation runtime");
+        Check(((Element)sidebarPane!.Element("sidebar-pane-open")).Enabled, "actual SDL enables installed Helper conversation capability");
         if (screenshot.Length > 0) native.Screenshot(screenshot + ".sidebar.png");
         Input(new() { Kind = NativeInputKind.PointerMove, X = 200, Y = 100 }); Input(new() { Kind = NativeInputKind.Wheel, Value = -30 }); native.Paint();
         Click("sidebar-pane-close"); Check(!sharedSidebar.PaneOpen && sidebarPane is null, "actual SDL sidebar popover close permits reentry");
@@ -289,6 +289,7 @@ internal sealed partial class EditorSurface
         Check(mode == "home" && studioStartup!.SavedAgent == savedProfile && !homeFlightClock.IsRunning, "saved Agent automatically reaches home with the common motion state and no provider request");
         VerifyHelperConversation(native, screenshot);
         VerifyReviewChoice(native, screenshot);
+        VerifyProductionHelper(native, screenshot);
         ShowObjects(concept.Id); status = "Native verification passed · SDL input, semantic save, DLL command and dynamic window"; native.Paint();
         Console.WriteLine("LINUX_EDITOR_SMOKE_PASS SDL_WINDOW STARTUP AGENT_CONNECTION PRIVATE_INPUT PROFILE PARTICIPANT_NAME SHARED_SIDEBAR SHARED_HELPER_CONVERSATION WORKSPACE_ROLES JOIN GLOBAL_MEMORY IMAGE_REVIEW READONLY_EXPERIENCE PROJECT_CREATION PROJECT_HOME TEXT_INPUT POINTER SCHEMA_SAVE PACK_DLL DYNAMIC_VIEW");
     }

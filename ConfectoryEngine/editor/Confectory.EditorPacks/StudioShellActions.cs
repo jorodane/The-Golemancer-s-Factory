@@ -85,6 +85,7 @@ public interface IEditorStudioSidebar : IDisposable
 public interface IEditorStudioSidebarHost
 {
     bool ConversationAvailable { get; }
+    bool HelperConversationAvailable { get; }
     bool PromotionAvailable { get; }
     void Pane(EditorLiveView view, string anchorNode);
     void ClosePane();
@@ -100,6 +101,7 @@ public interface IEditorStudioActions
     IEditorStudioYogiDraft YogiDraft();
     IEditorStudioYogiView YogiInspector(EditorStudioPresentation presentation, IUiBackend backend, YogiBox box, IEditorStudioYogiHost host, Action<YogiBox> edit, Action close);
     IEditorStudioYogiView YogiComposer(EditorStudioPresentation presentation, IUiBackend backend, IEditorStudioYogiDraft draft, IEditorStudioYogiHost host, Action collect);
+    IEditorStudioConflictChoice ConflictChoice(EditorStudioPresentation presentation, IUiBackend backend, CollaborationWorkspace collaboration, ConflictSet conflict, IReadOnlyList<(ChangeSet Set, string Text)> candidates, Action<Action> dispatch, CancellationToken cancellation);
     IEditorStudioReviewChoice ReviewChoice(EditorStudioPresentation presentation, IUiBackend backend, ChangeReviewBatch review, Func<CancellationToken, Task> prepare, Action<Action> dispatch, CancellationToken cancellation);
     IEditorStudioHelperConversation HelperConversation(EditorStudioPresentation presentation, IUiBackend backend, AiDirectory directory, CollaborationWorkspace? collaboration, IEditorStudioHelperTimeline timeline, Func<string, string> image, Action<YogiBox> inspect, Action<string> publicChat, Action closed);
     IEditorStudioHelperTimelines HelperTimelines(AiDirectory directory, CollaborationWorkspace? collaboration, string projectIdentity, IEditorStudioHelperExecution execution, IEditorStudioHelperHistoryStore history, Action<Action> dispatch);

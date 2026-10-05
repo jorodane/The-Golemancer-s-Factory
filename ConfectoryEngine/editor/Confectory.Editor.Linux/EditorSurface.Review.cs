@@ -22,7 +22,7 @@ internal sealed partial class EditorSurface
                 cancellation.ThrowIfCancellationRequested();
                 renderer = new(Invalidate); var presentation = new EditorStudioPresentation(EditorEngineDistribution.Open(engineDirectory));
                 choice = presentation.Actions.ReviewChoice(presentation, renderer, review, prepare, OnUi, cancellation);
-                backend.Suspend(); activeWindow?.Backend.Suspend(); sharedReview = choice; reviewBackend = renderer; reviewScroll = 0; Invalidate();
+                SuspendConversationInput(); backend.Suspend(); activeWindow?.Backend.Suspend(); sharedReview = choice; reviewBackend = renderer; reviewScroll = 0; Invalidate();
             });
             var selected = await choice!.Decision; cancellation.ThrowIfCancellationRequested(); return selected;
         }

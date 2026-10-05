@@ -15,13 +15,15 @@
 
 ## Current resume checkpoint
 
-Latest published and remotely verified main: `160f53bbbebcf78344d7d11765d907a212a2d2f5`.
-All five jobs passed in [CI 37235782720](https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37235782720),
-including **77 actual Windows native checks** and **1,994 portable pack checks**.
-The 77th native check covers sessionless sidebar closure, not unpublished Yogi work.
+Last CI-complete preceding checkpoint: `f3fcf9e03f70de530d6f3ef373a2076e6f0ca42e`.
+All five jobs passed in [CI 37251133809](https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37251133809),
+including **85 actual Windows native checks** and **2,075 portable pack checks**.
+Temporary pack-owned Yogi composition/inspection is published on Windows/Android;
+Linux production adoption is the active local continuation.
 Windows/Android production Helper conversations and shared selective review are
-published; Linux production review is verified, while its Helper conversations
-still use an injected fixture mount. Workspace roles/Join/names, participant
+published. This revision adopts Linux production Helper conversations, temporary
+Yogi and installed conflict choice; completed local checks and next scope are at
+the end of this document. Remote CI for this increment must be confirmed after push. Workspace roles/Join/names, participant
 lifecycle/settings, Agent management, portraits/sidebar and saved-source actions
 are installed CoreTools checkpoints. The assigned stage remains incomplete.
 
@@ -1788,3 +1790,80 @@ fixture flows; production Linux Yogi/Helper mounting is a subsequent increment.
 The Windows capture adapter rejects a delayed render-frame capture if Esc or
 project switching invalidated its gesture, preventing cleared drafts from being
 repopulated by a late screenshot. No paid/provider-auth/credential writes occurred.
+
+
+### Linux production continuation — local verification in progress
+
+Shared conflict-choice specification and installed CoreTools comparison/actions are
+implemented with separate native Linux overlay/input/dispatch adapters. Helper
+conversation capability is separate from legacy Worker conversation capability.
+Linux production global/project Helper services now use the installed execution,
+scoped pack tools, existing collaboration review coordinator and selective review.
+Temporary Yogi composer/inspector, native image viewing and frozen drag delivery
+use the installed definitions; global views remain project-free.
+
+The expanded portable suite passes **2,117 checks**. The first actual SDL run
+failed an obsolete assertion that all Linux conversations were unavailable; its
+replacement asserts the installed Helper capability. Production SDL close/reentry,
+delayed-provider cancellation and conflict-selection tests are being run next.
+These Linux changes are **unpublished** and require native verification, isolation,
+explicit consumer verification and cross-platform source checks before a commit.
+Remaining current-stage work: native project Helper review/incoming-edit callbacks,
+legacy readable recovery and Worker-direct route retirement, shared project chat
+with Main Helper routing, final common navigation/layout and selected entry→Run.
+No paid provider/auth/credential verification has occurred.
+
+The first expanded actual SDL production run now passes global entry/send, pending
+close/reentry/cancel and late-provider disposal, sessionless temporary close and
+explicit conflict candidate selection. Windows fixture source and Android official
+reference-source builds pass with zero warnings/errors; independent engine
+isolation passes. Selected-project testing exposed a Linux adapter ID-validation
+mismatch: installed Worker IDs use `worker-…`, while Agent/Helper profile IDs are
+GUIDs. The private transport adapter now validates the selected participant and
+hashes its ID into a safe private directory segment. The corrected project send
+and review registration pass. Active-draft tool handoff and native parcel lifecycle
+checks are still being completed; do not claim their acceptance yet.
+
+The parent's newly authorized subsequent function-contract/algorithm-tree and
+schema-linked XML-help work is recorded in [AUTHORIZED_FUTURE_STAGES.md](AUTHORIZED_FUTURE_STAGES.md).
+It is queued after existing stages and does not expand this increment.
+
+
+### Linux production increment ready for publication
+
+The installed pack owns conflict view/actions, Helper execution/timelines and
+temporary Yogi composition/inspection. Linux supplies separate native renderers,
+coordinate transforms, clipboard/image/capture/input adapters, captured provider
+services and existing collaboration review coordination. SDL click-count metadata
+now drives reliable parcel/sidebar double-clicks; the original four-argument
+PushPointer API remains available. Typed raw document changes use existing human
+working-copy/Room checkpoints, never file application before explicit review.
+
+Completed local verification:
+- **2,117 portable pack checks**, including all-platform installed conflict choice
+  and separate Helper/legacy conversation capabilities.
+- Full actual SDL regression pass, with **36 production Helper checks**: native
+  home/sidebar double-click entry without a project, injected global send, delayed
+  close/reentry/cancel and late provider disposal, visible failure and Ctrl+Enter
+  retry, exact selected-project binding and review registration before tools,
+  Helper-authored delivery, real scoped read/patch active-draft handoff, preserved
+  human buffer/disk bytes, close-draft recovery, private capture exclusion, actual
+  parcel drag/attachment/unseal and Esc retaining the attached copy. Installed
+  conflict picker returns the exact explicit candidate without applying/resolving.
+- Independent engine/button-pack isolation on net48/net10.0, timing/camera/external
+  UI pack checks; full explicitly selected external Golemancer clean build and
+  verification; Windows native-fixture source and Android official-reference
+  source builds with zero warnings/errors.
+- Evidence is outside Git under `/workspace/scratch/linux-production-helper-final*`,
+  `linux-helper-packs.log`, and `linux-adoption-{isolation-final,consumer,windows-source,android-source}.log`.
+
+No paid requests, external authentication or real credential saving were used.
+Actual Windows execution/Android APK build for this increment await remote CI;
+local Android APK prerequisites and physical-device verification remain unavailable.
+The earlier f3 checkpoint's five CI jobs/85 native Windows checks remain confirmed.
+
+Next: readable legacy recovery before retiring Worker-direct/promotion/creation
+routes, common project chat and continuous Main Helper routing, final common
+navigation/layout/mailbox/log panel and selected-project entry→Run. Broader shell
+parity/package and the subsequent stages remain unfinished. This increment is a
+checkpoint, not completion of the assigned common-shell stage.
