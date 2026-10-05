@@ -2002,3 +2002,10 @@ timed out and engine compatibility was skipped. This is a real failed check,
 not an unavailable platform. The follow-up makes fixture Main selection explicit
 and checks installed composer/routing state before waiting, so a failure reports
 its actual stage. The shared viewport continuation remains separate local work.
+
+CI 37264402927 now isolates the Windows failure to public consent/lifetime gating:
+the existing private-Helper fixture shuts down its own subsystem and sets its
+private `helperClosing` flag. The public adapter had incorrectly reused that flag.
+Public requests now use a separate actual-window closing flag; private Helper
+shutdown does not disable the independent public controller. No consent check is
+removed. Source compilation and the next exact CI verify this correction.

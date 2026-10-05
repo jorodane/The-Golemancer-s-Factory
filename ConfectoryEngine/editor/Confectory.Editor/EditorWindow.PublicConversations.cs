@@ -16,6 +16,7 @@ public sealed partial class EditorWindow
     private IEditorStudioAgentService? publicServiceOverride;
     private IAiCredentialStore? publicCredentialsOverride;
     private bool publicVerificationOnly = false;
+    private bool publicClosing;
     private readonly List<(Window Window, IEditorStudioPublicChat Chat)> sharedPublicWindows = new();
     private void BindPublicConversations(IEditorStudioAgentService? service = null, IAiCredentialStore? credentials = null)
     {
@@ -59,7 +60,7 @@ public sealed partial class EditorWindow
     }
     private sealed class WindowsPublicConversationHost(EditorWindow owner, EditorSession selected, AiDirectory directory) : IEditorStudioPublicConversationHost
     {
-        public bool Allowed => !owner.helperClosing && ReferenceEquals(owner.session, selected) && ReferenceEquals(owner.aiDirectory, directory)
+        public bool Allowed => !owner.publicClosing && ReferenceEquals(owner.session, selected) && ReferenceEquals(owner.aiDirectory, directory)
             && owner.assistantSettings.ConnectionEnabled && owner.CurrentAccess?.Enabled == true && (!owner.publicVerificationOnly || owner.publicServiceOverride is not null);
         public void Dispatch(Action action) => owner.Dispatcher.Invoke(action);
         public EditorStudioHelperAgentContext AgentContext(string participant, string operation)
