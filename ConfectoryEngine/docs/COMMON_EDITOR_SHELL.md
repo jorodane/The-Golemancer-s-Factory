@@ -15,11 +15,14 @@
 
 ## Current resume checkpoint
 
-Latest CI-complete, exact remotely verified checkpoint: `efddefe5d7a76764afdba8f57d8405304de7bd25`.
-All five jobs passed in [CI 37264710834](https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37264710834),
-including 95 actual Windows native checks, 2,354 portable checks, actual Android
-APK build and the actual SDL public regression. The installed public controller/view
-and native bindings are published; the final panel layout remains in progress.
+Latest CI-complete, exact remotely verified checkpoint: `534e5fd30c1166c7493637feca0a80b6d405b558`.
+All five jobs passed in [CI 37265345014](https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37265345014),
+including 98 actual Windows native checks, 2,360 portable checks, actual Android
+APK build and the actual SDL public/viewport regression. Installed public controller,
+native bindings and the common transcript viewport are published. Native final
+lower-panel placement and navigation remain in progress.
+The preceding public-lifetime correction `efddefe5d7a76764afdba8f57d8405304de7bd25`
+passed [CI 37264710834](https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37264710834).
 The preceding foundation `1e907cb5bce816789653446f3926950e6b99f25e` passed
 [CI 37261206655](https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37261206655).
 
@@ -2043,3 +2046,36 @@ No paid requests, actual authentication or real credential saving were exercised
 All five jobs for the preceding lifetime correction are now confirmed successful
 in CI 37264710834, with 95 actual Windows native checks. The new viewport awaits
 its own exact-head remote execution after ordinary push.
+
+## Installed workspace navigation foundation (local continuation, 2026-10-05)
+
+Contract: [SHARED_WORKSPACE_NAVIGATION.md](SHARED_WORKSPACE_NAVIGATION.md).
+The installed factory now supplies common project header, mailbox/Run/internal-grid
+bar and separate project/internal menus. CoreTools owns inert mount, menu actions,
+current-session/busy guards, explicit one-shot project entry, Run/Stop selection,
+readable execution failure/retry and stop-before-exit ordering. The ABI restricts
+hosts to captured-project surface opening, folder IO and process/run boundaries.
+All three renderer matrices pass 2,408 checks, including direct activation of
+disabled controls, stale-session cancellation and no execution on render/remount.
+
+Independent engine isolation and the full explicit external-consumer campaign pass.
+Actual SDL regression passes after fixing startup reentry cleanup: a fresh startup
+finishes an old home-animation clock before accepting input. An explicit assertion
+forces this previous-transition case. Normal logo motion and saved-Agent skip
+checks still pass. Windows/Android source and exact-head CI are remaining gates.
+No paid requests, real auth or credential saving are used.
+
+This is a definition/action foundation. Native header/toolbar/menu binding, wide
+lower-panel placement, selected-project entry→Run and superseded default Worker UI
+entrypoint retirement remain to be implemented/verified within the assigned stage.
+Do not count this checkpoint as completion. Later supervisor/instant-table/functions,
+augment and render-authoring features remain excluded.
+
+Final foundation gates pass: 2,408 installed portable checks; actual SDL regression
+with the forced previous-animation startup assertion and existing motion/skip,
+private Helper/Yogi/recovery/public/viewport flows; Windows native fixture and
+Android official-reference source builds with zero warnings/errors; independent
+engine isolation; full explicit external-consumer clean-build/verification campaign.
+Evidence: `/workspace/scratch/workspace-navigation-{portable,native,windows,android,isolation,consumer}.log`.
+Viewport checkpoint 534e5fd is independently confirmed CI-complete in run
+37265345014 (all five jobs, including 98 actual Windows native checks).

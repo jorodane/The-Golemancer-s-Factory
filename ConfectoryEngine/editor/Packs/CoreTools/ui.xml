@@ -359,4 +359,39 @@
     <Node id="public-log" order="30" widget="editor.readonly"><Bind property="visible" source="studio.public.logVisible" /><Bind property="text" source="studio.public.logs" /><Layout size="0,260" /></Node>
     <Node id="public-latest-log" order="40" widget="editor.text"><Bind property="text" source="studio.public.latestLog" /></Node>
   </Slot></Node></View>
+
+  <View id="editor.studio.navigation.header"><Node id="navigation-header" widget="editor.stack"><Slot name="children">
+    <Node id="navigation-header-row" order="0" widget="editor.stack"><Set property="orientation" value="horizontal" /><Slot name="children">
+      <Node id="navigation-project-menu" order="0" widget="editor.button"><Layout size="48,0" /><Set property="text" value="≡" /><Bind property="enabled" source="studio.navigation.current" /><On event="activate" command="studio.navigation.project" /></Node>
+      <Node id="navigation-project-name" order="10" widget="editor.text"><Bind property="text" source="studio.navigation.name" /><Set property="fontSize" value="18" /></Node>
+    </Slot></Node>
+    <Node id="navigation-header-notice" order="10" widget="editor.text"><Bind property="visible" source="studio.navigation.hasNote" /><Bind property="text" source="studio.navigation.note" /><Set property="foreground" value="#F8DA79" /></Node>
+  </Slot></Node></View>
+  <View id="editor.studio.navigation.toolbar"><Node id="navigation-toolbar" widget="editor.stack"><Set property="orientation" value="horizontal" /><Slot name="children">
+    <Node id="navigation-mailbox" order="0" widget="editor.button"><Set property="text" value="📬" /><Set property="tooltip" value="신문고" /><Bind property="enabled" source="studio.navigation.current" /><On event="activate" command="studio.navigation.mailbox" /></Node>
+    <Node id="navigation-run" order="10" widget="editor.button"><Bind property="text" source="studio.navigation.runGlyph" /><Bind property="enabled" source="studio.navigation.canAct" /><On event="activate" command="studio.navigation.run" /></Node>
+    <Node id="navigation-explorer" order="20" widget="editor.button"><Set property="text" value="▦" /><Set property="tooltip" value="프로젝트 내부 탐색" /><Bind property="enabled" source="studio.navigation.current" /><On event="activate" command="studio.navigation.explorer" /></Node>
+  </Slot></Node></View>
+  <View id="editor.studio.navigation.menu"><Node id="navigation-menu" widget="editor.stack"><Bind property="visible" source="studio.navigation.menuVisible" /><Slot name="children">
+    <Node id="navigation-notice" order="0" widget="editor.text"><Bind property="text" source="studio.navigation.note" /></Node>
+    <Node id="navigation-project-actions" order="10" widget="editor.stack"><Bind property="visible" source="studio.navigation.projectMenu" /><Slot name="children">
+      <Node id="navigation-information" order="0" widget="editor.button"><Set property="text" value="프로젝트 정보" /><On event="activate" command="studio.navigation.information" /></Node>
+      <Node id="navigation-settings" order="10" widget="editor.button"><Set property="text" value="프로젝트 설정" /><Bind property="enabled" source="studio.navigation.canAct" /><On event="activate" command="studio.navigation.settings" /></Node>
+      <Node id="navigation-folder" order="20" widget="editor.button"><Set property="text" value="프로젝트 폴더 열기" /><On event="activate" command="studio.navigation.folder" /></Node>
+      <Node id="navigation-leave" order="30" widget="editor.button"><Set property="text" value="프로젝트 나가기" /><Bind property="enabled" source="studio.navigation.canAct" /><On event="activate" command="studio.navigation.leave" /></Node>
+    </Slot></Node>
+    <Node id="navigation-information-panel" order="20" widget="editor.stack"><Bind property="visible" source="studio.navigation.information" /><Slot name="children">
+      <Node id="navigation-information-name" order="0" widget="editor.readonly"><Bind property="text" source="studio.navigation.name" /></Node>
+      <Node id="navigation-information-path" order="10" widget="editor.readonly"><Bind property="text" source="studio.navigation.path" /></Node>
+      <Node id="navigation-information-back" order="20" widget="editor.button"><Set property="text" value="돌아가기" /><On event="activate" command="studio.navigation.back" /></Node>
+    </Slot></Node>
+    <Node id="navigation-explorer-actions" order="30" widget="editor.stack"><Bind property="visible" source="studio.navigation.explorerMenu" /><Slot name="children">
+      <Node id="navigation-objects" order="0" widget="editor.button"><Set property="text" value="개념 / 객체" /><Bind property="enabled" source="studio.navigation.canAct" /><On event="activate" command="studio.navigation.objects" /></Node>
+      <Node id="navigation-functions" order="10" widget="editor.button"><Set property="text" value="기능" /><Bind property="enabled" source="studio.navigation.canAct" /><On event="activate" command="studio.navigation.functions" /></Node>
+      <Node id="navigation-packs" order="20" widget="editor.button"><Set property="text" value="팩" /><Bind property="enabled" source="studio.navigation.canAct" /><On event="activate" command="studio.navigation.packs" /></Node>
+      <Node id="navigation-execution" order="30" widget="editor.button"><Set property="text" value="실행 설정" /><Bind property="enabled" source="studio.navigation.canAct" /><On event="activate" command="studio.navigation.execution" /></Node>
+      <Node id="navigation-tools" order="40" widget="editor.button"><Set property="text" value="프로젝트 도구" /><Bind property="enabled" source="studio.navigation.canAct" /><On event="activate" command="studio.navigation.tools" /></Node>
+    </Slot></Node>
+    <Node id="navigation-close" order="40" widget="editor.button"><Set property="text" value="닫기" /><On event="activate" command="studio.navigation.close" /></Node>
+  </Slot></Node></View>
 </Ui>

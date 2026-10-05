@@ -27,7 +27,8 @@ internal sealed partial class EditorSurface
             while (busy && watch.Elapsed < TimeSpan.FromSeconds(30)) { native.Pump(); Tick(); native.Paint(); Thread.Sleep(5); }
             Check(!busy, "asynchronous operation completed");
         }
-        StartStudio(new()); native.Paint();
+        homeFlightClock.Restart(); StartStudio(new()); native.Paint();
+        Check(!homeFlightClock.IsRunning, "startup reentry finishes a previous home animation before accepting input");
         Check(mode == "startup" && !backend.Bounds("logo").IsEmpty, "trusted engine pack supplies the startup vector before project modules run");
         Check(((LinuxPackBackend.Element)studioStartView!.Element("brand-title")).Text("text") == "Confectory", "startup title comes from the shared pack view");
         Check(!((Element)studioStartView.Element("connect")).Enabled && ((Element)studioStartView.Element("logo")).MotionOpacity == 0, "startup begins with a blank inert frame");

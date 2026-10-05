@@ -189,6 +189,7 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
     }
     private void StartStudio(AiDirectory? directory = null)
     {
+        FinishStudioHomeFlight();
         startupBrandOrigins.Clear(); mode = "startup"; studioPresentation = new(EditorEngineDistribution.Open(engineDirectory));
         studioDirectory = directory ?? AiDirectory.Load(AiDirectory.DefaultPath); studioStartup = new(studioPresentation, studioDirectory);
         studioStartView?.Dispose(); studioStartView = studioPresentation.Start(backend,
