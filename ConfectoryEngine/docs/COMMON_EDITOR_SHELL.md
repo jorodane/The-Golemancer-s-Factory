@@ -1987,10 +1987,18 @@ Workers and legacy read-only recovery. This integration is a checkpoint, not
 completion of the assigned stage. Do not repeat the published controller/view,
 Helper/Yogi or recovery implementations.
 
-Final local integration gates pass: actual SDL regression (97 printed PASS checks),
+Final local integration gates pass: actual SDL regression (96 printed PASS checks),
 Windows native fixture source build (zero warnings/errors), independent net48/net10
 engine/button/timing/camera/external UI isolation and the full explicitly selected
 external-consumer clean-build/verification campaign. Agent management consults
 active installed public operations instead of the retired native mention-token
 set. Project detachment/whole-window close cancels those captured public operations.
 Remote exact-head CI remains to be confirmed after ordinary push.
+
+Native integration `8ad2fe54c2c4827d3d75caa9cb6b68e6c77c745f` exactly matches
+remote main. [CI 37263928779](https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37263928779)
+passed portable, actual Linux and Android APK; the new Windows public-send fixture
+timed out and engine compatibility was skipped. This is a real failed check,
+not an unavailable platform. The follow-up makes fixture Main selection explicit
+and checks installed composer/routing state before waiting, so a failure reports
+its actual stage. The shared viewport continuation remains separate local work.
