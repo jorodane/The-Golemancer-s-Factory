@@ -15,16 +15,22 @@
 
 ## Current resume checkpoint
 
-Verified shared execution foundation: `5d44a90793687b2e52edab5a3d498ef38fe3df37`.
-All five jobs passed in [CI 37222489660](https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37222489660).
-Workspace roles/Join/names, participant lifecycle/settings, Agent management,
-portraits/sidebar and saved-source connection actions are installed CoreTools
-checkpoints. This does **not** complete Helper conversation/supervision migration.
-Assignment and recoverable record migration are verified. Resume at checkpoint 4
-in [HELPER_SUPERVISION.md](HELPER_SUPERVISION.md): common Helper-facing
-requests/characters and workload/object indicators. Do not resume superseded
-Worker promotion work or repeat completed migrations. The end of this document
-records native corrections, exact coverage and remaining limitations.
+Latest published and remotely verified main: `160f53bbbebcf78344d7d11765d907a212a2d2f5`.
+All five jobs passed in [CI 37235782720](https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37235782720),
+including **77 actual Windows native checks** and **1,994 portable pack checks**.
+The 77th native check covers sessionless sidebar closure, not unpublished Yogi work.
+Windows/Android production Helper conversations and shared selective review are
+published; Linux production review is verified, while its Helper conversations
+still use an injected fixture mount. Workspace roles/Join/names, participant
+lifecycle/settings, Agent management, portraits/sidebar and saved-source actions
+are installed CoreTools checkpoints. The assigned stage remains incomplete.
+
+Resume at the latest continuation at the end of this document. Preserve temporary
+Yogi work and all recovery stashes. Do not apply the superseded promotion stash or
+repeat completed migrations. [FINAL_UI_CONTEXT.md](FINAL_UI_CONTEXT.md) and
+[HELPER_SUPERVISION.md](HELPER_SUPERVISION.md) govern the remaining Helper-centric
+flows; later supervisor persistence, instant-table, augment and render-authoring
+stages remain sequenced separately.
 
 ## Active task and resume instructions
 
@@ -1739,3 +1745,46 @@ exact-commit CI check. Legacy Worker-direct/promotion routes remain available un
 readable legacy history and replacement interactions are tested. Linux production
 Helper integration, Project Chat, finalized shell layout/navigation, temporary
 Yogi lifecycle and explicit project-entry/Run survival remain active next work.
+
+### Temporary Yogi recovery and adoption (2026-10-05)
+
+Usage-limit recovery confirmed local and remote main at `160f53b`, with no later
+local commits. Four named recovery stashes and all unpublished Yogi files were
+preserved. The unpublished draft/view increment completed **2,066 portable pack
+checks** before interruption; that count is distinct from the published Windows
+native coverage. A recovery archive was retained outside Git before continuation.
+
+[TEMPORARY_YOGI.md](TEMPORARY_YOGI.md) specifies the temporary application draft
+and immutable attachment inspection. Installed CoreTools owns its state, validation,
+composition/inspection definitions, item removal, seal/unseal, edit-copy and clear
+commands. There is no persistence/project capability in the draft. Candidate
+captures are validated atomically, new items unseal the existing identity, and
+stable row identities prevent a stale item action removing another row. DTO copying
+clones mutable metadata/containers while retaining immutable image strings, avoiding
+capture serialization on each composition keystroke. Inspector host boundaries
+receive copies and cannot mutate historical attachments.
+
+Windows and Android adoption now mounts those shared views. Capture/navigation,
+native image decoding/display and OS drag input remain platform boundaries. New
+drafts no longer save collaboration vault records. Global attachment editing works
+without a project. Whole-box ×/Esc and project cleanup clear only the temporary
+draft. Legacy vault bytes and delivered attachments remain readable. Native
+verification and remaining Linux adoption are pending for this local increment;
+do not infer all-platform completion from portable or reference compilation.
+
+Next: verify/publish this coherent Yogi increment, add Linux production persistent
+Helper and Yogi overlays with actual SDL input, preserve existing conflict callbacks,
+then readable legacy recovery and Worker-route retirement, common Project Chat and
+finalized navigation/layout plus explicit selected-project entry/Run survival.
+Subsequent durable supervisor recovery, instant table, augment and render authoring
+remain future authorized checkpoints; none is silently removed from the sequence.
+
+Current temporary-Yogi source verification passes **2,075 portable pack checks**,
+engine isolation, and the full explicitly selected external Golemancer consumer
+campaign. Android source/reference compilation passes with zero warnings/errors;
+Windows native-fixture compilation passes, while its added production Yogi input
+assertions require exact-commit Windows execution. Actual Linux regression UI verification passes all existing SDL input/review/Helper
+fixture flows; production Linux Yogi/Helper mounting is a subsequent increment.
+The Windows capture adapter rejects a delayed render-frame capture if Esc or
+project switching invalidated its gesture, preventing cleared drafts from being
+repopulated by a late screenshot. No paid/provider-auth/credential writes occurred.

@@ -10,13 +10,23 @@ public sealed partial class EditorWindow
 {
     private const string YogiFormat = "Confectory.YogiBox";
     internal static readonly DependencyProperty YogiKeyProperty = DependencyProperty.RegisterAttached("YogiKey", typeof(string), typeof(EditorWindow), new PropertyMetadata(""));
-    private readonly Border yogiTray = new() { Visibility = Visibility.Collapsed, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(16), Background = Brush("#243442"), CornerRadius = new CornerRadius(14), Padding = new Thickness(12) };
+    private readonly Border yogiTray = new() { Visibility = Visibility.Collapsed, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(16), Background = Brush("#243442"), CornerRadius = new CornerRadius(14), Padding = new Thickness(0) };
     private readonly Dictionary<string, WeakReference<FrameworkElement>> yogiUi = [];
-    private string currentYogi = "";
-    private YogiBox EditingYogi()
+    private IEditorStudioYogiDraft? temporaryYogi;
+    private IEditorStudioYogiView? yogiComposer;
+    private IEditorStudioYogiDraft TemporaryYogi => temporaryYogi ??= studioPresentation.Actions.YogiDraft();
+    private sealed class StudioYogiHost(EditorWindow owner) : IEditorStudioYogiHost
     {
-        var hub = session!.Collaboration; var box = hub.State.YogiBoxes.FirstOrDefault(b => b.Id == currentYogi && b.Author == "human");
-        if (box is null || box.Sealed) { box = hub.NewYogi("human"); currentYogi = box.Id; } return box;
+        public string ProjectId => owner.session is not null && !owner.Standalone ? owner.session.Project.Id : "";
+        public bool Exists(YogiReference reference)
+        {
+            if (reference.Key.StartsWith("ui:", StringComparison.Ordinal)) return owner.yogiUi.TryGetValue(reference.Key, out var weak) && weak.TryGetTarget(out var element) && element.IsLoaded;
+            if (reference.Key.StartsWith(EditorYogiContext.Prefix, StringComparison.Ordinal)) return owner.packWindows.Definitions.Any(d => d.View == EditorYogiContext.Parts(reference.Key).View);
+            return owner.session?.YogiExists(reference) == true;
+        }
+        public void Navigate(YogiReference reference) => owner.NavigateYogi(reference);
+        public string Preview(YogiVisual visual) => StudioProfilePreview(Convert.FromBase64String(visual.Image.Data), ".png");
+        public void Image(YogiVisual visual) => owner.ShowYogiImage(visual);
     }
     private YogiReference ExactYogiElement(FrameworkElement element)
     {
@@ -29,9 +39,8 @@ public sealed partial class EditorWindow
     }
     private void CollectLegacyYogi(SharedEditorSnapshot snapshot)
     {
-        var box = EditingYogi(); foreach (var target in snapshot.Targets.Concat(snapshot.EditorTargets)) if (session!.Index.Nodes.ContainsKey(target.Key) && !box.Exactly.Any(r => r.Key == target.Key)) box.Exactly.Add(session.YogiReference(target.Key));
-        if (snapshot.Image is not null) box.Looks.Add(new() { Label = snapshot.Label, Image = snapshot.Image });
-        session!.Collaboration.SaveYogi("human", box); OpenYogiBox();
+        var references = snapshot.Targets.Concat(snapshot.EditorTargets).Where(target => session!.Index.Nodes.ContainsKey(target.Key)).Select(target => session!.YogiReference(target.Key)).ToArray();
+        TemporaryYogi.Collect(references, snapshot.Image is null ? Array.Empty<YogiVisual>() : new[] { new YogiVisual { Label = snapshot.Label, Image = snapshot.Image } }); OpenYogiBox();
     }
     private void ApplyNativeYogi(ContextRequest request, YogiBox box)
     {
@@ -44,28 +53,26 @@ public sealed partial class EditorWindow
     }
     private void OpenYogiBox()
     {
-        if (session is null) return; var hub = session.Collaboration;
-        var box = hub.State.YogiBoxes.FirstOrDefault(b => b.Id == currentYogi && b.Author == "human") ?? hub.State.YogiBoxes.LastOrDefault(b => b.Author == "human") ?? hub.NewYogi("human"); currentYogi = box.Id;
-        var body = new StackPanel { Width = box.Sealed ? 195 : 300 }; yogiTray.Child = body; yogiTray.Visibility = Visibility.Visible;
-        var top = new DockPanel(); var close = BareButton(Label("×", 16), () => yogiTray.Visibility = Visibility.Collapsed); DockPanel.SetDock(close, Dock.Right); top.Children.Add(close); top.Children.Add(Label("📦 YogiBox " + box.Count, 16, AccentInk)); body.Children.Add(top);
-        if (box.Sealed)
+        if (TemporaryYogi.Snapshot is null) TemporaryYogi.Edit();
+        if (yogiComposer is null)
         {
-            var parcel = new Border { Background = Brushes.Transparent, Padding = new Thickness(6), Child = Label(box.Caption, 12), ToolTip = "드래그해서 전달 · 더블클릭해서 다시 열기" }; body.Children.Add(parcel);
-            Point? down = null; parcel.MouseLeftButtonDown += (_, e) => { if (e.ClickCount == 2) { box.Open(); hub.SaveYogi("human", box); OpenYogiBox(); e.Handled = true; } else down = e.GetPosition(parcel); };
-            parcel.MouseMove += (_, e) => { if (down is not { } start || e.LeftButton != MouseButtonState.Pressed || (e.GetPosition(parcel) - start).Length < 5) return; down = null; DragDrop.DoDragDrop(parcel, new DataObject(YogiFormat, box.Copy()), DragDropEffects.Copy); };
+            yogiComposer = studioPresentation.Actions.YogiComposer(studioPresentation, new EditorPackBackend(_ => { }, () => false), TemporaryYogi, new StudioYogiHost(this), () => ArmYogi(false));
+            yogiTray.Child = new ScrollViewer { Content = ((EditorPackBackend.Element)yogiComposer.View.Root).Control, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
+            var parcel = ((EditorPackBackend.Element)yogiComposer.View.Element("yogi-parcel")).Control;
+            Point? down = null;
+            ((Control)parcel).PreviewMouseDoubleClick += (_, e) => { Guard(TemporaryYogi.Unseal); e.Handled = true; down = null; };
+            parcel.PreviewMouseLeftButtonDown += (_, e) => { if (e.ClickCount < 2) down = e.GetPosition(parcel); };
+            parcel.MouseMove += (_, e) => { if (down is not { } start || e.LeftButton != MouseButtonState.Pressed || (e.GetPosition(parcel) - start).Length < 5) return; down = null; Guard(() => DragDrop.DoDragDrop(parcel, new DataObject(YogiFormat, TemporaryYogi.Delivery()), DragDropEffects.Copy)); };
+            TemporaryYogi.Changed += RefreshTemporaryYogi;
+            Closed += (_, _) => { temporaryYogi!.Changed -= RefreshTemporaryYogi; yogiComposer.Dispose(); temporaryYogi.Clear(); };
         }
-        else
-        {
-            var rows = new StackPanel();
-            foreach (var reference in box.Exactly.ToArray()) { var row = new DockPanel(); var remove = BareButton(Label("×", 14), () => { box.Exactly.Remove(reference); hub.SaveYogi("human", box); OpenYogiBox(); }); DockPanel.SetDock(remove, Dock.Right); row.Children.Add(remove); row.Children.Add(BareButton(Label("EY  " + reference.Label, 12), () => NavigateYogi(reference))); rows.Children.Add(row); }
-            foreach (var visual in box.Looks.ToArray()) { var row = new DockPanel(); var remove = BareButton(Label("×", 14), () => { box.Looks.Remove(visual); hub.SaveYogi("human", box); OpenYogiBox(); }); DockPanel.SetDock(remove, Dock.Right); row.Children.Add(remove); row.Children.Add(BareButton(Label("LaY  " + visual.Label, 12), () => ShowYogiImage(visual))); rows.Children.Add(row); }
-            body.Children.Add(new ScrollViewer { Content = rows, MaxHeight = 190, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
-            var title = Input(); title.Text = box.Title; title.MaxLength = 200; title.ToolTip = "박스 이름"; title.TextChanged += (_, _) => { box.Title = title.Text; hub.SaveYogi("human", box); }; body.Children.Add(title);
-            var explanation = Input(true); explanation.Text = box.Explanation; explanation.Height = 86; explanation.MaxLength = 16000; explanation.TextWrapping = TextWrapping.Wrap; explanation.ToolTip = "설명이나 요청"; explanation.TextChanged += (_, _) => { box.Explanation = explanation.Text; hub.SaveYogi("human", box); }; body.Children.Add(explanation);
-            var actions = new WrapPanel(); actions.Children.Add(Action("수집 · Ctrl+Y", () => ArmYogi(false))); actions.Children.Add(Action("봉인", () => { box.Seal(); hub.SaveYogi("human", box); DisarmYogi(); OpenYogiBox(); })); body.Children.Add(actions);
-        }
-        body.Children.Add(BareButton(Label("보관한 박스", 11, MutedInk), () => { var menu = new ContextMenu(); foreach (var saved in hub.State.YogiBoxes.Where(b => b.Author == "human").AsEnumerable().Reverse()) { var item = new MenuItem { Header = saved.Caption + (saved.Sealed ? " · 봉인됨" : " · 편집 중") }; item.Click += (_, _) => { currentYogi = saved.Id; OpenYogiBox(); }; menu.Items.Add(item); } menu.IsOpen = true; }));
-        body.Children.Add(BareButton(Label("+ 새 박스", 11, MutedInk), () => { currentYogi = hub.NewYogi("human").Id; OpenYogiBox(); }));
+        RefreshTemporaryYogi();
+    }
+    private void RefreshTemporaryYogi()
+    {
+        var snapshot = temporaryYogi?.Snapshot;
+        yogiTray.Visibility = snapshot is null ? Visibility.Collapsed : Visibility.Visible;
+        if (snapshot is null || snapshot.Sealed) DisarmYogi();
     }
     private void BindYogiDrop(FrameworkElement target, Action<YogiBox> receive)
     {
@@ -87,11 +94,10 @@ public sealed partial class EditorWindow
     }
     private void ShowYogiContents(YogiBox box)
     {
-        var panel = new StackPanel { Margin = new Thickness(16) }; panel.Children.Add(Label(box.Caption, 20)); panel.Children.Add(Label(box.Explanation, 14));
-        foreach (var reference in box.Exactly) panel.Children.Add(Action("EY · " + reference.Label + (session!.YogiExists(reference) || reference.Key.StartsWith("ui:", StringComparison.Ordinal) || reference.Key.StartsWith(EditorYogiContext.Prefix, StringComparison.Ordinal) ? "" : " · 삭제된 대상"), () => NavigateYogi(reference)));
-        foreach (var visual in box.Looks) { panel.Children.Add(Label("LaY · " + visual.Label + " · " + visual.CapturedUtc, 11, MutedInk)); panel.Children.Add(BareButton(new Image { Source = YogiBitmap(visual.Image), MaxHeight = 140, Stretch = Stretch.Uniform }, () => ShowYogiImage(visual))); }
-        panel.Children.Add(Action("내 YogiBox에서 수정", () => { var copy = box.Copy(); copy.Id = Guid.NewGuid().ToString("N"); copy.Author = "human"; copy.Open(); session!.Collaboration.State.YogiBoxes.Add(copy); session.Collaboration.Save(); currentYogi = copy.Id; OpenYogiBox(); }));
-        new Window { Owner = this, Title = "YogiBox", Width = 580, Height = 620, Background = PanelInk, Foreground = TextInk, Content = new ScrollViewer { Content = panel, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } }.Show();
+        var window = new Window { Owner = this, Title = "YogiBox", Width = 580, Height = 620, Background = PanelInk, Foreground = TextInk };
+        var inspector = studioPresentation.Actions.YogiInspector(studioPresentation, new EditorPackBackend(_ => { }, () => false), box, new StudioYogiHost(this), copy => { TemporaryYogi.Edit(copy); OpenYogiBox(); }, window.Close);
+        window.Content = new ScrollViewer { Content = ((EditorPackBackend.Element)inspector.View.Root).Control, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Margin = new Thickness(16) };
+        window.Closed += (_, _) => inspector.Dispose(); window.Show();
     }
     private static BitmapImage YogiBitmap(SharedEditorImage image)
     {

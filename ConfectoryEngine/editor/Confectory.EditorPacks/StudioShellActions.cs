@@ -97,6 +97,9 @@ public interface IEditorStudioSidebarHost
 /// <summary>Private trusted-shell ABI. Never supplied to project modules or overlays.</summary>
 public interface IEditorStudioActions
 {
+    IEditorStudioYogiDraft YogiDraft();
+    IEditorStudioYogiView YogiInspector(EditorStudioPresentation presentation, IUiBackend backend, YogiBox box, IEditorStudioYogiHost host, Action<YogiBox> edit, Action close);
+    IEditorStudioYogiView YogiComposer(EditorStudioPresentation presentation, IUiBackend backend, IEditorStudioYogiDraft draft, IEditorStudioYogiHost host, Action collect);
     IEditorStudioReviewChoice ReviewChoice(EditorStudioPresentation presentation, IUiBackend backend, ChangeReviewBatch review, Func<CancellationToken, Task> prepare, Action<Action> dispatch, CancellationToken cancellation);
     IEditorStudioHelperConversation HelperConversation(EditorStudioPresentation presentation, IUiBackend backend, AiDirectory directory, CollaborationWorkspace? collaboration, IEditorStudioHelperTimeline timeline, Func<string, string> image, Action<YogiBox> inspect, Action<string> publicChat, Action closed);
     IEditorStudioHelperTimelines HelperTimelines(AiDirectory directory, CollaborationWorkspace? collaboration, string projectIdentity, IEditorStudioHelperExecution execution, IEditorStudioHelperHistoryStore history, Action<Action> dispatch);

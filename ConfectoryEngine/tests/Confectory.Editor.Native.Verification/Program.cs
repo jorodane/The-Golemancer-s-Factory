@@ -223,6 +223,7 @@ internal static partial class Program
             NativeInputs(window);
             VerifyProductionHelperAdapter(window);
             VerifyProductionReviewChoice(window);
+            VerifyProductionYogi(window);
             Console.WriteLine("NATIVE_WORKSPACE_CHECKS=" + checks); return 0;
         }
         catch (Exception error)

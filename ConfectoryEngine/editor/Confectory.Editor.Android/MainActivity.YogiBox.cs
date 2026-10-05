@@ -12,7 +12,22 @@ public sealed partial class MainActivity
     private LinearLayout mobileYogiTray = null!;
     private YogiGestureView mobileYogiOverlay = null!;
     private readonly Dictionary<View, string> mobileYogiTargets = [];
-    private string mobileYogiId = "";
+    private IEditorStudioYogiDraft? mobileTemporaryYogi;
+    private IEditorStudioYogiView? mobileYogiComposer;
+    private IEditorStudioYogiDraft MobileTemporaryYogi => mobileTemporaryYogi ??= mobileStudioPresentation.Actions.YogiDraft();
+    private sealed class MobileStudioYogiHost(MainActivity owner) : IEditorStudioYogiHost
+    {
+        public string ProjectId => owner.MobileProject ? owner.studioSession.Project.Id : "";
+        public bool Exists(YogiReference reference)
+        {
+            if (reference.Key.StartsWith("ui:", StringComparison.Ordinal)) return owner.mobileYogiTargets.Any(p => p.Value == reference.Key && p.Key.IsAttachedToWindow);
+            if (reference.Key.StartsWith(EditorYogiContext.Prefix, StringComparison.Ordinal)) return owner.windows.Definitions.Any(d => d.View == EditorYogiContext.Parts(reference.Key).View);
+            return owner.studioSession?.YogiExists(reference) == true;
+        }
+        public void Navigate(YogiReference reference) => owner.NavigateMobileYogi(reference);
+        public string Preview(YogiVisual visual) => MobileStudioProfilePreview(Convert.FromBase64String(visual.Image.Data), ".png");
+        public void Image(YogiVisual visual) => owner.ShowMobileYogiImage(visual);
+    }
     private YogiBox? mobileDraggedYogi;
     private Button? mobileIncidentBubble;
     private sealed class YogiGestureView(Context context) : View(context)
@@ -23,8 +38,8 @@ public sealed partial class MainActivity
     internal View MarkMobileYogi(View view, string key) { mobileYogiTargets[view] = key; return view; }
     private void AddMobileYogi(FrameLayout surface)
     {
-        mobileYogiSurface = surface; mobileYogiTray = new(this) { Orientation = Orientation.Vertical, Visibility = ViewStates.Gone }; mobileYogiTray.SetPadding(Dp(10), Dp(10), Dp(10), Dp(10)); mobileYogiTray.Background = BubbleShape(HomePanel);
-        surface.AddView(mobileYogiTray, new FrameLayout.LayoutParams(Dp(290), ViewGroup.LayoutParams.WrapContent, GravityFlags.Top | GravityFlags.Left) { LeftMargin = Dp(12), TopMargin = Dp(12) });
+        mobileYogiSurface = surface; mobileYogiTray = new(this) { Orientation = Orientation.Vertical, Visibility = ViewStates.Gone }; mobileYogiTray.Background = BubbleShape(HomePanel);
+        surface.AddView(mobileYogiTray, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WrapContent, ViewGroup.LayoutParams.WrapContent, GravityFlags.Bottom | GravityFlags.Left) { LeftMargin = Dp(12), BottomMargin = Dp(12) });
         mobileYogiOverlay = new(this) { Visibility = ViewStates.Gone }; surface.AddView(mobileYogiOverlay, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent));
         float sx = 0, sy = 0;
         mobileYogiOverlay.Touch += (_, e) =>
@@ -36,20 +51,19 @@ public sealed partial class MainActivity
                 else if (touch.ActionMasked == MotionEventActions.Move) { mobileYogiOverlay.Selection = new RectF(Math.Min(sx, x), Math.Min(sy, y), Math.Max(sx, x), Math.Max(sy, y)); mobileYogiOverlay.Invalidate(); }
                 else if (touch.ActionMasked == MotionEventActions.Up)
                 {
-                    var box = EditingMobileYogi();
                     if (Math.Abs(x - sx) + Math.Abs(y - sy) > Dp(6))
                     {
                         mobileYogiOverlay.Visibility = mobileYogiTray.Visibility = ViewStates.Gone;
                         var visual = new YogiVisual { Label = "프로젝트 화면", Image = CaptureMobileYogi(new Rect((int)Math.Min(sx, x), (int)Math.Min(sy, y), (int)Math.Max(sx, x), (int)Math.Max(sy, y))) };
-                        box.Looks.Add(visual); try { box.Validate(); } catch { box.Looks.Remove(visual); throw; }
+                        MobileTemporaryYogi.Collect(Array.Empty<YogiReference>(), new[] { visual });
                     }
                     else
                     {
                         var target = MobileYogiHit(surface, x, y) ?? throw new InvalidOperationException("프로젝트 요소를 선택해줘."); string key = mobileYogiTargets.TryGetValue(target, out var stored) ? stored : "ui:" + Guid.NewGuid().ToString("N"); mobileYogiTargets[target] = key;
                         var reference = studioSession.Index.Nodes.ContainsKey(key) ? studioSession.YogiReference(key) : new YogiReference { Project = studioSession.Project.Id, Key = key, Label = target is TextView text ? (text.Text ?? "UI").Substring(0, Math.Min(200, text.Text?.Length ?? 0)) : target.GetType().Name };
-                        if (box.Exactly.Count >= 32) throw new InvalidOperationException("EY는 박스마다 32개까지 담을 수 있어."); if (!box.Exactly.Any(r => r.Key == key)) box.Exactly.Add(reference);
+                        MobileTemporaryYogi.Collect(new[] { reference }, Array.Empty<YogiVisual>());
                     }
-                    studioSession.Collaboration.SaveYogi("human", box); mobileYogiOverlay.Selection = null; OpenMobileYogiBox(); mobileYogiOverlay.Visibility = ViewStates.Visible;
+                    mobileYogiOverlay.Selection = null; OpenMobileYogiBox(); mobileYogiOverlay.Visibility = ViewStates.Visible;
                 }
                 else if (touch.ActionMasked == MotionEventActions.Cancel) { mobileYogiOverlay.Selection = null; mobileYogiOverlay.Invalidate(); }
             }
@@ -69,18 +83,14 @@ public sealed partial class MainActivity
     {
         if (keyCode is Keycode.ShiftLeft or Keycode.ShiftRight) mobileConceptShift?.Invoke(true);
         if (keyCode == Keycode.Y && e?.IsCtrlPressed == true) { ToggleMobileYogi(); return true; }
-        if (keyCode is Keycode.Escape or Keycode.Back && mobileYogiOverlay?.Visibility == ViewStates.Visible) { mobileYogiOverlay.Visibility = ViewStates.Gone; return true; }
+        if (keyCode is Keycode.Escape or Keycode.Back && (mobileYogiOverlay?.Visibility == ViewStates.Visible || mobileTemporaryYogi?.Snapshot is not null)) { mobileTemporaryYogi?.Clear(); mobileYogiOverlay!.Visibility = ViewStates.Gone; return true; }
         return base.OnKeyDown(keyCode, e);
     }
     private void ToggleMobileYogi()
     {
+        if (!MobileProject) { Toast.MakeText(this, "프로젝트 작업 영역을 먼저 열어줘.", ToastLength.Short)?.Show(); return; }
         mobileYogiOverlay.Visibility = mobileYogiOverlay.Visibility == ViewStates.Visible ? ViewStates.Gone : ViewStates.Visible;
         if (mobileYogiOverlay.Visibility == ViewStates.Visible) { mobileYogiOverlay.BringToFront(); Toast.MakeText(this, "Yogi · 탭은 EY, 드래그는 LaY · Ctrl+Y 또는 뒤로로 마치기", ToastLength.Long)?.Show(); }
-    }
-    private YogiBox EditingMobileYogi()
-    {
-        var hub = studioSession.Collaboration; var box = hub.State.YogiBoxes.FirstOrDefault(b => b.Id == mobileYogiId && b.Author == "human");
-        if (box is null || box.Sealed) { box = hub.NewYogi("human"); mobileYogiId = box.Id; } return box;
     }
     private void ApplyMobileNativeYogi(ContextRequest request, YogiBox box)
     {
@@ -112,26 +122,34 @@ public sealed partial class MainActivity
     }
     private void OpenMobileYogiBox()
     {
-        var hub = studioSession.Collaboration; var box = hub.State.YogiBoxes.FirstOrDefault(b => b.Id == mobileYogiId && b.Author == "human") ?? hub.State.YogiBoxes.LastOrDefault(b => b.Author == "human") ?? hub.NewYogi("human"); mobileYogiId = box.Id;
-        mobileYogiTray.RemoveAllViews(); mobileYogiTray.Visibility = ViewStates.Visible; mobileYogiTray.AddView(AiAction("📦 YogiBox " + box.Count + "   ×", () => mobileYogiTray.Visibility = ViewStates.Gone));
-        if (box.Sealed)
+        if (MobileTemporaryYogi.Snapshot is null) MobileTemporaryYogi.Edit();
+        if (mobileYogiComposer is null)
         {
-            var parcel = HomeLabel(box.Caption + "\n드래그해서 전달", 14); parcel.SetPadding(Dp(8), Dp(8), Dp(8), Dp(8)); mobileYogiTray.AddView(parcel); long tap = 0;
-            parcel.Click += (_, _) => { long now = global::Android.OS.SystemClock.UptimeMillis(); if (now - tap < 320) { box.Open(); hub.SaveYogi("human", box); OpenMobileYogiBox(); } tap = now; };
-            parcel.LongClick += (_, e) => { mobileDraggedYogi = box.Copy(); parcel.StartDragAndDrop(ClipData.NewPlainText("Confectory.YogiBox", box.Id), new View.DragShadowBuilder(parcel), null, 0); e.Handled = true; };
+            mobileYogiComposer = mobileStudioPresentation.Actions.YogiComposer(mobileStudioPresentation, new AndroidPackBackend(this), MobileTemporaryYogi, new MobileStudioYogiHost(this), ToggleMobileYogi);
+            var control = ((AndroidPackBackend.Element)mobileYogiComposer.View.Root).Control;
+            var scroll = new ScrollView(this); scroll.AddView(control); mobileYogiTray.AddView(scroll);
+            var parcel = ((AndroidPackBackend.Element)mobileYogiComposer.View.Element("yogi-parcel")).Control; long tap = 0;
+            parcel.Click += (_, _) => { long now = global::Android.OS.SystemClock.UptimeMillis(); if (now - tap < 320) MobileHomeAction(MobileTemporaryYogi.Unseal); tap = now; };
+            parcel.LongClick += (_, e) => { MobileHomeAction(() => { mobileDraggedYogi = MobileTemporaryYogi.Delivery(); parcel.StartDragAndDrop(ClipData.NewPlainText("Confectory.YogiBox", mobileDraggedYogi.Id), new View.DragShadowBuilder(parcel), null, 0); }); e.Handled = true; };
+            MobileTemporaryYogi.Changed += RefreshMobileTemporaryYogi;
         }
-        else
+        RefreshMobileTemporaryYogi();
+    }
+    private void RefreshMobileTemporaryYogi()
+    {
+        var snapshot = mobileTemporaryYogi?.Snapshot;
+        mobileYogiTray.Visibility = snapshot is null ? ViewStates.Gone : ViewStates.Visible;
+        if (snapshot is null || snapshot.Sealed) { mobileYogiOverlay.Visibility = ViewStates.Gone; mobileYogiOverlay.Selection = null; }
+        if (mobileYogiComposer is not null)
         {
-            var rows = new LinearLayout(this) { Orientation = Orientation.Vertical };
-            foreach (var reference in box.Exactly.ToArray()) { var row = new LinearLayout(this); row.AddView(AiAction("EY " + reference.Label, () => NavigateMobileYogi(reference)), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WrapContent, 1)); row.AddView(AiAction("×", () => { box.Exactly.Remove(reference); hub.SaveYogi("human", box); OpenMobileYogiBox(); })); rows.AddView(row); }
-            foreach (var visual in box.Looks.ToArray()) { var row = new LinearLayout(this); row.AddView(AiAction("LaY " + visual.Label, () => ShowMobileYogiImage(visual)), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WrapContent, 1)); row.AddView(AiAction("×", () => { box.Looks.Remove(visual); hub.SaveYogi("human", box); OpenMobileYogiBox(); })); rows.AddView(row); }
-            mobileYogiTray.AddView(ConceptScroll(rows), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(120)));
-            var title = ConceptInput(box.Title); title.Hint = "박스 이름"; title.SetFilters([new global::Android.Text.InputFilterLengthFilter(200)]); title.TextChanged += (_, _) => { box.Title = title.Text ?? ""; hub.SaveYogi("human", box); }; mobileYogiTray.AddView(title);
-            var explanation = ConceptInput(box.Explanation, true); explanation.Hint = "설명이나 요청"; explanation.SetFilters([new global::Android.Text.InputFilterLengthFilter(16000)]); explanation.TextChanged += (_, _) => { box.Explanation = explanation.Text ?? ""; hub.SaveYogi("human", box); }; mobileYogiTray.AddView(explanation, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(72)));
-            var actions = new LinearLayout(this); actions.AddView(AiAction("수집", ToggleMobileYogi)); actions.AddView(AiAction("봉인", () => MobileHomeAction(() => { box.Seal(); hub.SaveYogi("human", box); mobileYogiOverlay.Visibility = ViewStates.Gone; OpenMobileYogiBox(); }))); mobileYogiTray.AddView(actions);
+            var rootView = ((AndroidPackBackend.Element)mobileYogiComposer.View.Root).Control;
+            var size = mobileYogiTray.LayoutParameters!; size.Width = rootView.LayoutParameters!.Width; mobileYogiTray.LayoutParameters = size;
         }
-        mobileYogiTray.AddView(AiAction("보관한 박스", () => { var boxes = hub.State.YogiBoxes.Where(b => b.Author == "human").Reverse().ToArray(); new AlertDialog.Builder(this).SetTitle("YogiBox")!.SetItems(boxes.Select(b => b.Caption + (b.Sealed ? " · 봉인됨" : " · 편집 중")).ToArray(), (_, e) => { mobileYogiId = boxes[e.Which].Id; OpenMobileYogiBox(); })!.Show(); }));
-        mobileYogiTray.AddView(AiAction("+ 새 박스", () => { mobileYogiId = hub.NewYogi("human").Id; OpenMobileYogiBox(); }));
+    }
+    private void DisposeMobileYogi()
+    {
+        if (mobileTemporaryYogi is not null) mobileTemporaryYogi.Changed -= RefreshMobileTemporaryYogi;
+        mobileYogiComposer?.Dispose(); mobileYogiComposer = null; mobileTemporaryYogi?.Clear(); mobileDraggedYogi = null;
     }
     private void BindMobileYogiDrop(View view, Action<YogiBox> receive)
     {
@@ -156,11 +174,10 @@ public sealed partial class MainActivity
     }
     private void ShowMobileYogiContents(YogiBox box)
     {
-        var body = ConceptColumn(); body.AddView(HomeLabel(box.Caption, 20)); body.AddView(HomeLabel(box.Explanation, 14));
-        foreach (var reference in box.Exactly) body.AddView(AiAction("EY · " + reference.Label + (studioSession.YogiExists(reference) || reference.Key.StartsWith("ui:", StringComparison.Ordinal) || reference.Key.StartsWith(EditorYogiContext.Prefix, StringComparison.Ordinal) ? "" : " · 삭제된 대상"), () => NavigateMobileYogi(reference)));
-        foreach (var visual in box.Looks) body.AddView(AiAction("LaY · " + visual.Label + " · " + visual.CapturedUtc, () => ShowMobileYogiImage(visual)));
-        body.AddView(AiAction("내 YogiBox에서 수정", () => { var copy = box.Copy(); copy.Id = Guid.NewGuid().ToString("N"); copy.Author = "human"; copy.Open(); studioSession.Collaboration.State.YogiBoxes.Add(copy); studioSession.Collaboration.Save(); mobileYogiId = copy.Id; OpenMobileYogiBox(); }));
-        new AlertDialog.Builder(this).SetTitle("YogiBox")!.SetView(ConceptScroll(body))!.SetPositiveButton("닫기", (_, _) => { })!.Show();
+        var dialog = new Dialog(this); dialog.SetTitle("YogiBox");
+        var inspector = mobileStudioPresentation.Actions.YogiInspector(mobileStudioPresentation, new AndroidPackBackend(this), box, new MobileStudioYogiHost(this), copy => { MobileTemporaryYogi.Edit(copy); OpenMobileYogiBox(); }, dialog.Dismiss);
+        var scroll = new ScrollView(this); scroll.AddView(((AndroidPackBackend.Element)inspector.View.Root).Control); dialog.SetContentView(scroll);
+        dialog.DismissEvent += (_, _) => inspector.Dispose(); dialog.Show(); dialog.Window?.SetLayout(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent);
     }
     private void ShowMobileYogiImage(YogiVisual visual)
     {

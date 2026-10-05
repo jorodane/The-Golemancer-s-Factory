@@ -234,6 +234,25 @@
     <Node id="agent-management-note" order="30" widget="editor.text"><Bind property="text" source="studio.management.note" /></Node>
     <Node id="agent-management-close" order="40" widget="editor.button"><Set property="text" value="닫기" /><On event="activate" command="studio.management.close" /></Node>
   </Slot></Node></View>
+  <View id="editor.studio.yogi"><Node id="yogi-root" widget="editor.stack"><Bind property="visible" source="studio.yogi.visible" /><Slot name="children">
+    <Node id="yogi-heading" order="0" widget="editor.wrap"><Slot name="children">
+      <Node id="yogi-name" order="0" widget="editor.text"><Set property="text" value="YogiBox" /><Set property="fontSize" value="20" /></Node>
+      <Node id="yogi-count" order="10" widget="editor.text"><Bind property="text" source="studio.yogi.count" /></Node>
+      <Node id="yogi-close" order="20" widget="editor.button"><Layout size="32,32" /><Set property="text" value="×" /><Set property="tooltip" value="현재 초안 전체 폐기 / 내용 창 닫기" /><On event="activate" command="studio.yogi.close" /></Node>
+    </Slot></Node>
+    <Node id="yogi-notice" order="10" widget="editor.text"><Bind property="text" source="studio.yogi.notice" /><Set property="foreground" value="#F8DA79" /></Node>
+    <Node id="yogi-parcel" order="20" widget="editor.button"><Bind property="visible" source="studio.yogi.sealed" /><Bind property="text" source="studio.yogi.parcel" /><Set property="tooltip" value="드래그해서 전달 · 더블클릭해서 봉인 해제" /><Layout size="180,54" /></Node>
+    <Node id="yogi-body" order="30" widget="editor.stack"><Bind property="visible" source="studio.yogi.expanded" /><Slot name="children">
+      <Node id="yogi-caption" order="0" widget="editor.text"><Bind property="visible" source="studio.yogi.inspect" /><Bind property="text" source="studio.yogi.title" /></Node>
+      <Node id="yogi-items" order="10" widget="editor.stack"><Slot name="children" export="true" /></Node>
+      <Node id="yogi-title" order="20" widget="editor.inline"><Bind property="visible" source="studio.yogi.editable" /><Set property="placeholder" value="이름 (선택)" /><Bind property="text" source="studio.yogi.title" /><On event="changed" command="studio.yogi.title" /></Node>
+      <Node id="yogi-explanation" order="30" widget="editor.inline"><Bind property="visible" source="studio.yogi.editable" /><Layout size="0,86" /><Set property="multiline" value="true" /><Set property="placeholder" value="설명이나 요청" /><Bind property="text" source="studio.yogi.explanation" /><On event="changed" command="studio.yogi.explanation" /></Node>
+      <Node id="yogi-explanation-read" order="40" widget="editor.readonly"><Bind property="visible" source="studio.yogi.inspect" /><Bind property="text" source="studio.yogi.explanation" /><Layout size="0,140" /></Node>
+      <Node id="yogi-edit-copy" order="50" widget="editor.button"><Bind property="visible" source="studio.yogi.inspect" /><Bind property="enabled" source="studio.yogi.valid" /><Set property="text" value="복사본으로 새 초안 작성" /><On event="activate" command="studio.yogi.edit" /></Node>
+      <Node id="yogi-collect" order="60" widget="editor.button"><Bind property="visible" source="studio.yogi.editable" /><Set property="text" value="Yogi 담기 · Ctrl+Y" /><On event="activate" command="studio.yogi.collect" /></Node>
+      <Node id="yogi-seal" order="70" widget="editor.button"><Bind property="visible" source="studio.yogi.editable" /><Set property="text" value="봉인하기" /><On event="activate" command="studio.yogi.seal" /></Node>
+    </Slot></Node>
+  </Slot></Node></View>
   <View id="editor.studio.review"><Node id="review-choice" widget="editor.stack"><Slot name="children">
     <Node id="review-title" order="0" widget="editor.text"><Set property="text" value="적용할 변경을 선택해줘." /><Set property="fontSize" value="22" /></Node>
     <Node id="review-help" order="10" widget="editor.text"><Set property="text" value="변경한 구간을 표시해. 파일 생성·등록 묶음은 함께 적용해." /></Node>

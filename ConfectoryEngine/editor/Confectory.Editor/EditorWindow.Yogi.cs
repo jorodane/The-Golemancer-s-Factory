@@ -16,6 +16,7 @@ public sealed partial class EditorWindow
     private readonly Rectangle yogiBox = new() { Stroke = AccentInk, StrokeThickness = 1.5, Fill = Brush("#2269D1BD"), IsHitTestVisible = false };
     private Grid? sharingSurface;
     private Point? yogiStart;
+    private long yogiCaptureRevision;
     private void AddInternalYogi(Grid surface)
     {
         sharingSurface = surface; surface.Children.Add(yogiTray); surface.Children.Add(yogiOverlay); yogiOverlay.Children.Add(yogiBox); yogiBox.Visibility = Visibility.Collapsed;
@@ -33,17 +34,15 @@ public sealed partial class EditorWindow
             {
                 if ((end - start).Length > 6)
                 {
-                    var rect = new Rect(start, end); DisarmYogi(); yogiTray.Visibility = Visibility.Collapsed;
+                    var owner = session; var rect = new Rect(start, end); DisarmYogi(); long captureRevision = yogiCaptureRevision; yogiTray.Visibility = Visibility.Collapsed;
                     await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Render);
+                    if (!ReferenceEquals(owner, session) || captureRevision != yogiCaptureRevision) return;
                     var visual = new YogiVisual { Label = "프로젝트 화면", Image = CaptureYogiImage(rect) };
-                    var draft = EditingYogi(); draft.Looks.Add(visual); try { draft.Validate(); } catch { draft.Looks.Remove(visual); throw; }
-                    session.Collaboration.SaveYogi("human", draft); OpenYogiBox(); ArmYogi(false);
+                    TemporaryYogi.Collect(Array.Empty<YogiReference>(), new[] { visual }); OpenYogiBox(); ArmYogi(false);
                 }
                 else if (YogiElement(end) is { } element)
                 {
-                    var reference = ExactYogiElement(element); var draft = EditingYogi();
-                    if (!draft.Exactly.Any(r => r.Key == reference.Key)) { if (draft.Exactly.Count >= 32) throw new InvalidOperationException("한 박스에 EY 32개까지 담을 수 있어."); draft.Exactly.Add(reference); }
-                    session.Collaboration.SaveYogi("human", draft); OpenYogiBox();
+                    TemporaryYogi.Collect(new[] { ExactYogiElement(element) }, Array.Empty<YogiVisual>()); OpenYogiBox();
                 }
             }
             catch (Exception error) { SetStatus(error.Message); OpenYogiBox(); }
@@ -51,7 +50,7 @@ public sealed partial class EditorWindow
         PreviewKeyDown += (_, e) =>
         {
             if (e.Key == Key.Y && Keyboard.Modifiers.HasFlag(ModifierKeys.Control)) { if (yogiOverlay.Visibility == Visibility.Visible) DisarmYogi(); else ArmYogi(false); e.Handled = true; }
-            else if (e.Key == Key.Escape && yogiOverlay.Visibility == Visibility.Visible) { DisarmYogi(); e.Handled = true; }
+            else if (e.Key == Key.Escape && (yogiOverlay.Visibility == Visibility.Visible || temporaryYogi?.Snapshot is not null)) { temporaryYogi?.Clear(); DisarmYogi(); e.Handled = true; }
         };
     }
     private FrameworkElement? YogiElement(Point point)
@@ -77,7 +76,7 @@ public sealed partial class EditorWindow
         yogiOverlay.Cursor = Cursors.Cross; yogiOverlay.Visibility = Visibility.Visible; yogiBox.Visibility = Visibility.Collapsed;
         sharingStatus.Text = "Yogi · 클릭은 EY, 드래그는 LaY · Ctrl+Y 또는 Esc로 마치기"; SetStatus(sharingStatus.Text);
     }
-    private void DisarmYogi(bool keepRecipient = false) { yogiOverlay.ReleaseMouseCapture(); yogiOverlay.Visibility = Visibility.Collapsed; yogiBox.Visibility = Visibility.Collapsed; yogiStart = null; }
+    private void DisarmYogi(bool keepRecipient = false) { yogiCaptureRevision++; yogiOverlay.ReleaseMouseCapture(); yogiOverlay.Visibility = Visibility.Collapsed; yogiBox.Visibility = Visibility.Collapsed; yogiStart = null; }
     private SharedEditorImage CaptureYogiImage(Rect region)
     {
         if (sharingSurface is null) throw new InvalidOperationException("에디터 작업 영역을 먼저 열어줘.");

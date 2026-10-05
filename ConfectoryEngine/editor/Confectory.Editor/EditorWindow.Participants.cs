@@ -77,7 +77,7 @@ public sealed partial class EditorWindow
     private void ResetWorkers()
     {
         foreach (var worker in workers) { worker.Log?.Close(); worker.Assistant?.Dispose(); }
-        yogiTray.Visibility = Visibility.Collapsed; DisarmYogi(); currentYogi = ""; yogiUi.Clear(); workers.Clear(); participantsCanvas.Children.Clear(); activeReviews.Clear(); selectedWorker = "";
+        yogiTray.Visibility = Visibility.Collapsed; DisarmYogi(); temporaryYogi?.Clear(); yogiUi.Clear(); workers.Clear(); participantsCanvas.Children.Clear(); activeReviews.Clear(); selectedWorker = "";
         if (session is null) return;
         ObserveParticipants(); participantNotifications.Children.Clear();
         foreach (var participant in session.Collaboration.State.Participants.Where(p => p.Kind == ParticipantKind.AI && p.Id.StartsWith("worker-", StringComparison.Ordinal)).ToArray()) CreateWorker(participant);

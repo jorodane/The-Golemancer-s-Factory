@@ -1,5 +1,4 @@
 using System.Text;
-using System.Text.Json;
 
 namespace Confectory.Workspace;
 
@@ -29,7 +28,17 @@ public sealed class YogiBox
     public int Count => Exactly.Count + Looks.Count;
     public string Caption => Title.Trim().Length > 0 ? Title.Trim() : Explanation.Trim().Length > 0 ? ConversationTimeline.Preview(Explanation) : "YogiBox " + Count;
     public object ForModel() => new { Id, Revision, Author, Title, Explanation, Exactly, Looks = Looks.Select(v => new { v.Label, v.CapturedUtc, v.Image.Sha256, v.Image.Width, v.Image.Height }) };
-    public YogiBox Copy() => JsonSerializer.Deserialize<YogiBox>(EditorSession.Serialize(this), EditorSession.Json)!;
+    // Copy mutable containers while sharing immutable image strings; live composition must not serialize captures per keystroke.
+    public YogiBox Copy() => new()
+    {
+        Id = Id, Author = Author, Revision = Revision, Sealed = Sealed, Title = Title, Explanation = Explanation,
+        Exactly = Exactly.Select(reference => new YogiReference { Project = reference.Project, Key = reference.Key, Label = reference.Label }).ToList(),
+        Looks = Looks.Select(visual => new YogiVisual
+        {
+            Label = visual.Label, CapturedUtc = visual.CapturedUtc,
+            Image = new SharedEditorImage { Data = visual.Image.Data, Sha256 = visual.Image.Sha256, Width = visual.Image.Width, Height = visual.Image.Height }
+        }).ToList()
+    };
     public void Validate(bool delivery = false)
     {
         if (!Guid.TryParseExact(Id, "N", out _) || Revision < 0 || Title.Length > 200 || Explanation.Length > 16000 || Exactly.Count > 32 || Looks.Count > 4 || Count == 0 && string.IsNullOrWhiteSpace(Explanation)) throw new InvalidDataException("YogiBox의 내용과 크기를 확인해줘.");

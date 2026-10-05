@@ -5,6 +5,9 @@ namespace Confectory.Editor.CoreTools;
 
 public sealed class StudioActions : IEditorStudioActions
 {
+    public IEditorStudioYogiDraft YogiDraft() => new StudioYogiDraft();
+    public IEditorStudioYogiView YogiInspector(EditorStudioPresentation presentation, IUiBackend backend, YogiBox box, IEditorStudioYogiHost host, Action<YogiBox> edit, Action close) => new StudioYogiView(presentation, backend, box, host, edit, close);
+    public IEditorStudioYogiView YogiComposer(EditorStudioPresentation presentation, IUiBackend backend, IEditorStudioYogiDraft draft, IEditorStudioYogiHost host, Action collect) => new StudioYogiView(presentation, backend, draft, host, collect);
     public IEditorStudioReviewChoice ReviewChoice(EditorStudioPresentation presentation, IUiBackend backend, ChangeReviewBatch review, Func<CancellationToken, Task> prepare, Action<Action> dispatch, CancellationToken cancellation) => new StudioReviewChoice(presentation, backend, review, prepare, dispatch, cancellation);
     public IEditorStudioHelperConversation HelperConversation(EditorStudioPresentation presentation, IUiBackend backend, AiDirectory directory, CollaborationWorkspace? collaboration, IEditorStudioHelperTimeline timeline, Func<string, string> image, Action<YogiBox> inspect, Action<string> publicChat, Action closed) => new StudioHelperConversation(presentation, backend, directory, timeline, image, inspect, publicChat, closed);
     public IEditorStudioHelperTimelines HelperTimelines(AiDirectory directory, CollaborationWorkspace? collaboration, string projectIdentity, IEditorStudioHelperExecution execution, IEditorStudioHelperHistoryStore history, Action<Action> dispatch) => new StudioHelperTimelines(directory, collaboration, projectIdentity, execution, history, dispatch);
