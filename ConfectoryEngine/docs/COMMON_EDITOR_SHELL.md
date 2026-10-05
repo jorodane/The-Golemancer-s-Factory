@@ -2173,3 +2173,11 @@ Resume that draft after this urgent correction's exact CI passes; apply only the
 latest draft once, not every backup. Merge the new observation/runtime lifetime
 fix into native adoption rather than overwriting it. Remaining mailbox coverage,
 input/focus/Yogi/entry-to-Run checks and Worker entrypoint retirement still apply.
+
+Exact fix commit `22088298c7117ccc2a4d91697d86e9fc179a56f3` passed all eleven
+new lifetime/history checks on actual Windows in CI 37281628512. The overall
+Windows job then failed because the older main fixture retained its original
+`session` variable across this new test's actual reopen; attachment correctly
+rejected that stale Participant object. The follow-up refreshes only that fixture
+reference from the window's current session. Production ownership checks remain
+unchanged. Android APK succeeded; other exact-head jobs are tracked separately.

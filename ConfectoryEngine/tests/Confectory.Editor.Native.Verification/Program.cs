@@ -176,6 +176,7 @@ internal static partial class Program
                 && !Descendants(host).OfType<TextBox>().Any(t => t.IsVisible && t.Text.Contains("<ObjectPack")), "the native main view renders actual project item cards instead of source documents");
 
             VerifyParticipantSessionLifetime(window);
+            session = Field<EditorSession>(window, "session");
             VerifyAgentRecovery(window);
             VerifySavedAgent(window);
             VerifyHelperConversation(window);
