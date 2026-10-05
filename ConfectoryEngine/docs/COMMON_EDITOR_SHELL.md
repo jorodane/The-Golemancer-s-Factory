@@ -15,7 +15,10 @@
 
 ## Current resume checkpoint
 
-Last CI-complete preceding checkpoint: `f3fcf9e03f70de530d6f3ef373a2076e6f0ca42e`.
+Latest CI-complete, exact remotely verified checkpoint: `cbed5eda4cf0fac1adda672ad67049aabdae3d21`.
+All five jobs passed in [CI 37255043663](https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37255043663),
+including 85 actual Windows native checks, 2,117 portable pack checks and the
+Linux production regression. The preceding Yogi checkpoint is recorded below.
 All five jobs passed in [CI 37251133809](https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37251133809),
 including **85 actual Windows native checks** and **2,075 portable pack checks**.
 Temporary pack-owned Yogi composition/inspection is published on Windows/Android;
@@ -23,7 +26,7 @@ Linux production adoption is the active local continuation.
 Windows/Android production Helper conversations and shared selective review are
 published. This revision adopts Linux production Helper conversations, temporary
 Yogi and installed conflict choice; completed local checks and next scope are at
-the end of this document. Remote CI for this increment must be confirmed after push. Workspace roles/Join/names, participant
+the end of this document. All five remote CI jobs are confirmed successful for this increment. Workspace roles/Join/names, participant
 lifecycle/settings, Agent management, portraits/sidebar and saved-source actions
 are installed CoreTools checkpoints. The assigned stage remains incomplete.
 
@@ -1867,3 +1870,37 @@ routes, common project chat and continuous Main Helper routing, final common
 navigation/layout/mailbox/log panel and selected-project entry→Run. Broader shell
 parity/package and the subsequent stages remain unfinished. This increment is a
 checkpoint, not completion of the assigned common-shell stage.
+
+
+Linux production checkpoint `cbed5eda4cf0fac1adda672ad67049aabdae3d21` is pushed,
+exactly matches remote main and has all five successful CI jobs in run 37255043663.
+The next contract is [LEGACY_CONVERSATION_RECOVERY.md](LEGACY_CONVERSATION_RECOVERY.md);
+implement and verify recovery before retiring superseded direct Worker routes.
+Shared public project/Room chat must preserve private-context exclusion while
+adding Main Helper continuous receipt and explicit ordinary Helper mentions.
+
+## Read-only legacy recovery checkpoint (2026-10-05)
+
+Installed CoreTools now owns the common catalog and recovery view/actions on all
+three hosts. Native adapters provide captured-project consent, read-only private
+file IO and OS presentation boundaries. Active and archived owned identities are
+readable even when their Agent source or Worker supervision is missing. No source,
+assignment, provider conversation, receipts or tasks are reconstructed implicitly.
+Files are never converted or written; malformed and oversized originals remain.
+
+Validation: 2,189 portable checks; eight actual SDL recovery checks covering
+archived history, pointer selection, private capture exclusion, consent revocation,
+close/reentry and unchanged bytes/metadata; Windows native fixture and Android
+official-reference source builds with zero warnings/errors. Windows execution
+and actual Android APK build will be confirmed by exact-commit CI after publication.
+Independent net48/net10 engine/button/timing/camera/external-UI isolation and the
+full explicitly selected external consumer clean-build/verification campaign pass.
+Local physical-device testing and actual local APK prerequisites remain unavailable.
+No paid AI calls, real authentication or credential saving occurred.
+
+Next work remains common project/Room chat, continuous Main Helper receipt and
+explicit ordinary Helper tags; then verified retirement of superseded direct
+Worker/promotion/creation routes and final common navigation/layout/mailbox/log
+panel plus selected-project entry→Run. Internal Worker and conflict/handoff
+services remain intact. This is a recovery checkpoint, not stage completion.
+Evidence: `/workspace/scratch/legacy-history-{packs-publish,native,windows-final,android-final,isolation,consumer}.log`.

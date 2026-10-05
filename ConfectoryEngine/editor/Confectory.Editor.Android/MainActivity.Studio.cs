@@ -69,7 +69,7 @@ public sealed partial class MainActivity
         }
         mobileWorkerLayer.Visibility = ViewStates.Visible; RefreshMobilePresence();
     }
-    private void RefreshMobileManagement() { BuildMobileAiSidebar(); mobileGlobalTimelines?.Refresh(); mobileProjectTimelines?.Refresh(); }
+    private void RefreshMobileManagement() { RefreshMobileLegacyHistories(); BuildMobileAiSidebar(); mobileGlobalTimelines?.Refresh(); mobileProjectTimelines?.Refresh(); }
     private void RefreshMobilePresence()
     {
         if (studioSession is null || IsDestroyed || mobilePresenceQueued) return; mobilePresenceQueued = true;

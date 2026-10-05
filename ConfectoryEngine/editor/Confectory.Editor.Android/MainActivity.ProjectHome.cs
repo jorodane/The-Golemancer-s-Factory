@@ -108,7 +108,7 @@ public sealed partial class MainActivity
         {
             var worker = mobileWorkers.FirstOrDefault(w => w.Participant.Id == participant.Id) ?? LoadMobileWorker(participant);
             if (open) SelectMobileWorker(worker);
-        }, id => { if (id.Length > 0) SelectMobileAgent(mobileDirectory.Agent(id)); else { editorAi?.Dispose(); editorAi = null; aiConnections.Editor = new(); } SaveMobileDirectory(); }, id => mobileWorkers.Any(w => w.Participant.Id == id && w.Cancellation is not null), () => !aiWorking && !aiConnecting && operation.CurrentCount > 0, removed: RemoveMobileParticipants, workerSettings: id => ShowMobileWorkerSettings(mobileWorkers.Single(w => w.Participant.Id == id)), manageAgents: ShowMobileAgentManagement, supportsProvider: mobileStudioPresentation.Actions.AgentService(AndroidAiOptions).Supports, portraitImage: MobilePortraitImage);
+        }, id => { if (id.Length > 0) SelectMobileAgent(mobileDirectory.Agent(id)); else { editorAi?.Dispose(); editorAi = null; aiConnections.Editor = new(); } SaveMobileDirectory(); }, id => mobileWorkers.Any(w => w.Participant.Id == id && w.Cancellation is not null), () => !aiWorking && !aiConnecting && operation.CurrentCount > 0, removed: RemoveMobileParticipants, workerSettings: id => ShowMobileWorkerSettings(mobileWorkers.Single(w => w.Participant.Id == id)), manageAgents: ShowMobileAgentManagement, supportsProvider: mobileStudioPresentation.Actions.AgentService(AndroidAiOptions).Supports, portraitImage: MobilePortraitImage, history: OpenMobileLegacyHistoryCatalog);
     private void RemoveMobileParticipants(IReadOnlyList<Participant> removed)
     {
         var failures = new List<Exception>();

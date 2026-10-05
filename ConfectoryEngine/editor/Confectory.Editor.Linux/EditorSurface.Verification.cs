@@ -290,6 +290,7 @@ internal sealed partial class EditorSurface
         VerifyHelperConversation(native, screenshot);
         VerifyReviewChoice(native, screenshot);
         VerifyProductionHelper(native, screenshot);
+        VerifyLegacyRecovery(native);
         ShowObjects(concept.Id); status = "Native verification passed · SDL input, semantic save, DLL command and dynamic window"; native.Paint();
         Console.WriteLine("LINUX_EDITOR_SMOKE_PASS SDL_WINDOW STARTUP AGENT_CONNECTION PRIVATE_INPUT PROFILE PARTICIPANT_NAME SHARED_SIDEBAR SHARED_HELPER_CONVERSATION WORKSPACE_ROLES JOIN GLOBAL_MEMORY IMAGE_REVIEW READONLY_EXPERIENCE PROJECT_CREATION PROJECT_HOME TEXT_INPUT POINTER SCHEMA_SAVE PACK_DLL DYNAMIC_VIEW");
     }

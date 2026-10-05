@@ -27,7 +27,7 @@ public sealed partial class MainActivity
     private void ReplaceMobileSession(string manifest, bool project)
     {
         RequireMobileIdle(); var next = new EditorSession(manifest); var nextRoles = ProjectStudio.Load(next.Project);
-        DetachMobileHelperProject(); StopMobilePeers(); documentDialog?.Dismiss(); mobileDirectoryExpanded = false; CloseMobileConceptWindows();
+        CloseMobileLegacyHistories(); DetachMobileHelperProject(); StopMobilePeers(); documentDialog?.Dismiss(); mobileDirectoryExpanded = false; CloseMobileConceptWindows();
         foreach (var window in LiveWindows.ToArray()) CloseWindow(window.Id);
         mobileObjectWindows.Clear(); mobileEditorPackSelection = "";
         foreach (var worker in mobileWorkers) { worker.Log?.Dismiss(); worker.Assistant?.Dispose(); } mobileWorkers.Clear(); mobileWorkerLayer.RemoveAllViews(); mobileParticipantNotices.RemoveAllViews(); selectedMobileWorker = "";

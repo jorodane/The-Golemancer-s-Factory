@@ -80,6 +80,7 @@ public sealed partial class EditorWindow
     }
     private void RefreshStudioShell()
     {
+        RefreshLegacyHistoryWindows();
         if (projectCommands is null || editorBody is null) return;
         RefreshStartPage();
         bool project = studioReady && session is not null && !Standalone;

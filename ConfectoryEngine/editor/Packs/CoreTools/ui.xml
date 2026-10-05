@@ -212,6 +212,7 @@
     <Node id="workspace-agents" order="20" widget="editor.grid"><Layout size="96,0" /><Set property="columns" value="2" /><Slot name="children" export="true" /></Node>
     <Node id="workspace-helper-heading" order="30" widget="editor.text"><Set property="text" value="Helper · 개인 기억은 이 Helper에게만 전달돼." /></Node>
     <Node id="workspace-helpers" order="40" widget="editor.stack"><Slot name="children" export="true" /></Node>
+    <Node id="workspace-history" order="41" widget="editor.button"><Set property="text" value="내 AI의 이전 기록 (읽기 전용)" /><On event="activate" command="studio.workspace.history" /></Node>
     <Node id="workspace-add-worker" order="42" widget="editor.button"><Set property="text" value="AI 작업자 추가" /><On event="activate" command="studio.workspace.addWorker" /></Node>
     <Node id="workspace-workers" order="45" widget="editor.stack"><Slot name="children" export="true" /></Node>
     <Node id="workspace-agent-management" order="48" widget="editor.button"><Set property="text" value="Agent 관리" /><Bind property="enabled" source="studio.workspace.canManage" /><On event="activate" command="studio.workspace.manageAgents" /></Node>
@@ -242,6 +243,31 @@
     <Node id="conflict-notice" order="40" widget="editor.text"><Bind property="text" source="studio.conflict.notice" /><Set property="foreground" value="#F8DA79" /></Node>
     <Node id="conflict-accept" order="50" widget="editor.button"><Set property="text" value="선택한 후보로 다시 비교" /><On event="activate" command="studio.conflict.accept" /></Node>
     <Node id="conflict-cancel" order="60" widget="editor.button"><Set property="text" value="취소" /><On event="activate" command="studio.conflict.cancel" /></Node>
+  </Slot></Node></View>
+  <View id="editor.studio.legacy-catalog"><Node id="legacy-catalog-root" widget="editor.stack"><Slot name="children">
+    <Node id="legacy-catalog-title" order="0" widget="editor.text"><Set property="text" value="내 AI의 이전 기록" /><Set property="fontSize" value="20" /></Node>
+    <Node id="legacy-catalog-summary" order="10" widget="editor.text"><Bind property="text" source="studio.legacy.catalog.summary" /></Node>
+    <Node id="legacy-catalog-notice" order="20" widget="editor.text"><Bind property="text" source="studio.legacy.catalog.notice" /><Set property="foreground" value="#F8DA79" /></Node>
+    <Node id="legacy-catalog-entries" order="30" widget="editor.stack"><Slot name="children" export="true" /></Node>
+    <Node id="legacy-catalog-close" order="40" widget="editor.button"><Set property="text" value="닫기" /><On event="activate" command="studio.legacy.catalog.close" /></Node>
+  </Slot></Node></View>
+  <View id="editor.studio.legacy-history"><Node id="legacy-root" widget="editor.stack"><Slot name="children">
+    <Node id="legacy-title" order="0" widget="editor.text"><Bind property="text" source="studio.legacy.title" /><Set property="fontSize" value="20" /></Node>
+    <Node id="legacy-sources" order="10" widget="editor.wrap"><Slot name="children" export="true" /></Node>
+    <Node id="legacy-notice" order="20" widget="editor.text"><Bind property="text" source="studio.legacy.notice" /><Set property="foreground" value="#F8DA79" /></Node>
+    <Node id="legacy-position" order="30" widget="editor.text"><Bind property="text" source="studio.legacy.position" /></Node>
+    <Node id="legacy-state" order="40" widget="editor.text"><Bind property="text" source="studio.legacy.state" /></Node>
+    <Node id="legacy-question" order="50" widget="editor.readonly"><Bind property="text" source="studio.legacy.question" /><Layout size="0,120" /></Node>
+    <Node id="legacy-answer" order="60" widget="editor.readonly"><Bind property="text" source="studio.legacy.answer" /><Layout size="0,220" /></Node>
+    <Node id="legacy-events" order="70" widget="editor.readonly"><Bind property="text" source="studio.legacy.events" /><Layout size="0,120" /></Node>
+    <Node id="legacy-navigation" order="80" widget="editor.wrap"><Slot name="children">
+      <Node id="legacy-previous" order="0" widget="editor.button"><Set property="text" value="이전" /><Bind property="enabled" source="studio.legacy.previous" /><On event="activate" command="studio.legacy.previous" /></Node>
+      <Node id="legacy-next" order="10" widget="editor.button"><Set property="text" value="다음" /><Bind property="enabled" source="studio.legacy.next" /><On event="activate" command="studio.legacy.next" /></Node>
+      <Node id="legacy-inspect" order="20" widget="editor.button"><Set property="text" value="보관 YogiBox 내용" /><Bind property="enabled" source="studio.legacy.attachment" /><On event="activate" command="studio.legacy.inspect" /></Node>
+      <Node id="legacy-reload" order="30" widget="editor.button"><Set property="text" value="원본 다시 읽기" /><On event="activate" command="studio.legacy.reload" /></Node>
+      <Node id="legacy-original" order="40" widget="editor.button"><Set property="text" value="원본 폴더" /><Bind property="enabled" source="studio.legacy.original" /><On event="activate" command="studio.legacy.original" /></Node>
+      <Node id="legacy-close" order="50" widget="editor.button"><Set property="text" value="닫기" /><On event="activate" command="studio.legacy.close" /></Node>
+    </Slot></Node>
   </Slot></Node></View>
   <View id="editor.studio.yogi"><Node id="yogi-root" widget="editor.stack"><Bind property="visible" source="studio.yogi.visible" /><Slot name="children">
     <Node id="yogi-heading" order="0" widget="editor.wrap"><Slot name="children">

@@ -21,7 +21,7 @@ public sealed partial class StudioWorkspace : IEditorStudioWorkspace
     private readonly Func<bool> idle;
     private readonly Action<IReadOnlyList<Participant>>? removed;
     private readonly Action<string>? workerSettings;
-    private readonly Action? manageAgents;
+    private readonly Action? manageAgents, history;
     private readonly UiSignal note = new(UiValue.Text(""));
     private bool disposed;
     public EditorLiveView View { get; }
@@ -29,12 +29,12 @@ public sealed partial class StudioWorkspace : IEditorStudioWorkspace
 
     public StudioWorkspace(EditorStudioPresentation presentation, IUiBackend backend, AiDirectory directory, WorkspaceProject project,
         ProjectStudio roles, CollaborationWorkspace collaboration, Action saveDirectory, Action<Participant, bool> joined,
-        Action<string> selectedAgent, Func<string, bool> running, Func<bool>? idle, Action<IReadOnlyList<Participant>>? removed, Action<string>? workerSettings, Action? manageAgents, Func<string, bool>? supportsProvider, Func<string, string>? portraitImage)
+        Action<string> selectedAgent, Func<string, bool> running, Func<bool>? idle, Action<IReadOnlyList<Participant>>? removed, Action<string>? workerSettings, Action? manageAgents, Func<string, bool>? supportsProvider, Func<string, string>? portraitImage, Action? history)
     {
         this.presentation = presentation; this.directory = directory; this.project = project; this.roles = roles;
         this.collaboration = collaboration; this.saveDirectory = saveDirectory; this.joined = joined; this.selectedAgent = selectedAgent;
         this.running = running; this.idle = idle ?? (() => true);
-        this.removed = removed; this.workerSettings = workerSettings; this.manageAgents = manageAgents; this.supportsProvider = supportsProvider ?? (_ => true); this.portraitImage = portraitImage ?? (_ => "");
+        this.history = history; this.removed = removed; this.workerSettings = workerSettings; this.manageAgents = manageAgents; this.supportsProvider = supportsProvider ?? (_ => true); this.portraitImage = portraitImage ?? (_ => "");
         try { new StudioSupervision(directory, collaboration, running, "human").ValidateOwned(); }
         catch (InvalidDataException failure) { note.Set(UiValue.Text(failure.Message)); }
         var state = State(); View = new(state.Catalog, "editor.studio.workspace.state", state.Context, backend);
@@ -147,6 +147,7 @@ public sealed partial class StudioWorkspace : IEditorStudioWorkspace
             new XElement("Set", new XAttribute("property", "enabled"), new XAttribute("value", enabled ? "true" : "false")),
             new XElement("On", new XAttribute("event", "activate"), new XAttribute("command", command)));
         void Command(string id, Action action) => context.AddCommand(id, UiValueKind.None, _ => Guard(action));
+        Command("studio.workspace.history", () => { collaboration.Require("human", ParticipantPermission.None); history?.Invoke(); });
         Command("studio.workspace.addWorker", () => CreateWorker());
         Command("studio.workspace.manageAgents", () => manageAgents?.Invoke());
         Command("studio.workspace.clearAgent", () => SelectMainAgent(""));
@@ -175,6 +176,7 @@ public sealed partial class StudioWorkspace : IEditorStudioWorkspace
             workers.Add(Button("workspace-worker-settings-" + index, participant.Name + " · 설정", command, workerSettings is not null && collaboration.CanControl("human", participant.Id)));
         }
         var view = new XElement("View", new XAttribute("id", "editor.studio.workspace.state"), new XAttribute("extends", "editor.studio.workspace"),
+            new XElement("Override", new XAttribute("node", "workspace-history"), new XElement("Set", new XAttribute("property", "visible"), new XAttribute("value", history is not null && ProjectRoles ? "true" : "false"))),
             new XElement("Override", new XAttribute("node", "workspace-agents"), new XElement("Slot", new XAttribute("name", "children"), agents)),
             new XElement("Override", new XAttribute("node", "workspace-helpers"), new XElement("Slot", new XAttribute("name", "children"), helpers)),
             new XElement("Override", new XAttribute("node", "workspace-workers"), new XElement("Slot", new XAttribute("name", "children"), workers)));

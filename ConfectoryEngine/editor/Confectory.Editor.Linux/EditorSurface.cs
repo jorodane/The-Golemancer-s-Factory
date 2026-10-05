@@ -175,6 +175,7 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
     }
     private void Page(string name, string page, bool preserveStartup = false, bool preserveProfile = false, bool preserveDirectory = false)
     {
+        DisposeLinuxLegacyHistory();
         sharedSidebar?.ClosePane();
         studioWorkerSettings?.Dispose(); studioWorkerSettings = null;
         studioAgentManagement?.Dispose(); studioAgentManagement = null;
@@ -308,10 +309,11 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
         return presentation.Actions.Workspace(presentation, renderer, studioDirectory, selected.Project, roles, selected.Collaboration,
             SaveLinuxHelperDirectory, (participant, open) => { status = participant.Name + "가 참여했어. 아직 AI 요청은 하지 않았어."; if (open && participant.HelperId.Length > 0) OpenLinuxHelper(participant.HelperId); Invalidate(); },
             id => { connectedAgent?.Dispose(); connectedAgent = null; if (id.Length > 0) studioDirectory.SelectedAgentId = id; SaveLinuxHelperDirectory(); }, LinuxWorkerRunning, () => !busy,
-            workerSettings: ShowWorkerSettings, manageAgents: () => ShowAgentManagement(), supportsProvider: CreateLinuxAgentService(presentation).Supports, portraitImage: LinuxPortraitImage);
+            workerSettings: ShowWorkerSettings, manageAgents: () => ShowAgentManagement(), supportsProvider: CreateLinuxAgentService(presentation).Supports, portraitImage: LinuxPortraitImage, history: OpenLinuxLegacyHistoryCatalog);
     }
     private void Home()
     {
+        DisposeLinuxLegacyHistory();
         sharedWorkspaceRoles?.Dispose(); sharedWorkspaceRoles = null;
         studioWorkerSettings?.Dispose(); studioWorkerSettings = null;
         studioAgentManagement?.Dispose(); studioAgentManagement = null;
@@ -712,5 +714,5 @@ internal sealed partial class EditorSurface : NativeSurface, IDisposable
         Add(root, Button("cancel", "Close draft", Leave));
         if (!editable) { Disable(root.Children.First(c => c.Id == "confirm")); Disable(root.Children.First(c => c.Id == "answer")); }
     }
-    public void Dispose() { if (disposed) return; DisposeLinuxHelpers(); DisposeLinuxYogi(); DisposeSharedConflict(); DisposeSharedReview(); disposed = true; lifetime.Cancel(); sharedSidebar?.Dispose(); studioAgentManagement?.Dispose(); studioWorkerSettings?.Dispose(); pendingReview?.Cancel(); sharedWorkspaceRoles?.Dispose(); windows.Dispose(); execution?.Dispose(); runner?.Dispose(); FinishStudioHomeFlight(); sharedStudioDirectory?.Dispose(); studioProfile?.Dispose(); connectedAgent?.Dispose(); studioAgent?.Dispose(); sharedProjectHome?.Dispose(); studioCreation?.Dispose(); studioStartView?.Dispose(); studioHomeBrandView?.Dispose(); backend.Dispose(); lifetime.Dispose(); }
+    public void Dispose() { if (disposed) return; DisposeLinuxLegacyHistory(); DisposeLinuxHelpers(); DisposeLinuxYogi(); DisposeSharedConflict(); DisposeSharedReview(); disposed = true; lifetime.Cancel(); sharedSidebar?.Dispose(); studioAgentManagement?.Dispose(); studioWorkerSettings?.Dispose(); pendingReview?.Cancel(); sharedWorkspaceRoles?.Dispose(); windows.Dispose(); execution?.Dispose(); runner?.Dispose(); FinishStudioHomeFlight(); sharedStudioDirectory?.Dispose(); studioProfile?.Dispose(); connectedAgent?.Dispose(); studioAgent?.Dispose(); sharedProjectHome?.Dispose(); studioCreation?.Dispose(); studioStartView?.Dispose(); studioHomeBrandView?.Dispose(); backend.Dispose(); lifetime.Dispose(); }
 }

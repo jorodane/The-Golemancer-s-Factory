@@ -98,6 +98,8 @@ public interface IEditorStudioSidebarHost
 /// <summary>Private trusted-shell ABI. Never supplied to project modules or overlays.</summary>
 public interface IEditorStudioActions
 {
+    IEditorStudioLegacyHistoryCatalog LegacyHistoryCatalog(EditorStudioPresentation presentation, IUiBackend backend, CollaborationWorkspace collaboration, Action<string> open, Action close);
+    IEditorStudioLegacyHistory LegacyHistory(EditorStudioPresentation presentation, IUiBackend backend, CollaborationWorkspace collaboration, string participantId, IEditorStudioLegacyHistoryStore store, Action<YogiBox> inspect, Action close, Action? openOriginalFolder = null);
     IEditorStudioYogiDraft YogiDraft();
     IEditorStudioYogiView YogiInspector(EditorStudioPresentation presentation, IUiBackend backend, YogiBox box, IEditorStudioYogiHost host, Action<YogiBox> edit, Action close);
     IEditorStudioYogiView YogiComposer(EditorStudioPresentation presentation, IUiBackend backend, IEditorStudioYogiDraft draft, IEditorStudioYogiHost host, Action collect);
@@ -113,7 +115,7 @@ public interface IEditorStudioActions
     IEditorStudioSidebar Sidebar(EditorStudioPresentation presentation, IUiBackend backend, AiDirectory directory, CollaborationWorkspace? collaboration, ProjectStudio roles, bool project, Func<IEditorStudioWorkspace> workspace, Func<IEditorStudioAgentManagement> management, Func<IReadOnlyList<EditorStudioWorkerFact>> workers, Func<string, string> image, IEditorStudioSidebarHost host);
 
     IEditorStudioPortrait Portrait(EditorStudioPresentation presentation, IUiBackend backend, EditorStudioPortraitState state, Action activate);
-    IEditorStudioWorkspace Workspace(EditorStudioPresentation presentation, IUiBackend backend, AiDirectory directory, WorkspaceProject project, ProjectStudio roles, CollaborationWorkspace collaboration, Action saveDirectory, Action<Participant, bool> joined, Action<string> selectedAgent, Func<string, bool> running, Func<bool>? idle = null, Action<IReadOnlyList<Participant>>? removed = null, Action<string>? workerSettings = null, Action? manageAgents = null, Func<string, bool>? supportsProvider = null, Func<string, string>? portraitImage = null);
+    IEditorStudioWorkspace Workspace(EditorStudioPresentation presentation, IUiBackend backend, AiDirectory directory, WorkspaceProject project, ProjectStudio roles, CollaborationWorkspace collaboration, Action saveDirectory, Action<Participant, bool> joined, Action<string> selectedAgent, Func<string, bool> running, Func<bool>? idle = null, Action<IReadOnlyList<Participant>>? removed = null, Action<string>? workerSettings = null, Action? manageAgents = null, Func<string, bool>? supportsProvider = null, Func<string, string>? portraitImage = null, Action? history = null);
     IEditorStudioParticipants Participants(AiDirectory directory, CollaborationWorkspace collaboration, string actor = "human");
     IEditorStudioWorkerSettings WorkerSettings(EditorStudioPresentation presentation, IUiBackend backend, CollaborationWorkspace collaboration, string participantId, Func<bool> running, Action changed, Action closed);
     IEditorStudioAgentManagement AgentManagement(EditorStudioPresentation presentation, IUiBackend backend, AiDirectory directory, CollaborationWorkspace? collaboration, IEditorStudioAgentService service, Action save, Func<string, bool> working, Action<AiAgentProfile> reconnect, Action<AiAgentProfile> profile, Action<AiAgentProfile, IReadOnlyList<Participant>, bool> disconnected, Action closed);
