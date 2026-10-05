@@ -131,7 +131,8 @@ public sealed partial class CollaborationWorkspace
         Register("human", "나", ParticipantKind.Human, ParticipantPermission.Talk | ParticipantPermission.Work | ParticipantPermission.Apply);
         Register("editor", "Editor Pack", ParticipantKind.EditorPack, ParticipantPermission.Talk | ParticipantPermission.Work);
     }
-    public void Save() { EditorSession.AtomicWrite(path, Encoding.UTF8.GetBytes(EditorSession.Serialize(State))); Changed?.Invoke(); }
+    private void PersistState() => EditorSession.AtomicWrite(path, Encoding.UTF8.GetBytes(EditorSession.Serialize(State)));
+    public void Save() { PersistState(); Changed?.Invoke(); }
     public Participant Register(string id, string name, ParticipantKind kind, ParticipantPermission permissions)
     {
         var old = State.Participants.FirstOrDefault(p => p.Id == id); if (old is not null) return old;

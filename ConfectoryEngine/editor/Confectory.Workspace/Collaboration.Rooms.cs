@@ -2,6 +2,13 @@ using System.Text.RegularExpressions;
 
 namespace Confectory.Workspace;
 
+/// <summary>The message was durably accepted before an observer failed. Callers must not repost it.</summary>
+public sealed class CollaborationPostNotificationException(CollaborationMessage acceptedMessage, Exception cause)
+    : InvalidOperationException("메시지는 저장됐지만 갱신을 완료하지 못했어: " + cause.Message, cause)
+{
+    public CollaborationMessage AcceptedMessage { get; } = acceptedMessage;
+}
+
 public enum CharacterDisplay { Full, Compact, Hidden }
 public enum MessageImportance { Reply, Completed, NeedsReply, Conflict }
 public sealed class ParticipantPresence
@@ -162,7 +169,11 @@ public sealed partial class CollaborationWorkspace
             message.Mentions.Add(p.Id);
         }
         if (message.AiDepth >= 10) { message.State = "needs-user"; message.Mentions.Clear(); message.Importance = MessageImportance.NeedsReply; }
-        State.Messages.Add(message); Save(); return message;
+        State.Messages.Add(message);
+        try { PersistState(); }
+        catch { State.Messages.Remove(message); throw; }
+        try { Changed?.Invoke(); } catch (Exception error) { throw new CollaborationPostNotificationException(message, error); }
+        return message;
     }
     public object PublicContext(string participant, string channel, string room)
     {

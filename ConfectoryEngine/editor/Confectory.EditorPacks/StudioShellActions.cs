@@ -98,6 +98,8 @@ public interface IEditorStudioSidebarHost
 /// <summary>Private trusted-shell ABI. Never supplied to project modules or overlays.</summary>
 public interface IEditorStudioActions
 {
+    IEditorStudioPublicChat PublicChat(EditorStudioPresentation presentation, IUiBackend backend, EditorSession session, IEditorStudioPublicConversations conversations, Func<IReadOnlyList<string>> logs, Action<YogiBox> inspect, Action close, string channel = "project", string room = "");
+    IEditorStudioPublicConversations PublicConversations(EditorSession session, AiDirectory directory, ProjectStudio roles, IEditorStudioWorkspace workspace, IAiCredentialStore credentials, IEditorStudioPublicConversationHost host);
     IEditorStudioLegacyHistoryCatalog LegacyHistoryCatalog(EditorStudioPresentation presentation, IUiBackend backend, CollaborationWorkspace collaboration, Action<string> open, Action close);
     IEditorStudioLegacyHistory LegacyHistory(EditorStudioPresentation presentation, IUiBackend backend, CollaborationWorkspace collaboration, string participantId, IEditorStudioLegacyHistoryStore store, Action<YogiBox> inspect, Action close, Action? openOriginalFolder = null);
     IEditorStudioYogiDraft YogiDraft();

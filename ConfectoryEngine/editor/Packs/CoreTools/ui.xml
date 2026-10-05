@@ -338,4 +338,21 @@
     <Node id="helper-retry-save" order="140" widget="editor.button"><Set property="text" value="기록 저장 다시 시도" /><Bind property="visible" source="studio.helper.recovery" /><On event="activate" command="studio.helper.retry" /></Node>
     <Node id="helper-reload-history" order="150" widget="editor.button"><Set property="text" value="복구한 기록 다시 불러오기" /><Bind property="visible" source="studio.helper.recovery" /><On event="activate" command="studio.helper.reload" /></Node>
   </Slot></Node></View>
+  <View id="editor.studio.public-chat"><Node id="public-chat-root" widget="editor.stack"><Slot name="children">
+    <Node id="public-chat-tabs" order="0" widget="editor.stack"><Set property="orientation" value="horizontal" /><Slot name="children">
+      <Node id="public-chat-tab" order="0" widget="editor.button"><Bind property="text" source="studio.public.chatTitle" /><On event="activate" command="studio.public.chat" /></Node>
+      <Node id="public-log-tab" order="10" widget="editor.button"><Set property="text" value="로그" /><On event="activate" command="studio.public.log" /></Node>
+      <Node id="public-close" order="20" widget="editor.button"><Set property="text" value="닫기" /><On event="activate" command="studio.public.close" /></Node>
+    </Slot></Node>
+    <Node id="public-notice" order="10" widget="editor.text"><Bind property="text" source="studio.public.notice" /><Set property="foreground" value="#F8DA79" /></Node>
+    <Node id="public-chat-content" order="20" widget="editor.stack"><Bind property="visible" source="studio.public.chatVisible" /><Slot name="children">
+      <Node id="public-messages" order="0" widget="editor.stack"><Slot name="children" export="true" /></Node>
+      <Node id="public-operations" order="10" widget="editor.stack"><Slot name="children" export="true" /></Node>
+      <Node id="public-attachment" order="20" widget="editor.button"><Bind property="visible" source="studio.public.hasAttachment" /><Bind property="text" source="studio.public.attachment" /><On event="activate" command="studio.public.detach" /></Node>
+      <Node id="public-draft" order="30" widget="editor.inline"><Layout size="0,85" /><Set property="multiline" value="true" /><Set property="placeholder" value="공개 프로젝트 대화 · 일반 도우미는 @태그" /><Bind property="text" source="studio.public.draft" /><On event="changed" command="studio.public.draft" /></Node>
+      <Node id="public-send" order="40" widget="editor.button"><Set property="text" value="보내기" /><On event="activate" command="studio.public.send" /></Node>
+    </Slot></Node>
+    <Node id="public-log" order="30" widget="editor.readonly"><Bind property="visible" source="studio.public.logVisible" /><Bind property="text" source="studio.public.logs" /><Layout size="0,260" /></Node>
+    <Node id="public-latest-log" order="40" widget="editor.text"><Bind property="text" source="studio.public.latestLog" /></Node>
+  </Slot></Node></View>
 </Ui>

@@ -15,7 +15,12 @@
 
 ## Current resume checkpoint
 
-Latest CI-complete, exact remotely verified checkpoint: `cbed5eda4cf0fac1adda672ad67049aabdae3d21`.
+Latest CI-complete, exact remotely verified checkpoint: `5580f95fabe7db19ca194bebb89c37f43944cd96`.
+All five jobs passed in [CI 37258012412](https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37258012412),
+including 88 actual Windows native checks, 2,189 portable checks, actual Android
+APK build and the SDL legacy-recovery regression.
+
+Previous Linux adoption checkpoint: `cbed5eda4cf0fac1adda672ad67049aabdae3d21`.
 All five jobs passed in [CI 37255043663](https://github.com/jorodane/The-Golemancer-s-Factory/actions/runs/37255043663),
 including 85 actual Windows native checks, 2,117 portable pack checks and the
 Linux production regression. The preceding Yogi checkpoint is recorded below.
@@ -1904,3 +1909,43 @@ Worker/promotion/creation routes and final common navigation/layout/mailbox/log
 panel plus selected-project entry→Run. Internal Worker and conflict/handoff
 services remain intact. This is a recovery checkpoint, not stage completion.
 Evidence: `/workspace/scratch/legacy-history-{packs-publish,native,windows-final,android-final,isolation,consumer}.log`.
+
+Recovery 5580f95 exactly matches remote main and all five CI jobs are successful.
+The next contract is [SHARED_PUBLIC_CONVERSATIONS.md](SHARED_PUBLIC_CONVERSATIONS.md).
+Its implementation remains local until meaningful controller/view/native checks
+and the independent engine/selected-consumer campaign pass.
+
+## Installed public conversation foundation (local verification, 2026-10-05)
+
+CoreTools owns the selected-session public controller and chat/log view through
+the installed factory. The private ABI supplies current consent, UI dispatch,
+fresh provider service and explicit attachment capture boundaries. Main receives
+new project public dialogue; ordinary Helpers receive explicit tags. Foreign
+private sources and internal Workers are excluded. Historical messages never
+replay on mount. Closing/reopening a panel preserves its local unsent composer
+and pending requests. Room sends preserve same-Room human editing presence.
+
+The live renderer matrix passes 2,354 checks, including queue ordering, explicit
+foreign mentions, private-context/tool exclusions, exact displayed receipts,
+immutable attachment/no-send, failure/retry, cancellation during connect/reply,
+late-provider disposal, Main-role/source changes, Room routing and the existing
+AI-depth boundary. Failed durable message writes roll back staged memory; a
+post-persistence observer error exposes the accepted message identity so callers
+cannot accidentally duplicate its human/AI post. Existing mutation observer-error
+compensation checks continue to pass. No paid AI, actual auth or credential saving.
+
+This is a factory/view foundation. Production native project/Room entry points
+still need binding and removal of old native mention handlers, actual native
+public-flow verification, the final wide lower panel/viewport, common navigation/
+mailbox/Run and selected-project entry→Run. Direct Worker/promotion/creation UI
+remains until its replacement is verified. The assigned stage is not complete.
+Additional local checks pass: independent net48/net10 engine/button/timing/camera/
+external-UI isolation; net48 CoreTools build; Windows native-fixture source and
+Android official-reference source builds with zero warnings/errors; actual SDL
+regression with 83 printed PASS checks. These native regressions preserve the
+existing flows; new public entry points have not yet been bound or exercised.
+The full explicitly selected external-consumer clean-build/verification campaign
+also passes, including a copied project with no prior output.
+Evidence: `/workspace/scratch/public-chat-foundation-{final,isolation,core48,windows,android,native,consumer}.log`.
+Local actual APK prerequisites and physical-device execution remain unavailable;
+remote actual Windows execution/Android APK build will be confirmed by exact CI.

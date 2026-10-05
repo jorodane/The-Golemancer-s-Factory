@@ -5,6 +5,8 @@ namespace Confectory.Editor.CoreTools;
 
 public sealed class StudioActions : IEditorStudioActions
 {
+    public IEditorStudioPublicChat PublicChat(EditorStudioPresentation presentation, IUiBackend backend, EditorSession session, IEditorStudioPublicConversations conversations, Func<IReadOnlyList<string>> logs, Action<YogiBox> inspect, Action close, string channel = "project", string room = "") => new StudioPublicChat(presentation, backend, session, conversations, logs, inspect, close, channel, room);
+    public IEditorStudioPublicConversations PublicConversations(EditorSession session, AiDirectory directory, ProjectStudio roles, IEditorStudioWorkspace workspace, IAiCredentialStore credentials, IEditorStudioPublicConversationHost host) => new StudioPublicConversations(session, directory, roles, workspace, credentials, host);
     public IEditorStudioLegacyHistoryCatalog LegacyHistoryCatalog(EditorStudioPresentation presentation, IUiBackend backend, CollaborationWorkspace collaboration, Action<string> open, Action close) => new StudioLegacyHistoryCatalog(presentation, backend, collaboration, open, close);
     public IEditorStudioLegacyHistory LegacyHistory(EditorStudioPresentation presentation, IUiBackend backend, CollaborationWorkspace collaboration, string participantId, IEditorStudioLegacyHistoryStore store, Action<YogiBox> inspect, Action close, Action? openOriginalFolder = null) => new StudioLegacyHistory(presentation, backend, collaboration, participantId, store, inspect, close, openOriginalFolder);
     public IEditorStudioYogiDraft YogiDraft() => new StudioYogiDraft();

@@ -247,6 +247,7 @@ internal static class LiveViewVerification
                 SupervisionVerification.Run(presentation, creationRoot, platform, Check, Reject);
                 HelperExecutionVerification.Run(presentation, creationRoot, platform, Check, Reject);
                 YogiDraftVerification.Run(presentation, new Backend(platform), platform, Check, Reject);
+                PublicConversationVerification.Run(presentation, new Backend(platform), creationRoot, platform, Check, Reject);
                 LegacyHistoryVerification.Run(presentation, new Backend(platform), creationRoot, platform, Check);
                 ConflictChoiceVerification.Run(presentation, new Backend(platform), creationRoot, platform, Check);
                 ReviewChoiceVerification.Run(presentation, new Backend(platform), creationRoot, platform, Check);
